@@ -301,6 +301,9 @@ nonisolated struct SportsFixture: Identifiable, Codable, Hashable {
     /// the event: UFC 332 begins at 20:00 UTC but its main card is at midnight.
     /// `nil` for everything else, and in snapshots written before the field.
     let mainCardDate: Date?
+    /// A fight card's bouts in running order (`SportsFightCard`); `nil` for
+    /// other sports and in snapshots written before the field.
+    let bouts: [SportsBout]?
 
     init(
         id: String,
@@ -321,7 +324,8 @@ nonisolated struct SportsFixture: Identifiable, Codable, Hashable {
         round: String? = nil,
         startTimeIsTentative: Bool? = nil,
         stage: String? = nil,
-        mainCardDate: Date? = nil
+        mainCardDate: Date? = nil,
+        bouts: [SportsBout]? = nil
     ) {
         self.id = id
         self.leagueId = leagueId
@@ -342,6 +346,7 @@ nonisolated struct SportsFixture: Identifiable, Codable, Hashable {
         self.startTimeIsTentative = startTimeIsTentative
         self.stage = stage
         self.mainCardDate = mainCardDate
+        self.bouts = bouts
     }
 }
 

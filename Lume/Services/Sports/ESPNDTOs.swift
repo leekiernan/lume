@@ -175,6 +175,43 @@ nonisolated struct ESPNCompetition: Codable, Hashable {
     let round: ESPNRound?
     /// `false` when `date` is a placeholder day, not a scheduled start (tennis).
     let timeValid: Bool?
+    /// A bout's scheduled rounds (`regulation.periods`).
+    let format: ESPNCompetitionFormat?
+    /// A bout's event log, newest first; its result is the "… Winner …" entry.
+    /// Other sports carry their own shapes here, so it is read leniently.
+    let details: ESPNLenientDetails?
+}
+
+nonisolated struct ESPNCompetitionFormat: Codable, Hashable {
+    let regulation: ESPNRegulation?
+}
+
+nonisolated struct ESPNRegulation: Codable, Hashable {
+    let periods: Int?
+}
+
+/// `details` entries' types, or none: a shape this app doesn't expect drops
+/// the field, never the whole scoreboard.
+nonisolated struct ESPNLenientDetails: Codable, Hashable {
+    let entries: [ESPNCompetitionDetail]
+
+    init(from decoder: Decoder) throws {
+        entries = (try? decoder.singleValueContainer().decode([ESPNCompetitionDetail].self)) ?? []
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(entries)
+    }
+}
+
+nonisolated struct ESPNCompetitionDetail: Codable, Hashable {
+    let type: ESPNCompetitionType?
+
+    init(from decoder: Decoder) throws {
+        let container = try? decoder.container(keyedBy: CodingKeys.self)
+        type = try? container?.decodeIfPresent(ESPNCompetitionType.self, forKey: .type)
+    }
 }
 
 nonisolated struct ESPNRound: Codable, Hashable {

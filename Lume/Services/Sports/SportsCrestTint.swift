@@ -318,7 +318,8 @@ nonisolated extension SportsFixture {
             round: round,
             startTimeIsTentative: startTimeIsTentative,
             stage: stage,
-            mainCardDate: mainCardDate
+            mainCardDate: mainCardDate,
+            bouts: bouts
         )
     }
 }

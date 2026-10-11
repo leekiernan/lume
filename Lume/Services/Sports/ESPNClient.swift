@@ -253,7 +253,8 @@ nonisolated extension ESPNClient {
             shortName: nonEmpty(event.shortName),
             leagueLogoURL: context.leagueLogoURL,
             stage: nonEmpty(event.season?.slug),
-            mainCardDate: mainCardDate(event, startDate: startDate)
+            mainCardDate: mainCardDate(event, startDate: startDate),
+            bouts: league.sport == "mma" ? mapBouts(event) : nil
         )
     }
 
