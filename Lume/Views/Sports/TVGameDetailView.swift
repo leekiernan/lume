@@ -437,7 +437,7 @@
             case .stats:
                 TVStatsSection(stats: detail.teamStats, homePalette: fixture.homePalette, awayPalette: fixture.awayPalette)
             case .lineup:
-                TVLineupSection(lineups: detail.lineups, fixture: fixture)
+                TVLineupTab(lineups: detail.lineups, fixture: fixture)
             case nil:
                 EmptyView()
             }

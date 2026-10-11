@@ -96,7 +96,7 @@ struct GameDetailTabs: View {
         case .stats:
             StatsSection(stats: detail.teamStats, homePalette: homePalette, awayPalette: awayPalette)
         case .lineup:
-            LineupSection(lineups: detail.lineups, fixture: fixture)
+            LineupTab(lineups: detail.lineups, fixture: fixture)
         case nil:
             EmptyView()
         }
@@ -260,7 +260,7 @@ private struct StatsSection: View {
 
 // MARK: - Lineup
 
-private struct LineupSection: View {
+struct LineupSection: View {
     let lineups: [SportsLineup]
     let fixture: SportsFixture
 
