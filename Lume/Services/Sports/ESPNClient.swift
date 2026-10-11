@@ -586,7 +586,10 @@ nonisolated extension ESPNClient {
             .filter { $0.starter ?? false }
             .compactMap { entry -> SportsLineupPlayer? in
                 guard let name = entry.athlete?.displayName else { return nil }
-                return SportsLineupPlayer(name: name, jersey: entry.jersey, position: entry.position?.abbreviation)
+                return SportsLineupPlayer(
+                    name: name, jersey: entry.jersey, position: entry.position?.abbreviation,
+                    formationPlace: entry.formationPlace?.stringValue.flatMap { Int($0) }
+                )
             }
         return SportsLineup(teamId: teamId, formation: roster.formation, starters: starters)
     }

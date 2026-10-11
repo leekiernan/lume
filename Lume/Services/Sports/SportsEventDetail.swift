@@ -72,6 +72,9 @@ nonisolated struct SportsLineupPlayer: Codable, Hashable {
     let name: String
     let jersey: String?
     let position: String?
+    /// The Opta formation place (1 is the goalkeeper), when the provider has
+    /// one; it places the player on the pitch (`SoccerPitchLayout`).
+    var formationPlace: Int?
 }
 
 nonisolated struct SportsLineup: Codable, Hashable {

@@ -391,6 +391,9 @@ nonisolated struct ESPNRosterEntry: Codable, Hashable {
     let jersey: String?
     let position: ESPNPosition?
     let starter: Bool?
+    /// The Opta formation place (1–11, a string in ESPN's JSON); what it
+    /// means depends on the formation (`SoccerPitchLayout`).
+    let formationPlace: ESPNFlexibleValue?
 }
 
 nonisolated struct ESPNPosition: Codable, Hashable {
