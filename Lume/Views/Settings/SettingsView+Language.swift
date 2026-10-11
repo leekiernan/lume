@@ -17,7 +17,7 @@ import SwiftUI
 
     extension SettingsView {
         var preferredAudioLanguageRow: some View {
-            NavigationLink {
+            PushedLink {
                 PreferredLanguageListView()
             } label: {
                 PreferredLanguageRowLabel(codes: PreferredLanguageList.decode(preferredAudioLanguagesRaw))
@@ -109,7 +109,7 @@ import SwiftUI
                     }
                 }
             }
-            .navigationDestination(isPresented: $isAddingLanguage) {
+            .pushedDestination(isPresented: $isAddingLanguage) {
                 AddPreferredLanguageView(selected: codes, onAdd: add)
             }
         }

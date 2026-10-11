@@ -16,7 +16,7 @@
         /// Not `private`: composed by `standardBody` in SettingsView.swift.
         var playerSection: some View {
             Section {
-                NavigationLink {
+                PushedLink {
                     PlayerEnginePriorityView()
                 } label: {
                     HStack {

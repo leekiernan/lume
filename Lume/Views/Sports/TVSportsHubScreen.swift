@@ -93,7 +93,7 @@
             if pageKey == nil {
                 NavigationStack(path: pathBinding) {
                     screen
-                        .navigationDestination(for: SportsFollowRoute.self) { route in
+                        .pushedDestination(for: SportsFollowRoute.self) { route in
                             TVSportsHubScreen(pageKey: route.key)
                         }
                         .detailDestinations(path: pathBinding)

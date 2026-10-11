@@ -97,10 +97,10 @@ struct ContentManagementView: View {
         }
         #if os(tvOS)
         // tvOS pushes via NavigationLink(value:) from TVReorderableContentList.
-        .navigationDestination(for: Category.self) { category in
+        .pushedDestination(for: Category.self) { category in
             ChannelManagementView(category: category)
         }
-        .navigationDestination(for: FavoritesRoute.self) { _ in
+        .pushedDestination(for: FavoritesRoute.self) { _ in
             FavoriteManagementView()
         }
         #else
@@ -110,10 +110,10 @@ struct ContentManagementView: View {
                 // SwiftData change notification fired by ChannelManagementView's first
                 // @Query fetch — so the channel list would flash up and pop straight
                 // back. An item-binding push survives that reload.
-        .navigationDestination(item: $selectedCategory) { category in
+        .pushedDestination(item: $selectedCategory) { category in
                     ChannelManagementView(category: category)
                 }
-                .navigationDestination(item: $favoritesRoute) { _ in
+                .pushedDestination(item: $favoritesRoute) { _ in
                     FavoriteManagementView()
                 }
         #endif

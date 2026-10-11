@@ -65,7 +65,7 @@ extension SettingsView {
                     Spacer()
                 }
 
-                NavigationLink {
+                PushedLink {
                     CreditsView()
                 } label: {
                     Label("Acknowledgements", systemImage: "doc.text.magnifyingglass")

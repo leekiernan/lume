@@ -16,3 +16,19 @@ file_length:
 type_body_length:
   warning: 400
   error: 500
+
+# Every pushed page shares one chrome policy (no tab bar on tvOS): declare
+# pages through pushedDestination / PushedLink. See PushedDestination.swift.
+custom_rules:
+  pushed_destination:
+    name: "Pushed destination"
+    regex: '\.navigationDestination\('
+    excluded: '.*PushedDestination\.swift'
+    message: "Use .pushedDestination(…) so the page gets the shared pushed-page chrome."
+    severity: error
+  pushed_link:
+    name: "Pushed link"
+    regex: 'NavigationLink\s*(\{|\(destination)'
+    excluded: '.*PushedDestination\.swift'
+    message: "Use PushedLink { … } label: { … } so the page gets the shared pushed-page chrome (NavigationLink(value:) is fine)."
+    severity: error

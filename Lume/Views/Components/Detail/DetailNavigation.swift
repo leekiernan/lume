@@ -54,16 +54,16 @@ private struct DetailDestinations: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .navigationDestination(for: Movie.self) { movie in
+            .pushedDestination(for: Movie.self) { movie in
                 MovieDetailView(movie: movie, animationNamespace: namespace)
                     .detailZoomTransition(sourceID: movie.id, namespace: namespace)
             }
-            .navigationDestination(for: Series.self) { series in
+            .pushedDestination(for: Series.self) { series in
                 SeriesDetailView(series: series, animationNamespace: namespace)
                     .detailZoomTransition(sourceID: series.id, namespace: namespace)
             }
         #if os(tvOS)
-            .navigationDestination(for: SportsMatchRoute.self) { route in
+            .pushedDestination(for: SportsMatchRoute.self) { route in
                 TVGameDetailView(route: route)
             }
         #endif

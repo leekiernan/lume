@@ -196,7 +196,7 @@ struct LiveTVView: View {
                 isPresented: $browse.isPresented,
                 isEnabled: sections?.isEmpty == false
             )
-            .navigationDestination(for: LiveTVSection.self) { section in
+            .pushedDestination(for: LiveTVSection.self) { section in
                 layout(displayed: section)
                     .browseSidebarToolbar(isPresented: $browse.isPresented, isEnabled: sections?.isEmpty == false)
             }

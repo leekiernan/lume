@@ -64,7 +64,7 @@ extension SettingsView {
         /// iOS / macOS grouped-list section linking to the diagnostics screen.
         var diagnosticsSection: some View {
             Section {
-                NavigationLink {
+                PushedLink {
                     DebugSettingsView()
                 } label: {
                     Label("Diagnostics", systemImage: "stethoscope")
@@ -146,7 +146,7 @@ extension SettingsView {
                 submitSection
 
                 Section {
-                    NavigationLink {
+                    PushedLink {
                         DebugLogViewerView(makeExporter: makeExporter)
                     } label: {
                         Label("View Report", systemImage: "doc.text.magnifyingglass")

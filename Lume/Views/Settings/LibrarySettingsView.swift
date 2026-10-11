@@ -61,7 +61,7 @@
         }
 
         private func areaRow(title: LocalizedStringKey, systemImage: String, enabled: Binding<Bool>,
-                             canDisable: Bool = true, @ViewBuilder destination: () -> some View) -> some View
+                             canDisable: Bool = true, @ViewBuilder destination: @escaping () -> some View) -> some View
         {
             // Keep native labels and switches, but give the destination the
             // full row width when large text would squeeze it beside a switch.
@@ -69,7 +69,7 @@
                 ? AnyLayout(VStackLayout(alignment: .trailing, spacing: 8))
                 : AnyLayout(HStackLayout(spacing: 16))
             return layout {
-                NavigationLink(destination: destination) {
+                PushedLink(destination: destination) {
                     Label(title, systemImage: systemImage)
                         .foregroundStyle(enabled.wrappedValue ? .primary : .secondary)
                         // A link beside a switch doesn't inherit the whole
@@ -133,7 +133,7 @@
 
         var body: some View {
             Section {
-                NavigationLink {
+                PushedLink {
                     ContentManagementView(fixedType: categoryType)
                 } label: {
                     Label("Categories", systemImage: "square.grid.2x2")
