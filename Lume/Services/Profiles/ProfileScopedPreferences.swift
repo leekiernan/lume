@@ -10,8 +10,8 @@
 //  devices; this type owns both the key scoping and snapshot conversion.
 //
 //  Everything else in UserDefaults stays device-wide on purpose — the selected
-//  playlist, sync cadence and player engine preferences describe *this device's*
-//  setup, not the viewer's taste.
+//  playlist selection and player engine preferences describe *this device's*
+//  setup, not the viewer's taste. Sync cadence belongs to the shared playlist.
 //
 
 import Foundation
