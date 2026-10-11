@@ -26,6 +26,7 @@ nonisolated protocol SportsDataProvider: Sendable {
     /// The league's standings table (or driver/constructor tables for F1).
     func standings(league: SportsLeague) async throws -> [SportsStandingRow]
 
-    /// Timeline, team stats and lineups for one event; `nil` when unavailable.
-    func eventDetail(league: SportsLeague, eventId: String) async throws -> SportsEventDetail?
+    /// Timeline, team stats and lineups for one fixture — or a tennis match's
+    /// tournament draw; `nil` when unavailable.
+    func eventDetail(league: SportsLeague, fixture: SportsFixture) async throws -> SportsEventDetail?
 }

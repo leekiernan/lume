@@ -73,12 +73,12 @@ nonisolated struct ESPNClient: SportsDataProvider {
         return Self.mapStandings(response)
     }
 
-    func eventDetail(league: SportsLeague, eventId: String) async throws -> SportsEventDetail? {
+    func eventDetail(league: SportsLeague, fixture: SportsFixture) async throws -> SportsEventDetail? {
         // A tennis summary is an HTTP 400 for any id: the match has no feed.
-        guard !league.isTennis else { return nil }
+        guard !league.isTennis else { return await tennisDraw(league: league, fixture: fixture) }
         let url = Self.siteAPIBase
             .appending(path: "\(league.sport)/\(league.slug)/summary")
-            .appending(queryItems: [URLQueryItem(name: "event", value: eventId)])
+            .appending(queryItems: [URLQueryItem(name: "event", value: fixture.eventId)])
         guard let response: ESPNSummaryResponse = await fetch(url) else { return nil }
         return Self.mapEventDetail(response)
     }
@@ -142,7 +142,7 @@ nonisolated struct ESPNClient: SportsDataProvider {
 
     // MARK: - Formatters
 
-    private static let dayFormatter: DateFormatter = {
+    static let dayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = TimeZone(identifier: "UTC")

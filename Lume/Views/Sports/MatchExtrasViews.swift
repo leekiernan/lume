@@ -204,6 +204,8 @@ struct CommentarySection: View {
                 TVLineupTab(lineups: detail.lineups, fixture: fixture)
             case .commentary:
                 TVCommentarySection(entries: detail.commentary)
+            case .draw:
+                if let draw = detail.draw { TVTennisDrawSection(draw: draw, fixture: fixture) }
             case nil:
                 EmptyView()
             }

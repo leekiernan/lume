@@ -60,7 +60,66 @@ nonisolated extension ESPNClient {
             shortName: nonEmpty(event.shortName),
             leagueLogoURL: context.leagueLogoURL,
             round: round,
-            startTimeIsTentative: match.timeValid == false ? true : nil
+            startTimeIsTentative: match.timeValid == false ? true : nil,
+            tournamentId: event.id
+        )
+    }
+
+    // MARK: Draw
+
+    /// A tennis match's tournament draw. One day's scoreboard carries every
+    /// tournament in play with all its matches, so the match's own day finds it.
+    func tennisDraw(league: SportsLeague, fixture: SportsFixture) async -> SportsEventDetail? {
+        guard let tournamentId = fixture.tournamentId, let slug = league.tennisSinglesDraw else { return nil }
+        let url = Self.siteAPIBase
+            .appending(path: "\(league.sport)/\(league.slug)/scoreboard")
+            .appending(queryItems: [URLQueryItem(name: "dates", value: Self.dayFormatter.string(from: fixture.startDate))])
+        guard let response: ESPNScoreboard = await fetch(url),
+              let event = response.events?.first(where: { $0.id == tournamentId }),
+              let draw = Self.mapTennisDraw(event, draw: slug)
+        else { return nil }
+        return SportsEventDetail(draw: draw)
+    }
+
+    /// The main draw's rounds in bracket order (`SportsTennisDraw`), or `nil`
+    /// when the tournament has fewer than two rounds to show.
+    static func mapTennisDraw(_ event: ESPNEvent, draw slug: String) -> SportsTennisDraw? {
+        let matches = (event.groupings ?? [])
+            .filter { $0.grouping?.slug == slug }
+            .flatMap { $0.competitions ?? [] }
+        var rounds: [Int: (name: String, matches: [SportsDrawMatch])] = [:]
+        for match in matches {
+            guard let id = match.id,
+                  let number = match.round?.id.flatMap(Int.init),
+                  let name = nonEmpty(match.round?.displayName),
+                  name.range(of: "qualifying", options: .caseInsensitive) == nil
+            else { continue }
+            let players = (match.competitors ?? []).map(mapDrawPlayer)
+            let entry = SportsDrawMatch(
+                id: id, date: parseDate(match.date), isDayOnly: match.timeValid == false,
+                state: mapStatus(match.status).state, players: players
+            )
+            rounds[number, default: (name, [])].matches.append(entry)
+        }
+        let ordered = rounds.sorted { $0.key < $1.key }.map { SportsDrawRound(name: $0.value.name, matches: $0.value.matches) }
+        guard ordered.count > 1 else { return nil }
+        return SportsTennisDraw(rounds: SportsTennisDraw.bracketOrdered(ordered))
+    }
+
+    /// A draw slot's player; `nil` while it waits on an earlier result.
+    private static func mapDrawPlayer(_ competitor: ESPNCompetitor) -> SportsDrawPlayer? {
+        guard let id = competitor.id, !id.hasPrefix("-"),
+              let athlete = competitor.athlete,
+              let name = nonEmpty(athlete.displayName), name != "TBD"
+        else { return nil }
+        return SportsDrawPlayer(
+            id: id,
+            name: name,
+            shortName: nonEmpty(athlete.shortName) ?? name,
+            flagURL: athlete.flag?.href.flatMap(URL.init(string:)),
+            seed: competitor.curatedRank?.current,
+            sets: (competitor.linescores ?? []).compactMap { line in line.value.map { SportsSetScore(games: Int($0), tiebreak: line.tiebreak) } },
+            isWinner: competitor.winner?.boolValue ?? false
         )
     }
 

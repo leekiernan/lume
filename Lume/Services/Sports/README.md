@@ -69,7 +69,7 @@ func fixtures(league:month:) async throws -> [SportsFixture]   // a calendar mon
 func fixtures(league:day:)   async throws -> [SportsFixture]   // one day (live poll)
 func teams(league:)          async throws -> [SportsTeam]
 func standings(league:)      async throws -> [SportsStandingRow]
-func eventDetail(league:eventId:) async throws -> SportsEventDetail?
+func eventDetail(league:fixture:) async throws -> SportsEventDetail?
 ```
 
 `ESPNClient` is the only conformer today. It hits ESPN's public, keyless site API

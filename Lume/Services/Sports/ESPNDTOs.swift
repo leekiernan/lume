@@ -215,6 +215,9 @@ nonisolated struct ESPNCompetitionDetail: Codable, Hashable {
 }
 
 nonisolated struct ESPNRound: Codable, Hashable {
+    /// Tennis: "1"–"4" the numbered rounds, "5"–"7" quarterfinal to final;
+    /// qualifying runs from "11".
+    let id: String?
     let displayName: String?
 }
 
@@ -252,6 +255,12 @@ nonisolated struct ESPNCompetitor: Codable, Hashable {
     let linescores: [ESPNLinescore]?
     /// A race session's finishing (or grid) position.
     let order: Int?
+    /// A tennis player's seeding in the tournament (not their world ranking).
+    let curatedRank: ESPNCuratedRank?
+}
+
+nonisolated struct ESPNCuratedRank: Codable, Hashable {
+    let current: Int?
 }
 
 nonisolated struct ESPNLinescore: Codable, Hashable {

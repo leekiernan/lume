@@ -19,22 +19,23 @@ nonisolated extension SportsEventDetail {
     /// block (and never flashes a skeleton) for a pre-match fixture with none.
     func hasTabContent(hidingScores: Bool) -> Bool {
         if hidingScores { return !lineups.isEmpty }
-        return !keyEvents.isEmpty || !teamStats.isEmpty || !lineups.isEmpty || !commentary.isEmpty
+        return !keyEvents.isEmpty || !teamStats.isEmpty || !lineups.isEmpty || !commentary.isEmpty || draw != nil
     }
 }
 
 extension SportsEventDetail {
     /// The tabs that carry content, in fixed Timeline / Stats / Lineup /
-    /// Commentary order. Drives both game-detail sheets so their pill selectors
-    /// stay in step. While scores are hidden only the lineups remain: the
-    /// timeline lists every goal, the stats count them and the commentary
-    /// narrates them.
+    /// Commentary / Draw order. Drives both game-detail sheets so their pill
+    /// selectors stay in step. While scores are hidden only the lineups remain:
+    /// the timeline lists every goal, the stats count them, the commentary
+    /// narrates them and a tennis draw shows who went through.
     func availableTabs(hidingScores: Bool) -> [GameDetailTab] {
         var tabs: [GameDetailTab] = []
         if !hidingScores, !keyEvents.isEmpty { tabs.append(.timeline) }
         if !hidingScores, !teamStats.isEmpty { tabs.append(.stats) }
         if !lineups.isEmpty { tabs.append(.lineup) }
         if !hidingScores, !commentary.isEmpty { tabs.append(.commentary) }
+        if !hidingScores, draw != nil { tabs.append(.draw) }
         return tabs
     }
 }
@@ -44,6 +45,7 @@ enum GameDetailTab: String, CaseIterable, Identifiable {
     case stats
     case lineup
     case commentary
+    case draw
 
     var id: String {
         rawValue
@@ -55,6 +57,7 @@ enum GameDetailTab: String, CaseIterable, Identifiable {
         case .stats: "Stats"
         case .lineup: "Lineup"
         case .commentary: "Commentary"
+        case .draw: "sports.tab.draw"
         }
     }
 }
@@ -103,6 +106,8 @@ struct GameDetailTabs: View {
             LineupTab(lineups: detail.lineups, fixture: fixture)
         case .commentary:
             CommentarySection(entries: detail.commentary)
+        case .draw:
+            if let draw = detail.draw { TennisDrawSection(draw: draw, fixture: fixture) }
         case nil:
             EmptyView()
         }

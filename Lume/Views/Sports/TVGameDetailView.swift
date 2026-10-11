@@ -498,7 +498,7 @@
                 fetchedStandings = standings
             }
             do {
-                let detail = try await provider.eventDetail(league: league, eventId: fixture.eventId)
+                let detail = try await provider.eventDetail(league: league, fixture: fixture)
                 guard !Task.isCancelled else { return }
                 detailLoad.finish(detailRequest, detail: detail)
             } catch {

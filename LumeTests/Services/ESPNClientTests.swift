@@ -24,6 +24,14 @@ struct ESPNClientTests {
         SportsLeague(sport: "soccer", slug: "ger.1", name: "Bundesliga", abbreviation: "BUND", region: .germany)
     }
 
+    /// A fixture whose summary is fetched by `id`.
+    private func summaryFixture(_ id: String) -> SportsFixture {
+        SportsFixture(
+            id: id, leagueId: "soccer/ger.1", leagueName: "", leagueAbbreviation: "", startDate: Date(),
+            status: SportsFixtureStatus(state: .final)
+        )
+    }
+
     private func f1League() -> SportsLeague {
         SportsLeague(sport: "racing", slug: "f1", name: "Formula 1", abbreviation: "F1", region: .motorsport)
     }
@@ -255,7 +263,7 @@ struct ESPNClientTests {
         StubURLProtocol.register(host: siteHost, query: (name: "event", value: "401773"), response: .init(body: body))
         let client = ESPNClient(session: StubURLProtocol.makeSession())
 
-        let detail = try #require(try await client.eventDetail(league: soccerLeague(), eventId: "401773"))
+        let detail = try #require(try await client.eventDetail(league: soccerLeague(), fixture: summaryFixture("401773")))
 
         // The two stoppage markers are dropped; the goal and the card remain.
         #expect(detail.keyEvents.count == 2)
@@ -315,7 +323,7 @@ struct ESPNClientTests {
         StubURLProtocol.register(host: siteHost, query: (name: "event", value: "999"), response: .init(body: "<html>nope</html>"))
         let client = ESPNClient(session: StubURLProtocol.makeSession())
 
-        let detail = try await client.eventDetail(league: soccerLeague(), eventId: "999")
+        let detail = try await client.eventDetail(league: soccerLeague(), fixture: summaryFixture("999"))
         #expect(detail == nil)
     }
 

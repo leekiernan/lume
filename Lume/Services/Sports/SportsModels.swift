@@ -310,6 +310,8 @@ nonisolated struct SportsFixture: Identifiable, Codable, Hashable {
     let bouts: [SportsBout]?
     /// A race weekend's circuit, by the provider's id (`SportsCircuits`).
     let circuitID: String?
+    /// The tournament a tennis match belongs to, by the provider's id.
+    let tournamentId: String?
 
     init(
         id: String,
@@ -332,7 +334,8 @@ nonisolated struct SportsFixture: Identifiable, Codable, Hashable {
         stage: String? = nil,
         mainCardDate: Date? = nil,
         bouts: [SportsBout]? = nil,
-        circuitID: String? = nil
+        circuitID: String? = nil,
+        tournamentId: String? = nil
     ) {
         self.id = id
         self.leagueId = leagueId
@@ -355,6 +358,7 @@ nonisolated struct SportsFixture: Identifiable, Codable, Hashable {
         self.mainCardDate = mainCardDate
         self.bouts = bouts
         self.circuitID = circuitID
+        self.tournamentId = tournamentId
     }
 }
 

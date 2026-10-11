@@ -93,6 +93,7 @@ struct ESPNClientTennisTests {
         #expect(live.status.state == .inProgress)
         #expect(live.name == "Eupago Porto Open")
         #expect(live.round == "Round 2")
+        #expect(live.tournamentId == "1022-2026")
         #expect(live.venue == "Porto, Portugal")
         #expect(live.home?.team.name == "Maria Timofeeva")
         #expect(live.home?.team.shortName == "M. Timofeeva")
@@ -144,8 +145,12 @@ struct ESPNClientTennisTests {
         #expect(players[1].row.extra["previous"] == "3")
     }
 
-    @Test func `a tennis match has no summary feed, so detail is nil without a request`() async throws {
-        let detail = try await ESPNClient().eventDetail(league: league(sport: "tennis", slug: "atp"), eventId: "183949")
+    @Test func `a tennis match has no summary feed, so without its tournament detail is nil without a request`() async throws {
+        let match = SportsFixture(
+            id: "183949", leagueId: "tennis/atp", leagueName: "", leagueAbbreviation: "", startDate: Date(),
+            status: SportsFixtureStatus(state: .scheduled)
+        )
+        let detail = try await ESPNClient().eventDetail(league: league(sport: "tennis", slug: "atp"), fixture: match)
         #expect(detail == nil)
     }
 }

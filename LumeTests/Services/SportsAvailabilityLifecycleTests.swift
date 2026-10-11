@@ -53,7 +53,7 @@ private actor SuspendedSportsProvider: SportsDataProvider {
         []
     }
 
-    func eventDetail(league _: SportsLeague, eventId _: String) async throws -> SportsEventDetail? {
+    func eventDetail(league _: SportsLeague, fixture _: SportsFixture) async throws -> SportsEventDetail? {
         nil
     }
 }

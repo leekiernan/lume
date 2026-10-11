@@ -447,7 +447,7 @@ struct GameDetailSheet: View {
             fetchedStandings = await (try? provider.standings(league: league)) ?? []
         }
         do {
-            let detail = try await provider.eventDetail(league: league, eventId: fixture.eventId)
+            let detail = try await provider.eventDetail(league: league, fixture: fixture)
             detailLoad.finish(detailRequest, detail: detail)
         } catch {
             detailLoad.fail(detailRequest)
