@@ -428,19 +428,8 @@
             }
         }
 
-        @ViewBuilder
         private func tabContent(_ detail: SportsEventDetail) -> some View {
-            let tabs = detail.availableTabs(hidingScores: hidesScores)
-            switch tabs.contains(tab) ? tab : tabs.first {
-            case .timeline:
-                TVTimelineSection(events: detail.keyEvents, fixture: fixture)
-            case .stats:
-                TVStatsSection(stats: detail.teamStats, homePalette: fixture.homePalette, awayPalette: fixture.awayPalette)
-            case .lineup:
-                TVLineupTab(lineups: detail.lineups, fixture: fixture)
-            case nil:
-                EmptyView()
-            }
+            TVDetailTabContent(detail: detail, fixture: fixture, tab: tab, hidesScores: hidesScores)
         }
 
         // MARK: - Standings

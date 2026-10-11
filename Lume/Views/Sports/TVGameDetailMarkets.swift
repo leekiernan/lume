@@ -22,20 +22,29 @@
             let probability = probabilityReading
             let periods = periodScores
             let odds = detail?.odds
-            if probability != nil || periods != nil || odds != nil {
-                HStack(alignment: .top, spacing: 40) {
-                    if let probability {
-                        probabilityPanel(probability)
+            // Results in all but name: kept back under Hide Scores.
+            let forms = hidesScores ? nil : MatchForms(detail: detail, fixture: fixture)
+            if probability != nil || periods != nil || odds != nil || forms != nil {
+                VStack(alignment: .leading, spacing: 24) {
+                    if probability != nil || periods != nil || odds != nil {
+                        HStack(alignment: .top, spacing: 40) {
+                            if let probability {
+                                probabilityPanel(probability)
+                            }
+                            if let periods {
+                                periodPanel(periods)
+                            }
+                            if let odds {
+                                oddsPanel(odds)
+                            }
+                        }
+                        // Panels in a row share the tallest one's height.
+                        .fixedSize(horizontal: false, vertical: true)
                     }
-                    if let periods {
-                        periodPanel(periods)
-                    }
-                    if let odds {
-                        oddsPanel(odds)
+                    if let forms {
+                        TVFormPanel(forms: forms)
                     }
                 }
-                // Panels in a row share the tallest one's height.
-                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
