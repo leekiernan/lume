@@ -61,6 +61,45 @@
         }
     }
 
+    /// The match centre's league name, logo and tournament line.
+    struct TVMatchCentreLeagueLine: View {
+        let fixture: SportsFixture
+
+        var body: some View {
+            VStack(spacing: 8) {
+                leagueNameLine
+                if let tournament = fixture.tournamentLine {
+                    Text(verbatim: tournament)
+                        .font(.system(size: 24))
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+            }
+        }
+
+        private var leagueNameLine: some View {
+            HStack(spacing: 12) {
+                if let logo = leagueLogoURL {
+                    CachedAsyncImage(url: logo, maxPixelSize: 56) { phase in
+                        if case let .success(image) = phase {
+                            image.resizable().scaledToFit()
+                        } else {
+                            Image(systemName: "sportscourt").font(.title3)
+                        }
+                    }
+                    .frame(width: 32, height: 32)
+                    .accessibilityHidden(true)
+                }
+                Text(verbatim: fixture.leagueName)
+                    .font(.system(size: 28, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.8))
+            }
+        }
+
+        private var leagueLogoURL: URL? {
+            fixture.leagueLogoURL ?? SportsCatalog.league(id: fixture.leagueId)?.logoURL
+        }
+    }
+
     /// A resolved channel's name with its quality badge ("UHD", "FHD").
     struct TVSportsChannelName: View {
         let channel: ResolvedChannel

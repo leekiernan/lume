@@ -88,7 +88,9 @@
                 }
             }
             .padding(.horizontal, 90)
-            .tvDetailDefaultFocus($focus, defaultFocus)
+            // The best channel takes focus on arrival. Coming down from the tab
+            // bar is left to geometry, so it lands on the score at the top.
+            .tvDetailDefaultFocus($focus, defaultFocus, priority: .automatic)
             .background(background.ignoresSafeArea())
             // The detail stays pushed beneath its player, just like movies
             // and series: no closing cover to race against the stream open.
@@ -104,22 +106,39 @@
 
         private static let channelColumnWidth: CGFloat = 520
 
+        /// Once the header scrolls off, the tab bar is closer than its buttons,
+        /// so "up" would skip it. Reaching the tabs or the header scrolls the
+        /// column back as far as the score; the tabs stay on screen.
         private var detailScroll: some View {
-            ScrollView {
-                VStack(spacing: 48) {
-                    header
-                    TVGameDetailMarkets(detail: detailLoad.detail, fixture: fixture, hidesScores: hidesScores)
-                    detailTabsSection
-                    standingsSection
-                    if fixture.sport == "racing", !hidesScores {
-                        TVRacingSeasonSection(fixture: fixture)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(spacing: 48) {
+                        header.id(ScrollAnchor.header)
+                        TVGameDetailMarkets(detail: detailLoad.detail, fixture: fixture, hidesScores: hidesScores)
+                        detailTabsSection.id(ScrollAnchor.tabs)
+                        standingsSection
+                        if fixture.sport == "racing", !hidesScores {
+                            TVRacingSeasonSection(fixture: fixture)
+                        }
                     }
+                    .padding(.vertical, 70)
                 }
-                .padding(.vertical, 70)
+                .scrollClipDisabled()
+                .focusSection()
+                .onChange(of: focus) { _, target in
+                    let anchor: (ScrollAnchor, UnitPoint)? = switch target {
+                    case .summary, .follow: (.header, .top)
+                    case .tab: (.tabs, .bottom)
+                    default: nil
+                    }
+                    guard let anchor else { return }
+                    // After the focus engine's own scroll for this move.
+                    Task { withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(anchor.0, anchor: anchor.1) } }
+                }
             }
-            .scrollClipDisabled()
-            .focusSection()
         }
+
+        private enum ScrollAnchor { case header, tabs }
 
         /// The team tints are translucent washes over a solid detail backdrop.
         private var background: some View {
@@ -133,7 +152,16 @@
 
         private var header: some View {
             VStack(spacing: 24) {
-                leagueLine
+                if fixture.hasTeams {
+                    // The topmost landing in the column: down from the tab bar
+                    // reaches the score before the channel list beside it.
+                    TVMatchCentreLeagueLine(fixture: fixture)
+                        .frame(maxWidth: .infinity)
+                        .focusable()
+                        .focused($focus, equals: .summary)
+                } else {
+                    TVMatchCentreLeagueLine(fixture: fixture)
+                }
                 if fixture.hasTeams {
                     matchup
                 } else {
@@ -151,36 +179,6 @@
             .focusable(!fixture.hasTeams)
             .focused($focus, equals: .summary)
             .animation(.easeOut(duration: 0.15), value: focus == .summary)
-        }
-
-        private var leagueLine: some View {
-            VStack(spacing: 8) {
-                leagueNameLine
-                if let tournament = fixture.tournamentLine {
-                    Text(verbatim: tournament)
-                        .font(.system(size: 24))
-                        .foregroundStyle(.white.opacity(0.6))
-                }
-            }
-        }
-
-        private var leagueNameLine: some View {
-            HStack(spacing: 12) {
-                if let logo = leagueLogoURL {
-                    CachedAsyncImage(url: logo, maxPixelSize: 56) { phase in
-                        if case let .success(image) = phase {
-                            image.resizable().scaledToFit()
-                        } else {
-                            Image(systemName: "sportscourt").font(.title3)
-                        }
-                    }
-                    .frame(width: 32, height: 32)
-                    .accessibilityHidden(true)
-                }
-                Text(verbatim: fixture.leagueName)
-                    .font(.system(size: 28, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.8))
-            }
         }
 
         private var matchup: some View {
@@ -321,9 +319,11 @@
                             ForEach(channels) { channelRow($0) }
                         }
                     }
-                    .padding(.vertical, 8)
+                    // Room for the focus zoom inside the clipped column.
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 16)
                 }
-                .scrollClipDisabled()
+                .padding(.horizontal, -14)
             }
             .padding(.vertical, 70)
             .focusSection()
@@ -496,10 +496,6 @@
         }
 
         // MARK: - Derived
-
-        private var leagueLogoURL: URL? {
-            fixture.leagueLogoURL ?? SportsCatalog.league(id: fixture.leagueId)?.logoURL
-        }
     }
 
     /// The header's per-team column, kept out of the struct body for length.
