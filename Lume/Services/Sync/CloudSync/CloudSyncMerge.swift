@@ -134,6 +134,7 @@ nonisolated struct PlaylistConfigValues: Codable, Equatable {
     var sourceTypeRaw: String
     var epgURL: String?
     var syncEnabled: Bool
+    var syncFrequencyRaw: String?
 
     init(
         name: String,
@@ -143,7 +144,8 @@ nonisolated struct PlaylistConfigValues: Codable, Equatable {
         macAddress: String = "",
         sourceTypeRaw: String,
         epgURL: String?,
-        syncEnabled: Bool
+        syncEnabled: Bool,
+        syncFrequencyRaw: String? = nil
     ) {
         self.name = name
         self.serverURL = serverURL
@@ -153,6 +155,7 @@ nonisolated struct PlaylistConfigValues: Codable, Equatable {
         self.sourceTypeRaw = sourceTypeRaw
         self.epgURL = epgURL
         self.syncEnabled = syncEnabled
+        self.syncFrequencyRaw = syncFrequencyRaw
     }
 
     /// Hand-rolled decode so a shadow baseline persisted before Stalker support
@@ -169,6 +172,7 @@ nonisolated struct PlaylistConfigValues: Codable, Equatable {
         sourceTypeRaw = try container.decode(String.self, forKey: .sourceTypeRaw)
         epgURL = try container.decodeIfPresent(String.self, forKey: .epgURL)
         syncEnabled = try container.decode(Bool.self, forKey: .syncEnabled)
+        syncFrequencyRaw = try container.decodeIfPresent(String.self, forKey: .syncFrequencyRaw)
     }
 
     /// Whether a sync would reach the provider differently: the fields it

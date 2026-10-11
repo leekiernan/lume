@@ -42753,6 +42753,7 @@
       }
     },
     "Playlists refresh automatically in the background at this interval. Disable a specific playlist's sync in its details." : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -42805,6 +42806,7 @@
       }
     },
     "Playlists refresh automatically in the background at this interval. Disable a specific playlist's sync in its details. The TV guide refreshes on its own schedule." : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {

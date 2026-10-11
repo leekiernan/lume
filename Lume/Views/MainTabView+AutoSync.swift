@@ -12,10 +12,6 @@ import SwiftData
 import SwiftUI
 
 extension MainTabView {
-    var syncFrequency: SyncFrequency {
-        SyncFrequency.resolve(syncFrequencyRaw)
-    }
-
     /// Re-evaluate auto-sync when the profile or its enabled areas change, even
     /// though neither operation changes the shared playlist rows themselves.
     var autoSyncTrigger: AutoSyncTrigger {
@@ -103,14 +99,14 @@ extension MainTabView {
         let staleAreas = PlaylistSyncCoverage.missingAreasForAutomaticRepair(
             playlistID: playlist.id,
             disabledAreasRaw: disabledAreasRaw,
-            frequency: syncFrequency
+            frequency: playlist.syncFrequency
         )
         // Only the playlist on screen (or one just added) earns automatic
         // work; any other syncs when the viewer switches to it.
         let input = AutoSync.PlanInput(
             candidate: playlist.autoSyncCandidate(activeID: activePlaylistID),
             playlistID: playlist.id,
-            frequency: syncFrequency,
+            frequency: playlist.syncFrequency,
             alreadyStarted: autoSyncAttempted.contains(playlist.id),
             staleAreas: staleAreas,
             supportsAreaRepair: playlist.sourceType == .xtream

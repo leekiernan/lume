@@ -18,7 +18,6 @@ import SwiftUI
         var tvPlaylistsDetail: some View {
             VStack(alignment: .leading, spacing: 36) {
                 tvPlaylistsList
-                tvAutoSyncSection
                 TVCloudSyncSection()
             }
         }

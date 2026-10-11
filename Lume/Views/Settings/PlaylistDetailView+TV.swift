@@ -179,6 +179,21 @@ import SwiftUI
                     .buttonStyle(TVSettingsRowButtonStyle())
                     .accessibilityValue(playlist.syncEnabled ? Text("On") : Text("Off"))
 
+                    Menu {
+                        Picker("Automatic Sync", selection: $playlist.syncFrequency) {
+                            ForEach(SyncFrequency.allCases) { frequency in
+                                Text(frequency.label).tag(frequency)
+                            }
+                        }
+                    } label: {
+                        HStack {
+                            Text("Automatic Sync")
+                            Spacer()
+                            Text(playlist.syncFrequency.label).foregroundStyle(.secondary)
+                        }
+                    }
+                    .buttonStyle(TVSettingsRowButtonStyle())
+
                     // Unconditional — see the iOS pane: the states worth
                     // reading were the ones that used to render as no row.
                     TVSettingsValueRow("Status") {

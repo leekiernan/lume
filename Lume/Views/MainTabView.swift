@@ -22,7 +22,6 @@ struct MainTabView: View {
     @Query(filter: #Predicate<Category> { $0.isRestricted }) private var restrictedCategories: [Category]
     @Query(filter: #Predicate<Category> { $0.isHidden }) private var hiddenCategories: [Category]
 
-    @AppStorage(SyncFrequency.storageKey) var syncFrequencyRaw: String = SyncFrequency.defaultValue.rawValue
     /// Areas switched off in Settings › Library. A disabled area has no tab —
     /// and `ContentSyncManager` skips its content entirely. See `AppAreaSettings`.
     @AppStorage(AppAreaSettings.disabledAreasKey) var disabledAreasRaw: String = ""

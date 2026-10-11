@@ -6,10 +6,6 @@ struct PlaylistDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(CloudSyncCoordinator.self) private var cloudSync: CloudSyncCoordinator?
     @Bindable var playlist: Playlist
-    /// Held here rather than read inside `playlist.syncState` so changing the
-    /// frequency in Settings re-renders the Status row (it decides `.overdue`).
-    @AppStorage(SyncFrequency.storageKey)
-    private var syncFrequencyRaw: String = SyncFrequency.defaultValue.rawValue
     /// Whether this is the selected playlist decides between "Sync due" and
     /// "Syncs when selected" — auto-sync only refreshes the one on screen.
     @AppStorage(PlaylistSelectionStore.key) private var selectedPlaylistID: String = ""
@@ -26,7 +22,7 @@ struct PlaylistDetailView: View {
             status: playlist.syncStatus,
             lastSyncDate: playlist.lastSyncDate,
             isActive: playlist.id.uuidString == playlists.activeID(for: selectedPlaylistID),
-            frequency: SyncFrequency.resolve(syncFrequencyRaw)
+            frequency: playlist.syncFrequency
         )
     }
 
@@ -264,6 +260,11 @@ struct PlaylistDetailView: View {
         private var syncSection: some View {
             Section {
                 Toggle("Sync Enabled", isOn: $playlist.syncEnabled)
+                Picker("Automatic Sync", selection: $playlist.syncFrequency) {
+                    ForEach(SyncFrequency.allCases) { frequency in
+                        Text(frequency.label).tag(frequency)
+                    }
+                }
 
                 // Unconditional: "never synced" and "last sync failed" are the
                 // two states most worth reading here, and both used to render

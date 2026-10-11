@@ -10,8 +10,8 @@
 //  devices; this type owns both the key scoping and snapshot conversion.
 //
 //  Everything else in UserDefaults stays device-wide on purpose — the selected
-//  playlist, sync cadence and player engine preferences describe *this device's*
-//  setup, not the viewer's taste.
+//  playlist selection and player engine preferences describe *this device's*
+//  setup, not the viewer's taste. Sync cadence belongs to the shared playlist.
 //
 
 import Foundation
@@ -79,7 +79,7 @@ nonisolated enum ProfileScopedPreferences {
             keys.append((HomeLayoutSettings.baseSectionOrderKey(surface), .string))
             keys.append((HomeLayoutSettings.baseDisabledSectionsKey(surface), .string))
             keys.append((HomeLayoutSettings.baseHeroSectionKey(surface), .string))
-            keys.append((HomeLayoutSettings.baseHeroSeededKey(surface), .string))
+            keys.append((HomeLayoutSettings.baseHeroSeededKey(surface), .bool(default: .fixed(false))))
             keys.append((CustomHomeSections.baseStorageKey(surface), .string))
         }
         return keys
@@ -174,6 +174,18 @@ nonisolated enum ProfileScopedPreferences {
         }
         for (base, value) in snapshot.booleans where supported.contains(base) && booleanKeys.contains(base) {
             defaults.set(value, forKey: key(base, profileID: profileID))
+        }
+        // Earlier snapshots serialized these Boolean preferences as strings.
+        // Preserve their value on import; the next snapshot writes Booleans.
+        // An explicit Boolean in a newer snapshot always takes precedence.
+        for surface in SectionSurface.allCases {
+            let base = HomeLayoutSettings.baseHeroSeededKey(surface)
+            guard snapshot.booleans[base] == nil, let raw = snapshot.strings[base] else { continue }
+            switch raw.lowercased() {
+            case "1", "true": defaults.set(true, forKey: key(base, profileID: profileID))
+            case "0", "false": defaults.set(false, forKey: key(base, profileID: profileID))
+            default: break
+            }
         }
     }
 
