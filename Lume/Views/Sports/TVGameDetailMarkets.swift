@@ -145,10 +145,11 @@
         private func oddsPanel(_ odds: SportsOdds) -> some View {
             panel(title: fixture.status.state == .scheduled ? "Odds" : "Pre-match odds") {
                 VStack(alignment: .leading, spacing: 10) {
+                    let labels = fixture.oddsOutcomeLabels
                     HStack(spacing: 14) {
-                        price("1", odds.home)
-                        if odds.draw != nil { price("X", odds.draw) }
-                        price("2", odds.away)
+                        price(labels.home, odds.home)
+                        if odds.draw != nil { price(labels.draw, odds.draw) }
+                        price(labels.away, odds.away)
                     }
                     if !odds.provider.isEmpty {
                         Text(verbatim: odds.provider)
@@ -160,12 +161,17 @@
         }
 
         private func price(_ outcome: String, _ value: Double?) -> some View {
+            // One line each, shrinking to fit: beside the other panels, three
+            // prices otherwise wrapped their last digit onto a line of its own.
             HStack(spacing: 12) {
                 Text(verbatim: outcome)
                     .foregroundStyle(.white.opacity(0.55))
                 Text(verbatim: value?.formattedDecimalOdds ?? "–")
                     .foregroundStyle(.white)
+                    .layoutPriority(1)
             }
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
             .font(.system(size: 24, weight: .bold))
             .monospacedDigit()
             .padding(.horizontal, 18)
