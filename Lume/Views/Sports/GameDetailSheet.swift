@@ -45,11 +45,20 @@ struct GameDetailSheet: View {
         resolved.isEmpty ? selfResolved : resolved
     }
 
+    /// The card as the live poll last saw it: the sheet holds the fixture it
+    /// was opened with, and a fight night moves on bout by bout.
+    private var liveBouts: [SportsBout]? {
+        store.snapshot(for: fixture.leagueId)?.fixtures.first { $0.id == fixture.id }?.bouts ?? fixture.bouts
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
                     header
+                    if let bouts = liveBouts, !bouts.isEmpty {
+                        FightCardSection(bouts: bouts, hidesScores: hidesScores)
+                    }
                     GameDetailMarkets(detail: detailLoad.detail, fixture: fixture, hidesScores: hidesScores)
                     if fixture.status.state != .final {
                         watchCard
