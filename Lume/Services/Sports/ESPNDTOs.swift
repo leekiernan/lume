@@ -227,6 +227,8 @@ nonisolated struct ESPNCompetitionType: Codable, Hashable {
 }
 
 nonisolated struct ESPNVenue: Codable, Hashable {
+    /// A race circuit's ESPN id ("740" Marina Bay): keys `SportsCircuits`.
+    let id: String?
     let fullName: String?
     /// Tennis events name their city here ("Chengdu, China PR").
     let displayName: String?

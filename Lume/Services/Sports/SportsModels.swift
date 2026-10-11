@@ -254,12 +254,16 @@ nonisolated struct SportsSession: Codable, Hashable {
     /// The drivers in the order the session finished, once it has; `nil`
     /// before, and in snapshots written before the field existed.
     let classification: [String]?
+    /// Laps run, as the provider counts them (ESPN's session `period`): the
+    /// race's distance once it's over. `nil` before a lap, and in older snapshots.
+    let laps: Int?
 
-    init(kind: SportsSessionKind, date: Date, state: SportsFixtureState? = nil, classification: [String]? = nil) {
+    init(kind: SportsSessionKind, date: Date, state: SportsFixtureState? = nil, classification: [String]? = nil, laps: Int? = nil) {
         self.kind = kind
         self.date = date
         self.state = state
         self.classification = classification
+        self.laps = laps
     }
 }
 
@@ -304,6 +308,8 @@ nonisolated struct SportsFixture: Identifiable, Codable, Hashable {
     /// A fight card's bouts in running order (`SportsFightCard`); `nil` for
     /// other sports and in snapshots written before the field.
     let bouts: [SportsBout]?
+    /// A race weekend's circuit, by the provider's id (`SportsCircuits`).
+    let circuitID: String?
 
     init(
         id: String,
@@ -325,7 +331,8 @@ nonisolated struct SportsFixture: Identifiable, Codable, Hashable {
         startTimeIsTentative: Bool? = nil,
         stage: String? = nil,
         mainCardDate: Date? = nil,
-        bouts: [SportsBout]? = nil
+        bouts: [SportsBout]? = nil,
+        circuitID: String? = nil
     ) {
         self.id = id
         self.leagueId = leagueId
@@ -347,6 +354,7 @@ nonisolated struct SportsFixture: Identifiable, Codable, Hashable {
         self.stage = stage
         self.mainCardDate = mainCardDate
         self.bouts = bouts
+        self.circuitID = circuitID
     }
 }
 
@@ -377,7 +385,8 @@ nonisolated extension SportsFixture {
                 name: name,
                 shortName: shortName,
                 sessionKind: session.kind,
-                leagueLogoURL: leagueLogoURL
+                leagueLogoURL: leagueLogoURL,
+                circuitID: circuitID
             )
         }
     }

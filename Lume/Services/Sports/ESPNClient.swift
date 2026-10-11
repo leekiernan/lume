@@ -254,7 +254,8 @@ nonisolated extension ESPNClient {
             leagueLogoURL: context.leagueLogoURL,
             stage: nonEmpty(event.season?.slug),
             mainCardDate: mainCardDate(event, startDate: startDate),
-            bouts: league.sport == "mma" ? mapBouts(event) : nil
+            bouts: league.sport == "mma" ? mapBouts(event) : nil,
+            circuitID: isRacing ? nonEmpty(event.circuit?.id) : nil
         )
     }
 
