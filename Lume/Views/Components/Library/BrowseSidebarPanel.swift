@@ -63,9 +63,6 @@ struct BrowseSidebarPanel: View {
     @Bindable var state: BrowseSidebarState
     let title: Text
     let sections: [Section]
-    /// Hands focus back to where the page had it as the panel closes. Without
-    /// one, the page is left to the focus engine.
-    var onReturnToContent: (() -> Void)?
 
     #if os(tvOS)
         @FocusState private var focusedRow: String?
@@ -219,12 +216,10 @@ struct BrowseSidebarPanel: View {
                 .scrollIndicators(.hidden)
                 #if os(tvOS)
                     .browseSidebarFocus(
-                        isPresented: $state.isPresented,
+                        state: state,
                         focus: $focusedRow,
                         scrollProxy: proxy,
                         scrollTarget: { AnyHashable(EntryID.row($0)) },
-                        lastFocused: $state.rememberedRowID,
-                        onReturnToContent: onReturnToContent,
                         target: { landingRow }
                     )
                 #endif

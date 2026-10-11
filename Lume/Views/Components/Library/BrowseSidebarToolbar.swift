@@ -49,14 +49,7 @@ extension View {
     func onLeadingEdgeLeft(_ action: (() -> Void)?) -> some View {
         #if os(tvOS)
             if let action {
-                onMoveCommand { direction in
-                    guard direction == .left else { return }
-                    // Defer out of the move-command handler: tvOS delivers it
-                    // inside the focus engine's animated update, and presenting
-                    // from there animates the whole page at the UIKit layer (see
-                    // `TVHomeScreen`'s hero paging for the same hop).
-                    Task { action() }
-                }
+                browseSidebarFocusTarget().modifier(BrowseLeadingMove(action: action))
             } else {
                 self
             }
@@ -64,7 +57,34 @@ extension View {
             self
         #endif
     }
+
+    #if os(tvOS)
+        func onLeadingEdgeLeft<Value: Hashable>(
+            _ action: (() -> Void)?, focus: FocusState<Value?>.Binding, equals value: Value
+        ) -> some View {
+            browseSidebarFocusTarget(focus, equals: value)
+                .modifier(BrowseLeadingMove(action: action))
+        }
+    #endif
 }
+
+#if os(tvOS)
+    private struct BrowseLeadingMove: ViewModifier {
+        let action: (() -> Void)?
+
+        func body(content: Content) -> some View {
+            if let action {
+                content.onMoveCommand { direction in
+                    guard direction == .left else { return }
+                    // Never mutate presentation inside the focus animation.
+                    Task { action() }
+                }
+            } else {
+                content
+            }
+        }
+    }
+#endif
 
 private struct BrowseSidebarToolbar: ViewModifier {
     @Binding var isPresented: Bool
@@ -122,6 +142,7 @@ struct BrowseCategoriesButton: View {
                 .background(.quaternary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
+        .browseSidebarFocusTarget()
         .padding(.horizontal)
         .padding(.top, 8)
     }

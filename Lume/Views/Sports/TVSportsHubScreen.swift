@@ -43,9 +43,8 @@
         @State var localPath = NavigationPath()
         /// Follows taken off the hub in Settings ▸ Sports.
         @AppStorage(SportsHubLayout.hiddenKey) private var hiddenFollowsRaw = ""
-        /// The scope panel, and where focus was when it opened.
+        /// The scope panel owns the opener's temporary focus bookmark.
         @State var browse = BrowseSidebarState()
-        @State var browseReturnFocus: TVSportsFocus?
         @State var resolution = SportsFixtureResolutionMachine()
         /// Rebuilt when either machine or the visibility changes — see
         /// `keepingSportsHubChannels`.
@@ -121,6 +120,7 @@
             .payPerViewConfirmation($pendingEvent, onWatch: playEvent)
             .onAppear(perform: onAppear)
             .onDisappear { SportsSyncService.shared.endLivePolling() }
+            .environment(browse)
         }
 
         // MARK: - Hub
@@ -137,6 +137,7 @@
                     followPage
                 } else {
                     content
+                        .browseSidebarContentFocus(scope: [restriction.visibilityToken])
                         .overlay(alignment: .leading) { browseSidebar }
                 }
             }
@@ -296,8 +297,8 @@
                             ) {
                                 openMatchCentre(fixture)
                             }
-                            .focused($focus, equals: .card(fixture.id))
-                            .onLeadingEdgeLeft(browseOpener(leading: fixture.id == group.fixtures.first?.id))
+                            .onLeadingEdgeLeft(browseOpener(leading: fixture.id == group.fixtures.first?.id),
+                                               focus: $focus, equals: .card(fixture.id))
                         }
                         // A followed club's row ends at its season: the page
                         // narrowed to the team, its table and players below.
