@@ -3,6 +3,14 @@ import Testing
 
 @MainActor
 struct PlayerControlsBridgeTests {
+    @Test func `episode button handoff carries the requested focus and resets on the next default request`() {
+        let bridge = PlayerControlsBridge()
+        bridge.requestControls(focus: .progress)
+        #expect(bridge.controlsRequests == 1 && bridge.requestedControlsFocus == .progress)
+        bridge.requestControls()
+        #expect(bridge.controlsRequests == 2 && bridge.requestedControlsFocus == .transport)
+    }
+
     @Test func `absent or declining host claims fall through exactly once`() {
         var toggles = 0
         PlayerControlsBridge.performPlayPause(using: nil) { toggles += 1 }

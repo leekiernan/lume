@@ -29,6 +29,7 @@
         let clock: PlaybackClock
         /// Bumped by the host (Menu/back press) to request closing an open panel.
         var panelCloseToken: Int
+        var initialFocus: PlayerSurfaceInput.ControlsFocus = .transport
         var onTogglePlay: () -> Void
         var onResetHideTimer: () -> Void
         var onSelectMedia: (PlayableMedia) -> Void
@@ -120,7 +121,7 @@
                 if let skipBadge { SkipBadgeLabel(badge: skipBadge, buffering: isBuffering).id(skipBadge.forward) }
             }
             .preference(key: SkipIndicatorShowingKey.self, value: skipBadge != nil)
-            .defaultFocus($focus, .transport)
+            .defaultFocus($focus, landingFocus)
             .tvRemoteMoveCommand { direction in
                 // While scrubbing, left/right step the playhead; vertical moves
                 // are swallowed so focus can't escape the bar.
@@ -164,11 +165,11 @@
             }
             .task(id: media.playbackSessionID) { await resolveContent() }
             .task(id: media.playbackSessionID) { await resolveStreamInfo() }
-            .onAppear {
-                // Every time the controls reappear this is a fresh subtree;
-                // `defaultFocus` alone is unreliable here, so place focus on the
-                // play/pause button explicitly once the buttons have mounted.
-                Task { @MainActor in focus = .transport }
+            .task {
+                // Each reveal mounts fresh controls. `defaultFocus` alone is
+                // unreliable: explicitly land on the requested control in a
+                // task cancelled with the overlay.
+                focus = landingFocus
             }
             .onChange(of: focus) {
                 // Moving between controls counts as activity — keep them up.

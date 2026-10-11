@@ -291,6 +291,7 @@ struct KSPlayerEngineView: View {
                         media: media,
                         clock: clock,
                         panelCloseToken: panelCloseToken,
+                        initialFocus: chrome.initialFocus,
                         onTogglePlay: { togglePlay() },
                         onResetHideTimer: { scheduleHide() },
                         onSelectMedia: { selectMedia($0) },
@@ -365,7 +366,8 @@ struct KSPlayerEngineView: View {
             // Focus returns to the tap-catcher as the controls vanish, unless
             // an episode button is up to take it.
             .episodeButtonFocusHandoff(
-                controlsVisible: isControlsVisible, catcherFocused: $catcherFocused, showControls: showControls
+                controlsVisible: isControlsVisible, catcherFocused: $catcherFocused,
+                showControls: { chrome.show(focus: $0, mayHide: { canAutoHideControls }) }
             )
             // Handle Menu/back at the player root so it reliably overrides the
             // cover's default dismiss-on-Menu.
@@ -380,7 +382,8 @@ struct KSPlayerEngineView: View {
             PlayerTapCatcher(
                 isLive: media.isLive, controlsDrawn: drawsControls,
                 browserOpen: isChannelBrowserOpen, failed: loadFailed,
-                focused: $catcherFocused, showControls: showControls,
+                focused: $catcherFocused,
+                showControls: { chrome.show(focus: $0, mayHide: { canAutoHideControls }) },
                 openBrowser: openChannelBrowser, surf: switchLiveChannel
             )
         }

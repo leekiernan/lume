@@ -33,6 +33,7 @@ final class PlayerControlsBridge {
     /// Bumped when an episode button holding focus over a bare picture hears a
     /// direction: the viewer wants the controls, as they would from the catcher.
     private(set) var controlsRequests = 0
+    private(set) var requestedControlsFocus: PlayerSurfaceInput.ControlsFocus = .transport
     /// Whether the engine's controls are on screen, as the engine reports it.
     var controlsVisible = false
     /// Asked before an engine toggles play/pause; `true` takes the press.
@@ -40,7 +41,8 @@ final class PlayerControlsBridge {
     /// Asked before Back would close the player; `true` takes the press.
     @ObservationIgnored var backClaim: (() -> Bool)?
 
-    func requestControls() {
+    func requestControls(focus: PlayerSurfaceInput.ControlsFocus = .transport) {
+        requestedControlsFocus = focus
         controlsRequests += 1
     }
 
@@ -122,7 +124,7 @@ private struct ControlsHeightReporter: ViewModifier {
         func episodeButtonFocusHandoff(
             controlsVisible: Bool,
             catcherFocused: FocusState<Bool>.Binding,
-            showControls: @escaping () -> Void
+            showControls: @escaping (PlayerSurfaceInput.ControlsFocus) -> Void
         ) -> some View {
             modifier(EpisodeButtonFocusHandoff(
                 controlsVisible: controlsVisible,
@@ -135,7 +137,7 @@ private struct ControlsHeightReporter: ViewModifier {
     private struct EpisodeButtonFocusHandoff: ViewModifier {
         let controlsVisible: Bool
         let catcherFocused: FocusState<Bool>.Binding
-        let showControls: () -> Void
+        let showControls: (PlayerSurfaceInput.ControlsFocus) -> Void
 
         @Environment(PlayerControlsBridge.self) private var bridge: PlayerControlsBridge?
 
@@ -143,7 +145,9 @@ private struct ControlsHeightReporter: ViewModifier {
             content
                 .onChange(of: controlsVisible) { _, _ in focusCatcherIfFree() }
                 .onChange(of: bridge?.episodeButtonShowing) { _, _ in focusCatcherIfFree() }
-                .onChange(of: bridge?.controlsRequests) { _, _ in showControls() }
+                .onChange(of: bridge?.controlsRequests) { _, _ in
+                    showControls(bridge?.requestedControlsFocus ?? .transport)
+                }
         }
 
         /// Hands focus to the tap-catcher over a bare picture, so the remote

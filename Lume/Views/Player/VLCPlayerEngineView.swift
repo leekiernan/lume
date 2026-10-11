@@ -241,7 +241,8 @@ struct VLCPlayerEngineView: View {
         // Focus returns to the tap-catcher as the controls vanish, unless an
         // episode button is up to take it.
         .episodeButtonFocusHandoff(
-            controlsVisible: isControlsVisible, catcherFocused: $catcherFocused, showControls: showControls
+            controlsVisible: isControlsVisible, catcherFocused: $catcherFocused,
+            showControls: { chrome.show(focus: $0, mayHide: { canAutoHideControls }) }
         )
         #endif
         // Handle the Menu/back button at the player root — the always-present
@@ -273,7 +274,8 @@ struct VLCPlayerEngineView: View {
             PlayerTapCatcher(
                 isLive: media.isLive, controlsDrawn: drawsControls,
                 browserOpen: isChannelBrowserOpen, failed: loadFailed,
-                focused: $catcherFocused, showControls: showControls,
+                focused: $catcherFocused,
+                showControls: { chrome.show(focus: $0, mayHide: { canAutoHideControls }) },
                 openBrowser: openChannelBrowser, surf: switchLiveChannel
             )
         #else
@@ -291,6 +293,7 @@ struct VLCPlayerEngineView: View {
                 media: media,
                 clock: clock,
                 panelCloseToken: panelCloseToken,
+                initialFocus: chrome.initialFocus,
                 onTogglePlay: { togglePlay() },
                 onResetHideTimer: { scheduleHide() },
                 onSelectMedia: { onSelectMedia?($0) },

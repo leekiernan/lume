@@ -15,6 +15,11 @@
     import SwiftUI
 
     extension TVPlayerControlsOverlay {
+        /// Live progress is read-only, so it is never a focus landing target.
+        var landingFocus: TVPlayerFocus {
+            initialFocus == .progress && !media.isLive ? .scrubber : .transport
+        }
+
         var isSeries: Bool {
             if case .episode = media.contentRef { true } else { false }
         }

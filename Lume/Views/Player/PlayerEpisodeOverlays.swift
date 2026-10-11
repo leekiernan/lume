@@ -81,7 +81,11 @@ struct PlayerEpisodeOverlays: View {
             EpisodeButtonRemote(
                 focus: $buttonFocused,
                 onDismiss: { send(.dismiss) },
-                onMove: { if !controlsVisible { controlsBridge?.requestControls() } }
+                onMove: { direction in
+                    if !controlsVisible {
+                        controlsBridge?.requestControls(focus: PlayerSurfaceInput.controlsFocus(for: .init(direction)))
+                    }
+                }
             )
         #else
             EpisodeButtonRemote()
@@ -192,7 +196,7 @@ struct EpisodeButtonRemote {
     #if os(tvOS)
         let focus: FocusState<Bool>.Binding
         let onDismiss: () -> Void
-        let onMove: () -> Void
+        let onMove: (MoveCommandDirection) -> Void
     #endif
 }
 
@@ -203,7 +207,7 @@ extension View {
             focused(remote.focus)
                 // Menu dismisses the button rather than closing the player.
                 .onExitCommand(perform: remote.onDismiss)
-                .tvRemoteMoveCommand { _ in remote.onMove() }
+                .tvRemoteMoveCommand(perform: remote.onMove)
         #else
             self
         #endif
