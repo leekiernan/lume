@@ -118,6 +118,9 @@
                 ScrollView {
                     VStack(spacing: 48) {
                         header.id(ScrollAnchor.header)
+                        if let bouts = fixture.bouts, !bouts.isEmpty {
+                            TVFightCardSection(bouts: bouts, hidesScores: hidesScores)
+                        }
                         TVGameDetailMarkets(detail: detailLoad.detail, fixture: fixture, hidesScores: hidesScores)
                         detailTabsSection.id(ScrollAnchor.tabs)
                         standingsSection
@@ -578,22 +581,6 @@
                 followButton(competitor.team)
             }
             .frame(maxWidth: .infinity, alignment: .top)
-        }
-    }
-
-    /// A tennis match set by set, under the sets-won score.
-    private struct TVSetsLine: View {
-        let fixture: SportsFixture
-
-        var body: some View {
-            if let sets = fixture.setsLine {
-                Text(verbatim: sets)
-                    .font(.system(size: 28, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(.white.opacity(0.75))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
         }
     }
 #endif
