@@ -26,9 +26,6 @@ enum SyncFrequency: String, CaseIterable, Identifiable {
     case everyThreeDays
     case weekly
 
-    /// Legacy device-wide key, read only when adopting an existing playlist.
-    static let storageKey = "lume.syncFrequency"
-
     /// Default per issue #22: every 3 days.
     static let defaultValue: SyncFrequency = .everyThreeDays
 

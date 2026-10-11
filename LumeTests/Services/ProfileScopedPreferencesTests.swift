@@ -334,7 +334,7 @@ struct ProfileScopedPreferencesTests {
     /// The device's own setup stays device-wide: a second profile shouldn't have
     /// to pick its playlist or re-choose a playback engine.
     @Test func `device preferences are not scoped`() {
-        let deviceKeys = [PlaylistSelectionStore.key, SyncFrequency.storageKey]
+        let deviceKeys = [PlaylistSelectionStore.key, SyncFrequency.epgStorageKey]
         for key in deviceKeys {
             #expect(!ProfileScopedPreferences.scopedBaseKeys.contains(key))
         }

@@ -1,30 +1,30 @@
 import Foundation
 @testable import Lume
-import SwiftData
 import Testing
 
 @MainActor
 struct PlaylistSyncPreferencesTests {
-    @Test func `migration adopts legacy cadence without replacing a playlist choice`() throws {
-        let container = try ModelContainer(for: Playlist.self, Category.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none))
-        let context = container.mainContext
-        let suite = "playlist.cadence.\(UUID())"
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
-        defaults.set("daily", forKey: SyncFrequency.storageKey)
-        let legacy = Playlist(name: "Legacy", serverURL: "", username: "", password: "")
-        legacy.syncFrequencyRaw = nil
-        let configured = Playlist(name: "Configured", serverURL: "", username: "", password: "")
-        configured.syncFrequency = .weekly
-        context.insert(legacy)
-        context.insert(configured)
-        try context.save()
-        try PlaylistSyncPreferences.migrate(in: context, defaults: defaults)
-        #expect(legacy.syncFrequencyRaw == "daily")
-        #expect(configured.syncFrequency == .weekly)
-        defaults.set("sixHours", forKey: SyncFrequency.storageKey)
-        try PlaylistSyncPreferences.migrate(in: context, defaults: defaults)
-        #expect(legacy.syncFrequencyRaw == "daily")
+    @Test func `each playlist retains its own cadence`() {
+        let first = Playlist(name: "First", serverURL: "", username: "", password: "")
+        let second = Playlist(name: "Second", serverURL: "", username: "", password: "")
+        first.syncFrequency = .daily
+        second.syncFrequency = .weekly
+        #expect(first.syncFrequency == .daily)
+        #expect(second.syncFrequency == .weekly)
+    }
+
+    @Test(.globalState) func `new and unset playlist cadences ignore the old device setting`() {
+        let defaults = UserDefaults.standard
+        let legacyKey = "lume.syncFrequency"
+        let previous = defaults.object(forKey: legacyKey)
+        defer {
+            if let previous { defaults.set(previous, forKey: legacyKey) } else { defaults.removeObject(forKey: legacyKey) }
+        }
+        defaults.set("weekly", forKey: legacyKey)
+        let playlist = Playlist(name: "Test", serverURL: "", username: "", password: "")
+        #expect(playlist.syncFrequency == .everyThreeDays)
+        playlist.syncFrequencyRaw = nil
+        #expect(playlist.syncFrequency == .everyThreeDays)
     }
 
     @Test func `playlist cadence survives a cloud configuration round trip`() throws {
