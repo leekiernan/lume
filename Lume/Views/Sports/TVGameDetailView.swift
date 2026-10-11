@@ -74,25 +74,20 @@
         }
 
         var body: some View {
-            ScrollView {
-                VStack(spacing: 48) {
-                    header
-                    TVGameDetailMarkets(detail: detailLoad.detail, fixture: fixture, hidesScores: hidesScores)
-                    if fixture.status.state != .final {
-                        watchSection
-                    }
-                    detailTabsSection
-                    standingsSection
-                    if fixture.sport == "racing", !hidesScores {
-                        TVRacingSeasonSection(fixture: fixture)
+            Group {
+                if fixture.status.state == .final {
+                    // Nothing left to watch: the visuals take the whole width.
+                    detailScroll.frame(maxWidth: 1500).frame(maxWidth: .infinity)
+                } else {
+                    // Channels get their own scrolling column, so a long list
+                    // never pushes the score, tabs and table below the fold.
+                    HStack(alignment: .top, spacing: 60) {
+                        detailScroll
+                        watchSection.frame(width: Self.channelColumnWidth)
                     }
                 }
-                .frame(maxWidth: 1500)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 90)
-                .padding(.vertical, 70)
             }
-            .scrollClipDisabled()
+            .padding(.horizontal, 90)
             .tvDetailDefaultFocus($focus, defaultFocus)
             .background(background.ignoresSafeArea())
             // The detail stays pushed beneath its player, just like movies
@@ -105,6 +100,25 @@
             }
             .onAppear { SportsSyncService.shared.beginLivePolling() }
             .onDisappear { SportsSyncService.shared.endLivePolling() }
+        }
+
+        private static let channelColumnWidth: CGFloat = 520
+
+        private var detailScroll: some View {
+            ScrollView {
+                VStack(spacing: 48) {
+                    header
+                    TVGameDetailMarkets(detail: detailLoad.detail, fixture: fixture, hidesScores: hidesScores)
+                    detailTabsSection
+                    standingsSection
+                    if fixture.sport == "racing", !hidesScores {
+                        TVRacingSeasonSection(fixture: fixture)
+                    }
+                }
+                .padding(.vertical, 70)
+            }
+            .scrollClipDisabled()
+            .focusSection()
         }
 
         /// The team tints are translucent washes over a solid detail backdrop.
@@ -287,6 +301,8 @@
 
         // MARK: - Watch
 
+        /// The right-hand column: every channel, best first, scrolling on its
+        /// own as focus moves down it while the match stays in view.
         private var watchSection: some View {
             VStack(alignment: .leading, spacing: 18) {
                 Text("On Your Channels")
@@ -294,17 +310,22 @@
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                switch channels.count {
-                case 0:
-                    emptyChannels
-                case 1:
-                    singleChannel(channels[0])
-                default:
+                ScrollView {
                     VStack(spacing: 16) {
-                        ForEach(channels) { channelRow($0) }
+                        switch channels.count {
+                        case 0:
+                            emptyChannels
+                        case 1:
+                            singleChannel(channels[0])
+                        default:
+                            ForEach(channels) { channelRow($0) }
+                        }
                     }
+                    .padding(.vertical, 8)
                 }
+                .scrollClipDisabled()
             }
+            .padding(.vertical, 70)
             .focusSection()
         }
 
@@ -319,8 +340,8 @@
                 HStack(spacing: 22) {
                     ChannelLogo(urlString: channel.stream.streamIcon, size: 64)
                     VStack(alignment: .leading, spacing: 6) {
-                        channelName(channel, size: 30)
-                        channelSubtitle(channel)
+                        TVSportsChannelName(channel: channel, size: 30)
+                        TVSportsChannelSubtitle(channel: channel, size: 24)
                     }
                     Spacer(minLength: 16)
                     Label("Watch", systemImage: "play.fill")
@@ -342,31 +363,6 @@
 
         private func watch(_ channel: ResolvedChannel) {
             playingMedia = SportsPlayback.media(for: channel, in: modelContext)
-        }
-
-        private func channelName(_ channel: ResolvedChannel, size: CGFloat) -> some View {
-            HStack(spacing: 10) {
-                Text(verbatim: channel.stream.name)
-                    .font(.system(size: size, weight: .semibold))
-                    .lineLimit(1)
-                if let badge = sportsQualityBadge(from: channel.stream.name) {
-                    Text(verbatim: badge)
-                        .font(.system(size: size * 0.6, weight: .bold))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(.white.opacity(0.18), in: Capsule())
-                }
-            }
-        }
-
-        @ViewBuilder
-        private func channelSubtitle(_ channel: ResolvedChannel) -> some View {
-            if let subtitle = channel.matchedSubtitle {
-                subtitle
-                    .font(.system(size: 24))
-                    .foregroundStyle(.white.opacity(0.6))
-                    .lineLimit(1)
-            }
         }
 
         // MARK: - Tabs

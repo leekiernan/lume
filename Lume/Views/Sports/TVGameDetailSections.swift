@@ -53,25 +53,45 @@
         }
 
         private var name: some View {
+            TVSportsChannelName(channel: channel, size: 28, badgeSize: 18)
+        }
+
+        private var subtitle: some View {
+            TVSportsChannelSubtitle(channel: channel, size: 22)
+        }
+    }
+
+    /// A resolved channel's name with its quality badge ("UHD", "FHD").
+    struct TVSportsChannelName: View {
+        let channel: ResolvedChannel
+        let size: CGFloat
+        var badgeSize: CGFloat?
+
+        var body: some View {
             HStack(spacing: 10) {
                 Text(verbatim: channel.stream.name)
-                    .font(.system(size: 28, weight: .semibold))
+                    .font(.system(size: size, weight: .semibold))
                     .lineLimit(1)
                 if let badge = sportsQualityBadge(from: channel.stream.name) {
                     Text(verbatim: badge)
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.system(size: badgeSize ?? size * 0.6, weight: .bold))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
                         .background(.white.opacity(0.18), in: Capsule())
                 }
             }
         }
+    }
 
-        @ViewBuilder
-        private var subtitle: some View {
+    /// The guide programme a channel matched on, when there is one.
+    struct TVSportsChannelSubtitle: View {
+        let channel: ResolvedChannel
+        let size: CGFloat
+
+        var body: some View {
             if let subtitle = channel.matchedSubtitle {
                 subtitle
-                    .font(.system(size: 22))
+                    .font(.system(size: size))
                     .foregroundStyle(.white.opacity(0.6))
                     .lineLimit(1)
             }
