@@ -4,6 +4,31 @@ import Testing
 
 @MainActor
 struct PlayerChromeRoutingTests {
+    @Test func `each reveal owns its landing focus and select defaults back to transport`() {
+        let chrome = PlayerChromeController()
+        #expect(chrome.initialFocus == .transport)
+        chrome.hide()
+        chrome.show(focus: .progress, mayHide: { false })
+        #expect(chrome.isVisible && chrome.initialFocus == .progress)
+        chrome.hide()
+        chrome.show(mayHide: { false })
+        #expect(chrome.isVisible && chrome.initialFocus == .transport)
+        chrome.hide()
+        chrome.show(focus: .progress)
+        chrome.hide()
+        chrome.toggle()
+        #expect(chrome.isVisible && chrome.initialFocus == .transport)
+    }
+
+    @Test func `renewing inactivity leaves the reveal focus untouched`() {
+        let chrome = PlayerChromeController()
+        chrome.activate()
+        chrome.show(focus: .progress)
+        chrome.schedule(mayHide: { true })
+        #expect(chrome.isVisible && chrome.initialFocus == .progress)
+        chrome.deactivate()
+    }
+
     @Test func `player menu routing retains priority and lazy remote handoff`() {
         let chrome = PlayerChromeController()
         var actions: [String] = []

@@ -3,6 +3,16 @@
 nonisolated enum PlayerSurfaceInput {
     enum Direction { case left, right, upward, downward, other }
     enum Action { case controls, browser, surf }
+    enum ControlsFocus { case transport, progress }
+
+    /// Revealing the controls does not seek. A second horizontal press on the
+    /// progress bar uses the normal seek/skip handling.
+    static func controlsFocus(for direction: Direction) -> ControlsFocus {
+        switch direction {
+        case .left, .right: .progress
+        case .upward, .downward, .other: .transport
+        }
+    }
 
     static func action(for direction: Direction, isLive: Bool) -> Action {
         guard isLive else { return .controls }

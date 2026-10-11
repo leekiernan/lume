@@ -6,6 +6,8 @@ import SwiftUI
 @Observable
 final class PlayerChromeController {
     private(set) var isVisible = true
+    /// Only used when the controls mount, never to steer existing controls.
+    private(set) var initialFocus: PlayerSurfaceInput.ControlsFocus = .transport
     @ObservationIgnored private var machine = PlayerChromeMachine()
     @ObservationIgnored private var timer: Task<Void, Never>?
     @ObservationIgnored private var active = false
@@ -24,8 +26,9 @@ final class PlayerChromeController {
         suspend()
     }
 
-    func show() {
+    func show(focus: PlayerSurfaceInput.ControlsFocus = .transport) {
         suspend()
+        initialFocus = focus
         machine.show()
         publishVisibility()
     }
@@ -40,8 +43,8 @@ final class PlayerChromeController {
         if isVisible { hide() } else { show() }
     }
 
-    func show(mayHide: @escaping () -> Bool) {
-        show()
+    func show(focus: PlayerSurfaceInput.ControlsFocus = .transport, mayHide: @escaping () -> Bool) {
+        show(focus: focus)
         schedule(mayHide: mayHide)
     }
 

@@ -9,12 +9,12 @@ struct PlayerTapCatcher: View {
         let browserOpen: Bool
         let failed: Bool
         let focused: FocusState<Bool>.Binding
-        let showControls: () -> Void
+        let showControls: (PlayerSurfaceInput.ControlsFocus) -> Void
         let openBrowser: () -> Void
         let surf: (MoveCommandDirection) -> Void
 
         var body: some View {
-            Button(action: showControls) {
+            Button { showControls(.transport) } label: {
                 Color.clear.contentShape(Rectangle())
             }
             .buttonStyle(PlayerInvisibleButtonStyle())
@@ -23,15 +23,9 @@ struct PlayerTapCatcher: View {
             .disabled(PlayerSurfaceInput.catcherDisabled(controlsDrawn: controlsDrawn, browserOpen: browserOpen, failed: failed))
             .focused(focused)
             .tvRemoteMoveCommand { direction in
-                let input: PlayerSurfaceInput.Direction = switch direction {
-                case .left: .left
-                case .right: .right
-                case .up: .upward
-                case .down: .downward
-                @unknown default: .other
-                }
+                let input = PlayerSurfaceInput.Direction(direction)
                 switch PlayerSurfaceInput.action(for: input, isLive: isLive) {
-                case .controls: showControls()
+                case .controls: showControls(PlayerSurfaceInput.controlsFocus(for: input))
                 case .browser: openBrowser()
                 case .surf: surf(direction)
                 }
@@ -47,3 +41,17 @@ struct PlayerTapCatcher: View {
         }
     #endif
 }
+
+#if os(tvOS)
+    extension PlayerSurfaceInput.Direction {
+        init(_ direction: MoveCommandDirection) {
+            self = switch direction {
+            case .left: .left
+            case .right: .right
+            case .up: .upward
+            case .down: .downward
+            @unknown default: .other
+            }
+        }
+    }
+#endif
