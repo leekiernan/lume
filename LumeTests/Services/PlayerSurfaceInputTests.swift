@@ -2,6 +2,17 @@
 import Testing
 
 nonisolated struct PlayerSurfaceInputTests {
+    @Test(arguments: [PlayerSurfaceInput.Direction.left, .right])
+    func `horizontal reveal targets progress without changing the surface action`(_ direction: PlayerSurfaceInput.Direction) {
+        #expect(PlayerSurfaceInput.action(for: direction, isLive: false) == .controls)
+        #expect(PlayerSurfaceInput.controlsFocus(for: direction) == .progress)
+    }
+
+    @Test(arguments: [PlayerSurfaceInput.Direction.upward, .downward, .other])
+    func `vertical and other reveals retain transport focus`(_ direction: PlayerSurfaceInput.Direction) {
+        #expect(PlayerSurfaceInput.controlsFocus(for: direction) == .transport)
+    }
+
     @Test(arguments: [false, true], [false, true])
     func `catcher yields to drawn controls browser and terminal failure`(drawn: Bool, browser: Bool) {
         for failed in [false, true] {
