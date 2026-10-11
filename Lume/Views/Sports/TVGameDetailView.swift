@@ -165,18 +165,21 @@
 
         // MARK: - Header
 
+        /// A team match's header holds its own focus targets, the Follow
+        /// buttons. Only an event without teams makes the whole header one
+        /// landing: `.focusable(false)` on it would shut the buttons out too.
+        @ViewBuilder
         private var header: some View {
+            if fixture.hasTeams {
+                headerContent
+            } else {
+                headerContent.focusable().focused($focus, equals: .summary)
+            }
+        }
+
+        private var headerContent: some View {
             VStack(spacing: 24) {
-                if fixture.hasTeams {
-                    // The topmost landing in the column: down from the tab bar
-                    // reaches the score before the channel list beside it.
-                    TVMatchCentreLeagueLine(fixture: fixture)
-                        .frame(maxWidth: .infinity)
-                        .focusable()
-                        .focused($focus, equals: .summary)
-                } else {
-                    TVMatchCentreLeagueLine(fixture: fixture)
-                }
+                TVMatchCentreLeagueLine(fixture: fixture)
                 if fixture.hasTeams {
                     // One focus section, so "up" from the centred tabs reaches
                     // the Follow buttons under each team instead of passing
@@ -194,8 +197,6 @@
                     .fill(.white.opacity(focus == .summary ? 0.14 : 0))
                     .padding(-24)
             }
-            .focusable(!fixture.hasTeams)
-            .focused($focus, equals: .summary)
             .animation(.easeOut(duration: 0.15), value: focus == .summary)
         }
 
