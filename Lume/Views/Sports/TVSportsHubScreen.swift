@@ -232,7 +232,9 @@
             .ignoresSafeArea(edges: .vertical)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { containerHeight = $0 }
             .onChange(of: heroZone) { _, zone in heroModel.isPaused = zone != .expanded }
-            .onChange(of: carousel.map(\.id), initial: true) { _, _ in heroModel.configure(items: carousel) }
+            // Keyed by the candidates, not their ids: a game kicking off (or scoring)
+            // keeps its id, and the hero would keep showing it as scheduled.
+            .onChange(of: carousel, initial: true) { _, items in heroModel.configure(items: items) }
             .task(id: resolveKey(toResolve)) { await runResolve(toResolve) }
             .task(id: heroSelectionKey(for: candidates)) {
                 heroSelection.reconcile(candidates: candidates, context: heroSelectionContext)
