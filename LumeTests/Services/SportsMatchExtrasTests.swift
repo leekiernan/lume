@@ -71,4 +71,29 @@ struct SportsMatchExtrasTests {
         #expect(detail.availableTabs(hidingScores: true) == [.lineup])
         #expect(detail.hasTabContent(hidingScores: false))
     }
+
+    @Test func `the header's form comes from the summary, never soccer's scoreboard string`() throws {
+        func fixture(_ leagueId: String, form: String?, state: SportsFixtureState = .scheduled) -> SportsFixture {
+            SportsFixture(
+                id: "m", leagueId: leagueId, leagueName: "", leagueAbbreviation: "", startDate: Date(),
+                status: SportsFixtureStatus(state: state),
+                home: SportsCompetitor(team: SportsTeam(leagueId: leagueId, teamId: "370", name: "Fulham", shortName: "Fulham", abbreviation: "FUL"),
+                                       form: form)
+            )
+        }
+        let soccer = fixture("soccer/eng.1", form: "DLDWL")
+        let home = try #require(soccer.home)
+        let detail = SportsEventDetail(form: [SportsTeamForm(teamId: "370", games: [.loss, .draw, .win].map {
+            SportsFormGame(date: nil, result: $0, opponent: "SUN", opponentName: nil, isHome: true, teamScore: nil, opponentScore: nil, competition: nil)
+        })])
+        #expect(soccer.headerForm(for: home, detail: detail) == .results([.loss, .draw, .win]))
+        // The scoreboard's soccer string didn't match the results: nothing until the summary.
+        #expect(soccer.headerForm(for: home, detail: nil) == nil)
+        let basketball = fixture("basketball/nba", form: "WWLWL")
+        #expect(try basketball.headerForm(for: #require(basketball.home), detail: nil) == .text("WWLWL"))
+        // Form shows unless scores are hidden on a finished game.
+        #expect(soccer.showsForm(hidingScores: true))
+        #expect(!fixture("soccer/eng.1", form: nil, state: .final).showsForm(hidingScores: true))
+        #expect(fixture("soccer/eng.1", form: nil, state: .final).showsForm(hidingScores: false))
+    }
 }

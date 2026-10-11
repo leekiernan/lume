@@ -232,10 +232,8 @@ struct GameDetailSheet: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                if let form = competitor.form, !form.isEmpty {
-                    Text(verbatim: form)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
+                if let form = fixture.headerForm(for: competitor, detail: detailLoad.detail) {
+                    TeamFormLine(content: form, letterSize: 11, textColor: .secondary)
                 }
             }
             followButton(competitor.team)
@@ -464,7 +462,7 @@ struct GameDetailSheet: View {
 
     /// A finished game's record and form already count its result.
     private var showsRecordAndForm: Bool {
-        !hidesScores || fixture.status.state != .final
+        fixture.showsForm(hidingScores: hidesScores)
     }
 
     private var leagueLogoURL: URL? {

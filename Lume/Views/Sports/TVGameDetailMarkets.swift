@@ -22,10 +22,12 @@
             let probability = probabilityReading
             let periods = periodScores
             let odds = detail?.odds
-            // Results in all but name: kept back under Hide Scores.
-            let forms = hidesScores ? nil : MatchForms(detail: detail, fixture: fixture)
+            let forms = fixture.showsForm(hidingScores: hidesScores) ? MatchForms(detail: detail, fixture: fixture) : nil
             if probability != nil || periods != nil || odds != nil || forms != nil {
                 VStack(alignment: .leading, spacing: 24) {
+                    if let forms {
+                        TVFormPanel(forms: forms)
+                    }
                     if probability != nil || periods != nil || odds != nil {
                         HStack(alignment: .top, spacing: 40) {
                             if let probability {
@@ -40,9 +42,6 @@
                         }
                         // Panels in a row share the tallest one's height.
                         .fixedSize(horizontal: false, vertical: true)
-                    }
-                    if let forms {
-                        TVFormPanel(forms: forms)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

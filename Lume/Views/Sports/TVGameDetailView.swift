@@ -557,7 +557,7 @@
 
         /// A finished game's record and form already count its result.
         private var showsRecordAndForm: Bool {
-            !hidesScores || fixture.status.state != .final
+            fixture.showsForm(hidingScores: hidesScores)
         }
 
         private func teamColumn(_ competitor: SportsCompetitor) -> some View {
@@ -575,10 +575,8 @@
                             .font(.system(size: 24))
                             .foregroundStyle(.white.opacity(0.6))
                     }
-                    if let form = competitor.form, !form.isEmpty {
-                        Text(verbatim: form)
-                            .font(.system(size: 24, design: .monospaced))
-                            .foregroundStyle(.white.opacity(0.6))
+                    if let form = fixture.headerForm(for: competitor, detail: detailLoad.detail) {
+                        TeamFormLine(content: form, letterSize: 20, textColor: .white.opacity(0.6))
                     }
                 }
                 followButton(competitor.team)

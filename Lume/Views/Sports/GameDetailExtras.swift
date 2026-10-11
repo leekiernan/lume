@@ -19,10 +19,12 @@ struct GameDetailMarkets: View {
     var body: some View {
         let probability = reading
         let periods = periodScores
-        // Results in all but name: kept back under Hide Scores.
-        let forms = hidesScores ? nil : MatchForms(detail: detail, fixture: fixture)
+        let forms = fixture.showsForm(hidingScores: hidesScores) ? MatchForms(detail: detail, fixture: fixture) : nil
         if probability != nil || periods != nil || detail?.odds != nil || forms != nil {
             VStack(alignment: .leading, spacing: 14) {
+                if let forms {
+                    FormGuideRows(forms: forms)
+                }
                 if let probability {
                     probabilityView(probability.value, title: probability.title)
                 }
@@ -31,9 +33,6 @@ struct GameDetailMarkets: View {
                 }
                 if let periods {
                     periodsView(periods)
-                }
-                if let forms {
-                    FormGuideRows(forms: forms)
                 }
             }
             .padding(16)

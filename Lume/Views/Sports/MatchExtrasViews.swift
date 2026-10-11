@@ -64,6 +64,69 @@ struct FormResultPill: View {
     }
 }
 
+extension SportsFormGame.Result {
+    /// The standings table's own letters (W / D / L), translated with it.
+    var letter: LocalizedStringKey {
+        switch self {
+        case .win: "W"
+        case .draw: "D"
+        case .loss: "L"
+        }
+    }
+}
+
+extension SportsFixture {
+    /// Records and form show unless scores are hidden and the game is over,
+    /// when they already count its result. Shared by the header's form line
+    /// and the form guide.
+    func showsForm(hidingScores: Bool) -> Bool {
+        !hidingScores || status.state != .final
+    }
+
+    /// The form line under a team's crest: the summary's results when it has
+    /// them. The scoreboard's own string stands in for other sports; in
+    /// soccer it doesn't match the team's results (ESPN's feed), so nothing
+    /// shows until the summary arrives.
+    func headerForm(for competitor: SportsCompetitor, detail: SportsEventDetail?) -> TeamFormLine.Content? {
+        if let games = detail?.form.first(where: { $0.teamId == competitor.team.teamId })?.games, !games.isEmpty {
+            return .results(games.map(\.result))
+        }
+        guard sport != "soccer", let text = competitor.form, !text.isEmpty else { return nil }
+        return .text(text)
+    }
+}
+
+/// A team's recent results under its crest: coloured letters, oldest first.
+struct TeamFormLine: View {
+    enum Content: Equatable {
+        case results([SportsFormGame.Result])
+        case text(String)
+    }
+
+    let content: Content
+    let letterSize: CGFloat
+    let textColor: Color
+
+    var body: some View {
+        switch content {
+        case let .results(results):
+            HStack(spacing: letterSize * 0.25) {
+                ForEach(Array(results.enumerated()), id: \.offset) { _, result in
+                    Text(result.letter)
+                        .font(.system(size: letterSize, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: letterSize * 1.45, height: letterSize * 1.45)
+                        .background(RoundedRectangle(cornerRadius: letterSize * 0.3, style: .continuous).fill(result.color))
+                }
+            }
+        case let .text(text):
+            Text(verbatim: text)
+                .font(.system(size: letterSize, design: .monospaced))
+                .foregroundStyle(textColor)
+        }
+    }
+}
+
 /// Both sides' forms, home first, with the team each belongs to.
 struct MatchForms {
     let rows: [(team: SportsTeam, form: SportsTeamForm)]
