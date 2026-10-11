@@ -92,22 +92,26 @@ struct ProfileScopedPreferencesTests {
             expectedBases.append(CustomHomeSections.baseStorageKey(surface))
         }
         #expect(ProfileScopedPreferences.scopedBaseKeys == expectedBases)
-        #expect(ProfileScopedPreferences.booleanBaseKeys == [
+        #expect(ProfileScopedPreferences.booleanBaseKeys == Set([
             RecommendationSettings.baseEnabledKey,
             SportsSyncService.baseEnabledKey,
             SportsSyncService.baseTabEnabledKey,
             SportsSyncService.baseHideScoresKey
-        ])
+        ] + SectionSurface.allCases.map { HomeLayoutSettings.baseHeroSeededKey($0) }))
 
         let defaults = Dictionary(uniqueKeysWithValues: ProfileScopedPreferences.scopedKeys.compactMap { entry in
             if case let .bool(value) = entry.kind { (entry.base, value.value) } else { nil }
         })
-        #expect(defaults == [
+        var expectedDefaults = [
             RecommendationSettings.baseEnabledKey: RecommendationSettings.enabledDefault,
             SportsSyncService.baseEnabledKey: SportsSyncService.enabledDefault,
             SportsSyncService.baseTabEnabledKey: SportsSyncService.tabEnabledDefault,
             SportsSyncService.baseHideScoresKey: false
-        ])
+        ]
+        for surface in SectionSurface.allCases {
+            expectedDefaults[HomeLayoutSettings.baseHeroSeededKey(surface)] = false
+        }
+        #expect(defaults == expectedDefaults)
     }
 
     @Test func `scoped keys are unique across surfaces`() {
@@ -150,6 +154,49 @@ struct ProfileScopedPreferencesTests {
     }
 
     // MARK: - Cloud snapshot
+
+    @Test(arguments: [true, false])
+    func `hero seeded flags round trip as booleans without affecting another profile`(_ seeded: Bool) throws {
+        let suiteName = "ProfileScopedPreferencesTests.hero.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        for surface in SectionSurface.allCases {
+            let base = HomeLayoutSettings.baseHeroSeededKey(surface)
+            defaults.set(seeded, forKey: ProfileScopedPreferences.key(base, profileID: Self.profileA))
+            defaults.set(!seeded, forKey: ProfileScopedPreferences.key(base, profileID: Self.profileB))
+        }
+        let snapshot = ProfileScopedPreferences.snapshot(profileID: Self.profileA, defaults: defaults)
+        let encoded = try #require(ProfileScopedPreferences.encode(snapshot))
+        let decoded = try #require(ProfileScopedPreferences.decode(encoded))
+        ProfileScopedPreferences.apply(decoded, profileID: Self.profileA, defaults: defaults)
+        for surface in SectionSurface.allCases {
+            let base = HomeLayoutSettings.baseHeroSeededKey(surface)
+            #expect(decoded.booleans[base] == seeded)
+            #expect(decoded.strings[base] == nil)
+            #expect(defaults.bool(forKey: ProfileScopedPreferences.key(base, profileID: Self.profileA)) == seeded)
+            #expect(defaults.bool(forKey: ProfileScopedPreferences.key(base, profileID: Self.profileB)) == !seeded)
+        }
+    }
+
+    @Test(arguments: ["1", "0", "true", "false"])
+    func `old hero seeded strings are preserved until republished as booleans`(_ raw: String) throws {
+        let suiteName = "ProfileScopedPreferencesTests.legacyHero.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let seeded = raw == "1" || raw == "true"
+        for surface in SectionSurface.allCases {
+            let base = HomeLayoutSettings.baseHeroSeededKey(surface)
+            defaults.set(!seeded, forKey: ProfileScopedPreferences.key(base, profileID: Self.profileA))
+            let previous = ProfilePreferencesSnapshot(strings: [base: raw], booleans: [:])
+            ProfileScopedPreferences.apply(previous, profileID: Self.profileA, defaults: defaults)
+            let republished = ProfileScopedPreferences.snapshot(profileID: Self.profileA, defaults: defaults)
+            #expect(republished.booleans[base] == seeded)
+            #expect(republished.strings[base] == nil)
+            let current = ProfilePreferencesSnapshot(strings: [base: raw], booleans: [base: !seeded])
+            ProfileScopedPreferences.apply(current, profileID: Self.profileA, defaults: defaults)
+            #expect(defaults.bool(forKey: ProfileScopedPreferences.key(base, profileID: Self.profileA)) == !seeded)
+        }
+    }
 
     @Test func `snapshot round trips string and boolean preferences`() throws {
         let sourceName = "ProfileScopedPreferencesTests.snapshot.source"
