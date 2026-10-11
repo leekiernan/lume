@@ -16,8 +16,8 @@
     struct TVChannelsList: View {
         let scope: LiveChannelScope
         let playlistPrefix: String
-        /// Opens the browse panel, naming the channel focus is leaving so it
-        /// can be returned to. Nil when the press came from the clear button.
+        /// Opens Browse from a channel (or nil for the clear button). The
+        /// shared focus registration owns the return target, not this ID.
         let onLeadingLeft: (String?) -> Void
         /// The active playlist's source, so an empty list can say *why* it is
         /// empty rather than tell a WebDAV user to sync again.
@@ -117,8 +117,7 @@
                                     onWatchFromStart: { onWatchFromStart(stream, $0) },
                                     onPlay: { onPlay(stream) }
                                 )
-                                .onLeadingEdgeLeft { onLeadingLeft(stream.id) }
-                                .focused($focusedChannelID, equals: stream.id)
+                                .onLeadingEdgeLeft({ onLeadingLeft(stream.id) }, focus: $focusedChannelID, equals: stream.id)
                                 .onAppear {
                                     if stream.id == visible.last?.id, visibleCount < channels.count {
                                         visibleCount = min(visibleCount + LiveChannelQuery.pageSize, channels.count)
@@ -131,11 +130,9 @@
                     .padding(.vertical, 40)
                 }
                 .focusSection()
-                // Coming back from the browse panel, focus returns to the
-                // channel it left. A new category is a new list with no such
-                // position, so that starts at the top. Either way it is said
-                // explicitly — the old rows are gone and the engine would be
-                // left to guess.
+                // A selected category is a new list: explicitly land at the
+                // requested channel/top. Closing Browse without selecting
+                // instead uses the unchanged control's shared bookmark.
                 .task(id: landing) {
                     guard let landing, let focusRequest else { return }
                     visibleCount = max(visibleCount, landing.minimumVisibleCount)
@@ -389,8 +386,7 @@
                 )
             }
             .buttonStyle(TVCardButtonStyle(focusScale: 1.04))
-            .focused($focused, equals: .browse)
-            .onLeadingEdgeLeft(onOpenBrowse)
+            .onLeadingEdgeLeft(onOpenBrowse, focus: $focused, equals: .browse)
             .accessibilityLabel("Browse Categories")
             .animation(.easeOut(duration: 0.18), value: isItemFocused)
         }

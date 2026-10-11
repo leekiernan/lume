@@ -12,16 +12,12 @@ struct LiveTVBrowseSidebar: View {
     let state: BrowseSidebarState
     let sections: [LiveTVSection]
     let onSelect: (LiveTVSection) -> Void
-    /// Hands focus back to the channel the viewer came from — see
-    /// `LiveTVView.returnFromBrowse`.
-    var onReturnToContent: (() -> Void)?
 
     var body: some View {
         BrowseSidebarPanel(
             state: state,
             title: Text("Live TV"),
-            sections: panelSections,
-            onReturnToContent: onReturnToContent
+            sections: panelSections
         )
     }
 

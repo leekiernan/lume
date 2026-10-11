@@ -19,8 +19,7 @@
                 onSelect: open(follow:),
                 onManageTeams: {
                     showManageTeams = true
-                },
-                onReturnToContent: returnFromBrowse
+                }
             )
         }
 
@@ -32,14 +31,7 @@
         }
 
         func openBrowse() {
-            browseReturnFocus = focus
             browse.isPresented = true
-        }
-
-        /// Focus back where the panel was opened from.
-        func returnFromBrowse() {
-            guard let target = browseReturnFocus else { return }
-            Task { @MainActor in focus = target }
         }
     }
 

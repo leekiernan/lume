@@ -27,15 +27,12 @@ struct SportsBrowseSidebar: View {
     /// The follow picked: its key.
     let onSelect: (String) -> Void
     let onManageTeams: () -> Void
-    /// Hands focus back to where the page had it.
-    var onReturnToContent: (() -> Void)?
 
     var body: some View {
         BrowseSidebarPanel(
             state: state,
             title: Text("Sports"),
-            sections: sections,
-            onReturnToContent: onReturnToContent
+            sections: sections
         )
     }
 

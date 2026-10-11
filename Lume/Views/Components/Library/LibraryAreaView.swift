@@ -108,6 +108,7 @@ struct LibraryAreaView<Kind: LibraryAreaKind>: View {
         }
         // Above the stack, so the panel covers the navigation bar too — the
         // bar draws over anything inside the stack.
+        .browseSidebarContentFocus(scope: [playlistPrefix, restriction.visibilityToken])
         .overlay(alignment: .leading) {
             LibraryBrowseSidebar(
                 state: browse,
@@ -118,6 +119,7 @@ struct LibraryAreaView<Kind: LibraryAreaKind>: View {
                 onSelectGenre: { open(genre: $0) }
             )
         }
+        .environment(browse)
     }
 
     private var sections: some View {
