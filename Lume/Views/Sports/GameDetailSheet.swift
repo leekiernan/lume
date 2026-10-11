@@ -45,18 +45,6 @@ struct GameDetailSheet: View {
         resolved.isEmpty ? selfResolved : resolved
     }
 
-    /// The card as the live poll last saw it: the sheet holds the fixture it
-    /// was opened with, and a fight night moves on bout by bout.
-    private var liveBouts: [SportsBout]? {
-        store.snapshot(for: fixture.leagueId)?.fixtures.first { $0.id == fixture.id }?.bouts ?? fixture.bouts
-    }
-
-    /// The race weekend as the live poll last saw it; a session card's id
-    /// carries its session, the store's weekend doesn't.
-    private var liveWeekend: SportsFixture? {
-        store.snapshot(for: fixture.leagueId)?.fixtures.first { $0.id == fixture.eventId }
-    }
-
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -281,13 +269,20 @@ struct GameDetailSheet: View {
                 }
             }
         case .scheduled, .postponed:
-            Text(fixture.headlineDate, format: fixture.startTimeIsTentative == true
-                ? .dateTime.weekday(.abbreviated).day().month(.abbreviated)
-                : .dateTime.hour().minute())
-                .font(.system(size: 34, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
+            VStack(spacing: 4) {
+                Text(fixture.headlineDate, format: fixture.startTimeIsTentative == true
+                    ? .dateTime.weekday(.abbreviated).day().month(.abbreviated)
+                    : .dateTime.hour().minute())
+                    .font(.system(size: 34, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                Text(verbatim: fixture.kickoffDayText())
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
         }
     }
 
@@ -489,5 +484,19 @@ private extension View {
         #else
             self
         #endif
+    }
+}
+
+private extension GameDetailSheet {
+    /// The card as the live poll last saw it: the sheet holds the fixture it
+    /// was opened with, and a fight night moves on bout by bout.
+    var liveBouts: [SportsBout]? {
+        store.snapshot(for: fixture.leagueId)?.fixtures.first { $0.id == fixture.id }?.bouts ?? fixture.bouts
+    }
+
+    /// The race weekend as the live poll last saw it; a session card's id
+    /// carries its session, the store's weekend doesn't.
+    var liveWeekend: SportsFixture? {
+        store.snapshot(for: fixture.leagueId)?.fixtures.first { $0.id == fixture.eventId }
     }
 }

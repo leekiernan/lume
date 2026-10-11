@@ -51,15 +51,49 @@ nonisolated extension SportsFixture {
 }
 
 nonisolated extension SportsFixture {
-    /// When a card says a game is: the time alone for today, the weekday
-    /// and time otherwise, so a Saturday kickoff in Thursday's list is never
-    /// read as today's.
+    /// When a card says a game is: the time alone for today, the weekday and
+    /// time within the coming week, so a Saturday kickoff in Thursday's list is
+    /// never read as today's, and the date beyond it — a team's fixtures run
+    /// for weeks, and a list of "Sat 12:30"s says nothing.
     var cardWhenText: String {
+        cardWhenText(now: Date())
+    }
+
+    func cardWhenText(now: Date, calendar: Calendar = .current) -> String {
+        let days = Self.daysAhead(of: headlineDate, from: now, calendar: calendar)
+        let withinWeek = (0 ..< 7).contains(days)
         if startTimeIsTentative == true {
-            return headlineDate.formatted(.dateTime.weekday(.abbreviated))
+            return headlineDate.formatted(withinWeek ? .dateTime.weekday(.abbreviated) : .dateTime.day().month(.abbreviated))
         }
-        return headlineIsToday
-            ? headlineDate.formatted(.dateTime.hour().minute())
-            : headlineDate.formatted(.dateTime.weekday(.abbreviated).hour().minute())
+        if days == 0 { return headlineDate.formatted(.dateTime.hour().minute()) }
+        return headlineDate.formatted(withinWeek
+            ? .dateTime.weekday(.abbreviated).hour().minute()
+            : .dateTime.day().month(.abbreviated).hour().minute())
+    }
+
+    /// The day line a card shows above its time: nothing today, the weekday
+    /// within the coming week, the date beyond it.
+    func cardDayText(now: Date = Date(), calendar: Calendar = .current) -> String? {
+        let days = Self.daysAhead(of: headlineDate, from: now, calendar: calendar)
+        if days == 0 { return nil }
+        return headlineDate.formatted((0 ..< 7).contains(days) ? .dateTime.weekday(.abbreviated) : .dateTime.day().month(.abbreviated))
+    }
+
+    /// The day under a match centre's kickoff time: "Today", "Tomorrow", else
+    /// the date and how far off it is ("Sat 18 Oct · in 5 days").
+    func kickoffDayText(now: Date = Date(), calendar: Calendar = .current) -> String {
+        let days = Self.daysAhead(of: headlineDate, from: now, calendar: calendar)
+        switch days {
+        case 0: return String(localized: "Today")
+        case 1: return String(localized: "Tomorrow")
+        default:
+            let date = headlineDate.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))
+            return days > 1 ? String(localized: "\(date) · in \(days) days") : date
+        }
+    }
+
+    /// Calendar days from `now` to `date`: 0 today, 1 tomorrow, negative past.
+    private static func daysAhead(of date: Date, from now: Date, calendar: Calendar) -> Int {
+        calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: calendar.startOfDay(for: date)).day ?? 0
     }
 }
