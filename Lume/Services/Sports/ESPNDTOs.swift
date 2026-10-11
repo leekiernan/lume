@@ -359,6 +359,11 @@ nonisolated struct ESPNSummaryResponse: Codable, Hashable {
     /// One entry per play, oldest first; US sports only.
     let winprobability: [ESPNWinProbability]?
     let header: ESPNSummaryHeader?
+    /// Each side's last five results (soccer). Lossy: other sports' shapes
+    /// drop out rather than cost the whole summary.
+    let lastFiveGames: ESPNLossyArray<ESPNLastFive>?
+    /// Live text commentary, oldest first (soccer). Lossy, as above.
+    let commentary: ESPNLossyArray<ESPNCommentary>?
 }
 
 nonisolated struct ESPNBoxscore: Codable, Hashable {

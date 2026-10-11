@@ -93,6 +93,10 @@ nonisolated struct SportsEventDetail: Codable, Hashable {
     let winProbability: SportsWinProbability?
     /// Each side's score by half / quarter / period.
     let periodScores: SportsPeriodScores?
+    /// Each side's recent results (soccer), when the provider has them.
+    let form: [SportsTeamForm]
+    /// The live text commentary, oldest first (soccer).
+    let commentary: [SportsCommentaryEntry]
 
     init(
         keyEvents: [SportsKeyEvent] = [],
@@ -100,7 +104,9 @@ nonisolated struct SportsEventDetail: Codable, Hashable {
         lineups: [SportsLineup] = [],
         odds: SportsOdds? = nil,
         winProbability: SportsWinProbability? = nil,
-        periodScores: SportsPeriodScores? = nil
+        periodScores: SportsPeriodScores? = nil,
+        form: [SportsTeamForm] = [],
+        commentary: [SportsCommentaryEntry] = []
     ) {
         self.keyEvents = keyEvents
         self.teamStats = teamStats
@@ -108,5 +114,7 @@ nonisolated struct SportsEventDetail: Codable, Hashable {
         self.odds = odds
         self.winProbability = winProbability
         self.periodScores = periodScores
+        self.form = form
+        self.commentary = commentary
     }
 }

@@ -517,7 +517,9 @@ nonisolated extension ESPNClient {
             lineups: (response.rosters ?? []).compactMap(mapLineup),
             odds: mapOdds(response.pickcenter),
             winProbability: mapWinProbability(response.winprobability),
-            periodScores: mapPeriodScores(response.header)
+            periodScores: mapPeriodScores(response.header),
+            form: (response.lastFiveGames?.elements ?? []).compactMap(mapForm),
+            commentary: mapCommentary(response.commentary?.elements ?? [])
         )
     }
 
