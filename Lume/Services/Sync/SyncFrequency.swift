@@ -4,9 +4,8 @@
 //
 //  How often playlists are automatically re-synced in the background.
 //
-//  The choice is global — it applies to every playlist — and is persisted via
-//  `@AppStorage(SyncFrequency.storageKey)`. Whether a *specific* playlist takes
-//  part is still gated by its own `syncEnabled` flag. The actual decision of
+//  The choice is stored on each Playlist and mirrored through SyncedPlaylist.
+//  Participation is gated by its own `syncEnabled` flag. The actual decision of
 //  "is this playlist due for a sync right now" lives in `AutoSync.shouldSync`,
 //  which the launch / playlist-switch / foreground triggers in `MainTabView`
 //  call through.
@@ -27,7 +26,7 @@ enum SyncFrequency: String, CaseIterable, Identifiable {
     case everyThreeDays
     case weekly
 
-    /// `@AppStorage` key holding the selected raw value.
+    /// Legacy device-wide key, read only when adopting an existing playlist.
     static let storageKey = "lume.syncFrequency"
 
     /// Default per issue #22: every 3 days.

@@ -24,6 +24,7 @@ extension CloudSyncEngine {
             mirror.sourceTypeRaw = value.sourceTypeRaw
             mirror.epgURL = value.epgURL
             mirror.syncEnabled = value.syncEnabled
+            mirror.syncFrequencyRaw = value.syncFrequencyRaw
             mirror.updatedAt = Date()
         } else {
             cloudContext.insert(SyncedPlaylist(
@@ -35,7 +36,8 @@ extension CloudSyncEngine {
                 macAddress: value.macAddress,
                 sourceTypeRaw: value.sourceTypeRaw,
                 epgURL: value.epgURL,
-                syncEnabled: value.syncEnabled
+                syncEnabled: value.syncEnabled,
+                syncFrequencyRaw: value.syncFrequencyRaw
             ))
         }
     }
@@ -58,6 +60,7 @@ extension CloudSyncEngine {
             local.sourceTypeRaw = value.sourceTypeRaw
             local.epgURL = value.epgURL
             local.syncEnabled = value.syncEnabled
+            local.syncFrequencyRaw = value.syncFrequencyRaw
             return false
         }
         let playlist = Playlist(name: value.name, serverURL: value.serverURL, username: value.username, password: value.password)
@@ -66,6 +69,7 @@ extension CloudSyncEngine {
         playlist.sourceTypeRaw = value.sourceTypeRaw
         playlist.epgURL = value.epgURL
         playlist.syncEnabled = value.syncEnabled
+        playlist.syncFrequencyRaw = value.syncFrequencyRaw
         catalogContext.insert(playlist)
         return true
     }

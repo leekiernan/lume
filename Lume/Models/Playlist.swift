@@ -69,6 +69,9 @@ final class Playlist {
     var allowedOutputFormatsRaw: String?
 
     var syncEnabled: Bool = true
+    /// Nil is an unmigrated legacy playlist. The cadence is shared across
+    /// devices; lastSyncDate remains local to each device's downloaded catalog.
+    var syncFrequencyRaw: String?
     var lastSyncDate: Date?
     var syncStatusRaw: String = "idle"
 
@@ -82,6 +85,7 @@ final class Playlist {
         self.serverURL = serverURL
         self.username = username
         self.password = password
+        syncFrequencyRaw = SyncFrequency.defaultValue.rawValue
     }
 
     /// Creates an m3u playlist. Username/password stay empty — m3u sources

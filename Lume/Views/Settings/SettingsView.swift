@@ -70,8 +70,6 @@ struct SettingsView: View {
         @AppStorage(AppAppearance.storageKey)
         private var appearanceRaw = AppAppearance.defaultValue.rawValue
     #endif
-    /// Not `private`: read by the SettingsView+AutoSync extension (separate file).
-    @AppStorage(SyncFrequency.storageKey) var syncFrequencyRaw: String = SyncFrequency.defaultValue.rawValue
     #if !os(tvOS)
         @AppStorage(DownloadManager.maxConcurrentKey) private var maxConcurrent = 1
         @AppStorage(DownloadManager.autoDeleteKey) private var autoDeleteAfterWatching = false
@@ -177,7 +175,6 @@ struct SettingsView: View {
                     librarySection
                     appearanceSection
                     searchSection
-                    autoSyncSection
                     // No standalone TV Guide section here: its sources are a
                     // NavigationLink inside `playlistsSection` in this fork,
                     // not their own top-level section.

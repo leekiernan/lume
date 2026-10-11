@@ -4,7 +4,7 @@
 //
 //  What a playlist's sync looks like *right now*, as one value the settings
 //  surfaces can render. Derived from state the playlist already carries —
-//  `syncStatus`, `lastSyncDate`, `syncEnabled` — plus the global frequency;
+//  `syncStatus`, `lastSyncDate`, `syncEnabled`, and its sync frequency;
 //  nothing new is persisted.
 //
 //  Three places show this (the iOS list row, the tvOS row, and both detail
@@ -132,7 +132,7 @@ enum PlaylistSyncState: Equatable {
 }
 
 extension Playlist {
-    /// This playlist's sync state under the stored global frequency, given
+    /// This playlist's sync state under its stored frequency, given
     /// whether it is the selected playlist. The convenience the views actually
     /// call; `PlaylistSyncState.resolve` stays the testable seam beneath it.
     func syncState(isActive: Bool) -> PlaylistSyncState {
@@ -141,9 +141,7 @@ extension Playlist {
             status: syncStatus,
             lastSyncDate: lastSyncDate,
             isActive: isActive,
-            frequency: SyncFrequency.resolve(
-                UserDefaults.standard.string(forKey: SyncFrequency.storageKey) ?? ""
-            )
+            frequency: syncFrequency
         )
     }
 }

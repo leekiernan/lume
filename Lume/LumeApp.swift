@@ -39,6 +39,11 @@ struct LumeApp: App {
         let (catalog, cloud) = Self.makeModelContainers()
         catalogContainer = catalog
         cloudContainer = cloud
+        do {
+            try PlaylistSyncPreferences.migrate(in: catalog.mainContext)
+        } catch {
+            Logger.sync.error("Migrating playlist sync preferences failed: \(error.localizedDescription)")
+        }
         let coordinator = LaunchTimeline.measure("sync coordinator") {
             CloudSyncCoordinator(
                 catalogContainer: catalog,
