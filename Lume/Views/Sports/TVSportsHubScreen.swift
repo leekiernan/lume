@@ -29,6 +29,8 @@
 
     struct TVSportsHubScreen: View {
         @Environment(\.modelContext) var modelContext
+        /// Their sync dates key the resolve: a sync brings renamed event channels.
+        @Query private var playlists: [Playlist]
         @Environment(\.contentRestriction) var restriction
         @Environment(DeepLinkRouter.self) var router: DeepLinkRouter?
 
@@ -367,7 +369,10 @@
     /// resolution owner; neither starts a competing request on the other's page.
     extension TVSportsHubScreen {
         func resolveKey(_ fixtures: [SportsFixture]) -> String {
-            SportsFixtureResolutionMachine.requestKey(for: fixtures, visibilityToken: restriction.visibilityToken, guideRevision: epg.readRevision)
+            SportsFixtureResolutionMachine.requestKey(
+                for: fixtures, visibilityToken: restriction.visibilityToken, guideRevision: epg.readRevision,
+                catalogToken: SportsFixtureResolutionMachine.catalogToken(for: playlists)
+            )
         }
 
         func runResolve(_ fixtures: [SportsFixture]) async {
