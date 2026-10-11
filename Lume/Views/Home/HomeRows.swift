@@ -38,7 +38,7 @@ struct HomeRow: View {
     var animationNamespace: Namespace.ID?
 
     var body: some View {
-        PosterRail(title: title, showAll: showAll) {
+        PosterRail(title: title, showAll: showAll, onLeadingLeft: onLeadingLeft) {
             ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                 HomeItemCell(
                     item: item,

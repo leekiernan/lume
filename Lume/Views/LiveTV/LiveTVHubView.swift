@@ -137,7 +137,7 @@ struct LiveTVHubView: View {
     }
 
     private func channelRail(_ channels: [LiveTVHubChannel], section: LiveTVSection, now: Date) -> some View {
-        PosterRail(title: section.titleText, showAll: section, groupsFocus: true, rowHeight: LiveTVHubCard.height + 56) {
+        PosterRail(title: section.titleText, showAll: section, groupsFocus: true, rowHeight: LiveTVHubCard.height + 56, onLeadingLeft: onOpenBrowse) {
             ForEach(Array(channels.enumerated()), id: \.element.id) { index, channel in
                 let current = slot(for: channel, now: now)
                 Button { onPlay(channel.id, section.scope) } label: {

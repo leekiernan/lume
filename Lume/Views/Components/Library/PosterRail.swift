@@ -8,6 +8,8 @@ struct PosterRail<Destination: Hashable, Content: View>: View {
     /// Overrides the role height for landscape cards such as Continue Watching.
     var rowHeight: CGFloat?
     var fitsContentHeight = false
+    /// tvOS: the title and the first card share the same sidebar handoff.
+    var onLeadingLeft: (() -> Void)?
     @ViewBuilder let content: () -> Content
     @Environment(\.posterPresentation) private var presentation
 
@@ -25,14 +27,8 @@ struct PosterRail<Destination: Hashable, Content: View>: View {
 
     private var rail: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                title.railHeadingStyle()
-                Spacer()
-                if let showAll {
-                    NavigationLink(value: showAll) { Text("Show All").font(.subheadline) }
-                }
-            }
-            .padding(.horizontal)
+            RailHeading(title: title, destination: showAll, onLeadingLeft: onLeadingLeft)
+                .padding(.horizontal)
             ScrollView(.horizontal, showsIndicators: false) {
                 cards
                     .padding(.horizontal)

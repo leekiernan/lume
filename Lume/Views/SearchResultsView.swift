@@ -209,21 +209,11 @@ struct SearchResultsView<Header: View>: View {
     // MARK: - Header
 
     private func header(_ title: LocalizedStringKey, showAll: SearchSection?) -> some View {
-        HStack {
-            Text(title)
-                .railHeadingStyle()
-            Spacer()
-            if let showAll {
-                NavigationLink(value: showAll) {
-                    Text("Show All")
-                        .font(.subheadline)
-                }
-            }
-        }
+        RailHeading(title: Text(title), destination: showAll)
         #if os(tvOS)
-        .padding(.horizontal, TVLayoutMetrics.contentInset)
+            .padding(.horizontal, TVLayoutMetrics.contentInset)
         #else
-        .padding(.horizontal)
+            .padding(.horizontal)
         #endif
     }
 }
