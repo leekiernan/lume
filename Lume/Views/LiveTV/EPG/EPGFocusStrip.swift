@@ -30,6 +30,8 @@
     import UIKit
 
     struct EPGFocusStrip: UIViewRepresentable {
+        @Environment(\.isEnabled) private var isEnabled
+
         /// Reflects the strip's real (engine) focus.
         @Binding var isFocused: Bool
         /// Whether a left move should leave the guide (channel hub) rather
@@ -55,6 +57,7 @@
         }
 
         private func apply(to view: ContainerView, context _: Context) {
+            view.strip.isFocusEnabled = isEnabled
             view.strip.onFocusChange = { focused in
                 Task { @MainActor in
                     isFocused = focused
@@ -137,11 +140,13 @@
             }
 
             override var canBecomeFocused: Bool {
-                isFocusEnabled && strip?.isEngineFocused == true
+                isFocusEnabled && strip?.isFocusEnabled == true && strip?.isEngineFocused == true
             }
         }
 
         final class StripView: UIView {
+            /// SwiftUI disables the page while its sidebar owns focus.
+            var isFocusEnabled = true
             var onFocusChange: ((Bool) -> Void)?
             var onMove: ((MoveCommandDirection) -> Void)?
             var onSelect: (() -> Void)?
@@ -178,7 +183,7 @@
             }
 
             override var canBecomeFocused: Bool {
-                true
+                isFocusEnabled
             }
 
             override func didUpdateFocus(in context: UIFocusUpdateContext, with coordinator: UIFocusAnimationCoordinator) {
@@ -193,7 +198,7 @@
             }
 
             override func shouldUpdateFocus(in context: UIFocusUpdateContext) -> Bool {
-                guard isEngineFocused, context.previouslyFocusedView === self else { return true }
+                guard isFocusEnabled, isEngineFocused, context.previouslyFocusedView === self else { return true }
                 // After a veto the engine synchronously retries with further
                 // candidates; without this the same press would fire a second
                 // action and let the retry carry real focus out of the guide.
@@ -237,6 +242,7 @@
             }
 
             @objc private func handleSelect() {
+                guard isFocusEnabled else { return }
                 guard !longPressFired else {
                     longPressFired = false
                     return
@@ -245,7 +251,7 @@
             }
 
             @objc private func handleLongSelect(_ recognizer: UILongPressGestureRecognizer) {
-                guard recognizer.state == .began else { return }
+                guard isFocusEnabled, recognizer.state == .began else { return }
                 longPressFired = true
                 onLongSelect?()
             }

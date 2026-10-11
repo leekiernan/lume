@@ -58,6 +58,7 @@ struct EPGGridScroller: View {
     @State private var selection: EPGSelection?
     @State private var scrollRequest: EPGScrollRequest?
     #if os(tvOS)
+        @Environment(BrowseSidebarState.self) private var sidebar: BrowseSidebarState?
         /// For the channel actions' favourite toggle.
         @Environment(\.modelContext) private var modelContext
         /// The channel whose actions the hub's long press raised.
@@ -123,16 +124,15 @@ struct EPGGridScroller: View {
         .onChange(of: surfaceFocused) { _, focused in
             if focused {
                 // Entering the guide lands on a channel — the hub. When the
-                // virtual focus survived (details sheet round-trip), the
+                // virtual focus survived (details sheet or Browse), the
                 // user's place is kept instead.
                 guard virtualFocus == nil else { return }
                 Task { @MainActor in
                     landOnChannel()
                 }
-            } else if selection == nil {
-                // Focus left towards the sidebar or the tab bar. A presented
-                // details sheet also steals real focus, but the user returns
-                // to the guide — keep their place for that round-trip.
+            } else if selection == nil, sidebar?.isPresented != true {
+                // Focus left the guide. Sheets and Browse are temporary
+                // handoffs: keep the virtual channel/cell for their return.
                 virtualFocus = nil
                 preferredX = nil
             }
@@ -304,7 +304,7 @@ struct EPGGridScroller: View {
             )
             .frame(width: metrics.channelColumnWidth)
             .frame(maxHeight: .infinity)
-            .focused($surfaceClaimsFocus)
+            .browseSidebarFocusTarget($surfaceClaimsFocus)
             .accessibilityLabel(Text(virtualFocusDescription))
             .onExitCommand(perform: menuAction)
             // The channel actions a long press offers everywhere else through a
@@ -327,8 +327,8 @@ struct EPGGridScroller: View {
                     onStartMultiView(row.stream)
                 }
             }
-            // Category changes and same-category returns both get a fresh
-            // owned request. Cancelled handoffs cannot acknowledge a new one.
+            // Category activation owns a fresh request. Closing Browse uses
+            // the existing surface's shared bookmark instead.
             .task(id: focusRequest?.id) {
                 guard let focusRequest else { return }
                 if await landTVFocus($surfaceClaimsFocus) { onDidClaimFocus(focusRequest) }
