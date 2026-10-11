@@ -11,7 +11,7 @@ struct RailHeading<Destination: Hashable>: View {
         Group {
             if let destination {
                 NavigationLink(value: destination) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: iconSpacing) {
                         title
                         ReadMoreIcon()
                             .frame(width: iconSize, height: iconSize)
@@ -34,9 +34,17 @@ struct RailHeading<Destination: Hashable>: View {
 
     private var iconSize: CGFloat {
         #if os(tvOS)
-            28
+            48
         #else
-            20
+            32
+        #endif
+    }
+
+    private var iconSpacing: CGFloat {
+        #if os(tvOS)
+            16
+        #else
+            12
         #endif
     }
 }

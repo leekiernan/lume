@@ -18,8 +18,8 @@ struct RailHeadingTests {
         let linked = try size(of: RailHeading(title: title, destination: "collection").fixedSize())
         // No trailing button, spacer or default button-style inset widens the
         // focusable title. tvOS uses the same heading with a larger icon.
-        #expect(linked.width == plain.width + 20 + 8)
-        #expect(linked.height == max(plain.height, 20))
+        #expect(linked.width == plain.width + 32 + 12)
+        #expect(linked.height == max(plain.height, 32))
     }
 
     @Test(arguments: [CGFloat(320), 768, 1200])
