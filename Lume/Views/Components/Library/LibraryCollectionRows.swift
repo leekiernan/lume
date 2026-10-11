@@ -70,7 +70,7 @@ let collectionRowFetchLimit = collectionPreviewLimit + 1
 
 // MARK: - Shared preview row
 
-/// A titled horizontal rail with a trailing "Show All" link into the full
+/// A titled horizontal rail whose heading links into the full
 /// grid. `showAll` is the navigation value the link pushes: a
 /// `LibraryCollection` here, a search section in `SearchView`.
 struct CollectionPreviewRow<Item: Identifiable & Hashable & WatchlistFavoritable, Destination: Hashable, Card: View>: View {
@@ -90,7 +90,7 @@ struct CollectionPreviewRow<Item: Identifiable & Hashable & WatchlistFavoritable
     @ViewBuilder let card: (Item) -> Card
 
     var body: some View {
-        PosterRail(title: Text(title), showAll: hasMore ? showAll : nil, groupsFocus: true) {
+        PosterRail(title: Text(title), showAll: hasMore ? showAll : nil, groupsFocus: true, onLeadingLeft: onLeadingLeft) {
             ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                 CatalogPosterLink(
                     item: item, animationNamespace: animationNamespace,

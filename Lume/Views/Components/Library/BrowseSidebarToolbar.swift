@@ -6,7 +6,7 @@
 //  default, so each platform needs somewhere to ask for it: a leading toolbar
 //  button on iOS / macOS / visionOS, and — since the Movies and Series pages
 //  carry no toolbar on tvOS (see `LibraryToolbar`) — a left press on a rail's
-//  leading card reveals it (`onLeadingEdgeLeft`).
+//  heading or leading card reveals it (`onLeadingEdgeLeft`).
 //
 
 import SwiftUI
@@ -42,7 +42,7 @@ extension View {
     }
 
     /// tvOS: fires when the user presses left on this view. Attached to a rail's
-    /// *leading* card only, so it means "left from the leftmost item" — a
+    /// heading or *leading* card only, so it means "left from the leftmost item" — a
     /// page-level handler fires on every left press, wherever focus sits, and
     /// would open the sidebar mid-row.
     @ViewBuilder

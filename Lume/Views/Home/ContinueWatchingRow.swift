@@ -79,7 +79,7 @@ struct ContinueWatchingRow: View {
         if !visible.isEmpty {
             PosterRail(title: Text("Continue Watching"), showAll: showAll,
                        groupsFocus: true, rowHeight: ContinueWatchingMetrics.rowHeight,
-                       fitsContentHeight: ContinueWatchingMetrics.fixedCardHeight == nil)
+                       fitsContentHeight: ContinueWatchingMetrics.fixedCardHeight == nil, onLeadingLeft: onLeadingLeft)
             {
                 ForEach(Array(visible.enumerated()), id: \.element.id) { index, item in
                     ContinueWatchingCell(
