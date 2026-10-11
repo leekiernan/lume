@@ -41,6 +41,9 @@
         private typealias FocusTarget = SportsDetailFocusTarget<GameDetailTab>
 
         @FocusState private var focus: FocusTarget?
+        /// Which column holds focus, wherever in it: most of the left column's
+        /// blocks (markets, timeline, table) aren't `focus` targets.
+        @FocusedValue(\.matchCentreColumn) private var focusedColumn
         @AppStorage(SportsSyncService.hideScoresKey) private var hideScoresSetting = false
         @State private var reveal = SportsScoreReveal.shared
 
@@ -107,8 +110,9 @@
         private static let channelColumnWidth: CGFloat = 520
 
         /// Once the header scrolls off, the tab bar is closer than its buttons,
-        /// so "up" would skip it. Reaching the tabs or the header scrolls the
-        /// column back as far as the score; the tabs stay on screen.
+        /// so "up" leaves the column without bringing the score back. Leaving
+        /// the column (for the tab bar or the channels) scrolls it to the top,
+        /// and reaching the tabs or the header scrolls back as far as the score.
         private var detailScroll: some View {
             ScrollViewReader { proxy in
                 ScrollView {
@@ -125,6 +129,11 @@
                 }
                 .scrollClipDisabled()
                 .focusSection()
+                .focusedValue(\.matchCentreColumn, .details)
+                .onChange(of: focusedColumn) { old, new in
+                    guard old == .details, new != .details else { return }
+                    withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(ScrollAnchor.header, anchor: .top) }
+                }
                 .onChange(of: focus) { _, target in
                     let anchor: (ScrollAnchor, UnitPoint)? = switch target {
                     case .summary, .follow: (.header, .top)
@@ -327,6 +336,7 @@
             }
             .padding(.vertical, 70)
             .focusSection()
+            .focusedValue(\.matchCentreColumn, .channels)
         }
 
         private var emptyChannels: some View {
@@ -496,6 +506,12 @@
         }
 
         // MARK: - Derived
+    }
+
+    enum MatchCentreColumn: Hashable { case details, channels }
+
+    extension FocusedValues {
+        @Entry var matchCentreColumn: MatchCentreColumn?
     }
 
     /// The header's per-team column, kept out of the struct body for length.
