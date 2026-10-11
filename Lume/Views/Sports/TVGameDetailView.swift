@@ -178,7 +178,10 @@
                     TVMatchCentreLeagueLine(fixture: fixture)
                 }
                 if fixture.hasTeams {
-                    matchup
+                    // One focus section, so "up" from the centred tabs reaches
+                    // the Follow buttons under each team instead of passing
+                    // between them; left and right move from one to the other.
+                    matchup.focusSection()
                 } else {
                     eventHeader
                 }
@@ -270,14 +273,21 @@
                     }
                 }
             case .scheduled, .postponed:
-                Text(fixture.headlineDate, format: fixture.startTimeIsTentative == true
-                    ? .dateTime.weekday(.abbreviated).day().month(.abbreviated)
-                    : .dateTime.hour().minute())
-                    .font(.system(size: 60, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
+                VStack(spacing: 8) {
+                    Text(fixture.headlineDate, format: fixture.startTimeIsTentative == true
+                        ? .dateTime.weekday(.abbreviated).day().month(.abbreviated)
+                        : .dateTime.hour().minute())
+                        .font(.system(size: 60, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                    Text(verbatim: fixture.kickoffDayText())
+                        .font(.system(size: 26, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.7))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
             }
         }
 
@@ -299,12 +309,12 @@
             return Button {
                 follows.toggle(team.id, kind: .team)
             } label: {
-                Label(following ? "Following" : "Follow", systemImage: following ? "star.fill" : "star")
-                    .font(.system(size: 24, weight: .semibold))
-                    .padding(.horizontal, 26)
-                    .padding(.vertical, 14)
-                    .foregroundStyle(following ? .yellow : .white)
-                    .background(Capsule().fill(.white.opacity(0.12)))
+                // The hub's pill chrome: solid white on focus. A fixed
+                // capsule left a focused "Follow" looking unfocused.
+                TVSportsPillChrome {
+                    Label(following ? "Following" : "Follow", systemImage: following ? "star.fill" : "star")
+                        .font(.system(size: 24, weight: .semibold))
+                }
             }
             .buttonStyle(TVCardButtonStyle(focusScale: 1.05))
             .focused($focus, equals: .follow(team.id))
