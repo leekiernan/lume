@@ -121,6 +121,9 @@
                         if let bouts = fixture.bouts, !bouts.isEmpty {
                             TVFightCardSection(bouts: bouts, hidesScores: hidesScores)
                         }
+                        if let circuit = RaceCircuitSummary(fixture: fixture) {
+                            TVRaceCircuitSection(summary: circuit, hidesScores: hidesScores)
+                        }
                         TVGameDetailMarkets(detail: detailLoad.detail, fixture: fixture, hidesScores: hidesScores)
                         detailTabsSection.id(ScrollAnchor.tabs)
                         standingsSection

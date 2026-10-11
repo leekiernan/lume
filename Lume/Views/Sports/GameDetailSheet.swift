@@ -51,6 +51,12 @@ struct GameDetailSheet: View {
         store.snapshot(for: fixture.leagueId)?.fixtures.first { $0.id == fixture.id }?.bouts ?? fixture.bouts
     }
 
+    /// The race weekend as the live poll last saw it; a session card's id
+    /// carries its session, the store's weekend doesn't.
+    private var liveWeekend: SportsFixture? {
+        store.snapshot(for: fixture.leagueId)?.fixtures.first { $0.id == fixture.eventId }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -58,6 +64,9 @@ struct GameDetailSheet: View {
                     header
                     if let bouts = liveBouts, !bouts.isEmpty {
                         FightCardSection(bouts: bouts, hidesScores: hidesScores)
+                    }
+                    if let circuit = RaceCircuitSummary(fixture: fixture, sessions: liveWeekend?.sessions) {
+                        RaceCircuitCard(summary: circuit, hidesScores: hidesScores)
                     }
                     GameDetailMarkets(detail: detailLoad.detail, fixture: fixture, hidesScores: hidesScores)
                     if fixture.status.state != .final {
