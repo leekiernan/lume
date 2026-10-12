@@ -103,8 +103,10 @@ struct SportsProxyResolverTests {
         #expect(result["401"]?.allSatisfy { !$0.isConfident } == true)
     }
 
+    /// A proxy-only channel-name suggestion is never one-tap; the same channel
+    /// found by the local matcher keeps the confidence it has without a proxy.
     @Test(arguments: [false, true])
-    func `untimed evidence falls back and never authorizes automatic playback alone`(_ namedForFixture: Bool) async throws {
+    func `untimed evidence never authorizes automatic playback alone`(_ namedForFixture: Bool) async throws {
         let helpers = LumeSportsClientTests()
         var candidate = helpers.candidate()
         if namedForFixture { candidate["name"] = "Arsenal v Leeds United" }
@@ -119,7 +121,7 @@ struct SportsProxyResolverTests {
         }
         let result = await SportsChannelResolver.resolve(container: container, fixtures: [helpers.fixture()], proxyClient: client)
         #expect(result["401"]?.first?.source == .channelName)
-        #expect(result["401"]?.first?.isConfident == false)
+        #expect(result["401"]?.first?.isConfident == namedForFixture)
     }
 
     @Test func `remembered pick remains above proxy matching`() async throws {
@@ -134,13 +136,33 @@ struct SportsProxyResolverTests {
         #expect(result["401"]?.first?.stream.name == "My favourite")
     }
 
-    @Test func `covered playlist does not add local guide guesses`() async throws {
+    /// The proxy has no aliases, so a playlist it answers for still runs the
+    /// local matcher: "Man Utd v Spurs"-style guide lines only it can read.
+    @Test func `a playlist the proxy answers still gets the local matches it missed`() async throws {
         let (container, playlist, client, helpers, _) = try setup()
         container.mainContext.insert(stream(playlist, id: 456, name: "Other channel", epg: "other.uk"))
         container.mainContext.insert(listing(epg: "other.uk", kickoff: helpers.now))
         try container.mainContext.save()
         let result = await SportsChannelResolver.resolve(container: container, fixtures: [helpers.fixture()], proxyClient: client)
-        #expect(result["401"]?.map(\.stream.id) == [CatalogID.content(playlist.id, kind: .live, key: 123)])
+        let ids = Set(result["401"]?.map(\.stream.id) ?? [])
+        #expect(ids == Set([123, 456].map { CatalogID.content(playlist.id, kind: .live, key: $0) }))
+        #expect(result["401"]?.allSatisfy { !$0.isConfident } == true)
+    }
+
+    @Test func `provider headline evidence ranks above a supplement's`() async throws {
+        let helpers = LumeSportsClientTests()
+        var provider = helpers.candidate(streamID: 456)
+        provider["epg_id"] = "provider.uk"
+        provider["name"] = "Provider Sports"
+        var evidence = try #require(provider["evidence"] as? [String: Any])
+        evidence["source"] = "provider"
+        provider["evidence"] = evidence
+        let body = try helpers.body(items: [helpers.item(candidates: [helpers.candidate(), provider])])
+        let (container, playlist, client, _, _) = try setup(body: body, helpers: helpers)
+        container.mainContext.insert(stream(playlist, id: 456, name: "Provider Sports", epg: "provider.uk"))
+        try container.mainContext.save()
+        let result = await SportsChannelResolver.resolve(container: container, fixtures: [helpers.fixture()], proxyClient: client)
+        #expect(result["401"]?.map(\.stream.name) == ["Provider Sports", "Sky Sports"])
     }
 
     @Test func `cache proof changes when proxy data becomes ready or disappears`() throws {

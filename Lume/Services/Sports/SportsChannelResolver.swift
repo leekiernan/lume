@@ -199,31 +199,28 @@ nonisolated enum SportsChannelResolver {
             // Pass 1 — candidate channels across all playlists.
             let streams = (try? context.fetch(candidateStreamDescriptor(restriction: restriction))) ?? []
             guard !streams.isEmpty, !Task.isCancelled else { return cached }
-            let (channels, _) = buildChannels(from: streams)
+            let (channels, channelIds) = buildChannels(from: streams)
             let plans = proxyPlans(fixtures: fixtures, channels: channels, broadcasts: broadcasts)
-            let scope = proxyLocalScope(fixtures: fixtures, channels: channels, plans: plans)
 
             // Pass 2 — the guide around each kickoff, not the span between the
             // earliest and the latest one: a week of fixtures read the whole
             // week's guide (210k rows on a large provider) to match 200 games.
-            let guide = buildGuide(context: context, channelIds: scope.channelIDs, windows: guideWindows(for: scope.fixtures))
+            let guide = buildGuide(context: context, channelIds: channelIds, windows: guideWindows(for: fixtures))
             guard !Task.isCancelled else { return cached }
-            let index = CandidateIndex(channels: channels, guide: guide, pickIndex: pickIndex, localPlaylists: scope.playlists)
+            let index = CandidateIndex(channels: channels, guide: guide, pickIndex: pickIndex)
 
             // Pass 3 — match each fixture in Swift, against only the channels
             // that could possibly match it.
             var result: [String: [ResolvedChannel]] = [:]
             for fixture in fixtures {
                 guard !Task.isCancelled else { return cached }
-                let plan = plans[fixture.id] ?? ProxyPlan()
                 let local = resolveOne(
                     fixture: fixture,
                     channels: channels,
                     guide: guide,
-                    index: index,
-                    proxyCoveredPlaylists: plan.coveredPlaylists
+                    index: index
                 )
-                result[fixture.id] = mergeProxy(plan, local: local, fixture: fixture, pickIndex: pickIndex)
+                result[fixture.id] = mergeProxy(plans[fixture.id] ?? ProxyPlan(), local: local, fixture: fixture, pickIndex: pickIndex)
             }
             ResolveCache.shared.store(result, for: fixtures, generation: generation, proxyKeys: proxyKeys)
             return cached.merging(result) { _, fresh in fresh }
@@ -349,21 +346,18 @@ nonisolated enum SportsChannelResolver {
         let byPickKey: [String: [Int]]
         let pickIndex: [String: String]
 
-        init(channels: [Channel], guide: [String: [NormalizedCandidate]], pickIndex: [String: String], localPlaylists: Set<UUID>) {
+        init(channels: [Channel], guide: [String: [NormalizedCandidate]], pickIndex: [String: String]) {
             var byName: [String: [Int]] = [:]
             var byEPGId: [String: [Int]] = [:]
             var byPick: [String: [Int]] = [:]
             for (offset, channel) in channels.enumerated() {
-                // Picks still apply household-wide; word matching is needed
-                // only for playlists not fully covered by timed proxy evidence.
-                byPick[channel.pickKey, default: []].append(offset)
-                guard localPlaylists.contains(channel.playlistID) else { continue }
                 for word in Set(Self.words(channel.nameHaystack)) {
                     byName[word, default: []].append(offset)
                 }
                 if let cid = channel.summary.epgChannelId, guide[cid] != nil {
                     byEPGId[cid, default: []].append(offset)
                 }
+                byPick[channel.pickKey, default: []].append(offset)
             }
             var byGuide: [String: Set<Int>] = [:]
             for (cid, offsets) in byEPGId {
@@ -409,8 +403,7 @@ nonisolated enum SportsChannelResolver {
         fixture: SportsFixture,
         channels: [Channel],
         guide: [String: [NormalizedCandidate]],
-        index: CandidateIndex,
-        proxyCoveredPlaylists: Set<UUID> = []
+        index: CandidateIndex
     ) -> [ResolvedChannel] {
         // A race session has no two teams; it matches on series and session.
         // When nothing carries the series, a channel named for the event itself
@@ -439,11 +432,6 @@ nonisolated enum SportsChannelResolver {
             ? index.candidates(seedTokens: target?.seedTokens ?? [], competitionKey: context.competitionKey)
             : Array(channels.indices)
         for offset in candidates {
-            let channel = channels[offset]
-            // Preserve explicit picks even when this playlist's matching was
-            // offloaded. Other channels from it must have proxy evidence.
-            if proxyCoveredPlaylists.contains(channel.playlistID),
-               index.pickIndex[SportsChannelPicks.compositeKey(competitionKey: fixture.leagueId, channelKey: channel.pickKey)] == nil { continue }
             if let match = matchChannel(channels[offset], context: context, guide: guide, pickIndex: index.pickIndex),
                !isRace || match.source == .channelName
             {

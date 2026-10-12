@@ -3,16 +3,12 @@ import OSLog
 import SwiftData
 
 nonisolated extension SportsChannelResolver {
+    /// What the proxy adds to one fixture. It never replaces local matching:
+    /// the proxy is stricter (no aliases, whole names only), so a playlist it
+    /// answers for can still hold channels only the local matcher finds.
     struct ProxyPlan {
         var channels: [ResolvedChannel] = []
-        var coveredPlaylists: Set<UUID> = []
         var suggestionIDs: Set<String> = []
-    }
-
-    struct ProxyLocalScope {
-        let fixtures: [SportsFixture]
-        let channelIDs: Set<String>
-        let playlists: Set<UUID>
     }
 
     static func validatedProxyBroadcasts(
@@ -37,28 +33,10 @@ nonisolated extension SportsChannelResolver {
         let plans = Dictionary(uniqueKeysWithValues: fixtures.map {
             ($0.id, proxyPlan(fixture: $0, visible: visible, broadcasts: broadcasts))
         })
-        let covered = plans.values.count(where: { !$0.coveredPlaylists.isEmpty })
+        let covered = plans.values.count(where: { $0.channels.contains { $0.matchedStart != nil } })
         let offered = plans.values.reduce(0) { $0 + $1.channels.count }
         Logger.network.info("Sports proxy: \(covered) of \(fixtures.count) fixtures have timed matches; \(offered) visible candidates")
         return plans
-    }
-
-    static func proxyLocalScope(fixtures: [SportsFixture], channels: [Channel], plans: [String: ProxyPlan]) -> ProxyLocalScope {
-        let playlists = Set(channels.map(\.playlistID))
-        let localFixtures = fixtures.filter { plans[$0.id]?.coveredPlaylists.isSuperset(of: playlists) != true }
-        var counts: [UUID: Int] = [:]
-        for plan in plans.values {
-            for playlistID in plan.coveredPlaylists {
-                counts[playlistID, default: 0] += 1
-            }
-        }
-        // O(channels + fixtures * playlists), not O(channels * fixtures).
-        let needsLocal = playlists.filter { counts[$0, default: 0] < fixtures.count }
-        let ids = channels.compactMap { channel -> String? in
-            guard needsLocal.contains(channel.playlistID), let id = channel.summary.epgChannelId, !id.isEmpty else { return nil }
-            return id
-        }
-        return ProxyLocalScope(fixtures: localFixtures, channelIDs: Set(ids), playlists: needsLocal)
     }
 
     static func proxySources(container: ModelContainer, fixtures: [SportsFixture]) -> [LumeProxySource] {
@@ -114,7 +92,6 @@ nonisolated extension SportsChannelResolver {
         var plan = ProxyPlan()
         for (playlistID, items) in broadcasts {
             guard let item = items[fixture.id], item.matches(fixture), item.truncated != true else { continue }
-            var timed = false
             for candidate in item.candidates ?? [] {
                 let id = CatalogID.content(playlistID, kind: .live, key: candidate.streamID)
                 guard candidate.streamID > 0, let channel = visible[id], channel.playlistID == playlistID,
@@ -124,25 +101,29 @@ nonisolated extension SportsChannelResolver {
                       candidate.evidence.isValid(kickoff: fixture.startDate) else { continue }
                 let evidence = candidate.evidence
                 let source: ResolvedChannelSource
+                let score: Int
                 switch evidence.strength {
-                case "explicit_pairing": source = .epgTitleSubtitle
-                case "description_pairing": source = .epgDescription
+                case "explicit_pairing":
+                    // A reviewed supplement backs a provider guide that didn't
+                    // name the fixture; the provider's own headline ranks above it.
+                    source = .epgTitleSubtitle
+                    score = evidence.source == "provider" ? 4 : 3
+                case "description_pairing":
+                    source = .epgDescription
+                    score = 1
                 default:
                     source = .channelName
+                    score = nameMatchScore
                     plan.suggestionIDs.insert(id)
                 }
-                timed = timed || evidence.start != nil
                 // Free-form evidence may contain scores. Keep it out of every
                 // detail/player surface, rather than relying on each to hide it.
                 plan.channels.append(ResolvedChannel(
                     stream: channel.summary, playlistID: playlistID, matchedTitle: nil,
-                    matchedStart: evidence.start, score: source == .epgTitleSubtitle ? 4 : 1,
+                    matchedStart: evidence.start, score: score,
                     source: source, isConfident: false
                 ))
             }
-            // Empty/post-filter-empty and untimed-only answers are not proof
-            // of absence: run the ordinary matcher for this playlist instead.
-            if timed { plan.coveredPlaylists.insert(playlistID) }
         }
         return plan
     }
@@ -163,9 +144,10 @@ nonisolated extension SportsChannelResolver {
                 suggestions.remove(candidate.id)
             }
             if let existing = byID[candidate.id], existing.source.rank <= candidate.source.rank {
-                // Repeating the same untimed name in the local matcher is not
-                // independent timed evidence. A guide hit or explicit pick is.
-                if existing.source != .channelName { suggestions.remove(candidate.id) }
+                // The local matcher found this channel on its own, so it keeps
+                // the confidence it has without the proxy. Only a channel-name
+                // suggestion the proxy alone offers is held back from one-tap.
+                suggestions.remove(candidate.id)
                 continue
             }
             byID[candidate.id] = candidate
