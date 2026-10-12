@@ -133,10 +133,21 @@ nonisolated extension SportsChannelResolver {
     ) -> [ResolvedChannel] {
         var byID = Dictionary(local.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         var suggestions = plan.suggestionIDs
-        let headlinePriorities = Dictionary(
+        var headlinePriorities = Dictionary(
             plan.channels.filter { $0.source == .epgTitleSubtitle }.map { ($0.id, $0.score) },
             uniquingKeysWith: max
         )
+        // The device's guide merges provider and supplement listings, so a
+        // local hit carries no provenance. One on the programme the proxy
+        // judged (same start) is that same slot: the proxy found no provider
+        // pairing there, so its priority stands. A local hit on a different
+        // programme is independent evidence and keeps the ordinary priority.
+        for proxied in plan.channels where headlinePriorities[proxied.id] != nil {
+            guard let existing = byID[proxied.id], existing.source == .epgTitleSubtitle,
+                  let localStart = existing.matchedStart, let proxyStart = proxied.matchedStart,
+                  abs(localStart.timeIntervalSince(proxyStart)) >= 1 else { continue }
+            headlinePriorities.removeValue(forKey: proxied.id)
+        }
         for var candidate in plan.channels {
             let key = SportsChannelPicks.channelKey(epgChannelId: candidate.stream.epgChannelId, name: candidate.stream.name)
             if pickIndex[SportsChannelPicks.compositeKey(competitionKey: fixture.leagueId, channelKey: key)] != nil {

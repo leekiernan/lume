@@ -177,6 +177,31 @@ struct SportsProxyResolverTests {
         #expect(result["401"]?.allSatisfy { !$0.isConfident } == true)
     }
 
+    /// The proxy's supplement evidence covers one programme. A local headline
+    /// hit on a different programme of that channel is independent evidence,
+    /// so the supplement priority doesn't demote it below the provider's.
+    @Test func `a local headline on another programme keeps its ordinary priority`() async throws {
+        let helpers = LumeSportsClientTests()
+        var provider = helpers.candidate(streamID: 456)
+        provider["epg_id"] = "provider.uk"
+        provider["name"] = "Provider Sports"
+        var evidence = try #require(provider["evidence"] as? [String: Any])
+        evidence["source"] = "provider"
+        provider["evidence"] = evidence
+        let body = try helpers.body(items: [helpers.item(candidates: [helpers.candidate(), provider])])
+        let (container, playlist, client, _, _) = try setup(body: body, helpers: helpers)
+        container.mainContext.insert(stream(playlist, id: 456, name: "Provider Sports", epg: "provider.uk"))
+        // Half an hour earlier than the supplement programme the proxy judged.
+        let earlier = listing(epg: "sky.uk", kickoff: helpers.now.addingTimeInterval(-1800))
+        earlier.title = "Live football"
+        earlier.subtitle = "Arsenal v Leeds United"
+        container.mainContext.insert(earlier)
+        try container.mainContext.save()
+        let result = await SportsChannelResolver.resolve(container: container, fixtures: [helpers.fixture()], proxyClient: client)
+        #expect(result["401"]?.map(\.stream.name) == ["Sky Sports", "Provider Sports"])
+        #expect(result["401"]?.allSatisfy { !$0.isConfident } == true)
+    }
+
     @Test func `cache proof changes when proxy data becomes ready or disappears`() throws {
         let helpers = LumeSportsClientTests()
         let batch = try #require(try LumeSportsBatch.decode(Data(helpers.body().utf8)))

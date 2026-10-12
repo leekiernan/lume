@@ -61,9 +61,13 @@ channel both sides find keeps the stronger tier. Proxy title evidence sits in
 the strongest guide tier, description evidence in the description tier. Within
 the title tier, verified provider evidence outranks a reviewed supplement
 (priority 4 against 3), independently of the local title/subtitle field score.
-That provenance priority survives deduplication when the local merged guide
-also matches the channel. Local matches without proxy provenance keep the
-ordinary priority (4); no supplement origin is inferred from their text.
+The device's guide merges provider and supplement listings, so a local hit
+carries no provenance of its own. A local hit on the programme the proxy
+judged (the same start) is that same slot, where the proxy found no provider
+pairing, so the supplement priority survives deduplication. A local hit on a
+different programme of that channel is independent evidence and keeps the
+ordinary priority (4), as do local matches without proxy provenance; no
+supplement origin is inferred from their text.
 A channel independently found by the local matcher is not subject to the
 proxy-only untimed-suggestion guard. This does not preserve its previous
 confidence: confidence is recomputed across the entire merged answer. Another
@@ -107,10 +111,11 @@ fallback after optional reads finish or fail.
 `SportsProxyResolverTests` cover negotiation, batching, freshness, malformed
 items, fixture identity, account-scoped URLs, cancellation, collisions between
 playlists, restrictions, fallback, merging with local matches, supplement
-ranking (including overlapping local guide evidence), capability failure
-classification, host and account cooldowns, picks and merged confidence. Existing resolver
-and capability suites remain regression coverage. Run them on an iOS 26.4+
-simulator (never tvOS) with the shared SPM clone documented in AGENTS.md.
+ranking (including local guide evidence on the same or another programme),
+capability failure classification, host and account cooldowns, picks and
+merged confidence. Existing resolver and capability suites remain regression
+coverage. Run them on an iOS 26.4+ simulator (never tvOS) with the shared SPM
+clone documented in AGENTS.md.
 
 For a household check, enable football competitions on the proxy and open a
 fixture with published evidence. Its access log should show authenticated
@@ -118,9 +123,10 @@ fixture with published evidence. Its access log should show authenticated
 fixtures with timed matches and visible candidates on uncached resolves.
 Confirm channel choices, then hide or restrict a channel and check it
 disappears. Stop the proxy (or disable sports), allow the 60-second sports
-cache to expire, and reopen: the original local resolver must remain usable. Empty proxy candidates are not
-an authoritative “Not in your channels”. API correctness tests do not establish
-real-world broadcast precision; review the actual candidates before release.
+cache to expire, and reopen: the original local resolver must remain usable.
+Empty proxy candidates are not an authoritative “Not in your channels”. API
+correctness tests do not establish real-world broadcast precision; review the
+actual candidates before release.
 
 The proxy contract and matching policy live in the proxy repository's
 `docs/sports-api.md` and `docs/sports-matching.md`. No provider credentials or
