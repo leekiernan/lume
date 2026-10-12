@@ -68,6 +68,7 @@ nonisolated extension SportsChannelResolver {
         let excludedCategoryIDs: Set<String>
         let picks: [String: String]
         let playlistSyncs: [UUID: Date]
+        let playlistSources: [UUID: String]
         let guideSyncs: [UUID: UInt64]
         let hiddenChannels: Int
 
@@ -81,6 +82,9 @@ nonisolated extension SportsChannelResolver {
             self.picks = picks
             let playlists = (try? context.fetch(FetchDescriptor<Playlist>())) ?? []
             playlistSyncs = Dictionary(uniqueKeysWithValues: playlists.map { ($0.id, $0.lastSyncDate ?? .distantPast) })
+            playlistSources = Dictionary(uniqueKeysWithValues: playlists.compactMap { playlist in
+                LumeProxySource(playlist: playlist).map { (playlist.id, $0.identity) }
+            })
             let sources = (try? context.fetch(FetchDescriptor<EPGSource>())) ?? []
             guideSyncs = Dictionary(uniqueKeysWithValues: sources.map { ($0.id, $0.committedGeneration) })
             hiddenChannels = (try? context.fetchCount(FetchDescriptor<LiveStream>(predicate: #Predicate { $0.isHidden }))) ?? 0
@@ -103,7 +107,11 @@ nonisolated extension SportsChannelResolver {
 
         /// A fixture's answer depends on its kickoff as well as its identity.
         static func key(for fixture: SportsFixture) -> String {
-            "\(fixture.id)|\(fixture.headlineDate.timeIntervalSince1970)"
+            key(for: fixture, proxyKey: nil)
+        }
+
+        static func key(for fixture: SportsFixture, proxyKey: Int?) -> String {
+            "\(fixture.id)|\(fixture.headlineDate.timeIntervalSince1970)|\(proxyKey.map(String.init) ?? "local")"
         }
 
         /// The cached answers for `fixtures` under `generation`, or none when the
@@ -111,7 +119,8 @@ nonisolated extension SportsChannelResolver {
         func lookup(
             _ fixtures: [SportsFixture],
             generation: CacheGeneration,
-            now: Date = Date()
+            now: Date = Date(),
+            proxyKeys: [String: Int] = [:]
         ) -> [String: [ResolvedChannel]] {
             state.withLock { state in
                 guard state.generation == generation, now.timeIntervalSince(state.createdAt) < Self.lifetime else {
@@ -120,7 +129,7 @@ nonisolated extension SportsChannelResolver {
                 }
                 var hits: [String: [ResolvedChannel]] = [:]
                 for fixture in fixtures {
-                    if let cached = state.results[Self.key(for: fixture)] {
+                    if let cached = state.results[Self.key(for: fixture, proxyKey: proxyKeys[fixture.id])] {
                         hits[fixture.id] = cached
                     }
                 }
@@ -133,13 +142,14 @@ nonisolated extension SportsChannelResolver {
         func store(
             _ results: [String: [ResolvedChannel]],
             for fixtures: [SportsFixture],
-            generation: CacheGeneration
+            generation: CacheGeneration,
+            proxyKeys: [String: Int] = [:]
         ) {
             state.withLock { state in
                 guard state.generation == generation else { return }
                 for fixture in fixtures {
                     if let resolved = results[fixture.id] {
-                        state.results[Self.key(for: fixture)] = resolved
+                        state.results[Self.key(for: fixture, proxyKey: proxyKeys[fixture.id])] = resolved
                     }
                 }
             }

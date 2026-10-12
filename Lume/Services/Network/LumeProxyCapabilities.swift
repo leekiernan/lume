@@ -8,10 +8,11 @@ import SwiftData
 nonisolated struct LumeProxyCapabilities: Decodable, Equatable {
     let version: Int
     let metadata: LumeProxyMetadataCapability?
+    let sports: LumeProxySportsCapability?
 
     enum CodingKeys: String, CodingKey {
         case version = "v"
-        case metadata
+        case metadata, sports
     }
 
     init(from decoder: Decoder) throws {
@@ -20,6 +21,7 @@ nonisolated struct LumeProxyCapabilities: Decodable, Equatable {
         // A malformed/unknown optional feature must not enable that route or
         // break unrelated features of an otherwise recognised envelope.
         metadata = try? container.decode(LumeProxyMetadataCapability.self, forKey: .metadata)
+        sports = try? container.decode(LumeProxySportsCapability.self, forKey: .sports)
     }
 
     var metadataBatchSize: Int? {
@@ -31,6 +33,29 @@ nonisolated struct LumeProxyCapabilities: Decodable, Equatable {
     /// is read; a stray `mdblist` block from another producer is ignored.
     var offersRatings: Bool {
         metadataBatchSize != nil && metadata?.groups?.contains("ratings") == true
+    }
+
+    var sportsBatchSize: Int? {
+        guard version == 1, let sports, sports.version == 1, sports.matcherVersion == 3,
+              sports.source == "espn", sports.groups.contains("broadcasts"), sports.maxBatchSize > 0 else { return nil }
+        return min(sports.maxBatchSize, 50)
+    }
+}
+
+/// Independently negotiated: a sports-only proxy need not offer title metadata.
+nonisolated struct LumeProxySportsCapability: Decodable, Equatable {
+    let version: Int
+    let matcherVersion: Int
+    let source: String
+    let competitions: [String]
+    let maxBatchSize: Int
+    let groups: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case version = "v"
+        case matcherVersion = "matcher_v"
+        case maxBatchSize = "max_batch_size"
+        case source, competitions, groups
     }
 }
 
@@ -101,15 +126,22 @@ actor LumeProxyCapabilityStore {
         }
     }
 
+    /// Keep availability compatible for existing consumers, but distinguish
+    /// server outages from account/payload failures for host-wide backoff.
+    struct Negotiation {
+        let state: State
+        var hostDown = false
+    }
+
     private struct Entry {
         let identity: String
-        let state: State
+        let negotiation: Negotiation
         let expiresAt: Date
     }
 
     private struct Flight {
         let id = UUID()
-        let task: Task<State, Never>
+        let task: Task<Negotiation, Never>
     }
 
     private let session: URLSession
@@ -125,13 +157,17 @@ actor LumeProxyCapabilityStore {
     /// optional probe. Full sync can bypass the cache, but never an in-flight
     /// request. Unavailability is short-lived and never authorises metadata.
     func capabilities(for source: LumeProxySource, refresh: Bool = false, now: Date = Date()) async throws -> State {
+        try await negotiation(for: source, refresh: refresh, now: now).state
+    }
+
+    func negotiation(for source: LumeProxySource, refresh: Bool = false, now: Date = Date()) async throws -> Negotiation {
         try Task.checkCancellation()
         currentIdentity[source.playlistID] = source.identity
         if let entry = entries[source.playlistID], entry.identity != source.identity {
             entries.removeValue(forKey: source.playlistID)
         }
         if !refresh, let entry = entries[source.playlistID], now < entry.expiresAt {
-            return entry.state
+            return entry.negotiation
         }
 
         let key = source.playlistID.uuidString + source.identity
@@ -143,7 +179,7 @@ actor LumeProxyCapabilityStore {
             flight = Flight(task: Task { await Self.fetch(source.capabilitiesURL, session: session) })
             inFlight[key] = flight
         }
-        let state = await flight.task.value
+        let result = await flight.task.value
         if inFlight[key]?.id == flight.id {
             inFlight.removeValue(forKey: key)
         }
@@ -151,9 +187,9 @@ actor LumeProxyCapabilityStore {
         // new account's cached capabilities. Cancellation never certifies data.
         try Task.checkCancellation()
         if currentIdentity[source.playlistID] == source.identity {
-            entries[source.playlistID] = Entry(identity: source.identity, state: state, expiresAt: now.addingTimeInterval(state.cacheLifetime))
+            entries[source.playlistID] = Entry(identity: source.identity, negotiation: result, expiresAt: now.addingTimeInterval(result.state.cacheLifetime))
         }
-        return state
+        return result
     }
 
     private static func makeSession() -> URLSession {
@@ -165,24 +201,25 @@ actor LumeProxyCapabilityStore {
         return URLSession(configuration: config)
     }
 
-    private static func fetch(_ url: URL, session: URLSession) async -> State {
+    private static func fetch(_ url: URL, session: URLSession) async -> Negotiation {
         do {
             let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 3)
             let (data, response) = try await session.data(for: request)
-            guard let response = response as? HTTPURLResponse else { return .unavailable }
+            guard let response = response as? HTTPURLResponse else { return Negotiation(state: .unavailable) }
             if response.statusCode == 404 {
                 Logger.network.info("Proxy capabilities: unsupported")
-                return .unsupported
+                return Negotiation(state: .unsupported)
             }
+            if response.statusCode >= 500 { return Negotiation(state: .unavailable, hostDown: true) }
             guard response.statusCode == 200, data.count <= 65536,
-                  let capabilities = try? JSONDecoder().decode(LumeProxyCapabilities.self, from: data) else { return .unavailable }
-            guard capabilities.version == 1 else { return .unsupported }
+                  let capabilities = try? JSONDecoder().decode(LumeProxyCapabilities.self, from: data) else { return Negotiation(state: .unavailable) }
+            guard capabilities.version == 1 else { return Negotiation(state: .unsupported) }
             let batchSize = capabilities.metadataBatchSize ?? 0
             Logger.network.info("Proxy capabilities: v1; metadata batch limit=\(batchSize, privacy: .public)")
-            return .supported(capabilities)
+            return Negotiation(state: .supported(capabilities))
         } catch {
             // Do not log URLs/errors: optional API errors can contain credentials.
-            return .unavailable
+            return Negotiation(state: .unavailable, hostDown: true)
         }
     }
 }

@@ -73,6 +73,7 @@ struct LumeProxyCapabilityTests {
     func `transient HTTP failure is unavailable and retries on a short schedule`(_ status: Int) async throws {
         let (_, source, store, host) = try fixture(body: "", status: status)
         #expect(try await store.capabilities(for: source, now: now) == .unavailable)
+        #expect(try await store.negotiation(for: source, now: now).hostDown == (status >= 500))
         StubURLProtocol.register(host: host, pathSuffix: "/lume/v1/capabilities", response: .init(body: valid))
         #expect(try await store.capabilities(for: source, now: now.addingTimeInterval(59)) == .unavailable)
         guard case .supported = try await store.capabilities(for: source, now: now.addingTimeInterval(60)) else {
@@ -86,6 +87,7 @@ struct LumeProxyCapabilityTests {
     func `malformed or oversized response cannot enable metadata`(_ body: String) async throws {
         let (_, source, store, _) = try fixture(body: body)
         #expect(try await store.capabilities(for: source, now: now) == .unavailable)
+        #expect(try await !store.negotiation(for: source, now: now).hostDown)
     }
 
     @Test func `network failure is unavailable rather than unsupported`() async throws {
@@ -94,6 +96,7 @@ struct LumeProxyCapabilityTests {
         playlist.serverURL = "https://\(UUID().uuidString).example.com"
         let source = try #require(LumeProxySource(playlist: playlist))
         #expect(try await store.capabilities(for: source, now: now) == .unavailable)
+        #expect(try await store.negotiation(for: source, now: now).hostDown)
     }
 
     @Test func `unknown envelope version is unsupported`() async throws {
