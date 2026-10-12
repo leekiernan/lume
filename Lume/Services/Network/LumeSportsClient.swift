@@ -26,6 +26,7 @@ actor LumeSportsClient {
     private var cache: [URL: Cached] = [:]
     private var order: [URL] = []
     private var inFlight: [URL: Flight] = [:]
+    private var failures: [String: Date] = [:]
 
     init(session: URLSession? = nil, capabilities: LumeProxyCapabilityStore = .shared) {
         let configuration = URLSessionConfiguration.ephemeral
@@ -41,6 +42,9 @@ actor LumeSportsClient {
         source: LumeProxySource, fixtures: [SportsFixture], now: Date = Date()
     ) async throws -> [String: LumeSportsBroadcast] {
         try Task.checkCancellation()
+        failures = failures.filter { now < $0.value }
+        if failures.count > 64 { failures.removeAll() }
+        if failures[source.identity] != nil { return [:] }
         var groups: [String: [SportsFixture]] = [:]
         for fixture in fixtures {
             if let competition = fixture.proxyCompetition { groups[competition, default: []].append(fixture) }
@@ -58,8 +62,14 @@ actor LumeSportsClient {
                 guard let url = source.sportsURL(competition: competition, ids: chunk) else { continue }
                 let batch = await read(url, now: now)
                 try Task.checkCancellation()
+                guard let batch else {
+                    // An optional endpoint outage must not cost one timeout per
+                    // batch/surface before we can run the local guide matcher.
+                    failures[source.identity] = now.addingTimeInterval(10)
+                    return result
+                }
                 let requested = fixtures.filter { chunk.contains($0.eventId) }
-                result.merge(batch?.broadcasts(for: requested, competition: competition, now: now) ?? [:]) { _, new in new }
+                result.merge(batch.broadcasts(for: requested, competition: competition, now: now)) { _, new in new }
             }
         }
         return result

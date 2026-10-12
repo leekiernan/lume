@@ -60,7 +60,10 @@ The existing shared capability cache is reused. Sports reads coalesce identical
 in-flight batches; their process-local cache is bounded to 16 batches and a
 16 MiB input-byte budget. Ready responses are reused for at most 60 seconds,
 never past publication expiry. Pending/failures retry after 10 seconds. Requests
-have a 3-second request / 5-second resource timeout. No authenticated URLs or
+have a 3-second request / 5-second resource timeout. An endpoint/network failure
+also cools down its source for 10 seconds across batches and surfaces, so an
+outage cannot charge one timeout per batch before local matching starts.
+No authenticated URLs or
 free-form evidence are logged or persisted by the sports client.
 
 The resolver's ten-minute cache also keys each fixture by its proxy evidence.
@@ -83,7 +86,8 @@ fixture with published evidence. Its access log should show authenticated
 `/lume/v1/sports/broadcasts` reads. The app logs a `Sports proxy:` summary of
 fixtures with timed matches and visible candidates on uncached resolves.
 Confirm channel choices, then hide/restrict a
-channel and check it disappears. Stop the proxy (or disable sports) and reopen:
+channel and check it disappears. Stop the proxy (or disable sports), allow the
+60-second sports cache to expire, and reopen:
 the original local resolver must remain usable. Empty proxy candidates are not
 an authoritative “Not in your channels”. API correctness tests do not establish
 real-world broadcast precision; review the actual candidates before release.

@@ -182,4 +182,14 @@ struct LumeSportsClientTests {
         let decoded = try #require(invalid.items.first?.value?.candidates?.first?.evidence)
         #expect(!decoded.isValid(kickoff: now))
     }
+
+    @Test func `outage cooldown prevents timeout fanout across batches and surfaces`() async throws {
+        let (client, source, host) = try client(body: "", status: 503)
+        let games = (1 ... 101).map { fixture(id: String($0)) }
+        #expect(try await client.broadcasts(source: source, fixtures: games, now: now).isEmpty)
+        #expect(try await client.broadcasts(source: source, fixtures: [fixture()], now: now.addingTimeInterval(9)).isEmpty)
+        #expect(StubURLProtocol.requests(forHost: host).count(where: { $0.url?.path.hasSuffix("/broadcasts") == true }) == 1)
+        try StubURLProtocol.register(host: host, pathSuffix: "/sports/broadcasts", response: .init(body: body()))
+        #expect(try await client.broadcasts(source: source, fixtures: [fixture()], now: now.addingTimeInterval(10)).count == 1)
+    }
 }
