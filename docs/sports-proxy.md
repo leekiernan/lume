@@ -59,8 +59,12 @@ candidates. Candidates are deduplicated, ranked and assigned confidence again
 on-device after merging with the local matches and other playlists. A
 channel both sides find keeps the stronger tier. Proxy title evidence sits in
 the strongest guide tier, description evidence in the description tier. Within
-the title tier, the provider's own guide outranks a reviewed supplement
-(score 4 against 3). A channel the local matcher also finds keeps the
+the title tier, verified provider evidence outranks a reviewed supplement
+(priority 4 against 3), independently of the local title/subtitle field score.
+That provenance priority survives deduplication when the local merged guide
+also matches the channel. Local matches without proxy provenance keep the
+ordinary priority (4); no supplement origin is inferred from their text.
+A channel the local matcher also finds keeps the
 confidence it would have without a proxy; the proxy can add a channel, never
 take confidence away. Language/quality preferences and
 playback selection remain unchanged. Raw evidence text is deliberately not

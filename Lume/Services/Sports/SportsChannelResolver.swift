@@ -444,9 +444,20 @@ nonisolated enum SportsChannelResolver {
 
     /// Orders channels by tier, then score, then proximity to kickoff, and marks
     /// the leader confident only when it holds the strongest tier alone.
-    static func ranked(_ channels: [ResolvedChannel], kickoff: Date, automaticExcludedIDs: Set<String> = []) -> [ResolvedChannel] {
+    static func ranked(
+        _ channels: [ResolvedChannel], kickoff: Date,
+        automaticExcludedIDs: Set<String> = [], headlinePriorities: [String: Int] = [:]
+    ) -> [ResolvedChannel] {
         var resolved = channels.sorted { lhs, rhs in
             if lhs.source.rank != rhs.source.rank { return lhs.source.rank < rhs.source.rank }
+            if lhs.source == .epgTitleSubtitle {
+                // Provenance is separate from the local field-weight score:
+                // a supplement in a subtitle must not outrank provider evidence.
+                // Untagged local matches keep the ordinary/provider priority.
+                let leftPriority = headlinePriorities[lhs.id] ?? 4
+                let rightPriority = headlinePriorities[rhs.id] ?? 4
+                if leftPriority != rightPriority { return leftPriority > rightPriority }
+            }
             if lhs.score != rhs.score { return lhs.score > rhs.score }
             return gap(lhs, kickoff) < gap(rhs, kickoff)
         }

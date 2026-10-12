@@ -149,7 +149,8 @@ struct SportsProxyResolverTests {
         #expect(result["401"]?.allSatisfy { !$0.isConfident } == true)
     }
 
-    @Test func `provider headline evidence ranks above a supplement's`() async throws {
+    @Test(arguments: [false, true])
+    func `provider headline evidence ranks above a supplement's`(_ overlappingGuide: Bool) async throws {
         let helpers = LumeSportsClientTests()
         var provider = helpers.candidate(streamID: 456)
         provider["epg_id"] = "provider.uk"
@@ -160,9 +161,20 @@ struct SportsProxyResolverTests {
         let body = try helpers.body(items: [helpers.item(candidates: [helpers.candidate(), provider])])
         let (container, playlist, client, _, _) = try setup(body: body, helpers: helpers)
         container.mainContext.insert(stream(playlist, id: 456, name: "Provider Sports", epg: "provider.uk"))
+        if overlappingGuide {
+            // The merged guide supplies the supplement as a subtitle (score 6),
+            // while the provider's own title scores 4. Field weight must not
+            // reverse the separately verified evidence provenance priority.
+            let supplement = listing(epg: "sky.uk", kickoff: helpers.now)
+            supplement.title = "Live football"
+            supplement.subtitle = "Arsenal v Leeds United"
+            container.mainContext.insert(supplement)
+            container.mainContext.insert(listing(epg: "provider.uk", kickoff: helpers.now))
+        }
         try container.mainContext.save()
         let result = await SportsChannelResolver.resolve(container: container, fixtures: [helpers.fixture()], proxyClient: client)
         #expect(result["401"]?.map(\.stream.name) == ["Provider Sports", "Sky Sports"])
+        #expect(result["401"]?.allSatisfy { !$0.isConfident } == true)
     }
 
     @Test func `cache proof changes when proxy data becomes ready or disappears`() throws {

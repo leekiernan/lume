@@ -133,6 +133,10 @@ nonisolated extension SportsChannelResolver {
     ) -> [ResolvedChannel] {
         var byID = Dictionary(local.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         var suggestions = plan.suggestionIDs
+        let headlinePriorities = Dictionary(
+            plan.channels.filter { $0.source == .epgTitleSubtitle }.map { ($0.id, $0.score) },
+            uniquingKeysWith: max
+        )
         for var candidate in plan.channels {
             let key = SportsChannelPicks.channelKey(epgChannelId: candidate.stream.epgChannelId, name: candidate.stream.name)
             if pickIndex[SportsChannelPicks.compositeKey(competitionKey: fixture.leagueId, channelKey: key)] != nil {
@@ -144,14 +148,14 @@ nonisolated extension SportsChannelResolver {
                 suggestions.remove(candidate.id)
             }
             if let existing = byID[candidate.id], existing.source.rank <= candidate.source.rank {
-                // The local matcher found this channel on its own, so it keeps
-                // the confidence it has without the proxy. Only a channel-name
-                // suggestion the proxy alone offers is held back from one-tap.
+                // A local match clears the proxy-only suggestion guard, but
+                // confidence is still recomputed across all merged candidates.
                 suggestions.remove(candidate.id)
                 continue
             }
             byID[candidate.id] = candidate
         }
-        return ranked(Array(byID.values), kickoff: fixture.headlineDate, automaticExcludedIDs: suggestions)
+        return ranked(Array(byID.values), kickoff: fixture.headlineDate,
+                      automaticExcludedIDs: suggestions, headlinePriorities: headlinePriorities)
     }
 }
