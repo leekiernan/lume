@@ -50318,6 +50318,58 @@
         }
       }
     },
+    "Sample Footage" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beispielmaterial"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Material de muestra"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Images d’exemple"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filmato di esempio"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サンプル映像"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "샘플 영상"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imagens de exemplo"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "示例影片"
+          }
+        }
+      }
+    },
     "Save" : {
       "localizations" : {
         "de" : {
@@ -63242,6 +63294,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "共享 URL 无效。"
+          }
+        }
+      }
+    },
+    "The subtitle preview shows a still from Big Buck Bunny, © Blender Foundation." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Untertitelvorschau zeigt ein Standbild aus Big Buck Bunny, © Blender Foundation."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La vista previa de subtítulos muestra un fotograma de Big Buck Bunny, © Blender Foundation."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’aperçu des sous-titres montre une image de Big Buck Bunny, © Blender Foundation."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’anteprima dei sottotitoli mostra un fotogramma di Big Buck Bunny, © Blender Foundation."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "字幕のプレビューには『Big Buck Bunny』のワンシーンを使用しています（© Blender Foundation）。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "자막 미리보기에는 Big Buck Bunny의 한 장면이 사용됩니다. © Blender Foundation."
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A prévia das legendas mostra uma cena de Big Buck Bunny, © Blender Foundation."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "字幕预览使用了《Big Buck Bunny》中的一帧画面，© Blender Foundation。"
           }
         }
       }

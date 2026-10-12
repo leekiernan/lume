@@ -147,6 +147,13 @@ import SwiftUI
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, TVSettingsMetrics.rowHPadding)
 
+                tvCreditRow(name: CreditsInfo.sampleFootage.name, license: CreditsInfo.sampleFootage.license)
+
+                Text("The subtitle preview shows a still from Big Buck Bunny, © Blender Foundation.")
+                    .font(.system(size: 22))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, TVSettingsMetrics.rowHPadding)
+
                 TVSettingsValueRow("Source", value: CreditsInfo.sourceCode)
             }
         }

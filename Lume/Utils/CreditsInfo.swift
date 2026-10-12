@@ -52,6 +52,16 @@ nonisolated enum CreditsInfo {
         Library(name: "kloppy", license: "BSD 3-Clause", urlString: "https://github.com/PySport/kloppy")
     ]
 
+    // MARK: - Sample footage
+
+    /// The film the Subtitle Style preview takes its still from. Its CC BY 3.0
+    /// licence requires this attribution.
+    static let sampleFootage = Library(
+        name: "Big Buck Bunny",
+        license: "CC BY 3.0",
+        urlString: "https://peach.blender.org"
+    )
+
     // MARK: - Contributors
 
     /// A person who contributed to Lume outside the codebase (artwork, design,

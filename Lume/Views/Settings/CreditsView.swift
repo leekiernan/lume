@@ -3,10 +3,11 @@
 //  Lume
 //
 //  The Settings → About → Acknowledgements screen (iOS / macOS). Lists Lume's
-//  own licence, the open-source playback engines it bundles, and the metadata
-//  providers whose terms require attribution. Links are tappable here; the tvOS
-//  equivalent lives in `tvCreditsSection` (Apple TV can't open a URL), and both
-//  read their verbatim names / URLs from `CreditsInfo` so they can't drift.
+//  own licence, the open-source playback engines it bundles, the metadata
+//  providers whose terms require attribution, and the film the subtitle preview
+//  takes its still from. Links are tappable here; the tvOS equivalent lives in
+//  `tvCreditsSection` (Apple TV can't open a URL), and both read their verbatim
+//  names / URLs from `CreditsInfo` so they can't drift.
 //
 
 #if !os(tvOS)
@@ -19,6 +20,7 @@
                 lumeSection
                 librariesSection
                 metadataSection
+                sampleFootageSection
                 designSection
             }
             .platformNavigationTitle("Acknowledgements")
@@ -88,6 +90,16 @@
                 Text("Metadata")
             } footer: {
                 Text("Artwork, ratings, details and intro/recap skip data are provided by these services. This product uses the TMDB API but is not endorsed or certified by TMDB.")
+            }
+        }
+
+        private var sampleFootageSection: some View {
+            Section {
+                LibraryRow(library: CreditsInfo.sampleFootage)
+            } header: {
+                Text("Sample Footage")
+            } footer: {
+                Text("The subtitle preview shows a still from Big Buck Bunny, © Blender Foundation.")
             }
         }
 
