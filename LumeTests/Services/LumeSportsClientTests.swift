@@ -147,10 +147,39 @@ struct LumeSportsClientTests {
         let reads = StubURLProtocol.requests(forHost: host).filter { $0.url?.path.hasSuffix("/broadcasts") == true }
         #expect(reads.count == 3)
         for read in reads {
-            let components = try #require(URLComponents(url: #require(read.url), resolvingAgainstBaseURL: false))
+            let url = try #require(read.url)
+            let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
             let ids = try #require(components.queryItems?.first { $0.name == "ids" }?.value).split(separator: ",")
             #expect(ids.count <= 50)
             #expect(Set(ids).count == ids.count)
         }
+    }
+
+    @Test func `concurrent surfaces share a broadcast read`() async throws {
+        let (client, source, host) = try client(body: body())
+        let game = fixture()
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for _ in 0 ..< 12 {
+                group.addTask { _ = try await client.broadcasts(source: source, fixtures: [game]) }
+            }
+            try await group.waitForAll()
+        }
+        #expect(StubURLProtocol.requests(forHost: host).count(where: { $0.url?.path.hasSuffix("/broadcasts") == true }) == 1)
+    }
+
+    @Test func `different team identity and out of window evidence are rejected`() throws {
+        var value = item()
+        var fixture = try #require(value["fixture"] as? [String: Any])
+        fixture["home"] = ["id": "999"]
+        value["fixture"] = fixture
+        let batch = try #require(try LumeSportsBatch.decode(Data(body(items: [value]).utf8)))
+        #expect(batch.broadcasts(for: [self.fixture()], competition: "soccer/eng.1", now: now).isEmpty)
+        var candidate = candidate()
+        var evidence = try #require(candidate["evidence"] as? [String: Any])
+        evidence["stop"] = date(now.addingTimeInterval(-1))
+        candidate["evidence"] = evidence
+        let invalid = try #require(try LumeSportsBatch.decode(Data(body(items: [item(candidates: [candidate])]).utf8)))
+        let decoded = try #require(invalid.items.first?.value?.candidates?.first?.evidence)
+        #expect(!decoded.isValid(kickoff: now))
     }
 }
