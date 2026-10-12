@@ -14,6 +14,9 @@ actor LumeSportsClient {
     private struct Payload {
         var batch: LumeSportsBatch?
         var byteCount = 0
+        /// The proxy itself didn't answer (transport error or 5xx), so every
+        /// account behind that host is out, not only the one that asked.
+        var hostDown = false
     }
 
     private struct Flight {
@@ -42,15 +45,20 @@ actor LumeSportsClient {
         source: LumeProxySource, fixtures: [SportsFixture], now: Date = Date()
     ) async throws -> [String: LumeSportsBroadcast] {
         try Task.checkCancellation()
-        failures = failures.filter { now < $0.value }
-        if failures.count > 64 { failures.removeAll() }
-        if failures[source.identity] != nil { return [:] }
+        let host = source.hostKey
+        guard !coolingDown(source, now: now) else { return [:] }
         var groups: [String: [SportsFixture]] = [:]
         for fixture in fixtures {
             if let competition = fixture.proxyCompetition { groups[competition, default: []].append(fixture) }
         }
         guard !groups.isEmpty else { return [:] }
-        guard case let .supported(capability) = try await capabilities.capabilities(for: source, now: now),
+        let state = try await capabilities.capabilities(for: source, now: now)
+        if state == .unavailable {
+            // Other playlists on this proxy would each wait out the same
+            // negotiation timeout before their local matching could start.
+            failures[host] = now.addingTimeInterval(Self.cooldown)
+        }
+        guard case let .supported(capability) = state,
               let limit = capability.sportsBatchSize, let sports = capability.sports else { return [:] }
         var result: [String: LumeSportsBroadcast] = [:]
         for competition in groups.keys.sorted() where sports.competitions.contains(competition) {
@@ -60,12 +68,12 @@ actor LumeSportsClient {
                 try Task.checkCancellation()
                 let chunk = Array(ids[offset ..< min(offset + limit, ids.count)])
                 guard let url = source.sportsURL(competition: competition, ids: chunk) else { continue }
-                let batch = await read(url, now: now)
+                let payload = await read(url, now: now)
                 try Task.checkCancellation()
-                guard let batch else {
+                guard let batch = payload.batch else {
                     // An optional endpoint outage must not cost one timeout per
-                    // batch/surface before we can run the local guide matcher.
-                    failures[source.identity] = now.addingTimeInterval(10)
+                    // batch, surface or playlist before local matching runs.
+                    failures[payload.hostDown ? host : source.identity] = now.addingTimeInterval(Self.cooldown)
                     return result
                 }
                 let requested = fixtures.filter { chunk.contains($0.eventId) }
@@ -75,8 +83,16 @@ actor LumeSportsClient {
         return result
     }
 
-    private func read(_ url: URL, now: Date) async -> LumeSportsBatch? {
-        if let cached = cache[url], now < cached.until { return cached.batch }
+    private static let cooldown: TimeInterval = 10
+
+    private func coolingDown(_ source: LumeProxySource, now: Date) -> Bool {
+        failures = failures.filter { now < $0.value }
+        if failures.count > 64 { failures.removeAll() }
+        return failures[source.identity] != nil || failures[source.hostKey] != nil
+    }
+
+    private func read(_ url: URL, now: Date) async -> Payload {
+        if let cached = cache[url], now < cached.until { return Payload(batch: cached.batch, byteCount: cached.byteCount) }
         let flight: Flight
         if let existing = inFlight[url] {
             flight = existing
@@ -86,9 +102,10 @@ actor LumeSportsClient {
                 do {
                     let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 3)
                     let (data, response) = try await session.data(for: request)
-                    guard (response as? HTTPURLResponse)?.statusCode == 200, data.count <= 8 * 1024 * 1024 else { return Payload() }
+                    let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                    guard status == 200, data.count <= 8 * 1024 * 1024 else { return Payload(hostDown: status >= 500) }
                     return Payload(batch: LumeSportsBatch.decode(data), byteCount: data.count)
-                } catch { return Payload() }
+                } catch { return Payload(hostDown: true) }
             })
             inFlight[url] = flight
         }
@@ -107,6 +124,14 @@ actor LumeSportsClient {
                 cache.removeValue(forKey: order.removeFirst())
             }
         }
-        return batch
+        return payload
+    }
+}
+
+nonisolated extension LumeProxySource {
+    /// The proxy server, shared by every account a household points at it.
+    var hostKey: String {
+        let url = capabilitiesURL
+        return "\(url.scheme ?? "")://\(url.host ?? ""):\(url.port.map(String.init) ?? "")"
     }
 }

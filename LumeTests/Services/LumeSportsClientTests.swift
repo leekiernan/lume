@@ -192,4 +192,18 @@ struct LumeSportsClientTests {
         try StubURLProtocol.register(host: host, pathSuffix: "/sports/broadcasts", response: .init(body: body()))
         #expect(try await client.broadcasts(source: source, fixtures: [fixture()], now: now.addingTimeInterval(10)).count == 1)
     }
+
+    /// A down proxy is down for every account behind it; an account the proxy
+    /// rejects is only that account's problem.
+    @Test(arguments: [503, 401])
+    func `a server outage cools the whole proxy host, an account error only that account`(_ status: Int) async throws {
+        let (client, source, host) = try client(body: "", status: status)
+        let other = Playlist(name: "Second account", serverURL: "https://\(host)/panel", username: "second", password: "secret")
+        let second = try #require(LumeProxySource(playlist: other))
+        #expect(second.hostKey == source.hostKey && second.identity != source.identity)
+        #expect(try await client.broadcasts(source: source, fixtures: [fixture()], now: now).isEmpty)
+        _ = try await client.broadcasts(source: second, fixtures: [fixture()], now: now.addingTimeInterval(1))
+        let reads = StubURLProtocol.requests(forHost: host).count(where: { $0.url?.path.hasSuffix("/broadcasts") == true })
+        #expect(reads == (status >= 500 ? 1 : 2))
+    }
 }
