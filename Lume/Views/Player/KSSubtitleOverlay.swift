@@ -39,18 +39,20 @@ enum KSSubtitleCue: Equatable {
 
 struct KSSubtitleOverlay: View {
     @ObservedObject var subtitleModel: SubtitleModel
+    @AppStorage(SubtitleStyle.storageKey) private var style = SubtitleStyle.default
 
     var body: some View {
         HStack {
             Spacer(minLength: 0)
             ZStack {
                 ForEach(subtitleModel.parts) { part in
-                    KSSubtitlePartView(part: part)
+                    KSSubtitlePartView(part: part, style: style)
                 }
             }
             Spacer(minLength: 0)
         }
         .padding()
+        .subtitleLift(style.position)
         // The subtitle layer must never intercept taps meant for the video /
         // controls beneath it.
         .allowsHitTesting(false)
@@ -60,8 +62,11 @@ struct KSSubtitleOverlay: View {
 /// A single subtitle cue — a bitmap (PGS / VobSub) or styled text (SRT / WebVTT
 /// / mov_text) — laid out at the position the cue requests, falling back to the
 /// player-wide default. Mirrors KSPlayer's private `SubtitlePart.subtitleView`.
+/// Text cues take the viewer's `SubtitleStyle`; bitmap cues are pictures and
+/// only follow its position.
 private struct KSSubtitlePartView: View {
     let part: SubtitlePart
+    let style: SubtitleStyle
 
     var body: some View {
         VStack {
@@ -96,12 +101,8 @@ private struct KSSubtitlePartView: View {
             Spacer()
         }
         Text(AttributedString(text))
-            .font(Font(SubtitleModel.textFont))
-            .shadow(color: .black.opacity(0.9), radius: 1, x: 1, y: 1)
-            .foregroundStyle(SubtitleModel.textColor)
-            .italic(SubtitleModel.textItalic)
-            .background(SubtitleModel.textBackgroundColor)
             .multilineTextAlignment(.center)
+            .subtitleStyle(style)
             .alignmentGuide(position.horizontalAlign) { $0[.leading] }
             .padding(position.edgeInsets)
         if position.verticalAlign == .top || position.verticalAlign == .center {

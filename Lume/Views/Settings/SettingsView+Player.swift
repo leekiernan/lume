@@ -3,7 +3,7 @@
 //  Lume
 //
 //  The iOS / macOS / visionOS Player settings groups: the engine priority and
-//  per-engine options links, the preferred audio language row, and the external
+//  per-engine options links, the preferred audio language and subtitle style rows, and the external
 //  player hand-off. Split out of SettingsView to keep that file within the
 //  project's line-count cap; tvOS builds its own pane in SettingsView+TVPlayer.
 //
@@ -31,6 +31,8 @@
                 }
 
                 preferredAudioLanguageRow
+
+                NavigationLink("Subtitle Style") { SubtitleStyleSettingsView() }
 
                 NavigationLink("VLCKit Options") { VLCEngineSettingsScreen() }
                 NavigationLink("KSPlayer Options") { KSEngineSettingsScreen() }

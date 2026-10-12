@@ -78,9 +78,9 @@ import SwiftUI
         }
 
         /// The category's name over its pane. A drill-in (a playlist, an
-        /// engine's options, a language list) shows its own title instead.
+        /// engine's options, a language list, subtitle style) shows its own title instead.
         @ViewBuilder var tvCategoryTitle: some View {
-            if selectedPlaylist == nil, selectedEngineOptions == nil, preferredLanguagePane == nil {
+            if selectedPlaylist == nil, selectedEngineOptions == nil, preferredLanguagePane == nil, !showingSubtitleStyle {
                 Text(selectedCategory.title)
                     .font(.system(size: TVSettingsMetrics.paneTitleFontSize, weight: .bold))
                     .padding(.horizontal, TVSettingsMetrics.rowHPadding)

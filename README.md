@@ -166,6 +166,7 @@ adapted per size class
 - **Next Up** overlay with auto-play for series episodes
 - **Skip Intro / Recap** overlay during playback, powered by IntroDB skip windows
 - **OpenSubtitles** search from the player's subtitle menu — find and load an external subtitle track for any movie or episode whose stream ships without one
+- **Subtitle styles** — size, font, colour, background box, edge and position, with a live preview in Settings › Player › Subtitle Style (KSPlayer and AVPlayer; VLCKit follows the size)
 - Optional **Trakt** scrobbling — plus one-tap import of your existing Trakt watched history — and **TMDB** metadata enrichment
 - Optional **Simkl** scrobbling via the OAuth 2.0 device flow, with watched-history import on connect and the manual re-import for later
 - **Clear watch history** from Settings to reset progress, watched markers, and last-watched dates across all content
