@@ -105,6 +105,7 @@ nonisolated enum SportsChannelResolver {
         let playlistID: UUID
         let nameHaystack: String
         let pickKey: String
+        let categoryID: String?
     }
 
     /// The `EPGListing` fetch shape, exposed for the query-shape contract test.
@@ -163,7 +164,8 @@ nonisolated enum SportsChannelResolver {
         container: ModelContainer,
         fixtures: [SportsFixture],
         restriction: ContentRestriction = ContentRestriction(),
-        picks: SportsChannelPicks = SportsChannelPicks()
+        picks: SportsChannelPicks = SportsChannelPicks(),
+        proxyClient: LumeSportsClient = .shared
     ) async -> [String: [ResolvedChannel]] {
         // A finished game has nothing left to watch; skip it before the guide scan.
         let fixtures = fixtures.filter { $0.status.state != .final }
@@ -178,6 +180,8 @@ nonisolated enum SportsChannelResolver {
             let interval = Perf.begin(.sportsChannelResolve)
             defer { Perf.end(interval) }
 
+            let broadcasts = await validatedProxyBroadcasts(container: container, fixtures: fixtures, client: proxyClient)
+            guard !Task.isCancelled else { return [:] }
             let context = ModelContext(container)
 
             // Answers already worked out under the same catalog, guide and
@@ -186,7 +190,8 @@ nonisolated enum SportsChannelResolver {
             let generation = CacheGeneration(
                 container: container, context: context, restriction: restriction, picks: pickIndex
             )
-            let cached = ResolveCache.shared.lookup(fixtures, generation: generation)
+            let proxyKeys = proxyCacheKeys(broadcasts, fixtures: fixtures)
+            let cached = ResolveCache.shared.lookup(fixtures, generation: generation, proxyKeys: proxyKeys)
             let missing = fixtures.filter { cached[$0.id] == nil }
             guard !missing.isEmpty else { return cached }
             let fixtures = missing
@@ -194,12 +199,14 @@ nonisolated enum SportsChannelResolver {
             // Pass 1 — candidate channels across all playlists.
             let streams = (try? context.fetch(candidateStreamDescriptor(restriction: restriction))) ?? []
             guard !streams.isEmpty, !Task.isCancelled else { return cached }
-            let (channels, channelIds) = buildChannels(from: streams)
+            let (channels, _) = buildChannels(from: streams)
+            let plans = proxyPlans(fixtures: fixtures, channels: channels, broadcasts: broadcasts)
+            let scope = proxyLocalScope(fixtures: fixtures, channels: channels, plans: plans)
 
             // Pass 2 — the guide around each kickoff, not the span between the
             // earliest and the latest one: a week of fixtures read the whole
             // week's guide (210k rows on a large provider) to match 200 games.
-            let guide = buildGuide(context: context, channelIds: channelIds, windows: guideWindows(for: fixtures))
+            let guide = buildGuide(context: context, channelIds: scope.channelIDs, windows: guideWindows(for: scope.fixtures))
             guard !Task.isCancelled else { return cached }
             let index = CandidateIndex(channels: channels, guide: guide, pickIndex: pickIndex)
 
@@ -208,14 +215,17 @@ nonisolated enum SportsChannelResolver {
             var result: [String: [ResolvedChannel]] = [:]
             for fixture in fixtures {
                 guard !Task.isCancelled else { return cached }
-                result[fixture.id] = resolveOne(
+                let plan = plans[fixture.id] ?? ProxyPlan()
+                let local = resolveOne(
                     fixture: fixture,
                     channels: channels,
                     guide: guide,
-                    index: index
+                    index: index,
+                    proxyCoveredPlaylists: plan.coveredPlaylists
                 )
+                result[fixture.id] = mergeProxy(plan, local: local, fixture: fixture, pickIndex: pickIndex)
             }
-            ResolveCache.shared.store(result, for: fixtures, generation: generation)
+            ResolveCache.shared.store(result, for: fixtures, generation: generation, proxyKeys: proxyKeys)
             return cached.merging(result) { _, fresh in fresh }
         }
         return await withTaskCancellationHandler {
@@ -261,7 +271,8 @@ nonisolated enum SportsChannelResolver {
                 ),
                 playlistID: playlistID,
                 nameHaystack: SportsMatcher.normalize(stream.name),
-                pickKey: SportsChannelPicks.channelKey(epgChannelId: stream.epgChannelId, name: stream.name)
+                pickKey: SportsChannelPicks.channelKey(epgChannelId: stream.epgChannelId, name: stream.name),
+                categoryID: stream.categoryId
             ))
             if let cid = stream.epgChannelId, !cid.isEmpty { channelIds.insert(cid) }
         }
@@ -395,7 +406,8 @@ nonisolated enum SportsChannelResolver {
         fixture: SportsFixture,
         channels: [Channel],
         guide: [String: [NormalizedCandidate]],
-        index: CandidateIndex
+        index: CandidateIndex,
+        proxyCoveredPlaylists: Set<UUID> = []
     ) -> [ResolvedChannel] {
         // A race session has no two teams; it matches on series and session.
         // When nothing carries the series, a channel named for the event itself
@@ -424,6 +436,11 @@ nonisolated enum SportsChannelResolver {
             ? index.candidates(seedTokens: target?.seedTokens ?? [], competitionKey: context.competitionKey)
             : Array(channels.indices)
         for offset in candidates {
+            let channel = channels[offset]
+            // Preserve explicit picks even when this playlist's matching was
+            // offloaded. Other channels from it must have proxy evidence.
+            if proxyCoveredPlaylists.contains(channel.playlistID),
+               index.pickIndex[SportsChannelPicks.compositeKey(competitionKey: fixture.leagueId, channelKey: channel.pickKey)] == nil { continue }
             if let match = matchChannel(channels[offset], context: context, guide: guide, pickIndex: index.pickIndex),
                !isRace || match.source == .channelName
             {
@@ -436,13 +453,16 @@ nonisolated enum SportsChannelResolver {
 
     /// Orders channels by tier, then score, then proximity to kickoff, and marks
     /// the leader confident only when it holds the strongest tier alone.
-    private static func ranked(_ channels: [ResolvedChannel], kickoff: Date) -> [ResolvedChannel] {
+    static func ranked(_ channels: [ResolvedChannel], kickoff: Date, automaticExcludedIDs: Set<String> = []) -> [ResolvedChannel] {
         var resolved = channels.sorted { lhs, rhs in
             if lhs.source.rank != rhs.source.rank { return lhs.source.rank < rhs.source.rank }
             if lhs.score != rhs.score { return lhs.score > rhs.score }
             return gap(lhs, kickoff) < gap(rhs, kickoff)
         }
-        if let best = resolved.first, best.source != .epgCompetition {
+        for index in resolved.indices {
+            resolved[index].isConfident = false
+        }
+        if let best = resolved.first, best.source != .epgCompetition, !automaticExcludedIDs.contains(best.id) {
             let bestRank = best.source.rank
             let atBest = resolved.prefix { $0.source.rank == bestRank }.count
             if atBest == 1 { resolved[0].isConfident = true }
