@@ -8,10 +8,11 @@ import SwiftData
 nonisolated struct LumeProxyCapabilities: Decodable, Equatable {
     let version: Int
     let metadata: LumeProxyMetadataCapability?
+    let sports: LumeProxySportsCapability?
 
     enum CodingKeys: String, CodingKey {
         case version = "v"
-        case metadata
+        case metadata, sports
     }
 
     init(from decoder: Decoder) throws {
@@ -20,6 +21,7 @@ nonisolated struct LumeProxyCapabilities: Decodable, Equatable {
         // A malformed/unknown optional feature must not enable that route or
         // break unrelated features of an otherwise recognised envelope.
         metadata = try? container.decode(LumeProxyMetadataCapability.self, forKey: .metadata)
+        sports = try? container.decode(LumeProxySportsCapability.self, forKey: .sports)
     }
 
     var metadataBatchSize: Int? {
@@ -31,6 +33,29 @@ nonisolated struct LumeProxyCapabilities: Decodable, Equatable {
     /// is read; a stray `mdblist` block from another producer is ignored.
     var offersRatings: Bool {
         metadataBatchSize != nil && metadata?.groups?.contains("ratings") == true
+    }
+
+    var sportsBatchSize: Int? {
+        guard version == 1, let sports, sports.version == 1, sports.matcherVersion == 3,
+              sports.source == "espn", sports.groups.contains("broadcasts"), sports.maxBatchSize > 0 else { return nil }
+        return min(sports.maxBatchSize, 50)
+    }
+}
+
+/// Independently negotiated: a sports-only proxy need not offer title metadata.
+nonisolated struct LumeProxySportsCapability: Decodable, Equatable {
+    let version: Int
+    let matcherVersion: Int
+    let source: String
+    let competitions: [String]
+    let maxBatchSize: Int
+    let groups: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case version = "v"
+        case matcherVersion = "matcher_v"
+        case maxBatchSize = "max_batch_size"
+        case source, competitions, groups
     }
 }
 
