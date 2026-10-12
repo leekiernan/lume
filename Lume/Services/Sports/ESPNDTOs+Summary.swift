@@ -41,6 +41,7 @@ nonisolated struct ESPNSummaryHeaderCompetition: Codable, Hashable {
 
 nonisolated struct ESPNSummaryHeaderCompetitor: Codable, Hashable {
     let homeAway: String?
+    let score: ESPNFlexibleValue?
     let linescores: [ESPNPeriodLinescore]?
 }
 

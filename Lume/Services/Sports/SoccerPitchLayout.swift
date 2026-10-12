@@ -19,7 +19,7 @@
 
 import Foundation
 
-nonisolated struct SoccerPitchSpot: Hashable {
+nonisolated struct PitchSpot: Hashable {
     let player: SportsLineupPlayer
     /// 0 at the team's own goal line, 1 at halfway.
     let depth: Double
@@ -31,7 +31,7 @@ nonisolated enum SoccerPitchLayout {
     static let formations: [String: [Int: String]] = load()
 
     /// The starters' spots, or `nil` when they can't be placed exactly.
-    static func spots(for lineup: SportsLineup) -> [SoccerPitchSpot]? {
+    static func spots(for lineup: SportsLineup) -> [PitchSpot]? {
         guard let formation = lineup.formation else { return nil }
         let key = formation.filter(\.isNumber)
         let lines = key.compactMap(\.wholeNumberValue)
@@ -51,7 +51,7 @@ nonisolated enum SoccerPitchLayout {
         guard let keeper, outfield.count == 10 else { return nil }
         outfield.sort { ($0.depth, $0.side) < ($1.depth, $1.side) }
 
-        var spots = [SoccerPitchSpot(player: keeper, depth: 0.06, lateral: 0.5)]
+        var spots = [PitchSpot(player: keeper, depth: 0.06, lateral: 0.5)]
         var start = 0
         for (index, count) in lines.enumerated() {
             let line = outfield[start ..< start + count].sorted { $0.side < $1.side }
@@ -60,7 +60,7 @@ nonisolated enum SoccerPitchLayout {
             // clear of halfway so the two strikers don't stand on each other.
             let depth = 0.24 + 0.58 * Double(index) / Double(max(lines.count - 1, 1))
             for (slot, entry) in line.enumerated() {
-                spots.append(SoccerPitchSpot(player: entry.player, depth: depth, lateral: Double(slot + 1) / Double(count + 1)))
+                spots.append(PitchSpot(player: entry.player, depth: depth, lateral: Double(slot + 1) / Double(count + 1)))
             }
         }
         return spots

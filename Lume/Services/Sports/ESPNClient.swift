@@ -80,7 +80,7 @@ nonisolated struct ESPNClient: SportsDataProvider {
             .appending(path: "\(league.sport)/\(league.slug)/summary")
             .appending(queryItems: [URLQueryItem(name: "event", value: fixture.eventId)])
         guard let response: ESPNSummaryResponse = await fetch(url) else { return nil }
-        return Self.mapEventDetail(response)
+        return Self.mapEventDetail(response, sport: league.sport)
     }
 
     // MARK: - Scoreboard fetch + map
@@ -510,11 +510,12 @@ nonisolated extension ESPNClient {
 
     // MARK: Event detail
 
-    static func mapEventDetail(_ response: ESPNSummaryResponse) -> SportsEventDetail {
+    /// `sport` reads the rosters by that sport's conventions (see `mapLineup`).
+    static func mapEventDetail(_ response: ESPNSummaryResponse, sport: String? = nil) -> SportsEventDetail {
         SportsEventDetail(
             keyEvents: (response.keyEvents ?? []).filter(isTimelineWorthy).map(mapKeyEvent),
             teamStats: mapTeamStats(response.boxscore),
-            lineups: (response.rosters ?? []).compactMap(mapLineup),
+            lineups: (response.rosters ?? []).compactMap { mapLineup($0, sport: sport) },
             odds: mapOdds(response.pickcenter),
             winProbability: mapWinProbability(response.winprobability),
             periodScores: mapPeriodScores(response.header),
@@ -580,19 +581,5 @@ nonisolated extension ESPNClient {
             )
         }
         return result
-    }
-
-    private static func mapLineup(_ roster: ESPNRoster) -> SportsLineup? {
-        guard let teamId = roster.team?.id else { return nil }
-        let starters = (roster.roster ?? [])
-            .filter { $0.starter ?? false }
-            .compactMap { entry -> SportsLineupPlayer? in
-                guard let name = entry.athlete?.displayName else { return nil }
-                return SportsLineupPlayer(
-                    name: name, jersey: entry.jersey, position: entry.position?.abbreviation,
-                    formationPlace: entry.formationPlace?.stringValue.flatMap { Int($0) }
-                )
-            }
-        return SportsLineup(teamId: teamId, formation: roster.formation, starters: starters)
     }
 }
