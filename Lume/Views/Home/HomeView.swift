@@ -214,7 +214,7 @@ struct HomeView: View {
                 activePlaylist: activePlaylist
             ))
             .detailDestinations(path: homePath, namespace: animationNamespace)
-            .navigationDestination(for: SectionCollectionSelection.self) { selection in
+            .pushedDestination(for: SectionCollectionSelection.self) { selection in
                 SectionCollectionView(
                     selection: selection,
                     feed: feed,

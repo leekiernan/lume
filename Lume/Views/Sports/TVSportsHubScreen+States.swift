@@ -59,8 +59,19 @@
             }
         }
 
+        /// A page with nothing on (a competition out of season) still needs
+        /// something to focus: with nothing, focus stays on the tab bar and
+        /// Back leaves the app instead of the page.
         var noGamesState: some View {
-            SportsNoGamesView(presentation: .screen)
+            SportsUnavailableState(title: "No games", message: "Nothing is scheduled here yet.") {
+                Button {
+                    showManageTeams = true
+                } label: {
+                    Label("Manage Teams", systemImage: "person.2.badge.plus")
+                        .tvSportsStateActionLabel()
+                }
+                .buttonStyle(TVCardButtonStyle(focusScale: 1.05))
+            }
         }
     }
 

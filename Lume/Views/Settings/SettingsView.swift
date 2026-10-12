@@ -235,7 +235,7 @@ struct SettingsView: View {
                     .listRowInsets(EdgeInsets())
                 } else {
                     ForEach(playlists) { playlist in
-                        NavigationLink {
+                        PushedLink {
                             PlaylistDetailView(playlist: playlist)
                         } label: {
                             HStack(spacing: 10) {
@@ -275,7 +275,7 @@ struct SettingsView: View {
                     // The guide's sources are playlist-shaped — a URL with a
                     // sync status, usually created by a playlist — so they live
                     // here rather than in their own top-level entry.
-                    NavigationLink {
+                    PushedLink {
                         EPGSettingsView()
                     } label: {
                         Label("TV Guide Sources", systemImage: "list.clipboard")
@@ -296,7 +296,7 @@ struct SettingsView: View {
 
         private var librarySection: some View {
             Section {
-                NavigationLink {
+                PushedLink {
                     ParentalGateView { LibrarySettingsView() }
                 } label: {
                     Label("Library", systemImage: "square.stack")
@@ -356,7 +356,7 @@ struct SettingsView: View {
 
         private var downloadsSection: some View {
             Section {
-                NavigationLink {
+                PushedLink {
                     DownloadsView()
                 } label: {
                     Label("Manage Downloads", systemImage: "arrow.down.circle")
@@ -378,7 +378,7 @@ struct SettingsView: View {
 
         private var storageSection: some View {
             Section {
-                NavigationLink {
+                PushedLink {
                     StorageManagementView()
                 } label: {
                     Label("Storage & Cache", systemImage: "internaldrive")

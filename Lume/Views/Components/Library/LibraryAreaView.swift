@@ -88,20 +88,20 @@ struct LibraryAreaView<Kind: LibraryAreaKind>: View {
                 activePlaylist: activePlaylist
             ))
             .browseSidebarToolbar(isPresented: $browse.isPresented, isEnabled: !sortedCategories.isEmpty)
-            .navigationDestination(for: Category.self) { category in
+            .pushedDestination(for: Category.self) { category in
                 CatalogCategoryView<Kind>(category: category, animationNamespace: animationNamespace)
             }
-            .navigationDestination(for: LibraryCollection.self) { collection in
+            .pushedDestination(for: LibraryCollection.self) { collection in
                 Kind.collectionPage(collection.kind, prefix: playlistPrefix, namespace: animationNamespace)
             }
-            .navigationDestination(for: SectionCollectionSelection.self) { selection in
+            .pushedDestination(for: SectionCollectionSelection.self) { selection in
                 SectionCollectionView(
                     selection: selection,
                     feed: feed,
                     animationNamespace: animationNamespace
                 )
             }
-            .navigationDestination(for: GenreSelection.self) { selection in
+            .pushedDestination(for: GenreSelection.self) { selection in
                 CatalogGenreView<Kind>(genre: selection.genre, playlistPrefix: playlistPrefix, animationNamespace: animationNamespace)
             }
             .detailDestinations(path: navigationPath, namespace: animationNamespace)

@@ -254,12 +254,16 @@ nonisolated struct SportsSession: Codable, Hashable {
     /// The drivers in the order the session finished, once it has; `nil`
     /// before, and in snapshots written before the field existed.
     let classification: [String]?
+    /// Laps run, as the provider counts them (ESPN's session `period`): the
+    /// race's distance once it's over. `nil` before a lap, and in older snapshots.
+    let laps: Int?
 
-    init(kind: SportsSessionKind, date: Date, state: SportsFixtureState? = nil, classification: [String]? = nil) {
+    init(kind: SportsSessionKind, date: Date, state: SportsFixtureState? = nil, classification: [String]? = nil, laps: Int? = nil) {
         self.kind = kind
         self.date = date
         self.state = state
         self.classification = classification
+        self.laps = laps
     }
 }
 
@@ -301,6 +305,13 @@ nonisolated struct SportsFixture: Identifiable, Codable, Hashable {
     /// the event: UFC 332 begins at 20:00 UTC but its main card is at midnight.
     /// `nil` for everything else, and in snapshots written before the field.
     let mainCardDate: Date?
+    /// A fight card's bouts in running order (`SportsFightCard`); `nil` for
+    /// other sports and in snapshots written before the field.
+    let bouts: [SportsBout]?
+    /// A race weekend's circuit, by the provider's id (`SportsCircuits`).
+    let circuitID: String?
+    /// The tournament a tennis match belongs to, by the provider's id.
+    let tournamentId: String?
 
     init(
         id: String,
@@ -321,7 +332,10 @@ nonisolated struct SportsFixture: Identifiable, Codable, Hashable {
         round: String? = nil,
         startTimeIsTentative: Bool? = nil,
         stage: String? = nil,
-        mainCardDate: Date? = nil
+        mainCardDate: Date? = nil,
+        bouts: [SportsBout]? = nil,
+        circuitID: String? = nil,
+        tournamentId: String? = nil
     ) {
         self.id = id
         self.leagueId = leagueId
@@ -342,6 +356,9 @@ nonisolated struct SportsFixture: Identifiable, Codable, Hashable {
         self.startTimeIsTentative = startTimeIsTentative
         self.stage = stage
         self.mainCardDate = mainCardDate
+        self.bouts = bouts
+        self.circuitID = circuitID
+        self.tournamentId = tournamentId
     }
 }
 
@@ -372,7 +389,8 @@ nonisolated extension SportsFixture {
                 name: name,
                 shortName: shortName,
                 sessionKind: session.kind,
-                leagueLogoURL: leagueLogoURL
+                leagueLogoURL: leagueLogoURL,
+                circuitID: circuitID
             )
         }
     }

@@ -45,7 +45,11 @@ nonisolated enum CreditsInfo {
     static let libraries: [Library] = [
         Library(name: "KSPlayer", license: "GPL v3", urlString: "https://github.com/kingslay/KSPlayer"),
         Library(name: "FFmpegKit", license: "GPL v3 / LGPL v3", urlString: "https://github.com/kingslay/FFmpegKit"),
-        Library(name: "VLCKit", license: "LGPL v2.1", urlString: "https://code.videolan.org/videolan/VLCKit")
+        Library(name: "VLCKit", license: "LGPL v2.1", urlString: "https://code.videolan.org/videolan/VLCKit"),
+        // Race circuit outlines, bundled as F1Circuits.json.
+        Library(name: "f1-circuits", license: "MIT", urlString: "https://github.com/bacinger/f1-circuits"),
+        // Opta formation places for soccer lineups, bundled as SoccerFormations.json.
+        Library(name: "kloppy", license: "BSD 3-Clause", urlString: "https://github.com/PySport/kloppy")
     ]
 
     // MARK: - Contributors

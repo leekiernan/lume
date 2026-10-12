@@ -254,3 +254,14 @@ extension View {
         }
     }
 #endif
+
+extension SportsFixture {
+    /// Odds outcome labels: the teams' short codes and "Draw", in place of the
+    /// bookmaker's 1 / X / 2, which reads as nothing to most viewers.
+    var oddsOutcomeLabels: (home: String, draw: String, away: String) {
+        func code(_ competitor: SportsCompetitor?) -> String? {
+            competitor.map(\.team.abbreviation).flatMap { $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 }
+        }
+        return (code(home) ?? "1", String(localized: "Draw"), code(away) ?? "2")
+    }
+}

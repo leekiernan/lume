@@ -165,7 +165,7 @@ struct ManageTeamsSheet: View {
             followButton(isOn: follows.isFollowing(league.id), name: league.name) {
                 toggleLeague(league)
             }
-            NavigationLink {
+            PushedLink {
                 LeagueTeamsView(league: league)
             } label: {
                 VStack(alignment: .leading, spacing: 1) {

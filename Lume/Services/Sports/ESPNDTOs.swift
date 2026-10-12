@@ -175,9 +175,49 @@ nonisolated struct ESPNCompetition: Codable, Hashable {
     let round: ESPNRound?
     /// `false` when `date` is a placeholder day, not a scheduled start (tennis).
     let timeValid: Bool?
+    /// A bout's scheduled rounds (`regulation.periods`).
+    let format: ESPNCompetitionFormat?
+    /// A bout's event log, newest first; its result is the "… Winner …" entry.
+    /// Other sports carry their own shapes here, so it is read leniently.
+    let details: ESPNLenientDetails?
+}
+
+nonisolated struct ESPNCompetitionFormat: Codable, Hashable {
+    let regulation: ESPNRegulation?
+}
+
+nonisolated struct ESPNRegulation: Codable, Hashable {
+    let periods: Int?
+}
+
+/// `details` entries' types, or none: a shape this app doesn't expect drops
+/// the field, never the whole scoreboard.
+nonisolated struct ESPNLenientDetails: Codable, Hashable {
+    let entries: [ESPNCompetitionDetail]
+
+    init(from decoder: Decoder) throws {
+        entries = (try? decoder.singleValueContainer().decode([ESPNCompetitionDetail].self)) ?? []
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(entries)
+    }
+}
+
+nonisolated struct ESPNCompetitionDetail: Codable, Hashable {
+    let type: ESPNCompetitionType?
+
+    init(from decoder: Decoder) throws {
+        let container = try? decoder.container(keyedBy: CodingKeys.self)
+        type = try? container?.decodeIfPresent(ESPNCompetitionType.self, forKey: .type)
+    }
 }
 
 nonisolated struct ESPNRound: Codable, Hashable {
+    /// Tennis: "1"–"4" the numbered rounds, "5"–"7" quarterfinal to final;
+    /// qualifying runs from "11".
+    let id: String?
     let displayName: String?
 }
 
@@ -190,6 +230,8 @@ nonisolated struct ESPNCompetitionType: Codable, Hashable {
 }
 
 nonisolated struct ESPNVenue: Codable, Hashable {
+    /// A race circuit's ESPN id ("740" Marina Bay): keys `SportsCircuits`.
+    let id: String?
     let fullName: String?
     /// Tennis events name their city here ("Chengdu, China PR").
     let displayName: String?
@@ -213,6 +255,12 @@ nonisolated struct ESPNCompetitor: Codable, Hashable {
     let linescores: [ESPNLinescore]?
     /// A race session's finishing (or grid) position.
     let order: Int?
+    /// A tennis player's seeding in the tournament (not their world ranking).
+    let curatedRank: ESPNCuratedRank?
+}
+
+nonisolated struct ESPNCuratedRank: Codable, Hashable {
+    let current: Int?
 }
 
 nonisolated struct ESPNLinescore: Codable, Hashable {
@@ -320,6 +368,11 @@ nonisolated struct ESPNSummaryResponse: Codable, Hashable {
     /// One entry per play, oldest first; US sports only.
     let winprobability: [ESPNWinProbability]?
     let header: ESPNSummaryHeader?
+    /// Each side's last five results (soccer). Lossy: other sports' shapes
+    /// drop out rather than cost the whole summary.
+    let lastFiveGames: ESPNLossyArray<ESPNLastFive>?
+    /// Live text commentary, oldest first (soccer). Lossy, as above.
+    let commentary: ESPNLossyArray<ESPNCommentary>?
 }
 
 nonisolated struct ESPNBoxscore: Codable, Hashable {
@@ -352,6 +405,9 @@ nonisolated struct ESPNRosterEntry: Codable, Hashable {
     let jersey: String?
     let position: ESPNPosition?
     let starter: Bool?
+    /// The Opta formation place (1–11, a string in ESPN's JSON); what it
+    /// means depends on the formation (`SoccerPitchLayout`).
+    let formationPlace: ESPNFlexibleValue?
 }
 
 nonisolated struct ESPNPosition: Codable, Hashable {

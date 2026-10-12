@@ -22,20 +22,28 @@
             let probability = probabilityReading
             let periods = periodScores
             let odds = detail?.odds
-            if probability != nil || periods != nil || odds != nil {
-                HStack(alignment: .top, spacing: 40) {
-                    if let probability {
-                        probabilityPanel(probability)
+            let forms = fixture.showsForm(hidingScores: hidesScores) ? MatchForms(detail: detail, fixture: fixture) : nil
+            if probability != nil || periods != nil || odds != nil || forms != nil {
+                VStack(alignment: .leading, spacing: 24) {
+                    if let forms {
+                        TVFormPanel(forms: forms)
                     }
-                    if let periods {
-                        periodPanel(periods)
-                    }
-                    if let odds {
-                        oddsPanel(odds)
+                    if probability != nil || periods != nil || odds != nil {
+                        HStack(alignment: .top, spacing: 40) {
+                            if let probability {
+                                probabilityPanel(probability)
+                            }
+                            if let periods {
+                                periodPanel(periods)
+                            }
+                            if let odds {
+                                oddsPanel(odds)
+                            }
+                        }
+                        // Panels in a row share the tallest one's height.
+                        .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                // Panels in a row share the tallest one's height.
-                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
@@ -145,10 +153,11 @@
         private func oddsPanel(_ odds: SportsOdds) -> some View {
             panel(title: fixture.status.state == .scheduled ? "Odds" : "Pre-match odds") {
                 VStack(alignment: .leading, spacing: 10) {
+                    let labels = fixture.oddsOutcomeLabels
                     HStack(spacing: 14) {
-                        price("1", odds.home)
-                        if odds.draw != nil { price("X", odds.draw) }
-                        price("2", odds.away)
+                        price(labels.home, odds.home)
+                        if odds.draw != nil { price(labels.draw, odds.draw) }
+                        price(labels.away, odds.away)
                     }
                     if !odds.provider.isEmpty {
                         Text(verbatim: odds.provider)
@@ -160,12 +169,17 @@
         }
 
         private func price(_ outcome: String, _ value: Double?) -> some View {
+            // One line each, shrinking to fit: beside the other panels, three
+            // prices otherwise wrapped their last digit onto a line of its own.
             HStack(spacing: 12) {
                 Text(verbatim: outcome)
                     .foregroundStyle(.white.opacity(0.55))
                 Text(verbatim: value?.formattedDecimalOdds ?? "–")
                     .foregroundStyle(.white)
+                    .layoutPriority(1)
             }
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
             .font(.system(size: 24, weight: .bold))
             .monospacedDigit()
             .padding(.horizontal, 18)

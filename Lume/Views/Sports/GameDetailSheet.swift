@@ -50,6 +50,12 @@ struct GameDetailSheet: View {
             ScrollView {
                 VStack(spacing: 24) {
                     header
+                    if let bouts = liveBouts, !bouts.isEmpty {
+                        FightCardSection(bouts: bouts, hidesScores: hidesScores)
+                    }
+                    if let circuit = RaceCircuitSummary(fixture: fixture, sessions: liveWeekend?.sessions) {
+                        RaceCircuitCard(summary: circuit, hidesScores: hidesScores)
+                    }
                     GameDetailMarkets(detail: detailLoad.detail, fixture: fixture, hidesScores: hidesScores)
                     if fixture.status.state != .final {
                         watchCard
@@ -226,10 +232,8 @@ struct GameDetailSheet: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                if let form = competitor.form, !form.isEmpty {
-                    Text(verbatim: form)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
+                if let form = fixture.headerForm(for: competitor, detail: detailLoad.detail) {
+                    TeamFormLine(content: form, letterSize: 11, textColor: .secondary)
                 }
             }
             followButton(competitor.team)
@@ -263,13 +267,20 @@ struct GameDetailSheet: View {
                 }
             }
         case .scheduled, .postponed:
-            Text(fixture.headlineDate, format: fixture.startTimeIsTentative == true
-                ? .dateTime.weekday(.abbreviated).day().month(.abbreviated)
-                : .dateTime.hour().minute())
-                .font(.system(size: 34, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
+            VStack(spacing: 4) {
+                Text(fixture.headlineDate, format: fixture.startTimeIsTentative == true
+                    ? .dateTime.weekday(.abbreviated).day().month(.abbreviated)
+                    : .dateTime.hour().minute())
+                    .font(.system(size: 34, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                Text(verbatim: fixture.kickoffDayText())
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
         }
     }
 
@@ -436,7 +447,7 @@ struct GameDetailSheet: View {
             fetchedStandings = await (try? provider.standings(league: league)) ?? []
         }
         do {
-            let detail = try await provider.eventDetail(league: league, eventId: fixture.eventId)
+            let detail = try await provider.eventDetail(league: league, fixture: fixture)
             detailLoad.finish(detailRequest, detail: detail)
         } catch {
             detailLoad.fail(detailRequest)
@@ -451,7 +462,7 @@ struct GameDetailSheet: View {
 
     /// A finished game's record and form already count its result.
     private var showsRecordAndForm: Bool {
-        !hidesScores || fixture.status.state != .final
+        fixture.showsForm(hidingScores: hidesScores)
     }
 
     private var leagueLogoURL: URL? {
@@ -471,5 +482,19 @@ private extension View {
         #else
             self
         #endif
+    }
+}
+
+private extension GameDetailSheet {
+    /// The card as the live poll last saw it: the sheet holds the fixture it
+    /// was opened with, and a fight night moves on bout by bout.
+    var liveBouts: [SportsBout]? {
+        store.snapshot(for: fixture.leagueId)?.fixtures.first { $0.id == fixture.id }?.bouts ?? fixture.bouts
+    }
+
+    /// The race weekend as the live poll last saw it; a session card's id
+    /// carries its session, the store's weekend doesn't.
+    var liveWeekend: SportsFixture? {
+        store.snapshot(for: fixture.leagueId)?.fixtures.first { $0.id == fixture.eventId }
     }
 }

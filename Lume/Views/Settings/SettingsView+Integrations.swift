@@ -25,7 +25,7 @@ extension SettingsView {
         var integrationsSection: some View {
             Section {
                 if trakt.isConfigured {
-                    NavigationLink {
+                    PushedLink {
                         TraktIntegrationView()
                     } label: {
                         IntegrationSettingsLabel(
@@ -36,7 +36,7 @@ extension SettingsView {
                 }
 
                 if simkl.isConfigured {
-                    NavigationLink {
+                    PushedLink {
                         SimklIntegrationView()
                     } label: {
                         IntegrationSettingsLabel(
@@ -47,7 +47,7 @@ extension SettingsView {
                 }
 
                 if openSubtitles.isConfigured {
-                    NavigationLink {
+                    PushedLink {
                         OpenSubtitlesIntegrationView()
                     } label: {
                         IntegrationSettingsLabel(title: "OpenSubtitles", symbol: "captions.bubble", detail: openSubtitles.username.map { Text(verbatim: $0) })

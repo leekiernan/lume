@@ -180,11 +180,12 @@
                         .font(.system(size: 30, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white.opacity(0.7))
                 } else {
-                    // The weekday above the time unless it is today: a 7-day
-                    // rail of bare times read every game as today's.
+                    // The day above the time unless it is today: a 7-day rail
+                    // of bare times read every game as today's, and a team's
+                    // weeks of "Sat"s said nothing (`cardDayText`).
                     VStack(spacing: 2) {
-                        if !fixture.headlineIsToday {
-                            Text(fixture.headlineDate, format: .dateTime.weekday(.abbreviated))
+                        if let day = fixture.cardDayText() {
+                            Text(verbatim: day)
                                 .font(.system(size: 20, weight: .semibold))
                                 .foregroundStyle(.white.opacity(0.7))
                         }
@@ -222,15 +223,13 @@
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
-                Text(
-                    fixture.headlineDate,
-                    format: fixture.headlineIsOnAnotherDay || !fixture.headlineIsToday
-                        ? .dateTime.weekday(.abbreviated).hour().minute()
-                        : .dateTime.hour().minute()
-                )
-                .font(.system(size: 26, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(.white.opacity(0.85))
+                // A main card past midnight names its day even when it's today.
+                Text(verbatim: fixture.headlineIsOnAnotherDay && fixture.headlineIsToday
+                    ? fixture.headlineDate.formatted(.dateTime.weekday(.abbreviated).hour().minute())
+                    : fixture.cardWhenText)
+                    .font(.system(size: 26, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.white.opacity(0.85))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }

@@ -25,9 +25,23 @@ nonisolated struct SportsFixtureResolutionMachine: Equatable {
 
     /// The `.task(id:)` identity for resolving `fixtures`: the set shown, and
     /// whatever else should prompt a fresh pass — a committed guide snapshot,
-    /// foreground return or catalog sync settling.
-    static func requestKey(for fixtures: [SportsFixture], visibilityToken: String, refreshingOn signals: [Bool] = [], guideRevision: UInt64 = 0) -> String {
-        ([visibilityToken, fixtures.map(\.id).joined(separator: ","), String(guideRevision)] + signals.map { String($0) }).joined(separator: "|")
+    /// foreground return or catalog sync settling. `catalogToken` (see
+    /// `catalogToken(for:)`) moves when a playlist sync lands: providers rename
+    /// event channels after the match as it nears, so a surface left open
+    /// would otherwise keep an answer from before those channels existed.
+    static func requestKey(
+        for fixtures: [SportsFixture], visibilityToken: String, refreshingOn signals: [Bool] = [],
+        guideRevision: UInt64 = 0, catalogToken: String = ""
+    ) -> String {
+        let catalog = catalogToken.isEmpty ? [] : [catalogToken]
+        return ([visibilityToken, fixtures.map(\.id).joined(separator: ","), String(guideRevision)] + catalog + signals.map { String($0) })
+            .joined(separator: "|")
+    }
+
+    /// Each playlist's last completed sync, the catalog half of what a
+    /// resolve depends on (the guide revision is the other).
+    static func catalogToken(for playlists: [Playlist]) -> String {
+        playlists.map { "\($0.id.uuidString):\($0.lastSyncDate?.timeIntervalSince1970 ?? 0)" }.sorted().joined(separator: ",")
     }
 
     /// Hides the previous viewer's answers immediately, even before SwiftUI

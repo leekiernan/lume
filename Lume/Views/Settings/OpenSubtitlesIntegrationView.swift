@@ -112,7 +112,7 @@ struct OpenSubtitlesSignInSection: View {
                 OpenSubtitlesSignInSection(showsHeader: false)
 
                 Section {
-                    NavigationLink {
+                    PushedLink {
                         SubtitleLanguagePicker()
                     } label: {
                         LabeledContent {

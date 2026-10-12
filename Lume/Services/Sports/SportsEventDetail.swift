@@ -72,6 +72,9 @@ nonisolated struct SportsLineupPlayer: Codable, Hashable {
     let name: String
     let jersey: String?
     let position: String?
+    /// The Opta formation place (1 is the goalkeeper), when the provider has
+    /// one; it places the player on the pitch (`SoccerPitchLayout`).
+    var formationPlace: Int?
 }
 
 nonisolated struct SportsLineup: Codable, Hashable {
@@ -90,6 +93,12 @@ nonisolated struct SportsEventDetail: Codable, Hashable {
     let winProbability: SportsWinProbability?
     /// Each side's score by half / quarter / period.
     let periodScores: SportsPeriodScores?
+    /// Each side's recent results (soccer), when the provider has them.
+    let form: [SportsTeamForm]
+    /// The live text commentary, oldest first (soccer).
+    let commentary: [SportsCommentaryEntry]
+    /// The tournament's singles draw (tennis).
+    let draw: SportsTennisDraw?
 
     init(
         keyEvents: [SportsKeyEvent] = [],
@@ -97,7 +106,10 @@ nonisolated struct SportsEventDetail: Codable, Hashable {
         lineups: [SportsLineup] = [],
         odds: SportsOdds? = nil,
         winProbability: SportsWinProbability? = nil,
-        periodScores: SportsPeriodScores? = nil
+        periodScores: SportsPeriodScores? = nil,
+        form: [SportsTeamForm] = [],
+        commentary: [SportsCommentaryEntry] = [],
+        draw: SportsTennisDraw? = nil
     ) {
         self.keyEvents = keyEvents
         self.teamStats = teamStats
@@ -105,5 +117,8 @@ nonisolated struct SportsEventDetail: Codable, Hashable {
         self.odds = odds
         self.winProbability = winProbability
         self.periodScores = periodScores
+        self.form = form
+        self.commentary = commentary
+        self.draw = draw
     }
 }

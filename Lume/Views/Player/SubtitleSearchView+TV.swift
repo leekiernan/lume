@@ -62,7 +62,7 @@
         private var languageRow: some View {
             VStack(alignment: .leading, spacing: 8) {
                 TVSettingsSectionLabel("Languages")
-                NavigationLink {
+                PushedLink {
                     SubtitleLanguagePicker()
                 } label: {
                     HStack(spacing: 16) {

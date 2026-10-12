@@ -141,7 +141,7 @@ struct SubtitleSearchView: View {
 
         private var languageSection: some View {
             Section {
-                NavigationLink {
+                PushedLink {
                     SubtitleLanguagePicker()
                 } label: {
                     HStack {

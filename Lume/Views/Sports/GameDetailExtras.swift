@@ -19,8 +19,12 @@ struct GameDetailMarkets: View {
     var body: some View {
         let probability = reading
         let periods = periodScores
-        if probability != nil || periods != nil || detail?.odds != nil {
+        let forms = fixture.showsForm(hidingScores: hidesScores) ? MatchForms(detail: detail, fixture: fixture) : nil
+        if probability != nil || periods != nil || detail?.odds != nil || forms != nil {
             VStack(alignment: .leading, spacing: 14) {
+                if let forms {
+                    FormGuideRows(forms: forms)
+                }
                 if let probability {
                     probabilityView(probability.value, title: probability.title)
                 }
@@ -97,10 +101,11 @@ struct GameDetailMarkets: View {
                 Spacer()
                 Text(verbatim: odds.provider).font(.caption2).foregroundStyle(.secondary)
             }
+            let labels = fixture.oddsOutcomeLabels
             HStack(spacing: 8) {
-                price("1", odds.home)
-                if odds.draw != nil { price("X", odds.draw) }
-                price("2", odds.away)
+                price(labels.home, odds.home)
+                if odds.draw != nil { price(labels.draw, odds.draw) }
+                price(labels.away, odds.away)
             }
         }
     }
@@ -109,8 +114,10 @@ struct GameDetailMarkets: View {
         HStack {
             Text(verbatim: outcome).foregroundStyle(.secondary)
             Spacer(minLength: 4)
-            Text(verbatim: value?.formattedDecimalOdds ?? "–").fontWeight(.bold)
+            Text(verbatim: value?.formattedDecimalOdds ?? "–").fontWeight(.bold).layoutPriority(1)
         }
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
         .font(.subheadline)
         .monospacedDigit()
         .padding(.horizontal, 10)

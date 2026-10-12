@@ -21,7 +21,7 @@ import SwiftUI
         /// to keep that file within the project's line-count cap.
         var profilesSection: some View {
             Section {
-                NavigationLink {
+                PushedLink {
                     ManageProfilesView()
                 } label: {
                     HStack(spacing: 12) {

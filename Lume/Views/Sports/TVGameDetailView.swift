@@ -41,6 +41,9 @@
         private typealias FocusTarget = SportsDetailFocusTarget<GameDetailTab>
 
         @FocusState private var focus: FocusTarget?
+        /// Which column holds focus, wherever in it: most of the left column's
+        /// blocks (markets, timeline, table) aren't `focus` targets.
+        @FocusedValue(\.matchCentreColumn) private var focusedColumn
         @AppStorage(SportsSyncService.hideScoresKey) private var hideScoresSetting = false
         @State private var reveal = SportsScoreReveal.shared
 
@@ -74,26 +77,23 @@
         }
 
         var body: some View {
-            ScrollView {
-                VStack(spacing: 48) {
-                    header
-                    TVGameDetailMarkets(detail: detailLoad.detail, fixture: fixture, hidesScores: hidesScores)
-                    if fixture.status.state != .final {
-                        watchSection
-                    }
-                    detailTabsSection
-                    standingsSection
-                    if fixture.sport == "racing", !hidesScores {
-                        TVRacingSeasonSection(fixture: fixture)
+            Group {
+                if fixture.status.state == .final {
+                    // Nothing left to watch: the visuals take the whole width.
+                    detailScroll.frame(maxWidth: 1500).frame(maxWidth: .infinity)
+                } else {
+                    // Channels get their own scrolling column, so a long list
+                    // never pushes the score, tabs and table below the fold.
+                    HStack(alignment: .top, spacing: 60) {
+                        detailScroll
+                        watchSection.frame(width: Self.channelColumnWidth)
                     }
                 }
-                .frame(maxWidth: 1500)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 90)
-                .padding(.vertical, 70)
             }
-            .scrollClipDisabled()
-            .tvDetailDefaultFocus($focus, defaultFocus)
+            .padding(.horizontal, 90)
+            // The best channel takes focus on arrival. Coming down from the tab
+            // bar is left to geometry, so it lands on the score at the top.
+            .tvDetailDefaultFocus($focus, defaultFocus, priority: .automatic)
             .background(background.ignoresSafeArea())
             // The detail stays pushed beneath its player, just like movies
             // and series: no closing cover to race against the stream open.
@@ -107,6 +107,54 @@
             .onDisappear { SportsSyncService.shared.endLivePolling() }
         }
 
+        private static let channelColumnWidth: CGFloat = 520
+
+        /// Once the header scrolls off, the tab bar is closer than its buttons,
+        /// so "up" leaves the column without bringing the score back. Leaving
+        /// the column (for the tab bar or the channels) scrolls it to the top,
+        /// and reaching the tabs or the header scrolls back as far as the score.
+        private var detailScroll: some View {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(spacing: 48) {
+                        header.id(ScrollAnchor.header)
+                        if let bouts = fixture.bouts, !bouts.isEmpty {
+                            TVFightCardSection(bouts: bouts, hidesScores: hidesScores)
+                        }
+                        if let circuit = RaceCircuitSummary(fixture: fixture) {
+                            TVRaceCircuitSection(summary: circuit, hidesScores: hidesScores)
+                        }
+                        TVGameDetailMarkets(detail: detailLoad.detail, fixture: fixture, hidesScores: hidesScores)
+                        detailTabsSection.id(ScrollAnchor.tabs)
+                        standingsSection
+                        if fixture.sport == "racing", !hidesScores {
+                            TVRacingSeasonSection(fixture: fixture)
+                        }
+                    }
+                    .padding(.vertical, 70)
+                }
+                .scrollClipDisabled()
+                .focusSection()
+                .focusedValue(\.matchCentreColumn, .details)
+                .onChange(of: focusedColumn) { old, new in
+                    guard old == .details, new != .details else { return }
+                    withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(ScrollAnchor.header, anchor: .top) }
+                }
+                .onChange(of: focus) { _, target in
+                    let anchor: (ScrollAnchor, UnitPoint)? = switch target {
+                    case .summary, .follow: (.header, .top)
+                    case .tab: (.tabs, .bottom)
+                    default: nil
+                    }
+                    guard let anchor else { return }
+                    // After the focus engine's own scroll for this move.
+                    Task { withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(anchor.0, anchor: anchor.1) } }
+                }
+            }
+        }
+
+        private enum ScrollAnchor { case header, tabs }
+
         /// The team tints are translucent washes over a solid detail backdrop.
         private var background: some View {
             ZStack {
@@ -117,11 +165,26 @@
 
         // MARK: - Header
 
+        /// A team match's header holds its own focus targets, the Follow
+        /// buttons. Only an event without teams makes the whole header one
+        /// landing: `.focusable(false)` on it would shut the buttons out too.
+        @ViewBuilder
         private var header: some View {
+            if fixture.hasTeams {
+                headerContent
+            } else {
+                headerContent.focusable().focused($focus, equals: .summary)
+            }
+        }
+
+        private var headerContent: some View {
             VStack(spacing: 24) {
-                leagueLine
+                TVMatchCentreLeagueLine(fixture: fixture)
                 if fixture.hasTeams {
-                    matchup
+                    // One focus section, so "up" from the centred tabs reaches
+                    // the Follow buttons under each team instead of passing
+                    // between them; left and right move from one to the other.
+                    matchup.focusSection()
                 } else {
                     eventHeader
                 }
@@ -134,39 +197,7 @@
                     .fill(.white.opacity(focus == .summary ? 0.14 : 0))
                     .padding(-24)
             }
-            .focusable(!fixture.hasTeams)
-            .focused($focus, equals: .summary)
             .animation(.easeOut(duration: 0.15), value: focus == .summary)
-        }
-
-        private var leagueLine: some View {
-            VStack(spacing: 8) {
-                leagueNameLine
-                if let tournament = fixture.tournamentLine {
-                    Text(verbatim: tournament)
-                        .font(.system(size: 24))
-                        .foregroundStyle(.white.opacity(0.6))
-                }
-            }
-        }
-
-        private var leagueNameLine: some View {
-            HStack(spacing: 12) {
-                if let logo = leagueLogoURL {
-                    CachedAsyncImage(url: logo, maxPixelSize: 56) { phase in
-                        if case let .success(image) = phase {
-                            image.resizable().scaledToFit()
-                        } else {
-                            Image(systemName: "sportscourt").font(.title3)
-                        }
-                    }
-                    .frame(width: 32, height: 32)
-                    .accessibilityHidden(true)
-                }
-                Text(verbatim: fixture.leagueName)
-                    .font(.system(size: 28, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.8))
-            }
         }
 
         private var matchup: some View {
@@ -243,14 +274,21 @@
                     }
                 }
             case .scheduled, .postponed:
-                Text(fixture.headlineDate, format: fixture.startTimeIsTentative == true
-                    ? .dateTime.weekday(.abbreviated).day().month(.abbreviated)
-                    : .dateTime.hour().minute())
-                    .font(.system(size: 60, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
+                VStack(spacing: 8) {
+                    Text(fixture.headlineDate, format: fixture.startTimeIsTentative == true
+                        ? .dateTime.weekday(.abbreviated).day().month(.abbreviated)
+                        : .dateTime.hour().minute())
+                        .font(.system(size: 60, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                    Text(verbatim: fixture.kickoffDayText())
+                        .font(.system(size: 26, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.7))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
             }
         }
 
@@ -272,12 +310,12 @@
             return Button {
                 follows.toggle(team.id, kind: .team)
             } label: {
-                Label(following ? "Following" : "Follow", systemImage: following ? "star.fill" : "star")
-                    .font(.system(size: 24, weight: .semibold))
-                    .padding(.horizontal, 26)
-                    .padding(.vertical, 14)
-                    .foregroundStyle(following ? .yellow : .white)
-                    .background(Capsule().fill(.white.opacity(0.12)))
+                // The hub's pill chrome: solid white on focus. A fixed
+                // capsule left a focused "Follow" looking unfocused.
+                TVSportsPillChrome {
+                    Label(following ? "Following" : "Follow", systemImage: following ? "star.fill" : "star")
+                        .font(.system(size: 24, weight: .semibold))
+                }
             }
             .buttonStyle(TVCardButtonStyle(focusScale: 1.05))
             .focused($focus, equals: .follow(team.id))
@@ -287,6 +325,8 @@
 
         // MARK: - Watch
 
+        /// The right-hand column: every channel, best first, scrolling on its
+        /// own as focus moves down it while the match stays in view.
         private var watchSection: some View {
             VStack(alignment: .leading, spacing: 18) {
                 Text("On Your Channels")
@@ -294,18 +334,26 @@
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                switch channels.count {
-                case 0:
-                    emptyChannels
-                case 1:
-                    singleChannel(channels[0])
-                default:
+                ScrollView {
                     VStack(spacing: 16) {
-                        ForEach(channels) { channelRow($0) }
+                        switch channels.count {
+                        case 0:
+                            emptyChannels
+                        case 1:
+                            singleChannel(channels[0])
+                        default:
+                            ForEach(channels) { channelRow($0) }
+                        }
                     }
+                    // Room for the focus zoom inside the clipped column.
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 16)
                 }
+                .padding(.horizontal, -14)
             }
+            .padding(.vertical, 70)
             .focusSection()
+            .focusedValue(\.matchCentreColumn, .channels)
         }
 
         private var emptyChannels: some View {
@@ -319,8 +367,8 @@
                 HStack(spacing: 22) {
                     ChannelLogo(urlString: channel.stream.streamIcon, size: 64)
                     VStack(alignment: .leading, spacing: 6) {
-                        channelName(channel, size: 30)
-                        channelSubtitle(channel)
+                        TVSportsChannelName(channel: channel, size: 30)
+                        TVSportsChannelSubtitle(channel: channel, size: 24)
                     }
                     Spacer(minLength: 16)
                     Label("Watch", systemImage: "play.fill")
@@ -342,31 +390,6 @@
 
         private func watch(_ channel: ResolvedChannel) {
             playingMedia = SportsPlayback.media(for: channel, in: modelContext)
-        }
-
-        private func channelName(_ channel: ResolvedChannel, size: CGFloat) -> some View {
-            HStack(spacing: 10) {
-                Text(verbatim: channel.stream.name)
-                    .font(.system(size: size, weight: .semibold))
-                    .lineLimit(1)
-                if let badge = sportsQualityBadge(from: channel.stream.name) {
-                    Text(verbatim: badge)
-                        .font(.system(size: size * 0.6, weight: .bold))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(.white.opacity(0.18), in: Capsule())
-                }
-            }
-        }
-
-        @ViewBuilder
-        private func channelSubtitle(_ channel: ResolvedChannel) -> some View {
-            if let subtitle = channel.matchedSubtitle {
-                subtitle
-                    .font(.system(size: 24))
-                    .foregroundStyle(.white.opacity(0.6))
-                    .lineLimit(1)
-            }
         }
 
         // MARK: - Tabs
@@ -405,19 +428,8 @@
             }
         }
 
-        @ViewBuilder
         private func tabContent(_ detail: SportsEventDetail) -> some View {
-            let tabs = detail.availableTabs(hidingScores: hidesScores)
-            switch tabs.contains(tab) ? tab : tabs.first {
-            case .timeline:
-                TVTimelineSection(events: detail.keyEvents, fixture: fixture)
-            case .stats:
-                TVStatsSection(stats: detail.teamStats, homePalette: fixture.homePalette, awayPalette: fixture.awayPalette)
-            case .lineup:
-                TVLineupSection(lineups: detail.lineups, fixture: fixture)
-            case nil:
-                EmptyView()
-            }
+            TVDetailTabContent(detail: detail, fixture: fixture, tab: tab, hidesScores: hidesScores)
         }
 
         // MARK: - Standings
@@ -486,7 +498,7 @@
                 fetchedStandings = standings
             }
             do {
-                let detail = try await provider.eventDetail(league: league, eventId: fixture.eventId)
+                let detail = try await provider.eventDetail(league: league, fixture: fixture)
                 guard !Task.isCancelled else { return }
                 detailLoad.finish(detailRequest, detail: detail)
             } catch {
@@ -500,10 +512,12 @@
         }
 
         // MARK: - Derived
+    }
 
-        private var leagueLogoURL: URL? {
-            fixture.leagueLogoURL ?? SportsCatalog.league(id: fixture.leagueId)?.logoURL
-        }
+    enum MatchCentreColumn: Hashable { case details, channels }
+
+    extension FocusedValues {
+        @Entry var matchCentreColumn: MatchCentreColumn?
     }
 
     /// The header's per-team column, kept out of the struct body for length.
@@ -543,7 +557,7 @@
 
         /// A finished game's record and form already count its result.
         private var showsRecordAndForm: Bool {
-            !hidesScores || fixture.status.state != .final
+            fixture.showsForm(hidingScores: hidesScores)
         }
 
         private func teamColumn(_ competitor: SportsCompetitor) -> some View {
@@ -561,31 +575,13 @@
                             .font(.system(size: 24))
                             .foregroundStyle(.white.opacity(0.6))
                     }
-                    if let form = competitor.form, !form.isEmpty {
-                        Text(verbatim: form)
-                            .font(.system(size: 24, design: .monospaced))
-                            .foregroundStyle(.white.opacity(0.6))
+                    if let form = fixture.headerForm(for: competitor, detail: detailLoad.detail) {
+                        TeamFormLine(content: form, letterSize: 20, textColor: .white.opacity(0.6))
                     }
                 }
                 followButton(competitor.team)
             }
             .frame(maxWidth: .infinity, alignment: .top)
-        }
-    }
-
-    /// A tennis match set by set, under the sets-won score.
-    private struct TVSetsLine: View {
-        let fixture: SportsFixture
-
-        var body: some View {
-            if let sets = fixture.setsLine {
-                Text(verbatim: sets)
-                    .font(.system(size: 28, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(.white.opacity(0.75))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
         }
     }
 #endif

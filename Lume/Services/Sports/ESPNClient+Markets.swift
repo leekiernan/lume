@@ -36,7 +36,25 @@ nonisolated extension ESPNClient {
         let homeScores = (home.linescores ?? []).compactMap(\.displayValue)
         let awayScores = (away.linescores ?? []).compactMap(\.displayValue)
         guard !homeScores.isEmpty, homeScores.count == awayScores.count else { return nil }
-        return SportsPeriodScores(home: homeScores, away: awayScores)
+        guard let count = periodCount(home: (homeScores, home.score?.stringValue), away: (awayScores, away.score?.stringValue)) else { return nil }
+        return SportsPeriodScores(home: Array(homeScores.prefix(count)), away: Array(awayScores.prefix(count)))
+    }
+
+    /// How many leading periods to show: the most whose sums are both sides'
+    /// scores. Rugby's feed sends each half and then two running totals
+    /// (Sale 14, 14, 7, 14 for a 28), which only the first two add up to.
+    /// Scores that aren't plain numbers keep every period; periods that never
+    /// add up show none.
+    static func periodCount(home: ([String], String?), away: ([String], String?)) -> Int? {
+        /// Each side's running total after every period, and its score.
+        func running(_ side: ([String], String?)) -> (totals: [Int], score: Int)? {
+            let periods = side.0.compactMap { Int($0) }
+            guard periods.count == side.0.count, let score = side.1.flatMap({ Int($0) }) else { return nil }
+            var total = 0
+            return (periods.map { total += $0; return total }, score)
+        }
+        guard let home = running(home), let away = running(away) else { return home.0.count }
+        return home.totals.indices.last { home.totals[$0] == home.score && away.totals[$0] == away.score }.map { $0 + 1 }
     }
 
     private static func moneyline(_ value: ESPNFlexibleValue) -> Double? {

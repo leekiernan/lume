@@ -96,7 +96,7 @@ struct SearchView: View {
                 .background { LumeAmbientBackground() }
             #endif
                 .searchField(text: $searchText, prompt: SearchPrompt.field(for: searchableAreas))
-                .navigationDestination(for: SearchSection.self) { section in
+                .pushedDestination(for: SearchSection.self) { section in
                     sectionDestination(section)
                 }
                 .onChange(of: filters) { _, filters in

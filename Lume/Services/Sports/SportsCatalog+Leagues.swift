@@ -211,10 +211,18 @@ nonisolated extension SportsCatalog {
         SportsLeague(sport: "baseball", slug: "world-baseball-classic", name: "World Baseball Classic", abbreviation: "WBC", region: .baseball)
     ]
 
+    /// The Rugby Championship stays though it's dormant: from 2026 it runs
+    /// in odd years, the Nations Championship taking the July and November
+    /// windows in between.
     private static let rugby: [SportsLeague] = [
+        SportsLeague(sport: "rugby", slug: "180659", name: "Six Nations", abbreviation: "SIX NATIONS", region: .rugby),
+        SportsLeague(sport: "rugby", slug: "17567", name: "Nations Championship", abbreviation: "NATIONS CH", region: .rugby),
+        SportsLeague(sport: "rugby", slug: "164205", name: "Rugby World Cup", abbreviation: "RWC", region: .rugby),
         SportsLeague(sport: "rugby", slug: "267979", name: "Gallagher Premiership", abbreviation: "PREM", region: .rugby),
         SportsLeague(sport: "rugby", slug: "270559", name: "Top 14", abbreviation: "TOP 14", region: .rugby),
         SportsLeague(sport: "rugby", slug: "270557", name: "United Rugby Championship", abbreviation: "URC", region: .rugby),
+        SportsLeague(sport: "rugby", slug: "271937", name: "Champions Cup", abbreviation: "CHAMPIONS", region: .rugby),
+        SportsLeague(sport: "rugby", slug: "272073", name: "Challenge Cup", abbreviation: "CHALLENGE", region: .rugby),
         SportsLeague(sport: "rugby", slug: "242041", name: "Super Rugby Pacific", abbreviation: "SUPER RUGBY", region: .rugby),
         SportsLeague(sport: "rugby", slug: "244293", name: "The Rugby Championship", abbreviation: "TRC", region: .rugby),
         SportsLeague(sport: "rugby", slug: "289234", name: "International Test Matches", abbreviation: "TEST", region: .rugby),

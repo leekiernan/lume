@@ -35,7 +35,8 @@ nonisolated extension ESPNClient {
             let classification = order.compactMap { $0.athlete?.displayName }
             return SportsSession(
                 kind: kind, date: date, state: comp.status.map { mapStatus($0).state },
-                classification: classification.isEmpty ? nil : classification
+                classification: classification.isEmpty ? nil : classification,
+                laps: comp.status?.period.flatMap { $0 > 0 ? $0 : nil }
             )
         }
     }
