@@ -125,7 +125,7 @@
                             TVRaceCircuitSection(summary: circuit, hidesScores: hidesScores)
                         }
                         TVGameDetailMarkets(detail: detailLoad.detail, fixture: fixture, hidesScores: hidesScores)
-                        detailTabsSection.id(ScrollAnchor.tabs)
+                        detailTabsSection
                         standingsSection
                         if fixture.sport == "racing", !hidesScores {
                             TVRacingSeasonSection(fixture: fixture)
@@ -399,6 +399,9 @@
             if let eventDetail = detailLoad.detail, eventDetail.hasTabContent(hidingScores: hidesScores) {
                 VStack(spacing: 28) {
                     tabPills(for: eventDetail)
+                        // Scroll to the controls, never the bottom of the
+                        // selected tab's potentially screenfuls of content.
+                        .id(ScrollAnchor.tabs)
                     tabContent(eventDetail)
                 }
             } else if detailLoad.isLoading, expectsEventDetail {
