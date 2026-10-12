@@ -64,10 +64,13 @@ the title tier, verified provider evidence outranks a reviewed supplement
 That provenance priority survives deduplication when the local merged guide
 also matches the channel. Local matches without proxy provenance keep the
 ordinary priority (4); no supplement origin is inferred from their text.
-A channel the local matcher also finds keeps the
-confidence it would have without a proxy; the proxy can add a channel, never
-take confidence away. Language/quality preferences and
-playback selection remain unchanged. Raw evidence text is deliberately not
+A channel independently found by the local matcher is not subject to the
+proxy-only untimed-suggestion guard. This does not preserve its previous
+confidence: confidence is recomputed across the entire merged answer. Another
+candidate in the strongest tier makes the answer ambiguous, even when a
+provenance priority or score orders one first. Only a single eligible channel
+in the strongest tier permits one-tap playback. Language/quality preferences
+and playback selection remain unchanged. Raw evidence text is deliberately not
 copied into programme titles, picker rows or player metadata: it can contain
 scores, and must not bypass Hide Scores.
 
@@ -76,20 +79,27 @@ scores, and must not bypass Hide Scores.
 The existing shared capability cache is reused. Sports reads coalesce identical
 in-flight batches; their process-local cache is bounded to 16 batches and a
 16 MiB input-byte budget. Ready responses are reused for at most 60 seconds,
-never past publication expiry. Pending/failures retry after 10 seconds. Requests
-have a 3-second request / 5-second resource timeout. A failure cools down for
-10 seconds across batches and surfaces. A network error, a 5xx or a failed
-capability negotiation cools down the whole proxy host, so several playlists
-behind one stopped proxy pay one round of timeouts (at most four at once), not
-one each. Any other non-200, such as a rejected account, cools down only that
-account. No authenticated URLs or free-form evidence are logged or persisted
-by the sports client.
+never past publication expiry. Pending sports reads/failures retry after
+10 seconds; the shared capability store caches unavailable negotiations for
+60 seconds. Requests have a 3-second request / 5-second resource timeout.
+A failure cools down for 10 seconds across batches and surfaces. Only a
+transport error or HTTP 5xx, during either negotiation or a sports read,
+cools down the whole proxy host. Other failures, including rejected accounts
+and malformed capability payloads, cool down only the requesting account.
+Once observed, a host cooldown skips later callers; already-running reads
+can still finish. No authenticated URLs or free-form evidence are logged or
+persisted by the sports client.
 
 The resolver's ten-minute cache also keys each fixture by its proxy evidence.
 Newly ready, changed or expired responses cannot be hidden by an older local
 resolution. Playlist account identity is included in catalog cache invalidation.
-The optional request may add up to one 5-second timeout on an uncached
-provider or an outage; it cannot disable local matching. At most four playlist negotiations run concurrently.
+There is no five-second deadline for an entire resolve: capability negotiation
+and sports reads are sequential, batches are sequential per source, and more
+than four playlists require multiple waves. Each request is bounded, but the
+total optional-request latency can exceed five seconds. A failed read ends
+that caller's remaining batches and preserves any earlier results. At most
+four playlist negotiations run concurrently. Local matching remains the
+fallback after optional reads finish or fail.
 
 ## Verification
 
@@ -97,7 +107,8 @@ provider or an outage; it cannot disable local matching. At most four playlist n
 `SportsProxyResolverTests` cover negotiation, batching, freshness, malformed
 items, fixture identity, account-scoped URLs, cancellation, collisions between
 playlists, restrictions, fallback, merging with local matches, supplement
-ranking, host and account cooldowns, picks and confidence. Existing resolver
+ranking (including overlapping local guide evidence), capability failure
+classification, host and account cooldowns, picks and merged confidence. Existing resolver
 and capability suites remain regression coverage. Run them on an iOS 26.4+
 simulator (never tvOS) with the shared SPM clone documented in AGENTS.md.
 
