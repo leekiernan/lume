@@ -8,11 +8,17 @@ actor LumeSportsClient {
     private struct Cached {
         let batch: LumeSportsBatch?
         let until: Date
+        let byteCount: Int
+    }
+
+    private struct Payload {
+        var batch: LumeSportsBatch?
+        var byteCount = 0
     }
 
     private struct Flight {
         let id = UUID()
-        let task: Task<LumeSportsBatch?, Never>
+        let task: Task<Payload, Never>
     }
 
     private let session: URLSession
@@ -70,23 +76,24 @@ actor LumeSportsClient {
                 do {
                     let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 3)
                     let (data, response) = try await session.data(for: request)
-                    guard (response as? HTTPURLResponse)?.statusCode == 200, data.count <= 8 * 1024 * 1024 else { return nil }
-                    return LumeSportsBatch.decode(data)
-                } catch { return nil }
+                    guard (response as? HTTPURLResponse)?.statusCode == 200, data.count <= 8 * 1024 * 1024 else { return Payload() }
+                    return Payload(batch: LumeSportsBatch.decode(data), byteCount: data.count)
+                } catch { return Payload() }
             })
             inFlight[url] = flight
         }
-        let batch = await flight.task.value
+        let payload = await flight.task.value
+        let batch = payload.batch
         if inFlight[url]?.id == flight.id {
             inFlight.removeValue(forKey: url)
             // Ready data is reused briefly, never beyond publication expiry.
             // Pending/failures retry sooner and never turn into channel negatives.
             let lifetime: TimeInterval = batch?.status == "ready" ? 60 : 10
             let until = min(now.addingTimeInterval(lifetime), batch?.expiresAt ?? now.addingTimeInterval(lifetime))
-            cache[url] = Cached(batch: batch, until: until)
+            cache[url] = Cached(batch: batch, until: until, byteCount: payload.byteCount)
             order.removeAll { $0 == url }
             order.append(url)
-            while order.count > 16 {
+            while order.count > 16 || cache.values.reduce(0, { $0 + $1.byteCount }) > 16 * 1024 * 1024 {
                 cache.removeValue(forKey: order.removeFirst())
             }
         }
