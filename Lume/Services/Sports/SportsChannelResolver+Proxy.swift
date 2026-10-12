@@ -12,6 +12,7 @@ nonisolated extension SportsChannelResolver {
     struct ProxyLocalScope {
         let fixtures: [SportsFixture]
         let channelIDs: Set<String>
+        let playlists: Set<UUID>
     }
 
     static func validatedProxyBroadcasts(
@@ -57,7 +58,7 @@ nonisolated extension SportsChannelResolver {
             guard needsLocal.contains(channel.playlistID), let id = channel.summary.epgChannelId, !id.isEmpty else { return nil }
             return id
         }
-        return ProxyLocalScope(fixtures: localFixtures, channelIDs: Set(ids))
+        return ProxyLocalScope(fixtures: localFixtures, channelIDs: Set(ids), playlists: needsLocal)
     }
 
     static func proxySources(container: ModelContainer, fixtures: [SportsFixture]) -> [LumeProxySource] {

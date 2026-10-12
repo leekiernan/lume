@@ -208,7 +208,7 @@ nonisolated enum SportsChannelResolver {
             // week's guide (210k rows on a large provider) to match 200 games.
             let guide = buildGuide(context: context, channelIds: scope.channelIDs, windows: guideWindows(for: scope.fixtures))
             guard !Task.isCancelled else { return cached }
-            let index = CandidateIndex(channels: channels, guide: guide, pickIndex: pickIndex)
+            let index = CandidateIndex(channels: channels, guide: guide, pickIndex: pickIndex, localPlaylists: scope.playlists)
 
             // Pass 3 — match each fixture in Swift, against only the channels
             // that could possibly match it.
@@ -349,18 +349,21 @@ nonisolated enum SportsChannelResolver {
         let byPickKey: [String: [Int]]
         let pickIndex: [String: String]
 
-        init(channels: [Channel], guide: [String: [NormalizedCandidate]], pickIndex: [String: String]) {
+        init(channels: [Channel], guide: [String: [NormalizedCandidate]], pickIndex: [String: String], localPlaylists: Set<UUID>) {
             var byName: [String: [Int]] = [:]
             var byEPGId: [String: [Int]] = [:]
             var byPick: [String: [Int]] = [:]
             for (offset, channel) in channels.enumerated() {
+                // Picks still apply household-wide; word matching is needed
+                // only for playlists not fully covered by timed proxy evidence.
+                byPick[channel.pickKey, default: []].append(offset)
+                guard localPlaylists.contains(channel.playlistID) else { continue }
                 for word in Set(Self.words(channel.nameHaystack)) {
                     byName[word, default: []].append(offset)
                 }
                 if let cid = channel.summary.epgChannelId, guide[cid] != nil {
                     byEPGId[cid, default: []].append(offset)
                 }
-                byPick[channel.pickKey, default: []].append(offset)
             }
             var byGuide: [String: Set<Int>] = [:]
             for (cid, offsets) in byEPGId {

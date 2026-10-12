@@ -44,8 +44,9 @@ For each fixture and playlist:
 | Other playlists | Resolve independently, using their own proxy or local guide |
 
 Guide scans omit a playlist only when its relevant fixtures are covered. The
-initial visible-channel snapshot is still read locally: this slice reduces
-guide materialization and matching, not every SwiftData read.
+initial visible-channel snapshot is still read locally. Covered playlists also
+skip the local name/guide word index, while retaining the pick index: this slice
+reduces guide materialization and matching, not every SwiftData read.
 
 Remembered picks still rank first, including picks absent from the proxy's
 candidates. Candidates are deduplicated, ranked and assigned confidence again
