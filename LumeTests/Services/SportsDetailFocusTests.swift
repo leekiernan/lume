@@ -4,6 +4,17 @@ import Testing
 struct SportsDetailFocusTests {
     private typealias Target = SportsDetailFocusTarget<String>
 
+    @Test(arguments: ["timeline", "stats", "lineup", "commentary"])
+    func `detail tabs never force a scroll alignment`(tab: String) {
+        #expect(!Target.tab(tab).requiresHeaderScroll)
+    }
+
+    @Test func `only header controls request the header scroll`() {
+        #expect(Target.summary.requiresHeaderScroll)
+        #expect(Target.follow("team").requiresHeaderScroll)
+        #expect(!Target.channel("channel").requiresHeaderScroll)
+    }
+
     @Test func `unavailable competitorless event lands on summary`() {
         // Scheduled UFC, loading/failed detail, or a final event with no tabs:
         // none has a Watch, Follow or Timeline control to focus.
