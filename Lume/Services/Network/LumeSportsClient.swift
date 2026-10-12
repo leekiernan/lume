@@ -52,13 +52,11 @@ actor LumeSportsClient {
             if let competition = fixture.proxyCompetition { groups[competition, default: []].append(fixture) }
         }
         guard !groups.isEmpty else { return [:] }
-        let state = try await capabilities.capabilities(for: source, now: now)
-        if state == .unavailable {
-            // Other playlists on this proxy would each wait out the same
-            // negotiation timeout before their local matching could start.
-            failures[host] = now.addingTimeInterval(Self.cooldown)
+        let negotiation = try await capabilities.negotiation(for: source, now: now)
+        if negotiation.state == .unavailable {
+            failures[negotiation.hostDown ? host : source.identity] = now.addingTimeInterval(Self.cooldown)
         }
-        guard case let .supported(capability) = state,
+        guard case let .supported(capability) = negotiation.state,
               let limit = capability.sportsBatchSize, let sports = capability.sports else { return [:] }
         var result: [String: LumeSportsBroadcast] = [:]
         for competition in groups.keys.sorted() where sports.competitions.contains(competition) {

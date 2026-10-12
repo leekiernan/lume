@@ -206,4 +206,20 @@ struct LumeSportsClientTests {
         let reads = StubURLProtocol.requests(forHost: host).count(where: { $0.url?.path.hasSuffix("/broadcasts") == true })
         #expect(reads == (status >= 500 ? 1 : 2))
     }
+
+    @Test(arguments: [401, 403, 429, 503, 200])
+    func `capability failures only cool the host for server outages`(_ status: Int) async throws {
+        let (client, source, host) = try client(body: body())
+        // The 200 case is malformed JSON, not an outage of other accounts.
+        StubURLProtocol.register(host: host, pathSuffix: "/capabilities", response: .init(status: status, body: "invalid"))
+        #expect(try await client.broadcasts(source: source, fixtures: [fixture()], now: now).isEmpty)
+        let other = Playlist(name: "Second account", serverURL: "https://\(host)/panel", username: "second", password: "secret")
+        let second = try #require(LumeProxySource(playlist: other))
+        let capability = #"{"v":1,"sports":{"v":1,"matcher_v":3,"source":"espn","competitions":["soccer/eng.1"],"max_batch_size":50,"groups":["broadcasts"]}}"#
+        StubURLProtocol.register(host: host, pathSuffix: "/capabilities", response: .init(body: capability))
+        let result = try await client.broadcasts(source: second, fixtures: [fixture()], now: now.addingTimeInterval(1))
+        #expect(result.isEmpty == (status >= 500))
+        let probes = StubURLProtocol.requests(forHost: host).count(where: { $0.url?.path.hasSuffix("/capabilities") == true })
+        #expect(probes == (status >= 500 ? 1 : 2))
+    }
 }
