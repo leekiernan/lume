@@ -163,7 +163,9 @@ nonisolated extension SportsChannelResolver {
                 suggestions.remove(candidate.id)
             }
             if let existing = byID[candidate.id], existing.source.rank <= candidate.source.rank {
-                suggestions.remove(candidate.id)
+                // Repeating the same untimed name in the local matcher is not
+                // independent timed evidence. A guide hit or explicit pick is.
+                if existing.source != .channelName { suggestions.remove(candidate.id) }
                 continue
             }
             byID[candidate.id] = candidate

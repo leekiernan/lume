@@ -103,12 +103,20 @@ struct SportsProxyResolverTests {
         #expect(result["401"]?.allSatisfy { !$0.isConfident } == true)
     }
 
-    @Test func `untimed evidence falls back and never authorizes automatic playback alone`() async throws {
+    @Test(arguments: [false, true])
+    func `untimed evidence falls back and never authorizes automatic playback alone`(_ namedForFixture: Bool) async throws {
         let helpers = LumeSportsClientTests()
         var candidate = helpers.candidate()
+        if namedForFixture { candidate["name"] = "Arsenal v Leeds United" }
         candidate["evidence"] = ["source": "provider_channel", "field": "name", "text": "Arsenal v Leeds United",
                                  "strength": "untimed_channel_pairing", "classification": "unknown"]
         let (container, _, client, _, _) = try setup(body: helpers.body(items: [helpers.item(candidates: [candidate])]), helpers: helpers)
+        if namedForFixture {
+            let streams = try container.mainContext.fetch(FetchDescriptor<LiveStream>())
+            let stream = try #require(streams.first)
+            stream.name = "Arsenal v Leeds United"
+            try container.mainContext.save()
+        }
         let result = await SportsChannelResolver.resolve(container: container, fixtures: [helpers.fixture()], proxyClient: client)
         #expect(result["401"]?.first?.source == .channelName)
         #expect(result["401"]?.first?.isConfident == false)
