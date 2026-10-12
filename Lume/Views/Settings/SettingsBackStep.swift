@@ -21,6 +21,8 @@ nonisolated enum SettingsBackStep: Equatable {
     case closeLanguagePicker
     /// Leave the preferred-language list for the player settings.
     case closeLanguageList
+    /// Leave Subtitle Style for the player settings.
+    case closeSubtitleStyle
     /// Leave a Library area's categories for the area list.
     case closeAreaCategories
     /// Move focus to the current category in the sidebar.
@@ -34,6 +36,7 @@ nonisolated enum SettingsBackStep: Equatable {
         showingEPGSources: Bool,
         hasEngineOptions: Bool,
         languagePane: LanguagePane?,
+        showingSubtitleStyle: Bool = false,
         showingAreaCategories: Bool
     ) -> SettingsBackStep {
         if hasPlaylist { return .closePlaylist }
@@ -44,6 +47,7 @@ nonisolated enum SettingsBackStep: Equatable {
         case .list: return .closeLanguageList
         case nil: break
         }
+        if showingSubtitleStyle { return .closeSubtitleStyle }
         if showingAreaCategories { return .closeAreaCategories }
         return .toSidebar
     }

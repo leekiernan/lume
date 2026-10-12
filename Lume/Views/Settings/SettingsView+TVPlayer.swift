@@ -2,7 +2,8 @@
 //  SettingsView+TVPlayer.swift
 //  Lume
 //
-//  The tvOS Player settings pane: the premium-gated playback toggles, the engine
+//  The tvOS Player settings pane: the premium-gated playback toggles, audio
+//  languages and subtitle style, the engine
 //  priority list with reordering, the external-player cycle, and per-engine option
 //  drill-ins. Split out of SettingsView to keep that file within the project's
 //  line-count cap.
@@ -44,6 +45,9 @@ import SwiftUI
                     }
                 }
 
+                // Viewer-facing, so up here with Languages.
+                tvSubtitlesSection
+
                 // Viewer-facing too, so it belongs up here with Languages
                 // rather than among the engine sections — and it is
                 // engine-independent: all three hosts route their up/down
@@ -53,16 +57,7 @@ import SwiftUI
                 // Its own section rather than a row under Live TV: it governs
                 // every direction the player reads, VOD scrubbing included,
                 // and it is about the remote rather than about channels.
-                VStack(alignment: .leading, spacing: 8) {
-                    TVSettingsSectionLabel("Siri Remote")
-
-                    TVOptionToggleRow(title: "Swipe Gestures", isOn: $tvRemoteSwipes)
-
-                    // swiftlint:disable:next line_length
-                    Text("Swipes across the remote's touch surface control the player: up and down change channels, left opens the channel browser and right returns to the last channel. Turn this off to leave those to a click on the remote's direction buttons, so a brush across the surface changes nothing.")
-                        .tvSettingsFooter()
-                        .padding(.top, 6)
-                }
+                tvSiriRemoteSection
 
                 tvStreamInfoSection
 
@@ -110,6 +105,39 @@ import SwiftUI
                         tvEngineOptionsRow(.ksPlayer)
                     }
                 }
+            }
+        }
+
+        private var tvSiriRemoteSection: some View {
+            VStack(alignment: .leading, spacing: 8) {
+                TVSettingsSectionLabel("Siri Remote")
+
+                TVOptionToggleRow(title: "Swipe Gestures", isOn: $tvRemoteSwipes)
+
+                // swiftlint:disable:next line_length
+                Text("Swipes across the remote's touch surface control the player: up and down change channels, left opens the channel browser and right returns to the last channel. Turn this off to leave those to a click on the remote's direction buttons, so a brush across the surface changes nothing.")
+                    .tvSettingsFooter()
+                    .padding(.top, 6)
+            }
+        }
+
+        /// Subtitle Style, drilled into in place like an engine's options.
+        private var tvSubtitlesSection: some View {
+            VStack(alignment: .leading, spacing: 8) {
+                TVSettingsSectionLabel("Subtitles")
+
+                Button {
+                    showingSubtitleStyle = true
+                } label: {
+                    HStack(spacing: 16) {
+                        Text("Subtitle Style")
+                        Spacer(minLength: 16)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .buttonStyle(TVSettingsRowButtonStyle())
             }
         }
 

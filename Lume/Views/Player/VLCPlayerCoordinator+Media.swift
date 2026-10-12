@@ -25,6 +25,9 @@ extension VLCPlayerCoordinator {
             ?? PlexPlaybackAuth.authenticatedURL(url, headers: httpHeaders) ?? url)
         applyMediaOptions(to: media, isLive: isLive)
         mediaPlayer.media = media
+        // libvlc draws VLC's subtitles itself; size is the one part of the
+        // viewer's subtitle style it exposes.
+        mediaPlayer.currentSubTitleFontScale = Float(SubtitleStyle.current().size.scale)
         startStartupFrameSampling()
         didApplyPreferredLanguages = false
     }

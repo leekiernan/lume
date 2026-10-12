@@ -7,6 +7,7 @@ struct SettingsBackStepTests {
         epg: Bool = false,
         engine: Bool = false,
         language: SettingsBackStep.LanguagePane? = nil,
+        subtitleStyle: Bool = false,
         areas: Bool = false
     ) -> SettingsBackStep {
         SettingsBackStep.next(
@@ -14,6 +15,7 @@ struct SettingsBackStepTests {
             showingEPGSources: epg,
             hasEngineOptions: engine,
             languagePane: language,
+            showingSubtitleStyle: subtitleStyle,
             showingAreaCategories: areas
         )
     }
@@ -26,6 +28,7 @@ struct SettingsBackStepTests {
         #expect(step(playlist: true) == .closePlaylist)
         #expect(step(epg: true) == .closeEPGSources)
         #expect(step(engine: true) == .closeEngineOptions)
+        #expect(step(subtitleStyle: true) == .closeSubtitleStyle)
         #expect(step(areas: true) == .closeAreaCategories)
     }
 

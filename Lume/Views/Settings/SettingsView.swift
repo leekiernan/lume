@@ -115,6 +115,10 @@ struct SettingsView: View {
         /// `selectedEngineOptions`). Not `private`: read by the
         /// SettingsView+TVPlayer extension (separate file).
         @State var preferredLanguagePane: PreferredLanguagePane?
+        /// Whether the Player category is drilled into Subtitle Style in place
+        /// (same reasoning as `selectedEngineOptions`). Not `private`: set by
+        /// the SettingsView+TVPlayer extension (separate file).
+        @State var showingSubtitleStyle = false
         @State var isReorderingPlayerList = false
 
         enum PreferredLanguagePane {
@@ -457,6 +461,7 @@ struct SettingsView: View {
                         selectedPlaylist = nil
                         selectedEngineOptions = nil
                         preferredLanguagePane = nil
+                        showingSubtitleStyle = false
                         showingAreaCategories = false
                         showingEPGSources = false
                     }
@@ -506,6 +511,8 @@ struct SettingsView: View {
                                 tvEngineOptionsDetail(for: selectedEngineOptions)
                             } else if let preferredLanguagePane {
                                 tvPreferredLanguageDetail(preferredLanguagePane, proxy: proxy)
+                            } else if showingSubtitleStyle {
+                                TVSubtitleStyleSettingsView()
                             } else {
                                 tvPlayerDetail(proxy: proxy)
                             }
@@ -533,18 +540,24 @@ struct SettingsView: View {
             case .add: .add
             case nil: nil
             }
-            switch SettingsBackStep.next(
+            apply(SettingsBackStep.next(
                 hasPlaylist: selectedPlaylist != nil,
                 showingEPGSources: showingEPGSources,
                 hasEngineOptions: selectedEngineOptions != nil,
                 languagePane: pane,
+                showingSubtitleStyle: showingSubtitleStyle,
                 showingAreaCategories: showingAreaCategories
-            ) {
+            ))
+        }
+
+        private func apply(_ step: SettingsBackStep) {
+            switch step {
             case .closePlaylist: selectedPlaylist = nil
             case .closeEPGSources: showingEPGSources = false
             case .closeEngineOptions: selectedEngineOptions = nil
             case .closeLanguagePicker: preferredLanguagePane = .list
             case .closeLanguageList: preferredLanguagePane = nil
+            case .closeSubtitleStyle: showingSubtitleStyle = false
             case .closeAreaCategories: showingAreaCategories = false
             case .toSidebar: focusedCategory = selectedCategory
             }

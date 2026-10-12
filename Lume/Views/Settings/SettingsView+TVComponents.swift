@@ -78,9 +78,9 @@ import SwiftUI
         }
 
         /// The category's name over its pane. A drill-in (a playlist, an
-        /// engine's options, a language list) shows its own title instead.
+        /// engine's options, a language list, subtitle style) shows its own title instead.
         @ViewBuilder var tvCategoryTitle: some View {
-            if selectedPlaylist == nil, selectedEngineOptions == nil, preferredLanguagePane == nil {
+            if selectedPlaylist == nil, selectedEngineOptions == nil, preferredLanguagePane == nil, !showingSubtitleStyle {
                 Text(selectedCategory.title)
                     .font(.system(size: TVSettingsMetrics.paneTitleFontSize, weight: .bold))
                     .padding(.horizontal, TVSettingsMetrics.rowHPadding)
@@ -144,6 +144,13 @@ import SwiftUI
                 // swiftlint:disable:next line_length
                 Text("Artwork, ratings and details are provided by TMDB, MDBList, and Trakt, and intro/recap skip data by IntroDB. This product uses the TMDB API but is not endorsed or certified by TMDB.")
                     .font(.system(size: TVSettingsMetrics.explanatoryFontSize))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, TVSettingsMetrics.rowHPadding)
+
+                tvCreditRow(name: CreditsInfo.sampleFootage.name, license: CreditsInfo.sampleFootage.license)
+
+                Text("The subtitle preview shows a still from Big Buck Bunny, © Blender Foundation.")
+                    .font(.system(size: 22))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, TVSettingsMetrics.rowHPadding)
 

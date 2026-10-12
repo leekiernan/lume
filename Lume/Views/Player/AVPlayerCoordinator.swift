@@ -252,6 +252,7 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
         }
         let newItem = AVPlayerItem(asset: asset)
         newItem.preferredForwardBufferDuration = media.isLive ? 4 : 8
+        newItem.textStyleRules = SubtitleStyle.current().avTextStyleRules
         item = newItem
 
         attachItemObservers(to: newItem)
