@@ -156,6 +156,48 @@ extension SportsCommentaryEntry.Kind {
     }
 }
 
+/// Keep the row's measured height in step with its wrapped prose, including
+/// when a focusable tvOS block receives a shorter height proposal.
+struct SportsCommentaryRow: View {
+    enum Style {
+        case sheet, television
+    }
+
+    let entry: SportsCommentaryEntry
+    var style: Style = .sheet
+
+    private var isTelevision: Bool {
+        style == .television
+    }
+
+    private var isGoal: Bool {
+        entry.kind == .goal || entry.kind == .ownGoal
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: isTelevision ? 18 : 10) {
+            Text(verbatim: entry.minute)
+                .font(isTelevision ? .system(size: 24, weight: .semibold).monospacedDigit() : .caption.monospacedDigit().weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: isTelevision ? 80 : 44, alignment: .leading)
+            if entry.kind != nil || isTelevision {
+                Group {
+                    if let kind = entry.kind { kind.marker }
+                }
+                .font(isTelevision ? .system(size: 24) : .caption)
+                // An unbounded clear shape stretches under a multiline row.
+                .frame(width: isTelevision ? 30 : nil, height: isTelevision ? 30 : nil)
+                .accessibilityHidden(true)
+            }
+            Text(verbatim: entry.text)
+                .font(isTelevision ? .system(size: 26, weight: isGoal ? .bold : .regular) : .subheadline.weight(isGoal ? .semibold : .regular))
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
 /// The sheet's Commentary tab: newest first.
 struct CommentarySection: View {
     let entries: [SportsCommentaryEntry]
@@ -163,18 +205,7 @@ struct CommentarySection: View {
     var body: some View {
         LazyVStack(alignment: .leading, spacing: 10) {
             ForEach(entries.reversed()) { entry in
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text(verbatim: entry.minute)
-                        .font(.caption.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 44, alignment: .leading)
-                    if let kind = entry.kind {
-                        kind.marker.font(.caption)
-                    }
-                    Text(verbatim: entry.text)
-                        .font(entry.kind == .goal || entry.kind == .ownGoal ? .subheadline.weight(.semibold) : .subheadline)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                SportsCommentaryRow(entry: entry)
                 Divider()
             }
         }
@@ -221,29 +252,12 @@ struct CommentarySection: View {
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(Array(Array(entries.reversed()).chunked(into: 6).enumerated()), id: \.offset) { _, chunk in
                     VStack(alignment: .leading, spacing: 18) {
-                        ForEach(chunk) { row($0) }
+                        ForEach(chunk) { SportsCommentaryRow(entry: $0, style: .television) }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
                     .tvFocusBlock()
                 }
-            }
-        }
-
-        private func row(_ entry: SportsCommentaryEntry) -> some View {
-            HStack(alignment: .firstTextBaseline, spacing: 18) {
-                Text(verbatim: entry.minute)
-                    .font(.system(size: 24, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(.white.opacity(0.6))
-                    .frame(width: 80, alignment: .leading)
-                Group {
-                    if let kind = entry.kind { kind.marker } else { Color.clear }
-                }
-                .font(.system(size: 24))
-                .frame(width: 30)
-                Text(verbatim: entry.text)
-                    .font(.system(size: 26, weight: entry.kind == .goal || entry.kind == .ownGoal ? .bold : .regular))
-                    .foregroundStyle(.white)
-                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

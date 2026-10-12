@@ -111,8 +111,9 @@
 
         /// Once the header scrolls off, the tab bar is closer than its buttons,
         /// so "up" leaves the column without bringing the score back. Leaving
-        /// the column (for the tab bar or the channels) scrolls it to the top,
-        /// and reaching the tabs or the header scrolls back as far as the score.
+        /// the column (for the app tab bar or the channels) scrolls it to the
+        /// top. Within the column, only header controls force a scroll; detail
+        /// tabs keep the focus engine's position so their content stays visible.
         private var detailScroll: some View {
             ScrollViewReader { proxy in
                 ScrollView {
@@ -125,7 +126,7 @@
                             TVRaceCircuitSection(summary: circuit, hidesScores: hidesScores)
                         }
                         TVGameDetailMarkets(detail: detailLoad.detail, fixture: fixture, hidesScores: hidesScores)
-                        detailTabsSection.id(ScrollAnchor.tabs)
+                        detailTabsSection
                         standingsSection
                         if fixture.sport == "racing", !hidesScores {
                             TVRacingSeasonSection(fixture: fixture)
@@ -141,19 +142,17 @@
                     withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(ScrollAnchor.header, anchor: .top) }
                 }
                 .onChange(of: focus) { _, target in
-                    let anchor: (ScrollAnchor, UnitPoint)? = switch target {
-                    case .summary, .follow: (.header, .top)
-                    case .tab: (.tabs, .bottom)
-                    default: nil
-                    }
-                    guard let anchor else { return }
+                    guard target?.requiresHeaderScroll == true else { return }
                     // After the focus engine's own scroll for this move.
-                    Task { withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(anchor.0, anchor: anchor.1) } }
+                    Task {
+                        guard focus == target else { return }
+                        withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(ScrollAnchor.header, anchor: .top) }
+                    }
                 }
             }
         }
 
-        private enum ScrollAnchor { case header, tabs }
+        private enum ScrollAnchor { case header }
 
         /// The team tints are translucent washes over a solid detail backdrop.
         private var background: some View {

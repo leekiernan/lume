@@ -7,6 +7,15 @@ nonisolated enum SportsDetailFocusTarget<Tab: Hashable>: Hashable {
     case tab(Tab)
     case summary
 
+    /// Tabs use the focus engine's minimal visibility scroll. Forcing their
+    /// alignment moves the selected content out of view when navigating up.
+    var requiresHeaderScroll: Bool {
+        switch self {
+        case .summary, .follow: true
+        case .tab, .channel: false
+        }
+    }
+
     static func preferred(
         channelID: String?, teamID: String?, availableTabs: [Tab], selectedTab: Tab
     ) -> Self {
