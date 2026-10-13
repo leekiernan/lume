@@ -15,6 +15,11 @@
 //    budget, including on 4K displays.
 //  • Fades in artwork that had to be fetched, while keeping cache hits instant.
 //    Pass an explicit `transaction` to override, or `Transaction()` to disable.
+//  • Holds a decoded image only while on screen. A page covered by the next
+//    one in a navigation stack (detail → cast → detail → … can go arbitrarily
+//    deep) would otherwise keep every poster and backdrop it showed, which the
+//    bounded memory cache can't evict while a view holds them. Coming back
+//    redraws a cache hit synchronously, so nothing flashes.
 //
 //  The closure API mirrors `AsyncImage` — it hands back an `AsyncImagePhase`
 //  (`.empty` / `.success` / `.failure`) — so migrating a call site is usually
@@ -62,6 +67,10 @@ struct CachedAsyncImage<Content: View>: View {
         // is especially visible as a black flash across a full-screen hero.
         content(renderPhase)
             .task(id: taskID) { await load() }
+            .onDisappear {
+                phase = .empty
+                phaseTaskID = nil
+            }
     }
 
     private var renderPhase: AsyncImagePhase {

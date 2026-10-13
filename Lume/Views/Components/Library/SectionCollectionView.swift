@@ -28,50 +28,16 @@ struct SectionCollectionView: View {
 
     var body: some View {
         CategoryPage(title: selection.title) {
-            switch CollectionGridPresentation.resolve(hasItems: !items.isEmpty, isLoading: !pagination.isPrepared || pagination.isLoading) {
-            case .empty:
-                ContentUnavailableView(
-                    "Nothing Here Yet",
-                    systemImage: "rectangle.stack"
-                )
-                .padding(.top, 40)
-            case .loading:
-                ProgressView("Loading…").frame(maxWidth: .infinity).padding(.top, 40)
-            case .content:
-                PosterGrid {
-                    ForEach(items) { item in
-                        itemLink(item)
-                            .onAppear {
-                                if item.id == items.last?.id { requestNextPage() }
-                            }
-                    }
-
-                    if pagination.isLoading {
-                        ProgressView()
-                            .frame(maxWidth: .infinity)
-                    }
-                }
-                .padding()
-            }
+            CollectionGridContent(
+                items: items,
+                isLoading: !pagination.isPrepared || pagination.isLoading,
+                isLoadingMore: pagination.isLoading,
+                animationNamespace: animationNamespace,
+                onReachEnd: requestNextPage
+            )
         }
         .task(id: selection.section.token) {
             prepare()
-        }
-    }
-
-    @ViewBuilder
-    private func itemLink(_ item: HomeMediaItem) -> some View {
-        switch item {
-        case let .movie(movie):
-            CatalogPosterLink(item: movie, animationNamespace: animationNamespace) { movie in
-                MovieCardView(movie: movie, fillsWidth: true)
-            }
-        case let .series(series):
-            CatalogPosterLink(item: series, animationNamespace: animationNamespace) { series in
-                SeriesCardView(series: series, fillsWidth: true)
-            }
-        case .live:
-            EmptyView()
         }
     }
 

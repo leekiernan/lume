@@ -62,6 +62,9 @@ private struct DetailDestinations: ViewModifier {
                 SeriesDetailView(series: series, animationNamespace: namespace)
                     .detailZoomTransition(sourceID: series.id, namespace: namespace)
             }
+            .pushedDestination(for: PersonRoute.self) { route in
+                PersonFilmographyView(route: route, animationNamespace: namespace)
+            }
         #if os(tvOS)
             .pushedDestination(for: SportsMatchRoute.self) { route in
                 TVGameDetailView(route: route)

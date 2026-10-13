@@ -257,7 +257,11 @@ struct CastRow: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(alignment: .top, spacing: 16) {
                 ForEach(cast) { member in
-                    CastCard(member: member)
+                    // The person's other titles, on the stack this page is in.
+                    NavigationLink(value: PersonRoute(member: member)) {
+                        CastCard(member: member)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, DetailMetrics.contentPadding)

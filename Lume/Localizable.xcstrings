@@ -39370,6 +39370,58 @@
         }
       }
     },
+    "None of %@'s films or series are in this playlist." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine Filme oder Serien mit %@ in dieser Playlist."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay películas ni series de %@ en esta lista de reproducción."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun film ni aucune série avec %@ dans cette playlist."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun film o serie con %@ in questa playlist."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このプレイリストに%@の出演作品はありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 재생목록에 %@ 출연작이 없습니다."
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nenhum filme ou série com %@ nesta playlist."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此播放列表中没有%@出演的电影或剧集。"
+          }
+        }
+      }
+    },
     "Not a Main Channel" : {
       "comment" : "Sports channel menu: stop counting this channel as a broadcaster's flagship.",
       "extractionState" : "manual",
