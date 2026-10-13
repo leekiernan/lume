@@ -364,10 +364,23 @@
 
     // MARK: - Cast card
 
+    /// A cast member; selecting it pushes their other titles.
     struct TVCastCard: View {
         let member: CastMember
 
-        @FocusState private var isFocused: Bool
+        var body: some View {
+            NavigationLink(value: PersonRoute(member: member)) {
+                TVCastCardLabel(member: member)
+            }
+            .buttonStyle(TVCardButtonStyle())
+        }
+    }
+
+    /// Reads focus from the card's button, which also lifts it.
+    private struct TVCastCardLabel: View {
+        let member: CastMember
+
+        @Environment(\.isFocused) private var isFocused
 
         var body: some View {
             VStack(spacing: 14) {
@@ -406,10 +419,6 @@
                 }
                 .frame(width: TVDetailMetrics.castCardWidth)
             }
-            .focusable(true)
-            .focused($isFocused)
-            .scaleEffect(isFocused ? 1.08 : 1.0)
-            .animation(.easeOut(duration: 0.18), value: isFocused)
         }
     }
 
