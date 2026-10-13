@@ -7,7 +7,10 @@ final class Episode {
     // those columns so it seeks the in-progress / watched rows instead of
     // scanning every episode in the catalog. `downloadStatusRaw` backs the
     // Downloads screen's live `@Query`, which re-evaluates during catalog syncs.
-    #Index<Episode>([\.isWatched], [\.watchProgress], [\.downloadStatusRaw])
+    // `[isWatched, watchProgress]` serves the resume lookup (in progress, not
+    // finished): alone, `isWatched = 0` matches nearly every episode and SQLite
+    // read them all; together the plan is a covering-index seek.
+    #Index<Episode>([\.isWatched], [\.watchProgress], [\.downloadStatusRaw], [\.isWatched, \.watchProgress])
 
     @Attribute(.unique) var id: String
     var episodeId: String

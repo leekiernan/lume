@@ -90,6 +90,38 @@ nonisolated enum CatalogIndexBackfill {
         // `[channelId, start]`. `TVPlayerContent.guideListings` has cited a
         // "channelId + end index" in a comment since it was written, without
         // one ever existing.
+        // Continue Watching / Recently Watched (Home and the Movies tab) and
+        // the episode resume lookup. With only single-column indexes SQLite
+        // chose `isWatched = 0`, which nearly every row matches: the whole
+        // movie table read and sorted for ten rows — 4.4 s main-thread hangs on
+        // tvOS whenever Home's queries re-ran — and every unwatched episode
+        // read for the handful in progress.
+        Index(
+            name: "Z_Movie_SwiftDataIndexOnBinaryisWatchedlastWatchedDate",
+            table: "ZMOVIE",
+            columns: ["ZISWATCHED", "ZLASTWATCHEDDATE"]
+        ),
+        Index(
+            name: "Z_Episode_SwiftDataIndexOnBinaryisWatchedwatchProgress",
+            table: "ZEPISODE",
+            columns: ["ZISWATCHED", "ZWATCHPROGRESS"]
+        ),
+        // Recently Added walks `added` / `lastModified` newest first until 21
+        // rows pass the playlist prefix and hidden-category checks. With only
+        // the sort column indexed each step read the title's whole row; with
+        // most categories hidden that was every row, the main-thread `pread`
+        // behind the Movies tab's hangs on a profile switch. With the two
+        // filter columns in the index the checks never leave it.
+        Index(
+            name: "Z_Movie_SwiftDataIndexOnBinaryaddedcategoryIdid",
+            table: "ZMOVIE",
+            columns: ["ZADDED", "ZCATEGORYID", "ZID"]
+        ),
+        Index(
+            name: "Z_Series_SwiftDataIndexOnBinarylastModifiedcategoryIdid",
+            table: "ZSERIES",
+            columns: ["ZLASTMODIFIED", "ZCATEGORYID", "ZID"]
+        ),
         Index(
             name: "Z_EPGListing_SwiftDataIndexOnBinarychannelIdend",
             table: "ZEPGLISTING",
