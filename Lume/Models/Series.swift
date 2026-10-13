@@ -22,6 +22,9 @@ final class Series {
     // off while the ordering stays a binary comparison: a `SortDescriptor` on a
     // String key path defaults to `.localizedStandard`, which emits
     // `COLLATE NSCollateFinderlike` and no b-tree can serve that.
+    // `[lastModified, categoryId, id]` serves Recently Added the way
+    // `[added, categoryId, id]` does on `Movie`: the playlist and hidden-category
+    // checks are answered from the index, not by reading each series' row.
     #Index<Series>(
         [\.tmdbId],
         [\.isFavorite],
@@ -31,7 +34,8 @@ final class Series {
         [\.categoryId],
         [\.genre],
         [\.indexedAt],
-        [\.lastModified]
+        [\.lastModified],
+        [\.lastModified, \.categoryId, \.id]
     )
 
     @Attribute(.unique) var id: String

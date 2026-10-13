@@ -112,9 +112,9 @@ enum SeriesResumeLoader {
 
     nonisolated static func load(container: ModelContainer) -> [String: Double] {
         let context = ModelContext(container)
-        // Scoped by watch state, not by the series on screen: `watchProgress`
-        // and `isWatched` are both indexed on `Episode`, so this seeks the
-        // handful of in-progress rows however large the episode table is.
+        // Scoped by watch state, not by the series on screen: the composite
+        // `[isWatched, watchProgress]` index on `Episode` makes this a seek of
+        // the handful of in-progress rows however large the episode table is.
         // Prefetching `series` resolves the owning show in the same round trip
         // instead of one to-one fault per episode.
         var descriptor = FetchDescriptor<Episode>(

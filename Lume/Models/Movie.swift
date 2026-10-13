@@ -38,6 +38,18 @@ final class Movie {
     // pays off while the ordering stays a binary comparison: a `SortDescriptor`
     // on a String key path defaults to `.localizedStandard`, which emits
     // `COLLATE NSCollateFinderlike` and no b-tree can serve that.
+    // `[isWatched, lastWatchedDate]` serves Continue Watching and Recently
+    // Watched, on Home and the Movies tab: unwatched and newest first. With
+    // only the single-column indexes SQLite took `isWatched = 0`, which nearly
+    // every movie matches, read them all and sorted them for ten rows — the
+    // 4.4 s main-thread hangs on tvOS each time Home's queries re-ran (twice
+    // per profile switch). Equality column first, as for `LiveStream`.
+    // `[added, categoryId, id]` serves Recently Added: it walks newest first
+    // until 21 rows pass the playlist prefix and hidden-category checks, and
+    // with those two columns in the index each step is tested there instead
+    // of reading the movie's whole row (plot, embedding, metadata blobs). With
+    // most categories hidden the old walk read every row on tvOS: 149 → 22 ms
+    // warm on a 150k-row, 620 MB test table, far more from cold flash.
     #Index<Movie>(
         [\.tmdbId],
         [\.isFavorite],
@@ -50,7 +62,9 @@ final class Movie {
         [\.genre],
         [\.indexedAt],
         [\.downloadStatusRaw],
-        [\.added]
+        [\.added],
+        [\.isWatched, \.lastWatchedDate],
+        [\.added, \.categoryId, \.id]
     )
 
     @Attribute(.unique) var id: String

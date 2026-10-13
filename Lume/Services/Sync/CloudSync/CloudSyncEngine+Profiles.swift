@@ -74,7 +74,7 @@ extension CloudSyncEngine {
             defer { Perf.end(swap) }
             let clock = ContinuousClock()
             let started = clock.now
-            let localValues = try Perf.measure(.profileSwitchFetch) { try fetchLocalContentValues() }
+            let (localValues, breakdown) = try Perf.measure(.profileSwitchFetch) { try fetchLocalContentValuesTimed() }
             let fetched = clock.now
             try Perf.measure(.profileSwitchExport) { try exportCatalogState(toProfile: from, localValues: localValues) }
             let exported = clock.now
@@ -89,7 +89,8 @@ extension CloudSyncEngine {
             export \((exported - fetched).logSeconds, privacy: .public), \
             reset \((reset - exported).logSeconds, privacy: .public), \
             import \((imported - reset).logSeconds, privacy: .public), \
-            save \((saved - imported).logSeconds, privacy: .public)
+            save \((saved - imported).logSeconds, privacy: .public) \
+            (fetched \(breakdown.joined(separator: ", "), privacy: .public))
             """)
 
             // Nothing below can throw: only after both stores are durable may
