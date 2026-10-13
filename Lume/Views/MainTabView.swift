@@ -86,6 +86,12 @@ struct MainTabView: View {
     /// already holds the fire while any is on screen. Settings has to, because
     /// on every platform that shows the prompt it is a sheet on the library
     /// toolbar rather than a tab, and so invisible to this root.
+    /// While a profile switch runs, tab contents are unmounted — see
+    /// `IdleUnmountingTab.isSuspended` and tvOS's `activeOnly`.
+    private var isSwitchingProfile: Bool {
+        profileManager?.isSwitching == true
+    }
+
     private var hasBlockingPresentation: Bool {
         activeSyncRequest != nil
             || manualSyncRequest != nil
@@ -400,10 +406,19 @@ struct MainTabView: View {
         /// small; tab-local view state resets on switch, which is the usual
         /// tvOS behaviour anyway (navigation paths live in `DeepLinkRouter`
         /// and survive).
+        ///
+        /// A profile switch unmounts the selected tab too, until it lands: the
+        /// tree is rebuilt for the new profile anyway (`.id(activeProfileToken)`),
+        /// and left mounted it reloaded every row for the catalog the swap was
+        /// half-way through — the Movies tab's whole feed, for a profile that
+        /// doesn't even show Movies, holding the main thread for seconds.
         @ViewBuilder
         private func activeOnly(_ tab: AppTab, selection: AppTab, @ViewBuilder content: () -> some View) -> some View {
-            if selection == tab {
+            if selection == tab, !isSwitchingProfile {
                 content()
+            } else if selection == tab {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 Color.clear
             }
@@ -416,7 +431,7 @@ struct MainTabView: View {
             TabView(selection: selection) {
                 if isOn(.home) {
                     Tab("Home", systemImage: "house", value: AppTab.home) {
-                        IdleUnmountingTab(isSelected: selection.wrappedValue == .home) {
+                        IdleUnmountingTab(isSuspended: isSwitchingProfile, isSelected: selection.wrappedValue == .home) {
                             HomeView(playlistPrefix: activePlaylistPrefix, restriction: contentRestriction)
                         }
                     }
@@ -424,7 +439,7 @@ struct MainTabView: View {
 
                 if isOn(.movies) {
                     Tab("Movies", systemImage: "film", value: AppTab.movies) {
-                        IdleUnmountingTab(isSelected: selection.wrappedValue == .movies) {
+                        IdleUnmountingTab(isSuspended: isSwitchingProfile, isSelected: selection.wrappedValue == .movies) {
                             MoviesView(playlistPrefix: activePlaylistPrefix, restriction: contentRestriction)
                         }
                     }
@@ -432,7 +447,7 @@ struct MainTabView: View {
 
                 if isOn(.series) {
                     Tab("Series", systemImage: "tv", value: AppTab.series) {
-                        IdleUnmountingTab(isSelected: selection.wrappedValue == .series) {
+                        IdleUnmountingTab(isSuspended: isSwitchingProfile, isSelected: selection.wrappedValue == .series) {
                             SeriesView(playlistPrefix: activePlaylistPrefix, restriction: contentRestriction)
                         }
                     }
@@ -440,13 +455,13 @@ struct MainTabView: View {
 
                 if isOn(.liveTV) {
                     Tab("Live TV", systemImage: "antenna.radiowaves.left.and.right", value: AppTab.liveTV) {
-                        IdleUnmountingTab(isSelected: selection.wrappedValue == .liveTV) { liveTVRoot }
+                        IdleUnmountingTab(isSuspended: isSwitchingProfile, isSelected: selection.wrappedValue == .liveTV) { liveTVRoot }
                     }
                 }
 
                 if showsSportsTab {
                     Tab("Sports", systemImage: "sportscourt", value: AppTab.sports) {
-                        IdleUnmountingTab(isSelected: selection.wrappedValue == .sports) { SportsHubView() }
+                        IdleUnmountingTab(isSuspended: isSwitchingProfile, isSelected: selection.wrappedValue == .sports) { SportsHubView() }
                     }
                 }
 

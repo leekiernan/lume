@@ -20,6 +20,10 @@
 import SwiftUI
 
 struct IdleUnmountingTab<Content: View>: View {
+    /// Unmounted for now whatever else holds: a profile switch rebuilds the
+    /// tab for the new profile, so the old tree reacting to the catalog swap
+    /// is wasted main-thread work. Shown as a spinner while on screen.
+    var isSuspended = false
     let isSelected: Bool
     @ViewBuilder let content: () -> Content
 
@@ -43,7 +47,14 @@ struct IdleUnmountingTab<Content: View>: View {
 
     var body: some View {
         Group {
-            if isMounted || isActive {
+            if isSuspended {
+                if isActive {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    Color.clear
+                }
+            } else if isMounted || isActive {
                 content()
             } else {
                 Color.clear
