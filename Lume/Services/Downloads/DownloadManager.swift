@@ -241,8 +241,7 @@ final class DownloadManager: NSObject {
     /// `nonisolated` so `didFinishDownloadingTo` can resolve the destination and
     /// move the file before returning, without hopping to the main actor first.
     nonisolated var downloadsDirectory: URL {
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Downloads", isDirectory: true)
+        DownloadStorage.directory
     }
 
     // MARK: - Private
@@ -452,7 +451,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
         completionDeliveryGroup.enter()
         Task { @MainActor in
             defer { self.completionDeliveryGroup.leave() }
-            self.finalizeDownload(taskID: taskID, info: info, destination: destination)
+            self.finalizeDownload(taskID: taskID, info: info)
             await DownloadCompletionNotifications.shared.notifyCompleted(info, taskID: taskID)
         }
     }
@@ -527,8 +526,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
             let info = DownloadTaskInfo(id: id, title: self.activeDownloads[id]?.title ?? id, filename: filename)
             self.finalizeDownload(
                 taskID: taskID,
-                info: info,
-                destination: destination
+                info: info
             )
             await DownloadCompletionNotifications.shared.notifyCompleted(info, taskID: taskID)
         }
@@ -537,13 +535,15 @@ extension DownloadManager: URLSessionDownloadDelegate {
     /// Main-actor bookkeeping once the file is already in place: clear the live
     /// maps and persist the completed status.
     @MainActor
-    private func finalizeDownload(taskID: Int, info: DownloadTaskInfo, destination: URL) {
+    private func finalizeDownload(taskID: Int, info: DownloadTaskInfo) {
         _ = progressPublishGate.withLock { $0.removeValue(forKey: taskID) }
         idToFilename[info.id] = info.filename
         activeDownloads.removeValue(forKey: info.id)
         taskMap.removeValue(forKey: taskID)
         idToTask.removeValue(forKey: info.id)
-        scheduleModelUpdate(id: info.id, status: .completed, localURL: destination.path)
+        // The filename, not the path: the container path changes on every app
+        // update (see `DownloadStorage.file(forStored:)`).
+        scheduleModelUpdate(id: info.id, status: .completed, localURL: info.filename)
         promoteIfNeeded()
     }
 
