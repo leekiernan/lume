@@ -49,6 +49,6 @@ extension Color {
         isFocused ? .lumeLiveRed : .lumeDestructive
     }
 
-    /// Marks a layout row that is on the tvOS Top Shelf.
+    /// A layout row's Top Shelf button while the row is on the tvOS Top Shelf.
     static let topShelfGold = Color(red: 0.96, green: 0.77, blue: 0.29)
 }

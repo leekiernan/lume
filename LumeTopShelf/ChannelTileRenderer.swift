@@ -7,13 +7,10 @@
 //  wide, transparent PNG — came out stretched and cropped. Instead the logo is
 //  drawn aspect-fit and centred, with room around it, on a square tile whose
 //  colour keeps it readable (`LogoBackdrop`). A channel without a usable logo
-//  gets its name. Tiles are cached in the
-//  shared Caches directory (the only place tvOS lets us write) and handed to
-//  the Top Shelf as file URLs.
+//  gets its name. Tiles are cached (`TopShelfImages`) and handed to the Top
+//  Shelf as file URLs.
 //
 
-import CryptoKit
-import ImageIO
 import UIKit
 
 enum ChannelTileRenderer {
@@ -25,18 +22,11 @@ enum ChannelTileRenderer {
     /// Bumped whenever the drawing changes, so stale tiles aren't reused.
     private static let renderVersion = 6
 
-    private static var directory: URL? {
-        WidgetDataStore.snapshotURL?
-            .deletingLastPathComponent()
-            .appendingPathComponent("TopShelfChannelTiles", isDirectory: true)
-    }
-
     /// File URLs of the rendered tiles, keyed by `Channel.id`. Logos download
     /// in parallel; a tile already on disk is reused, and tiles no longer in
     /// use are deleted.
     static func tiles(for channels: [Channel]) async -> [String: URL] {
-        guard let directory else { return [:] }
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        guard let directory = TopShelfImages.directory("TopShelfChannelTiles") else { return [:] }
         // The same channel can appear more than once: render it once.
         let unique = Dictionary(channels.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first }).values
         let tiles = await withTaskGroup(of: (String, URL?).self) { group in
@@ -49,7 +39,7 @@ enum ChannelTileRenderer {
             }
             return result
         }
-        prune(directory, keeping: Set(tiles.values.map(\.lastPathComponent)))
+        TopShelfImages.prune(directory, keeping: Set(tiles.values.map(\.lastPathComponent)))
         return tiles
     }
 
@@ -66,7 +56,7 @@ enum ChannelTileRenderer {
         if FileManager.default.fileExists(atPath: file.path) { return file }
         var logo: CGImage?
         if let logoURL = channel.logoURL {
-            logo = await downloadLogo(logoURL)
+            logo = await TopShelfImages.download(logoURL, maxPixelSize: Int(logoBox.width))
         }
         // A logo that failed to download gets the name tile under the
         // name-only key, so the next load tries the logo again rather than
@@ -74,16 +64,12 @@ enum ChannelTileRenderer {
         let target = logo == nil && channel.logoURL != nil
             ? directory.appendingPathComponent(fileName(for: channel, logoURL: nil))
             : file
-        let image = render(logo: logo, name: channel.name)
-        guard let data = image.pngData(), (try? data.write(to: target, options: .atomic)) != nil else { return nil }
-        return target
+        return TopShelfImages.write(render(logo: logo, name: channel.name), to: target)
     }
 
     /// Keyed by what the tile shows, so a changed logo or name renders anew.
     private static func fileName(for channel: Channel, logoURL: URL?) -> String {
-        let key = "\(renderVersion)|\(logoURL?.absoluteString ?? "")|\(channel.name)"
-        let digest = SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined()
-        return "\(digest.prefix(32)).png"
+        TopShelfImages.fileName(for: "\(renderVersion)|\(logoURL?.absoluteString ?? "")|\(channel.name)")
     }
 
     private static func render(logo: CGImage?, name: String) -> UIImage {
@@ -141,33 +127,5 @@ enum ChannelTileRenderer {
             width: logoBox.width,
             height: height
         ), options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine], context: nil)
-    }
-
-    // MARK: - Logo
-
-    /// Downloads and decodes a logo through an ImageIO thumbnail — extensions
-    /// run on a tight memory budget, so a huge provider image is never decoded
-    /// at full size.
-    private static func downloadLogo(_ url: URL) async -> CGImage? {
-        var request = URLRequest(url: url)
-        // Downloads run in parallel and the Top Shelf waits for all of them,
-        // so this bounds how long one slow provider can hold it up.
-        request.timeoutInterval = 4
-        guard let (data, _) = try? await URLSession.shared.data(for: request),
-              let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary)
-        else { return nil }
-        let options = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: Int(logoBox.width)
-        ] as CFDictionary
-        return CGImageSourceCreateThumbnailAtIndex(source, 0, options)
-    }
-
-    private static func prune(_ directory: URL, keeping names: Set<String>) {
-        let files = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
-        for file in files where !names.contains(file) {
-            try? FileManager.default.removeItem(at: directory.appendingPathComponent(file))
-        }
     }
 }
