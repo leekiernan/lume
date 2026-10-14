@@ -108,14 +108,17 @@ struct PlayableMediaTests {
     }
 
     @Test func `downloaded episode keeps its portrait while using local playback`() throws {
-        let file = FileManager.default.temporaryDirectory.appendingPathComponent("lume-artwork-test-\(UUID().uuidString).mp4")
+        // Downloads resolve inside the Downloads directory by filename — see
+        // `DownloadStorage.file(forStored:)`.
+        try FileManager.default.createDirectory(at: DownloadStorage.directory, withIntermediateDirectories: true)
+        let file = DownloadStorage.directory.appendingPathComponent("lume-artwork-test-\(UUID().uuidString).mp4")
         try Data().write(to: file)
         defer { try? FileManager.default.removeItem(at: file) }
         let series = Series(id: "download-series", seriesId: 4, name: "Series")
         series.posterPath = "/portrait.jpg"
         let episode = Episode(id: "download-episode", episodeId: "53", title: "Pilot", containerExtension: "mp4",
                               seasonNum: 1, episodeNum: 1, series: series)
-        episode.localFileURL = file.path
+        episode.localFileURL = file.lastPathComponent
         episode.downloadStatus = .completed
         episode.movieImage = "https://image.tmdb.org/t/p/w500/still.jpg"
         let media = try #require(PlayableMedia.from(episode: episode, playlist: makePlaylist()))
