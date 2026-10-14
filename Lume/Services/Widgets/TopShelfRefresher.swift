@@ -82,7 +82,7 @@ final class TopShelfRefresher {
                 await previous?.value
                 await BackgroundActivity.perform("Top Shelf snapshot") {
                     await Task.detached(priority: .userInitiated) {
-                        WidgetSnapshotExporter.export(container: container, rows: rows, request: request)
+                        await WidgetSnapshotExporter.export(container: container, rows: rows, request: request)
                     }.value
                 }
             }

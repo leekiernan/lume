@@ -77,7 +77,7 @@ enum WidgetSnapshotExporter {
         rows: [TopShelfRowPlan],
         request: TopShelfExportRequest,
         now: Date = Date()
-    ) {
+    ) async {
         let followed = TopShelfSettings.followedProfile()
         var snapshot: WidgetSnapshot
         switch TopShelfSettings.exportAction(
@@ -107,7 +107,21 @@ enum WidgetSnapshotExporter {
         }
         snapshot.topShelf = TopShelfSettings.configuration()
         let owner = snapshot.sections.isEmpty ? nil : followed
-        write(snapshot, owner: owner)
+        #if os(tvOS)
+            // The carousel's art, with each title's logo drawn in, is rendered
+            // here rather than in the extension — see `TopShelfCarouselArt`.
+            // What's already rendered goes out with the snapshot; the rest
+            // follows in a second write once it has rendered.
+            let carousel = snapshot.topShelf?.style == .carousel
+            if carousel { TopShelfCarouselArt.applyCached(to: &snapshot) }
+            write(snapshot, owner: owner)
+            if carousel, await TopShelfCarouselArt.renderMissing(in: &snapshot) {
+                write(snapshot, owner: owner)
+            }
+            TopShelfCarouselArt.prune(keeping: carousel ? snapshot : WidgetSnapshot(generatedAt: now, sections: []))
+        #else
+            write(snapshot, owner: owner)
+        #endif
     }
 
     /// Saves the snapshot unless it shows what the one on disk already does:

@@ -59,7 +59,11 @@ nonisolated struct WidgetMediaItem: Codable, Equatable, Identifiable {
     /// a channel, which has no detail screen.
     var detailLink: URL?
     /// The title's wordmark — a transparent TMDB logo, an episode's being its
-    /// show's — drawn onto the carousel art as the in-app hero shows it. Last
-    /// and optional, so a snapshot written before it existed still decodes.
+    /// show's — which the app draws onto the carousel art.
     var logoURL: URL?
+    /// The carousel image with the logo drawn in: a file the app rendered in
+    /// the App Group's Caches (`TopShelfCarouselArt`), nil until it has. The
+    /// extension only reads it, so its memory never holds the rendering.
+    /// Optional, like `logoURL`, so older snapshots still decode.
+    var artURL: URL?
 }
