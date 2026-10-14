@@ -109,6 +109,7 @@ struct WidgetSnapshotExporterTests {
         resumable.watchProgress = 900
         resumable.lastWatchedDate = Date(timeIntervalSinceNow: -3600)
         resumable.backdropPath = "/m1-backdrop.jpg"
+        resumable.logoPath = "/m1-logo.png"
         context.insert(resumable)
 
         let watched = Movie(id: "\(prefix)-m2", streamId: 2, name: "Watched")
@@ -166,6 +167,9 @@ struct WidgetSnapshotExporterTests {
         let movie = try #require(items(snapshot, Self.homeContinueWatching).last)
         #expect(movie.title == "Resumable")
         #expect(movie.backdropURL == TMDBClient.backdropURL("/m1-backdrop.jpg"))
+        // The carousel draws the title's logo into its art.
+        #expect(movie.logoURL == TMDBClient.logoURL("/m1-logo.png", size: "w500"))
+        #expect(episode.logoURL == nil)
         // Select opens the detail screen — an episode's is its show's.
         #expect(movie.detailLink == WidgetDeepLink.openMovie(id: "\(playlist.id.uuidString)-m1"))
         #expect(episode.detailLink == WidgetDeepLink.openSeries(id: "\(playlist.id.uuidString)-s1"))

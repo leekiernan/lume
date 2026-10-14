@@ -40,8 +40,19 @@ final class ContentProvider: TVTopShelfContentProvider {
                 completionHandler(TVTopShelfSectionedContent(sections: sections.map { $0.sectionedCollection(tiles: tiles) }))
             }
         case .carousel:
-            let items = TopShelfSection.carouselItems(sections)
-            completionHandler(items.isEmpty ? nil : TVTopShelfCarouselContent(style: .details, items: items))
+            // A title's logo is drawn into its art (see `CarouselArtRenderer`),
+            // which takes a download per new title — hence the async hop.
+            let entries = TopShelfSection.carouselEntries(sections)
+            let art = entries.compactMap { entry, _ in
+                entry.backdropURL.map { CarouselArtRenderer.Art(id: entry.id, backdropURL: $0, logoURL: entry.logoURL) }
+            }
+            Task {
+                let images = await CarouselArtRenderer.images(for: art)
+                let items = entries.map { entry, contextTitle in
+                    entry.carouselItem(contextTitle: contextTitle, art: images[entry.id])
+                }
+                completionHandler(items.isEmpty ? nil : TVTopShelfCarouselContent(style: .details, items: items))
+            }
         }
     }
 }
@@ -59,6 +70,8 @@ private struct TopShelfSection {
         let summary: String?
         let posterURL: URL?
         let backdropURL: URL?
+        /// The title's wordmark, drawn into the carousel art.
+        let logoURL: URL?
         let isChannel: Bool
         let progress: Double?
         /// Played by the remote's Play button.
@@ -99,12 +112,14 @@ private struct TopShelfSection {
     /// that's also in progress) shown once. Channels are left out — a logo is
     /// all the art they have, and it can't fill a full-screen backdrop — so
     /// they show only in the sectioned layout.
-    static func carouselItems(_ sections: [TopShelfSection]) -> [TVTopShelfCarouselItem] {
+    /// The carousel's entries — titles only, each once — with the row each
+    /// came from as its context title.
+    static func carouselEntries(_ sections: [TopShelfSection]) -> [(entry: Entry, contextTitle: String)] {
         var seen = Set<String>()
         return sections.flatMap { section in
             section.entries
                 .filter { !$0.isChannel && seen.insert($0.id).inserted }
-                .map { $0.carouselItem(contextTitle: section.title) }
+                .map { ($0, section.title) }
         }
     }
 }
@@ -117,6 +132,7 @@ private extension TopShelfSection.Entry {
             summary: media.subtitle,
             posterURL: media.imageURL,
             backdropURL: media.backdropURL,
+            logoURL: media.logoURL,
             isChannel: media.kind == .live,
             progress: media.progress,
             deepLink: media.deepLink,
@@ -138,13 +154,14 @@ private extension TopShelfSection.Entry {
         return item
     }
 
-    func carouselItem(contextTitle: String) -> TVTopShelfCarouselItem {
+    /// `art` is the backdrop with the logo drawn in, when it rendered.
+    func carouselItem(contextTitle: String, art: URL?) -> TVTopShelfCarouselItem {
         let item = TVTopShelfCarouselItem(identifier: id)
         item.title = title
         item.contextTitle = contextTitle
         item.summary = summary
         // Landscape art fills the carousel; a poster or logo is the fallback.
-        if let imageURL = backdropURL ?? posterURL {
+        if let imageURL = art ?? backdropURL ?? posterURL {
             item.setImageURL(imageURL, for: [.screenScale1x, .screenScale2x])
         }
         // Carousel items have no progress bar (`playbackProgress` is a

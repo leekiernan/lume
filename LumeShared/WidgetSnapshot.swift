@@ -58,4 +58,8 @@ nonisolated struct WidgetMediaItem: Codable, Equatable, Identifiable {
     /// opens this on Select and keeps `deepLink` for the Play button; nil for
     /// a channel, which has no detail screen.
     var detailLink: URL?
+    /// The title's wordmark — a transparent TMDB logo, an episode's being its
+    /// show's — drawn onto the carousel art as the in-app hero shows it. Last
+    /// and optional, so a snapshot written before it existed still decodes.
+    var logoURL: URL?
 }

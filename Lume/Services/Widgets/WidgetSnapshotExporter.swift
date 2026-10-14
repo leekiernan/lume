@@ -393,6 +393,11 @@ enum WidgetSnapshotExporter {
 
     // MARK: - Items
 
+    /// The carousel draws a logo about a third of its width: enough at this
+    /// size, where the hero's `original` would be a large download for an
+    /// extension.
+    private nonisolated static let topShelfLogoSize = "w500"
+
     private nonisolated static func item(_ movie: Movie, progress: Bool) -> WidgetMediaItem? {
         guard let deepLink = WidgetDeepLink.play(kind: .movie, id: movie.id) else { return nil }
         return WidgetMediaItem(
@@ -404,7 +409,8 @@ enum WidgetSnapshotExporter {
             backdropURL: TMDBClient.backdropURL(movie.backdropPath),
             progress: progress ? fraction(movie.watchProgress, of: movie.durationSecs) : nil,
             deepLink: deepLink,
-            detailLink: WidgetDeepLink.openMovie(id: movie.id)
+            detailLink: WidgetDeepLink.openMovie(id: movie.id),
+            logoURL: TMDBClient.logoURL(movie.logoPath, size: topShelfLogoSize)
         )
     }
 
@@ -419,7 +425,8 @@ enum WidgetSnapshotExporter {
             backdropURL: TMDBClient.backdropURL(show.backdropPath),
             progress: nil,
             deepLink: deepLink,
-            detailLink: deepLink
+            detailLink: deepLink,
+            logoURL: TMDBClient.logoURL(show.logoPath, size: topShelfLogoSize)
         )
     }
 
@@ -440,7 +447,8 @@ enum WidgetSnapshotExporter {
             backdropURL: TMDBClient.backdropURL(show.backdropPath),
             progress: continuation.fraction.flatMap { $0 > 0 ? $0 : nil },
             deepLink: deepLink,
-            detailLink: WidgetDeepLink.openSeries(id: show.id)
+            detailLink: WidgetDeepLink.openSeries(id: show.id),
+            logoURL: TMDBClient.logoURL(show.logoPath, size: topShelfLogoSize)
         )
     }
 
