@@ -173,9 +173,15 @@ import SwiftUI
         }
 
         /// Promote a row to the hero, or demote it back. Only one row can be the
-        /// hero, so promoting replaces whatever held it.
+        /// hero, so promoting replaces whatever held it, and the new hero moves
+        /// to the top of the list with the rest one place down.
         private func togglePromoted(_ ref: HomeSectionRef) {
-            heroSectionRaw = isHero(ref) ? "" : ref.token
+            if isHero(ref) {
+                heroSectionRaw = ""
+            } else {
+                heroSectionRaw = ref.token
+                sectionOrderRaw = HomeLayoutSettings.encode(HomeLayoutSettings.leading(ref, in: sections))
+            }
         }
 
         // MARK: - Sections list

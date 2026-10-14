@@ -79,6 +79,16 @@ final class SectionFeed {
         collections[section]?.preview ?? []
     }
 
+    /// The hero's titles when it is a local row (Continue Watching, Favorites,
+    /// Recently Added…). Only the page holds those rows' queries, so it hands
+    /// their items in; a list row's come from `collections` instead.
+    var localHeroItems: [HomeMediaItem] = []
+
+    private var heroSourceItems: [HomeMediaItem] {
+        guard let heroRef else { return [] }
+        return SectionFeedSource(row: heroRef) == nil ? localHeroItems : items(for: heroRef)
+    }
+
     func collection(for section: HomeSectionRef) -> SectionCollectionSnapshot? {
         collections[section]
     }
@@ -97,8 +107,7 @@ final class SectionFeed {
 
     /// Everything the promoted row resolved to, artwork or not.
     var heroCandidates: [HeroItem] {
-        guard let heroRef else { return [] }
-        return items(for: heroRef).compactMap { item in
+        heroSourceItems.compactMap { item in
             let presentation = heroPresentationOverrides[item.id]
             return HeroItem(
                 item: item,
@@ -123,7 +132,7 @@ final class SectionFeed {
         loads.heroState(
             for: heroRef,
             hasSlides: !heroItems.isEmpty,
-            rowHasItems: heroRef.map { !items(for: $0).isEmpty } ?? false
+            rowHasItems: !heroSourceItems.isEmpty
         )
     }
 

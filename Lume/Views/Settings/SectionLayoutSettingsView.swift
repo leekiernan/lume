@@ -213,13 +213,19 @@
         }
 
         /// Promote a row to the hero, or demote it back. Only one row can be the
-        /// hero, so promoting replaces whatever held it.
+        /// hero, so promoting replaces whatever held it, and the new hero moves
+        /// to the top of the list with the rest one place down.
         private func togglePromoted(_ ref: HomeSectionRef) {
-            heroSectionRaw = isHero(ref) ? "" : ref.token
+            if isHero(ref) {
+                heroSectionRaw = ""
+            } else {
+                heroSectionRaw = ref.token
+                sectionOrderRaw = HomeLayoutSettings.encode(HomeLayoutSettings.leading(ref, in: sections))
+            }
         }
 
-        /// The star that promotes a row. Only rows the feed resolves from a list
-        /// can be the hero — see `HomeSection.isPromotable`.
+        /// The star that promotes a row. Every row of titles can be the hero —
+        /// see `HomeSection.isPromotable`.
         @ViewBuilder
         private func promoteButton(for ref: HomeSectionRef, name: String) -> some View {
             if ref.isPromotable {

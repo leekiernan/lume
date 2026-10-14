@@ -63,6 +63,20 @@ struct LibrarySectionsView<CollectionRow: View>: View {
                 row(for: ref)
             }
         }
+        // Outside the lazy stack, so it is built wherever the hero sits in the
+        // order.
+        .background { localHeroSource }
+    }
+
+    /// A local row that is the hero still runs its query, drawn as nothing, to
+    /// hand its titles to the feed — see `SectionFeed.localHeroItems`.
+    @ViewBuilder
+    private var localHeroSource: some View {
+        if case let .builtin(section) = heroRef, let kind = LibraryCollection.Kind(heroSection: section) {
+            collectionRow(kind)
+                .environment(\.heroItemsSink) { feed.localHeroItems = $0 }
+                .onDisappear { feed.localHeroItems = [] }
+        }
     }
 
     // MARK: - Rows

@@ -35,6 +35,18 @@ struct LibraryCollection: Hashable {
         case favorites
         case recentlyAdded
 
+        /// The collection behind a Movies/Series page's local row, or nil for a
+        /// row the shared feed resolves from a list.
+        init?(heroSection section: HomeSection) {
+            switch section {
+            case .continueWatching: self = .continueWatching
+            case .recentlyWatched: self = .recentlyWatched
+            case .favorites: self = .favorites
+            case .recentlyAdded: self = .recentlyAdded
+            case .forYou, .trendingMovies, .trendingSeries, .traktWatchlist, .simklWatchlist, .sports: return nil
+            }
+        }
+
         var title: LocalizedStringKey {
             switch self {
             case .continueWatching: "Continue Watching"
@@ -107,6 +119,7 @@ struct CollectionPreviewRow<Item: Identifiable & Hashable & WatchlistFavoritable
 /// A Movies-tab collection preview row (Recently Watched or Favorites). Renders
 /// nothing when the active playlist has no matching movies.
 struct MovieCollectionRow: View {
+    @Environment(\.heroItemsSink) private var heroItemsSink
     let kind: LibraryCollection.Kind
     var animationNamespace: Namespace.ID?
     /// tvOS: pressing left on the row's first card — see `onLeadingEdgeLeft`.
@@ -137,7 +150,11 @@ struct MovieCollectionRow: View {
     var body: some View {
         let items = Array(movies.deduplicatedByTitle().prefix(collectionPreviewLimit))
         let collection = LibraryCollection(kind: kind, type: .vod)
-        if kind == .continueWatching, !items.isEmpty {
+        if let heroItemsSink {
+            // This row is the hero: no rail, just its titles for the feed.
+            Color.clear.frame(width: 0, height: 0)
+                .onChange(of: items.map(\.id), initial: true) { heroItemsSink(items.map(HomeMediaItem.movie)) }
+        } else if kind == .continueWatching, !items.isEmpty {
             ContinueWatchingRow(
                 items: items.map(HomeMediaItem.movie),
                 series: ContinueWatchingLoader.Result(),
@@ -182,6 +199,7 @@ typealias MovieCollectionView = CatalogCollectionView<MovieCatalog>
 /// A Series-tab collection preview row (Recently Watched or Favorites). Renders
 /// nothing when the active playlist has no matching series.
 struct SeriesCollectionRow: View {
+    @Environment(\.heroItemsSink) private var heroItemsSink
     let kind: LibraryCollection.Kind
     var animationNamespace: Namespace.ID?
     /// tvOS: pressing left on the row's first card — see `onLeadingEdgeLeft`.
@@ -217,7 +235,11 @@ struct SeriesCollectionRow: View {
         let items = Array(shown.deduplicatedByTitle().prefix(collectionPreviewLimit))
         let collection = LibraryCollection(kind: kind, type: .series)
         Group {
-            if kind == .continueWatching, !items.isEmpty {
+            if let heroItemsSink {
+                // This row is the hero: no rail, just its titles for the feed.
+                Color.clear.frame(width: 0, height: 0)
+                    .onChange(of: items.map(\.id), initial: true) { heroItemsSink(items.map(HomeMediaItem.series)) }
+            } else if kind == .continueWatching, !items.isEmpty {
                 ContinueWatchingRow(
                     items: items.map(HomeMediaItem.series),
                     series: progress,
@@ -332,4 +354,10 @@ extension LibraryCollection.Kind {
         case .recentlyAdded: String(localized: "Recently Added")
         }
     }
+}
+
+extension EnvironmentValues {
+    /// Set on a collection row that is its page's hero: the row draws nothing
+    /// and reports the titles it would show, for `SectionFeed.localHeroItems`.
+    @Entry var heroItemsSink: (([HomeMediaItem]) -> Void)?
 }

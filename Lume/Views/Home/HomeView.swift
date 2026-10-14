@@ -235,6 +235,11 @@ struct HomeView: View {
             .onChange(of: feed.heroItems.first, initial: true) { _, hero in
                 rememberHeroWarmStart(hero?.imageURL)
             }
+            // A local row as the hero: hand its titles to the feed, which only
+            // resolves list rows itself.
+            .onChange(of: localHeroItems(content).map(\.id), initial: true) {
+                feed.localHeroItems = localHeroItems(content)
+            }
             .task(id: sportsWarmKey) {
                 warmSports()
             }

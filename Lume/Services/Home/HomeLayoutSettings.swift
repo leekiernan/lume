@@ -83,14 +83,12 @@ enum HomeSection: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Whether this row can be the hero. Only rows the shared feed resolves
-    /// from a list qualify: the @Query-backed local rows are assembled by each
-    /// page, so the feed that builds the hero never sees their items.
+    /// Whether this row can be the hero (and, on tvOS, go on the Top Shelf):
+    /// every row of titles. A list row's titles come from the shared feed; a
+    /// local row's are handed to it by its page (`SectionFeed.localHeroItems`).
+    /// Sports is fixtures, not titles, so it has nothing to show there.
     var isPromotable: Bool {
-        switch self {
-        case .trendingMovies, .trendingSeries, .traktWatchlist, .simklWatchlist: true
-        case .continueWatching, .recentlyWatched, .favorites, .recentlyAdded, .forYou, .sports: false
-        }
+        self != .sports
     }
 
     /// A row added after people had saved their layouts arrives just before
@@ -277,6 +275,12 @@ enum HomeLayoutSettings {
 
     static func encode(_ list: [HomeSectionRef]) -> String {
         list.map(\.token).joined(separator: ",")
+    }
+
+    /// `list` with `ref` moved to the front: a newly promoted hero leads its
+    /// surface's rows, and everything else keeps its order one place down.
+    static func leading(_ ref: HomeSectionRef, in list: [HomeSectionRef]) -> [HomeSectionRef] {
+        [ref] + list.filter { $0 != ref }
     }
 
     /// Keep the given order but ensure every row of `surface` appears exactly
