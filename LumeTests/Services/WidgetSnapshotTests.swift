@@ -325,7 +325,9 @@ struct WidgetSnapshotExporterTests {
         let (container, playlist) = try seedContainer()
         let prefix = playlist.id.uuidString
         let trending = TopShelfSource(surface: .home, ref: .builtin(.trendingMovies))
-        let recorded = ["movie-\(prefix)-m3", "series-\(prefix)-s1", "movie-\(UUID().uuidString)-x9", "bogus"]
+        let recorded = [
+            MediaItemKey.movie("\(prefix)-m3"), .series("\(prefix)-s1"), .movie("\(UUID().uuidString)-x9")
+        ].map(\.description) + ["bogus"]
         let result = snapshot(container, playlist, [trending], recorded: [trending: recorded])
         #expect(items(result, trending).map(\.title) == ["Favorite Movie", "Show"])
     }

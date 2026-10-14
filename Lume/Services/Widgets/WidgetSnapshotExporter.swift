@@ -376,6 +376,9 @@ enum WidgetSnapshotExporter {
                 guard let stream = first(LiveStream.self, #Predicate { $0.id == id && $0.isHidden == false }, in: scope.context),
                       scope.shows(stream.id, category: stream.categoryId) else { return nil }
                 return item(stream)
+            case .episode:
+                // Rows record rail items (`HomeMediaItem`), never episodes.
+                return nil
             }
         }
     }
@@ -393,7 +396,7 @@ enum WidgetSnapshotExporter {
     private nonisolated static func item(_ movie: Movie, progress: Bool) -> WidgetMediaItem? {
         guard let deepLink = WidgetDeepLink.play(kind: .movie, id: movie.id) else { return nil }
         return WidgetMediaItem(
-            id: "movie-\(movie.id)",
+            id: MediaItemKey.movie(movie.id).description,
             kind: .movie,
             title: movie.name,
             subtitle: movie.releaseDate,
@@ -408,7 +411,7 @@ enum WidgetSnapshotExporter {
     private nonisolated static func item(_ show: Series) -> WidgetMediaItem? {
         guard let deepLink = WidgetDeepLink.openSeries(id: show.id) else { return nil }
         return WidgetMediaItem(
-            id: "series-\(show.id)",
+            id: MediaItemKey.series(show.id).description,
             kind: .series,
             title: show.name,
             subtitle: nil,
@@ -429,7 +432,7 @@ enum WidgetSnapshotExporter {
         let episode = show.episodes.first { $0.seasonNum == continuation.season && $0.episodeNum == continuation.episode }
         guard let episode, let deepLink = WidgetDeepLink.play(kind: .episode, id: episode.id) else { return item(show) }
         return WidgetMediaItem(
-            id: "episode-\(episode.id)",
+            id: MediaItemKey.episode(episode.id).description,
             kind: .episode,
             title: show.name,
             subtitle: ContinueWatching.seriesLabel(continuation),
@@ -444,7 +447,7 @@ enum WidgetSnapshotExporter {
     private nonisolated static func item(_ stream: LiveStream) -> WidgetMediaItem? {
         guard let deepLink = WidgetDeepLink.play(kind: .live, id: stream.id) else { return nil }
         return WidgetMediaItem(
-            id: "live-\(stream.id)",
+            id: MediaItemKey.live(stream.id).description,
             kind: .live,
             title: stream.name,
             subtitle: nil,

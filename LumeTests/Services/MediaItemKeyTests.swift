@@ -10,8 +10,15 @@ struct MediaItemKeyTests {
         #expect(MediaItemKey(key.description) == key)
     }
 
+    @Test func `each kind builds the form the app has always used`() {
+        #expect(MediaItemKey.movie("p-vod-1").description == "movie-p-vod-1")
+        #expect(MediaItemKey.series("p-series-2").description == "series-p-series-2")
+        #expect(MediaItemKey.episode("p-episode-3").description == "episode-p-episode-3")
+        #expect(MediaItemKey.live("p-live-4").description == "live-p-live-4")
+    }
+
     @Test func `an unknown kind or a missing separator is no key`() {
-        #expect(MediaItemKey("episode-1") == nil)
+        #expect(MediaItemKey("clip-1") == nil)
         #expect(MediaItemKey("movie") == nil)
     }
 }

@@ -140,7 +140,7 @@
                 emptyLabel("No Channels")
             } else {
                 ForEach(channels) { channel in
-                    let isPlaying = usedMediaIDs.contains("live-\(channel.id)")
+                    let isPlaying = usedMediaIDs.contains(MediaItemKey.live(channel.id).description)
                     Button {
                         pick(channel)
                     } label: {

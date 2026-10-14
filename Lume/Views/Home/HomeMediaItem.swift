@@ -10,36 +10,6 @@
 import Foundation
 import SwiftData
 
-/// A content item's kind-qualified identity, `kind-catalogID` — the form
-/// `HomeMediaItem.id` takes and the Top Shelf records rows in. Parsing it back
-/// lives here too, so the format has one owner.
-nonisolated struct MediaItemKey: Hashable, CustomStringConvertible {
-    nonisolated enum Kind: String {
-        case movie
-        case series
-        case live
-    }
-
-    let kind: Kind
-    let id: String
-
-    init(kind: Kind, id: String) {
-        self.kind = kind
-        self.id = id
-    }
-
-    /// Splits at the first `-`: catalog ids contain dashes, kinds don't.
-    init?(_ string: String) {
-        guard let separator = string.firstIndex(of: "-"),
-              let kind = Kind(rawValue: String(string[..<separator])) else { return nil }
-        self.init(kind: kind, id: String(string[string.index(after: separator)...]))
-    }
-
-    var description: String {
-        "\(kind.rawValue)-\(id)"
-    }
-}
-
 enum HomeMediaItem: Identifiable, Hashable {
     case movie(Movie)
     case series(Series)
@@ -47,9 +17,9 @@ enum HomeMediaItem: Identifiable, Hashable {
 
     var key: MediaItemKey {
         switch self {
-        case let .movie(movie): MediaItemKey(kind: .movie, id: movie.id)
-        case let .series(series): MediaItemKey(kind: .series, id: series.id)
-        case let .live(stream): MediaItemKey(kind: .live, id: stream.id)
+        case let .movie(movie): .movie(movie.id)
+        case let .series(series): .series(series.id)
+        case let .live(stream): .live(stream.id)
         }
     }
 

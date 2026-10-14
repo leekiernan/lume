@@ -279,7 +279,7 @@ private struct MultiViewPickerChannelRow: View {
     var onPick: (PlayableMedia) -> Void
 
     private var isPlaying: Bool {
-        usedMediaIDs.contains("live-\(stream.id)")
+        usedMediaIDs.contains(MediaItemKey.live(stream.id).description)
     }
 
     var body: some View {
