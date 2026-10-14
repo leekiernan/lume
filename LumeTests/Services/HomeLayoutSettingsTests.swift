@@ -250,25 +250,29 @@ struct HomeLayoutSettingsTests {
 
     // MARK: - Hero
 
-    /// Only rows the shared feed resolves from a list can be the hero; the
-    /// @Query-backed local rows are assembled by each page, so the feed never
-    /// sees their items.
-    @Test func `only list-backed rows are promotable`() {
-        #expect(HomeSection.trendingMovies.isPromotable)
-        #expect(HomeSection.trendingSeries.isPromotable)
-        #expect(HomeSection.traktWatchlist.isPromotable)
-
-        #expect(!HomeSection.recentlyWatched.isPromotable)
-        #expect(!HomeSection.favorites.isPromotable)
-        #expect(!HomeSection.recentlyAdded.isPromotable)
-        #expect(!HomeSection.forYou.isPromotable)
+    /// Every row of titles can be the hero — list rows through the feed,
+    /// local rows through their page (`SectionFeed.localHeroItems`). Sports is
+    /// fixtures, not titles.
+    @Test func `every row of titles is promotable`() {
+        for section in HomeSection.allCases where section != .sports {
+            #expect(section.isPromotable, "\(section)")
+        }
+        #expect(!HomeSection.sports.isPromotable)
     }
 
     /// A custom row is a list by definition, so it always qualifies.
     @Test func `custom rows are always promotable`() {
         #expect(HomeSectionRef.custom(Self.alpha.id).isPromotable)
-        #expect(HomeSectionRef.builtin(.trendingMovies).isPromotable)
-        #expect(!HomeSectionRef.builtin(.favorites).isPromotable)
+        #expect(HomeSectionRef.builtin(.favorites).isPromotable)
+        #expect(!HomeSectionRef.builtin(.sports).isPromotable)
+    }
+
+    /// A newly promoted hero leads the list; the rest keep their order.
+    @Test func `promoting a row lifts it to the top`() {
+        let order: [HomeSectionRef] = [.builtin(.continueWatching), .builtin(.favorites), .builtin(.trendingMovies)]
+        #expect(HomeLayoutSettings.leading(.builtin(.trendingMovies), in: order)
+            == [.builtin(.trendingMovies), .builtin(.continueWatching), .builtin(.favorites)])
+        #expect(HomeLayoutSettings.leading(.builtin(.continueWatching), in: order) == order)
     }
 
     /// The designation is a section token, so it can name a built-in row or a
@@ -385,9 +389,13 @@ struct HomeLayoutSettingsTests {
         #expect(CustomHomeSections.heroResolves(token, sections: [], surface: .movies))
         // ...but not one this surface doesn't offer.
         #expect(!CustomHomeSections.heroResolves(token, sections: [], surface: .series))
-        // ...nor one the feed can't build a hero from.
-        #expect(!CustomHomeSections.heroResolves(
+        // A local row is a hero too now...
+        #expect(CustomHomeSections.heroResolves(
             HomeSectionRef.builtin(.favorites).token, sections: [], surface: .movies
+        ))
+        // ...but Sports, which has no titles to show, is not.
+        #expect(!CustomHomeSections.heroResolves(
+            HomeSectionRef.builtin(.sports).token, sections: [], surface: .home
         ))
     }
 

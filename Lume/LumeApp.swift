@@ -250,6 +250,12 @@ struct LumeApp: App {
 
     @Environment(\.scenePhase) private var scenePhase
 
+    /// Rebuilds the Top Shelf snapshot — see `WidgetSnapshotExporter.refresh`.
+    /// tvOS only: no other platform ships an extension that reads it.
+    private func exportTopShelfSnapshot() {
+        WidgetSnapshotExporter.refresh(container: catalogContainer, isChildProfile: profileManager.activeProfileIsChild)
+    }
+
     /// The user's appearance override (issue #135), applied at the scene root
     /// as a window-level style override so every screen (and sheets presented
     /// from it) restyles immediately — see `AppearanceSettings.swift` for why
@@ -378,6 +384,10 @@ struct LumeApp: App {
                     EPGSyncService.shared.configure(container: catalogContainer)
                     EPGSyncService.shared.syncIfDue(reason: "launch")
                     EPGSyncService.shared.startPeriodicChecks()
+
+                    // Seed the Top Shelf snapshot once services are up (after
+                    // profile bootstrap, so the catalog is profile-scoped).
+                    exportTopShelfSnapshot()
                 }
                 .onChange(of: cloudSync.status.lastReconcile) {
                     // A reconcile may have pulled a PIN this device didn't have
@@ -409,6 +419,12 @@ struct LumeApp: App {
                             ImageMemoryCache.shared.purge(reason: "app backgrounded")
                         }
                     #endif
+                    // The Top Shelf shows while Lume isn't in front, so leaving
+                    // the foreground is when it needs this session's progress,
+                    // favourites and profile.
+                    if phase == .background {
+                        exportTopShelfSnapshot()
+                    }
                 }
                 .appAppearance(AppAppearance.resolve(appearanceRaw))
         }

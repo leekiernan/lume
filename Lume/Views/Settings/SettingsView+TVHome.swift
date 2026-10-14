@@ -8,7 +8,8 @@
 //  its rows via `TVSectionLayoutDetail`, its categories via Content Management.
 //  Mirrors the iOS/macOS `LibrarySettingsView`, which uses a list and drill-ins
 //  instead; the tvOS sidebar is already long, so the areas share one category
-//  here.
+//  here. The Top Shelf settings lead the pane, above the areas its rows are
+//  promoted from (`TVTopShelfSettingsSection`).
 //
 
 import SwiftUI
@@ -18,6 +19,8 @@ import SwiftUI
     extension SettingsView {
         func tvLibraryDetail(proxy: ScrollViewProxy) -> some View {
             VStack(alignment: .leading, spacing: 28) {
+                // Above the areas: its rows are promoted from any of them.
+                TVTopShelfSettingsSection(proxy: proxy)
                 tvAreaPicker
                 if showingSportsSettings {
                     TVSportsSettingsPane(proxy: proxy)

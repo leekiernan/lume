@@ -5294,6 +5294,58 @@
         }
       }
     },
+    "Add to Top Shelf" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zum Top Shelf hinzufügen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir a Top Shelf"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter au Top Shelf"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiungi a Top Shelf"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "トップシェルフに追加"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "탑 셸프에 추가"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicionar à Top Shelf"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加到顶部栏"
+          }
+        }
+      }
+    },
     "Added" : {
       "localizations" : {
         "de" : {
@@ -10301,6 +10353,59 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已取消"
+          }
+        }
+      }
+    },
+    "Carousel" : {
+      "comment" : "Top Shelf layout: full-width backdrop carousel",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Karussell"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carrusel"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carrousel"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carosello"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カルーセル"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "캐러셀"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carrossel"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轮播"
           }
         }
       }
@@ -26460,12 +26565,11 @@
       }
     },
     "Hero" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Held"
+            "value" : "Hero"
           }
         },
         "es" : {
@@ -26477,7 +26581,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "À la une"
+            "value" : "Vedette"
           }
         },
         "it" : {
@@ -26495,7 +26599,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "대표 화면"
+            "value" : "히어로"
           }
         },
         "pt" : {
@@ -26507,7 +26611,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "主打"
+            "value" : "主推"
           }
         }
       }
@@ -29658,6 +29762,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "意大利"
+          }
+        }
+      }
+    },
+    "Items per Section" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einträge pro Bereich"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elementos por sección"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Éléments par section"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elementi per sezione"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セクションあたりの項目数"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "섹션당 항목 수"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Itens por seção"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每个分区的项目数"
           }
         }
       }
@@ -39004,6 +39160,58 @@
         }
       }
     },
+    "No rows yet. Press and hold ⭐ on a row in an area below to add it." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch keine Reihen. Halte ⭐ bei einer Reihe in einem Bereich unten gedrückt, um sie hinzuzufügen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no hay filas. Mantén pulsado ⭐ en una fila de un área de abajo para añadirla."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune rangée pour l’instant. Maintenez ⭐ enfoncé sur une rangée d’une zone ci-dessous pour l’ajouter."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ancora nessuna riga. Tieni premuto ⭐ su una riga in un’area qui sotto per aggiungerla."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "まだ列がありません。下のエリアの列で ⭐ を長押しすると追加できます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아직 행이 없습니다. 아래 영역의 행에서 ⭐를 길게 누르면 추가됩니다."
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ainda não há linhas. Mantenha ⭐ pressionado numa linha de uma área abaixo para adicioná-la."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有行。在下方区域的某一行上按住 ⭐ 即可添加。"
+          }
+        }
+      }
+    },
     "No Series" : {
       "localizations" : {
         "de" : {
@@ -46257,6 +46465,110 @@
         }
       }
     },
+    "Press ⭐ to make a section the hero." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drücke ⭐, um einen Bereich zum Hero zu machen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pulsa ⭐ para convertir una sección en el destacado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appuyez sur ⭐ pour faire d’une section la vedette."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premi ⭐ per rendere una sezione quella in evidenza."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⭐ を押すとセクションをヒーローにします。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⭐를 누르면 섹션이 히어로가 됩니다."
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pressione ⭐ para tornar uma seção o destaque."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按 ⭐ 将某个版块设为主打。"
+          }
+        }
+      }
+    },
+    "Press ⭐ to make a section the hero. Press and hold it to add the section to the Top Shelf or take it off." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drücke ⭐, um einen Bereich zum Hero zu machen. Halte ⭐ gedrückt, um ihn zum Top Shelf hinzuzufügen oder daraus zu entfernen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pulsa ⭐ para convertir una sección en el destacado. Mantenlo pulsado para añadir la sección a Top Shelf o quitarla."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appuyez sur ⭐ pour faire d’une section la vedette. Maintenez-le enfoncé pour ajouter la section au Top Shelf ou l’en retirer."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premi ⭐ per rendere una sezione quella in evidenza. Tienilo premuto per aggiungere la sezione alla Top Shelf o toglierla."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⭐ を押すとセクションをヒーローにします。長押しすると、セクションをトップシェルフに追加または削除します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⭐를 누르면 섹션이 히어로가 됩니다. 길게 누르면 섹션을 탑 셸프에 추가하거나 뺍니다."
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pressione ⭐ para tornar uma seção o destaque. Mantenha pressionado para adicionar a seção à Top Shelf ou removê-la."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按 ⭐ 将某个版块设为主打。按住它可将该版块添加到顶部栏或从中移除。"
+          }
+        }
+      }
+    },
     "Press Menu to close" : {
       "comment" : "Hint at the bottom of the tvOS quick-switch modal telling the viewer which remote button closes it",
       "localizations" : {
@@ -49010,6 +49322,58 @@
         }
       }
     },
+    "Remove %@ from the Top Shelf" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ aus dem Top Shelf entfernen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitar %@ de Top Shelf"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer %@ du Top Shelf"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rimuovi %@ da Top Shelf"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@をトップシェルフから削除"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "탑 셸프에서 %@ 제거"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remover %@ da Top Shelf"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从顶部栏移除 %@"
+          }
+        }
+      }
+    },
     "Remove a reminder before adding another." : {
       "localizations" : {
         "de" : {
@@ -49333,6 +49697,58 @@
         }
       }
     },
+    "Remove from Top Shelf" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aus dem Top Shelf entfernen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitar de Top Shelf"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer du Top Shelf"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rimuovi da Top Shelf"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "トップシェルフから削除"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "탑 셸프에서 제거"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remover da Top Shelf"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从顶部栏移除"
+          }
+        }
+      }
+    },
     "Remove Section" : {
       "localizations" : {
         "de" : {
@@ -49381,6 +49797,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "移除栏目"
+          }
+        }
+      }
+    },
+    "Removed Row" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entfernte Zeile"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fila eliminada"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rangée supprimée"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riga rimossa"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "削除された行"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "삭제된 행"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linha removida"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已删除的行"
           }
         }
       }
@@ -51168,6 +51636,59 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "圆体"
+          }
+        }
+      }
+    },
+    "Rows" : {
+      "comment" : "Top Shelf layout: rows of posters under section titles",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reihen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rangées"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Righe"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "행"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fileiras"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行"
           }
         }
       }
@@ -56092,6 +56613,58 @@
         }
       }
     },
+    "Show on Top Shelf" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Im Top Shelf anzeigen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar en Top Shelf"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher dans le Top Shelf"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra nella Top Shelf"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "トップシェルフに表示"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "탑 셸프에 표시"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar na Top Shelf"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在顶部栏中显示"
+          }
+        }
+      }
+    },
     "Show Recommendations" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -56507,6 +57080,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在主页上显示您的 Trakt 待看列表。"
+          }
+        }
+      }
+    },
+    "Shows rows from this profile above lume on the Apple TV Home Screen. Only one profile can be on the Top Shelf, so turning it on here turns it off for the others." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeigt Reihen dieses Profils über lume auf dem Home-Bildschirm des Apple TV. Nur ein Profil kann im Top Shelf sein – wenn du es hier aktivierst, wird es für die anderen deaktiviert."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muestra filas de este perfil sobre lume en la pantalla de inicio del Apple TV. Solo un perfil puede estar en Top Shelf, así que activarlo aquí lo desactiva en los demás."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Affiche des rangées de ce profil au-dessus de lume sur l’écran d’accueil de l’Apple TV. Un seul profil peut être dans le Top Shelf : l’activer ici le désactive pour les autres."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra le righe di questo profilo sopra lume nella schermata Home di Apple TV. Solo un profilo può essere nella Top Shelf: attivarla qui la disattiva per gli altri."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple TV のホーム画面で、lume の上にこのプロフィールの列を表示します。トップシェルフに表示できるプロフィールは 1 つだけなので、ここでオンにすると他のプロフィールではオフになります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple TV 홈 화면에서 lume 위에 이 프로필의 행을 표시합니다. 탑 셸프에는 프로필 하나만 표시할 수 있으므로, 여기서 켜면 다른 프로필에서는 꺼집니다."
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra linhas deste perfil acima do lume na Tela de Início da Apple TV. Só um perfil pode estar na Top Shelf, então ativá-la aqui a desativa para os outros."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Apple TV 主屏幕上的 lume 上方显示此个人资料的行。只有一个个人资料可以显示在顶部栏中，因此在此处打开会为其他个人资料关闭。"
           }
         }
       }
@@ -60149,6 +60774,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "不再将%@设为主打"
+          }
+        }
+      }
+    },
+    "Stop using %@ as the hero" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ nicht mehr als Hero verwenden"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dejar de usar %@ como destacado"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ne plus utiliser %@ comme vedette"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non usare più %@ come sezione in evidenza"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ をヒーローにしない"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@을(를) 히어로로 사용 중단"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deixar de usar %@ como destaque"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不再将“%@”设为主打"
           }
         }
       }
@@ -64070,6 +64747,58 @@
         }
       }
     },
+    "The carousel shows movies and series. Channels have no wide artwork, so they appear only in Rows." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Karussell zeigt Filme und Serien. Sender haben kein breites Bildmaterial und erscheinen daher nur in Reihen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El carrusel muestra películas y series. Los canales no tienen imágenes panorámicas, así que solo aparecen en Filas."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le carrousel affiche les films et les séries. Les chaînes n’ont pas d’illustration panoramique et n’apparaissent donc que dans Rangées."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il carosello mostra film e serie. I canali non hanno immagini panoramiche, quindi compaiono solo in Righe."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カルーセルには映画とシリーズが表示されます。チャンネルにはワイドなアートワークがないため、「行」にのみ表示されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "캐러셀에는 영화와 시리즈가 표시됩니다. 채널은 와이드 아트워크가 없어 행에서만 표시됩니다."
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O carrossel mostra filmes e séries. Os canais não têm arte panorâmica, então aparecem apenas em Fileiras."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轮播显示电影和剧集。频道没有宽幅图片，因此只在“行”布局中显示。"
+          }
+        }
+      }
+    },
     "The connection timed out. Check the URL and your network, then try again." : {
       "localizations" : {
         "de" : {
@@ -67527,6 +68256,58 @@
         }
       }
     },
+    "Top Shelf" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Top Shelf"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Top Shelf"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Top Shelf"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Top Shelf"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "トップシェルフ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "탑 셸프"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Top Shelf"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "顶部栏"
+          }
+        }
+      }
+    },
     "Total plays" : {
       "localizations" : {
         "de" : {
@@ -70128,6 +70909,58 @@
         }
       }
     },
+    "Use %@ as the hero" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ als Hero verwenden"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usar %@ como destacado"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utiliser %@ comme vedette"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa %@ come sezione in evidenza"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ をヒーローにする"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@을(를) 히어로로 사용"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usar %@ como destaque"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将“%@”设为主打"
+          }
+        }
+      }
+    },
     "Use Default List" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -72079,6 +72912,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "网站"
+          }
+        }
+      }
+    },
+    "What lume shows above its icon on the Apple TV Home Screen, refreshed when you leave lume. A row appears only when it has something to show." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Was lume über seinem Symbol auf dem Home-Bildschirm des Apple TV zeigt, aktualisiert, wenn du lume verlässt. Eine Zeile erscheint nur, wenn sie etwas anzuzeigen hat."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lo que lume muestra encima de su icono en la pantalla de inicio del Apple TV, actualizado al salir de lume. Una fila solo aparece si tiene algo que mostrar."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce que lume affiche au-dessus de son icône sur l’écran d’accueil de l’Apple TV, actualisé quand vous quittez lume. Une rangée n’apparaît que si elle a quelque chose à montrer."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ciò che lume mostra sopra la sua icona nella schermata Home di Apple TV, aggiornato quando esci da lume. Una riga compare solo se ha qualcosa da mostrare."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple TVのホーム画面でlumeのアイコンの上に表示される内容で、lumeを離れると更新されます。行は表示する項目がある場合にのみ表示されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple TV 홈 화면에서 lume 아이콘 위에 표시되는 내용으로, lume을 나가면 새로 고쳐집니다. 행은 표시할 항목이 있을 때만 나타납니다."
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O que o lume mostra acima do ícone no ecrã principal da Apple TV, atualizado quando sai do lume. Uma linha só aparece quando tem algo para mostrar."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "lume 在 Apple TV 主屏幕上其图标上方显示的内容，离开 lume 时更新。行仅在有内容时显示。"
           }
         }
       }

@@ -87,6 +87,19 @@ extension HomeView {
         let customSections: [CustomHomeSection]
     }
 
+    /// The hero's titles when the hero is one of Home's local rows — see
+    /// `SectionFeed.localHeroItems`.
+    func localHeroItems(_ content: DerivedContent) -> [HomeMediaItem] {
+        guard case let .builtin(section) = heroRef else { return [] }
+        return switch section {
+        case .continueWatching: content.continueWatching
+        case .recentlyWatched: content.recentlyWatched
+        case .favorites: content.favorites
+        case .forYou: recommendations
+        case .recentlyAdded, .trendingMovies, .trendingSeries, .traktWatchlist, .simklWatchlist, .sports: []
+        }
+    }
+
     func derivedContent() -> DerivedContent {
         DerivedContent(
             continueWatching: continueWatching, recentlyWatched: recentlyWatched,

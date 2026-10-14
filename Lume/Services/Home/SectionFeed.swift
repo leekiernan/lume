@@ -57,7 +57,12 @@ final class SectionFeed {
     /// ordered source plus a bounded catalog preview. The source tail remains
     /// available for an incrementally-loaded full grid without keeping all of
     /// its SwiftData models alive on the browse screen.
-    private(set) var collections: [HomeSectionRef: SectionCollectionSnapshot] = [:]
+    private(set) var collections: [HomeSectionRef: SectionCollectionSnapshot] = [:] {
+        // A list row promoted to the Top Shelf shows there what it last
+        // showed here — see `TopShelfSettings.record`.
+        didSet { recordTopShelfRows() }
+    }
+
     /// Every source's load state and the catalog scope they were matched in —
     /// see `SectionFeedLoadMachine`. Only `transition(_:)` advances it.
     private(set) var loads = SectionFeedLoadMachine()
@@ -75,8 +80,29 @@ final class SectionFeed {
         self.surface = surface
     }
 
+    private func recordTopShelfRows() {
+        #if os(tvOS)
+            for (ref, collection) in collections {
+                TopShelfSettings.record(
+                    collection.preview.map(WidgetSnapshotExporter.itemKey),
+                    for: TopShelfSource(surface: surface, ref: ref)
+                )
+            }
+        #endif
+    }
+
     func items(for section: HomeSectionRef) -> [HomeMediaItem] {
         collections[section]?.preview ?? []
+    }
+
+    /// The hero's titles when it is a local row (Continue Watching, Favorites,
+    /// Recently Added…). Only the page holds those rows' queries, so it hands
+    /// their items in; a list row's come from `collections` instead.
+    var localHeroItems: [HomeMediaItem] = []
+
+    private var heroSourceItems: [HomeMediaItem] {
+        guard let heroRef else { return [] }
+        return SectionFeedSource(row: heroRef) == nil ? localHeroItems : items(for: heroRef)
     }
 
     func collection(for section: HomeSectionRef) -> SectionCollectionSnapshot? {
@@ -97,8 +123,7 @@ final class SectionFeed {
 
     /// Everything the promoted row resolved to, artwork or not.
     var heroCandidates: [HeroItem] {
-        guard let heroRef else { return [] }
-        return items(for: heroRef).compactMap { item in
+        heroSourceItems.compactMap { item in
             let presentation = heroPresentationOverrides[item.id]
             return HeroItem(
                 item: item,
@@ -123,7 +148,7 @@ final class SectionFeed {
         loads.heroState(
             for: heroRef,
             hasSlides: !heroItems.isEmpty,
-            rowHasItems: heroRef.map { !items(for: $0).isEmpty } ?? false
+            rowHasItems: !heroSourceItems.isEmpty
         )
     }
 

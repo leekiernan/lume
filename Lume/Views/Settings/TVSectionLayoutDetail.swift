@@ -12,6 +12,7 @@
 //  surfaces' stored keys differ, and @AppStorage keys are fixed at init.
 //
 
+import SwiftData
 import SwiftUI
 
 #if os(tvOS)
@@ -74,6 +75,14 @@ import SwiftUI
         @State private var editorError: String?
         @State private var editorChecking = false
         @State private var isReordering = false
+        /// The rows promoted to the Top Shelf, across every surface.
+        @AppStorage(TopShelfSettings.sourcesKey) private var topShelfSourcesRaw = ""
+        /// Who the Top Shelf follows and who is active: rows can be added to it
+        /// only while they are the same profile.
+        @AppStorage(TopShelfSettings.profileKey) private var topShelfProfileRaw = ""
+        @AppStorage(ActiveProfileStore.key) private var activeProfileRaw = ""
+        @Environment(\.modelContext) private var modelContext
+        @Environment(ProfileManager.self) private var profileManager: ProfileManager?
         @FocusState private var focusedControl: FocusTarget?
 
         init(surface: SectionSurface, proxy: ScrollViewProxy) {
@@ -168,14 +177,37 @@ import SwiftUI
             }
         }
 
+        /// Whether the active profile has the Top Shelf on (in its editor).
+        private var topShelfIsOn: Bool {
+            !topShelfProfileRaw.isEmpty && topShelfProfileRaw == activeProfileRaw
+        }
+
+        private func isOnTopShelf(_ ref: HomeSectionRef) -> Bool {
+            topShelfIsOn && TopShelfSettings.decode(topShelfSourcesRaw).contains(TopShelfSource(surface: surface, ref: ref))
+        }
+
+        /// Copies the row to the bottom of the Top Shelf, or takes it off; the
+        /// row itself stays in this layout either way.
+        private func toggleTopShelf(_ ref: HomeSectionRef) {
+            let source = TopShelfSource(surface: surface, ref: ref)
+            topShelfSourcesRaw = TopShelfSettings.encode(TopShelfSettings.toggled(source, in: TopShelfSettings.decode(topShelfSourcesRaw)))
+            WidgetSnapshotExporter.refresh(container: modelContext.container, isChildProfile: profileManager?.activeProfileIsChild ?? false)
+        }
+
         private func isHero(_ ref: HomeSectionRef) -> Bool {
             HomeLayoutSettings.heroRef(heroSectionRaw) == ref
         }
 
         /// Promote a row to the hero, or demote it back. Only one row can be the
-        /// hero, so promoting replaces whatever held it.
+        /// hero, so promoting replaces whatever held it, and the new hero moves
+        /// to the top of the list with the rest one place down.
         private func togglePromoted(_ ref: HomeSectionRef) {
-            heroSectionRaw = isHero(ref) ? "" : ref.token
+            if isHero(ref) {
+                heroSectionRaw = ""
+            } else {
+                heroSectionRaw = ref.token
+                sectionOrderRaw = HomeLayoutSettings.encode(HomeLayoutSettings.leading(ref, in: sections))
+            }
         }
 
         // MARK: - Sections list
@@ -200,12 +232,18 @@ import SwiftUI
                     scrollProxy: proxy,
                     icon: { icon(for: $0.ref) },
                     accessory: { AnyView(accessory(for: $0.ref)) },
-                    actions: { AnyView(actions(for: $0.ref)) }
+                    actions: { AnyView(actions(for: $0.ref)) },
+                    isHighlighted: { isOnTopShelf($0.ref) }
                 )
 
                 Text(footerText)
                     .tvSettingsFooter()
                     .padding(.top, 6)
+
+                Text(topShelfIsOn
+                    ? LocalizedStringKey("Press ⭐ to make a section the hero. Press and hold it to add the section to the Top Shelf or take it off.")
+                    : LocalizedStringKey("Press ⭐ to make a section the hero."))
+                    .tvSettingsFooter()
             }
         }
 
@@ -247,17 +285,29 @@ import SwiftUI
         private func actions(for ref: HomeSectionRef) -> some View {
             let title = name(for: ref)
             if ref.isPromotable {
+                // A press makes the row the hero; a press and hold, while the
+                // Top Shelf is on for this profile, adds it there or takes it
+                // off. The gesture takes the press once it recognizes, so a
+                // hold doesn't also toggle the hero.
                 Button {
                     togglePromoted(ref)
                 } label: {
                     // Filled while this row *is* the hero, so the state reads
-                    // without moving focus onto it.
+                    // without moving focus onto it. The Top Shelf shows as the
+                    // row's gold top edge instead.
                     Image(systemName: isHero(ref) ? "star.fill" : "star")
                         .foregroundStyle(isHero(ref) ? AnyShapeStyle(Color.lumeAccent) : AnyShapeStyle(.foreground))
                 }
                 .buttonStyle(TVContentIconButtonStyle())
+                .onLongPressGesture(minimumDuration: 0.4) {
+                    if topShelfIsOn { toggleTopShelf(ref) }
+                }
                 .accessibilityAddTraits(isHero(ref) ? .isSelected : [])
-                .accessibilityLabel(isHero(ref) ? "Stop showing \(title) as the hero" : "Show \(title) as the hero")
+                .accessibilityLabel(isHero(ref) ? "Stop using \(title) as the hero" : "Use \(title) as the hero")
+                .accessibilityValue(isHero(ref) ? Text("Hero") : Text(verbatim: ""))
+                .accessibilityAction(named: isOnTopShelf(ref) ? Text("Remove from Top Shelf") : Text("Add to Top Shelf")) {
+                    if topShelfIsOn { toggleTopShelf(ref) }
+                }
             }
             if let section = custom(ref) {
                 Button {
