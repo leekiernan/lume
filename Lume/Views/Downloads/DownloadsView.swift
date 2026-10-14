@@ -132,10 +132,10 @@ import SwiftUI
 
         private func play(movie: Movie) {
             // Try local file first, then fall back to streaming via the playlist
-            if let path = movie.localFileURL, FileManager.default.fileExists(atPath: path) {
+            if let file = movie.downloadedFile {
                 playingMedia = PlayableMedia(
                     id: MediaItemKey.movie(movie.id).description,
-                    url: URL(fileURLWithPath: path),
+                    url: file,
                     title: movie.name,
                     subtitle: movie.releaseDate,
                     posterURL: URL(string: movie.streamIcon ?? ""),
@@ -152,11 +152,11 @@ import SwiftUI
         }
 
         private func play(episode: Episode) {
-            if let path = episode.localFileURL, FileManager.default.fileExists(atPath: path) {
+            if let file = episode.downloadedFile {
                 let seriesName = episode.series?.name
                 playingMedia = PlayableMedia(
                     id: MediaItemKey.episode(episode.id).description,
-                    url: URL(fileURLWithPath: path),
+                    url: file,
                     title: seriesName ?? episode.title,
                     subtitle: "S\(episode.seasonNum) E\(episode.episodeNum) · \(episode.title)",
                     posterURL: URL(string: episode.movieImage ?? ""),
@@ -255,7 +255,7 @@ import SwiftUI
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                    fileSizeLabel(path: movie.localFileURL)
+                    fileSizeLabel(file: movie.downloadedFile)
                 }
 
                 Spacer(minLength: 0)
@@ -314,7 +314,7 @@ import SwiftUI
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                    fileSizeLabel(path: episode.localFileURL)
+                    fileSizeLabel(file: episode.downloadedFile)
                 }
 
                 Spacer(minLength: 0)
@@ -339,8 +339,8 @@ import SwiftUI
     // MARK: - Helpers
 
     @ViewBuilder
-    private func fileSizeLabel(path: String?) -> some View {
-        if let path, let size = fileSize(at: path) {
+    private func fileSizeLabel(file: URL?) -> some View {
+        if let file, let size = fileSize(at: file.path) {
             Text(ByteCountFormatter.string(fromByteCount: size, countStyle: .file))
                 .font(.caption)
                 .foregroundStyle(.secondary)
