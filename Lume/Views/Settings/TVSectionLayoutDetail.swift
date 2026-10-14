@@ -231,8 +231,7 @@ import SwiftUI
                     scrollProxy: proxy,
                     icon: { icon(for: $0.ref) },
                     accessory: { AnyView(accessory(for: $0.ref)) },
-                    actions: { AnyView(actions(for: $0.ref)) },
-                    isHighlighted: { isOnTopShelf($0.ref) }
+                    actions: { AnyView(actions(for: $0.ref)) }
                 )
 
                 Text(footerText)
@@ -301,8 +300,8 @@ import SwiftUI
                 .accessibilityLabel(isHero(ref) ? "Stop using \(title) as the hero" : "Use \(title) as the hero")
                 .accessibilityValue(isHero(ref) ? Text("Hero") : Text(verbatim: ""))
 
-                // Only while the Top Shelf is on for this profile. Gold, like
-                // the row's top edge, while the row is on it.
+                // Only while the Top Shelf is on for this profile; filled and
+                // gold while the row is on it.
                 if topShelfIsOn {
                     Button {
                         toggleTopShelf(ref)
