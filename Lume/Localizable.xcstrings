@@ -26616,58 +26616,6 @@
         }
       }
     },
-    "Hero and Top Shelf options for %@" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hero- und Top-Shelf-Optionen für %@"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Opciones de destacado y Top Shelf para %@"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Options vedette et Top Shelf pour %@"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Opzioni in evidenza e Top Shelf per %@"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@のヒーローとトップシェルフのオプション"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@의 히어로 및 탑 셸프 옵션"
-          }
-        },
-        "pt" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Opções de destaque e Top Shelf para %@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ 的主推和顶部栏选项"
-          }
-        }
-      }
-    },
     "Hide %@" : {
       "localizations" : {
         "de" : {
@@ -29762,58 +29710,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "IntroDB"
-          }
-        }
-      }
-    },
-    "It follows %@: switch to that profile to change its rows or refresh it." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Es folgt %@: Wechsle zu diesem Profil, um seine Zeilen zu ändern oder es zu aktualisieren."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sigue a %@: cambia a ese perfil para cambiar sus filas o actualizarlo."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il suit %@ : passez à ce profil pour modifier ses rangées ou l’actualiser."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Segue %@: passa a quel profilo per cambiarne le righe o aggiornarlo."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@に従っています。行を変更したり更新したりするには、そのプロフィールに切り替えてください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ 프로필을 따릅니다. 행을 바꾸거나 새로 고치려면 해당 프로필로 전환하세요."
-          }
-        },
-        "pt" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Segue %@: mude para esse perfil para alterar as linhas ou atualizá-la."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "它跟随 %@：切换到该个人资料以更改其行或刷新。"
           }
         }
       }
@@ -39264,54 +39160,54 @@
         }
       }
     },
-    "No rows yet. Press ⭐ on a row in an area below and choose Add to Top Shelf." : {
+    "No rows yet. Press and hold ⭐ on a row in an area below to add it." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Noch keine Zeilen. Drücke ⭐ bei einer Zeile in einem Bereich unten und wähle „Zum Top Shelf hinzufügen“."
+            "value" : "Noch keine Reihen. Halte ⭐ bei einer Reihe in einem Bereich unten gedrückt, um sie hinzuzufügen."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aún no hay filas. Pulsa ⭐ en una fila de un área de abajo y elige Añadir a Top Shelf."
+            "value" : "Aún no hay filas. Mantén pulsado ⭐ en una fila de un área de abajo para añadirla."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aucune rangée pour l’instant. Appuyez sur ⭐ sur une rangée d’une zone ci-dessous et choisissez Ajouter au Top Shelf."
+            "value" : "Aucune rangée pour l’instant. Maintenez ⭐ enfoncé sur une rangée d’une zone ci-dessous pour l’ajouter."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ancora nessuna riga. Premi ⭐ su una riga di un’area qui sotto e scegli Aggiungi a Top Shelf."
+            "value" : "Ancora nessuna riga. Tieni premuto ⭐ su una riga in un’area qui sotto per aggiungerla."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "まだ行がありません。下のエリアの行で⭐を押し、「トップシェルフに追加」を選んでください。"
+            "value" : "まだ列がありません。下のエリアの列で ⭐ を長押しすると追加できます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "아직 행이 없습니다. 아래 영역의 행에서 ⭐를 누르고 탑 셸프에 추가를 선택하세요."
+            "value" : "아직 행이 없습니다. 아래 영역의 행에서 ⭐를 길게 누르면 추가됩니다."
           }
         },
         "pt" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ainda não há linhas. Prima ⭐ numa linha de uma área abaixo e escolha Adicionar à Top Shelf."
+            "value" : "Ainda não há linhas. Mantenha ⭐ pressionado numa linha de uma área abaixo para adicioná-la."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "还没有行。在下方某个区域的行上按 ⭐，然后选择“添加到顶部栏”。"
+            "value" : "还没有行。在下方区域的某一行上按住 ⭐ 即可添加。"
           }
         }
       }
@@ -46569,6 +46465,110 @@
         }
       }
     },
+    "Press ⭐ to make a section the hero." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drücke ⭐, um einen Bereich zum Hero zu machen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pulsa ⭐ para convertir una sección en el destacado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appuyez sur ⭐ pour faire d’une section la vedette."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premi ⭐ per rendere una sezione quella in evidenza."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⭐ を押すとセクションをヒーローにします。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⭐를 누르면 섹션이 히어로가 됩니다."
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pressione ⭐ para tornar uma seção o destaque."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按 ⭐ 将某个版块设为主打。"
+          }
+        }
+      }
+    },
+    "Press ⭐ to make a section the hero. Press and hold it to add the section to the Top Shelf or take it off." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drücke ⭐, um einen Bereich zum Hero zu machen. Halte ⭐ gedrückt, um ihn zum Top Shelf hinzuzufügen oder daraus zu entfernen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pulsa ⭐ para convertir una sección en el destacado. Mantenlo pulsado para añadir la sección a Top Shelf o quitarla."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appuyez sur ⭐ pour faire d’une section la vedette. Maintenez-le enfoncé pour ajouter la section au Top Shelf ou l’en retirer."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premi ⭐ per rendere una sezione quella in evidenza. Tienilo premuto per aggiungere la sezione alla Top Shelf o toglierla."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⭐ を押すとセクションをヒーローにします。長押しすると、セクションをトップシェルフに追加または削除します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⭐를 누르면 섹션이 히어로가 됩니다. 길게 누르면 섹션을 탑 셸프에 추가하거나 뺍니다."
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pressione ⭐ para tornar uma seção o destaque. Mantenha pressionado para adicionar a seção à Top Shelf ou removê-la."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按 ⭐ 将某个版块设为主打。按住它可将该版块添加到顶部栏或从中移除。"
+          }
+        }
+      }
+    },
     "Press Menu to close" : {
       "comment" : "Hint at the bottom of the tvOS quick-switch modal telling the viewer which remote button closes it",
       "localizations" : {
@@ -46985,58 +46985,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "问题"
-          }
-        }
-      }
-    },
-    "Profile" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Profil"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Perfil"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Profil"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Profilo"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "プロフィール"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "프로필"
-          }
-        },
-        "pt" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Perfil"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "个人资料"
           }
         }
       }
@@ -56665,6 +56613,58 @@
         }
       }
     },
+    "Show on Top Shelf" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Im Top Shelf anzeigen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar en Top Shelf"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher dans le Top Shelf"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra nella Top Shelf"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "トップシェルフに表示"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "탑 셸프에 표시"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar na Top Shelf"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在顶部栏中显示"
+          }
+        }
+      }
+    },
     "Show Recommendations" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -57080,6 +57080,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在主页上显示您的 Trakt 待看列表。"
+          }
+        }
+      }
+    },
+    "Shows rows from this profile above lume on the Apple TV Home Screen. Only one profile can be on the Top Shelf, so turning it on here turns it off for the others." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeigt Reihen dieses Profils über lume auf dem Home-Bildschirm des Apple TV. Nur ein Profil kann im Top Shelf sein – wenn du es hier aktivierst, wird es für die anderen deaktiviert."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muestra filas de este perfil sobre lume en la pantalla de inicio del Apple TV. Solo un perfil puede estar en Top Shelf, así que activarlo aquí lo desactiva en los demás."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Affiche des rangées de ce profil au-dessus de lume sur l’écran d’accueil de l’Apple TV. Un seul profil peut être dans le Top Shelf : l’activer ici le désactive pour les autres."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra le righe di questo profilo sopra lume nella schermata Home di Apple TV. Solo un profilo può essere nella Top Shelf: attivarla qui la disattiva per gli altri."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple TV のホーム画面で、lume の上にこのプロフィールの列を表示します。トップシェルフに表示できるプロフィールは 1 つだけなので、ここでオンにすると他のプロフィールではオフになります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple TV 홈 화면에서 lume 위에 이 프로필의 행을 표시합니다. 탑 셸프에는 프로필 하나만 표시할 수 있으므로, 여기서 켜면 다른 프로필에서는 꺼집니다."
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra linhas deste perfil acima do lume na Tela de Início da Apple TV. Só um perfil pode estar na Top Shelf, então ativá-la aqui a desativa para os outros."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Apple TV 主屏幕上的 lume 上方显示此个人资料的行。只有一个个人资料可以显示在顶部栏中，因此在此处打开会为其他个人资料关闭。"
           }
         }
       }
@@ -60726,54 +60778,54 @@
         }
       }
     },
-    "Stop Using as Hero" : {
+    "Stop using %@ as the hero" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nicht mehr als Hero verwenden"
+            "value" : "%@ nicht mehr als Hero verwenden"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dejar de usar como destacado"
+            "value" : "Dejar de usar %@ como destacado"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ne plus utiliser en vedette"
+            "value" : "Ne plus utiliser %@ comme vedette"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Non usare più come in evidenza"
+            "value" : "Non usare più %@ come sezione in evidenza"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ヒーローから外す"
+            "value" : "%@ をヒーローにしない"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "히어로에서 해제"
+            "value" : "%@을(를) 히어로로 사용 중단"
           }
         },
         "pt" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Deixar de usar como destaque"
+            "value" : "Deixar de usar %@ como destaque"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "取消主推"
+            "value" : "不再将“%@”设为主打"
           }
         }
       }
@@ -66056,58 +66108,6 @@
         }
       }
     },
-    "The Top Shelf follows another profile, so its rows are chosen from that profile." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Das Top Shelf folgt einem anderen Profil, daher werden seine Zeilen in diesem Profil ausgewählt."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Top Shelf sigue a otro perfil, así que sus filas se eligen desde ese perfil."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Le Top Shelf suit un autre profil : ses rangées se choisissent depuis ce profil."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Top Shelf segue un altro profilo, quindi le sue righe si scelgono da quel profilo."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "トップシェルフは別のプロフィールに従っているため、その行はそのプロフィールで選びます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "탑 셸프는 다른 프로필을 따르므로 해당 프로필에서 행을 선택합니다."
-          }
-        },
-        "pt" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A Top Shelf segue outro perfil, por isso as linhas são escolhidas nesse perfil."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "顶部栏跟随另一个个人资料，因此需在该个人资料中选择其行。"
-          }
-        }
-      }
-    },
     "The TV guide refreshes automatically in the background at this interval." : {
       "localizations" : {
         "de" : {
@@ -70909,54 +70909,54 @@
         }
       }
     },
-    "Use as Hero" : {
+    "Use %@ as the hero" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Als Hero verwenden"
+            "value" : "%@ als Hero verwenden"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Usar como destacado"
+            "value" : "Usar %@ como destacado"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Utiliser en vedette"
+            "value" : "Utiliser %@ comme vedette"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Usa come in evidenza"
+            "value" : "Usa %@ come sezione in evidenza"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ヒーローにする"
+            "value" : "%@ をヒーローにする"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "히어로로 사용"
+            "value" : "%@을(를) 히어로로 사용"
           }
         },
         "pt" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Usar como destaque"
+            "value" : "Usar %@ como destaque"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "设为主推"
+            "value" : "将“%@”设为主打"
           }
         }
       }

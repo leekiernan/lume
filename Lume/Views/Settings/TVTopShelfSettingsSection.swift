@@ -2,13 +2,13 @@
 //  TVTopShelfSettingsSection.swift
 //  Lume
 //
-//  The Top Shelf block of the tvOS Library pane, above the areas: which profile
-//  the Top Shelf follows, the rows promoted to it (in order, removable), and
-//  its layout. Rows are promoted from the areas below — a row's ⭐ offers the
-//  Top Shelf as well as the hero — and stay in their area; the Top Shelf shows
-//  a copy, and the area's list marks it with a gold top edge. With no rows the
-//  Top Shelf is off and tvOS shows the app's artwork. Stored per device (see
-//  `TopShelfSettings`); every change rebuilds the snapshot straight away.
+//  The Top Shelf block of the tvOS Library pane, above the areas: the rows
+//  promoted to it (in order, removable) and its layout. Shown only while the
+//  active profile has the Top Shelf on (in its profile editor). Rows are
+//  promoted from the areas below — a long press on a row's ⭐ — and stay in
+//  their area; the Top Shelf shows a copy, and the area's list marks it with a
+//  gold top edge. With no rows tvOS shows the app's artwork. Stored per device
+//  (see `TopShelfSettings`); every change rebuilds the snapshot straight away.
 //
 
 import SwiftData
@@ -46,32 +46,28 @@ import SwiftUI
             TopShelfSettings.decode(sourcesRaw)
         }
 
-        private var profiles: [UserProfile] {
-            profileManager?.profiles ?? []
-        }
-
-        private var followed: UserProfile? {
-            let id = TopShelfSettings.profileID(among: profiles.map(\.id))
-            return profiles.first { $0.id == id }
-        }
-
         private var style: TopShelfConfiguration.Style {
             TopShelfConfiguration.Style(rawValue: styleRaw) ?? TopShelfConfiguration.default.style
         }
 
+        /// Reads both stored keys, so the block appears and goes as the
+        /// profile or the Top Shelf's owner changes.
+        private var isOn: Bool {
+            !profileRaw.isEmpty && profileRaw == activeProfileRaw
+        }
+
         var body: some View {
+            if isOn {
+                content
+            }
+        }
+
+        private var content: some View {
             VStack(alignment: .leading, spacing: 8) {
                 TVSettingsSectionLabel("Top Shelf")
 
-                if profiles.count > 1 {
-                    TVOptionCycleRow(title: "Profile", valueLabel: followed?.name ?? "") {
-                        guard let current = followed, let index = profiles.firstIndex(where: { $0.id == current.id }) else { return }
-                        profileRaw = profiles[(index + 1) % profiles.count].id.uuidString
-                    }
-                }
-
                 if sources.isEmpty {
-                    Text("No rows yet. Press ⭐ on a row in an area below and choose Add to Top Shelf.")
+                    Text("No rows yet. Press and hold ⭐ on a row in an area below to add it.")
                         .tvSettingsFooter()
                         .padding(.top, 6)
                 } else {
@@ -101,9 +97,6 @@ import SwiftUI
 
                 Group {
                     Text("What lume shows above its icon on the Apple TV Home Screen, refreshed when you leave lume. A row appears only when it has something to show.")
-                    if let followed, !TopShelfSettings.followsActiveProfile() {
-                        Text("It follows \(followed.name): switch to that profile to change its rows or refresh it.")
-                    }
                     if !sources.isEmpty, style == .carousel {
                         Text("The carousel shows movies and series. Channels have no wide artwork, so they appear only in Rows.")
                     }
@@ -113,18 +106,9 @@ import SwiftUI
                 .padding(.horizontal, TVSettingsMetrics.rowHPadding)
                 .padding(.top, 6)
             }
-            // Pin the default (the first profile) as a stored choice, so the
-            // export and the areas' ⭐ can tell whether it is the active one.
-            .onAppear(perform: storeDefaultProfile)
-            .onChange(of: profiles.map(\.id)) { storeDefaultProfile() }
-            .onChange(of: "\(sourcesRaw)|\(profileRaw)|\(styleRaw)|\(itemsPerSection)|\(activeProfileRaw)") {
+            .onChange(of: "\(sourcesRaw)|\(styleRaw)|\(itemsPerSection)") {
                 WidgetSnapshotExporter.refresh(container: modelContext.container, isChildProfile: profileManager?.activeProfileIsChild ?? false)
             }
-        }
-
-        private func storeDefaultProfile() {
-            guard let id = TopShelfSettings.profileID(among: profiles.map(\.id)), profileRaw != id.uuidString else { return }
-            TopShelfSettings.storeProfile(id)
         }
 
         private func removeButton(_ source: TopShelfSource) -> some View {

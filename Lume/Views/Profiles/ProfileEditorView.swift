@@ -6,6 +6,7 @@ import SwiftUI
 struct ProfileEditorView: View {
     @Environment(ProfileManager.self) private var profileManager: ProfileManager?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
 
     /// The roster comes from `ProfileManager` — `UserProfile` lives in the cloud
     /// store (a separate container this view's env context doesn't bind to).
@@ -23,6 +24,9 @@ struct ProfileEditorView: View {
     @State private var pinHash: String
     @State private var pinFlow: PINFlow?
     @State private var confirmingDeletion = false
+    /// Whether the Top Shelf follows this profile. Only one profile can be on
+    /// it, so turning it on here turns it off for the others.
+    @State private var showsOnTopShelf: Bool
 
     init(profile: UserProfile? = nil) {
         self.profile = profile
@@ -31,6 +35,7 @@ struct ProfileEditorView: View {
         _color = State(initialValue: profile?.color ?? .lume)
         _isChild = State(initialValue: profile?.isChild ?? false)
         _pinHash = State(initialValue: profile?.pinHash ?? "")
+        _showsOnTopShelf = State(initialValue: profile.map { TopShelfSettings.followedProfile() == $0.id } ?? false)
     }
 
     private var isEditing: Bool {
@@ -107,6 +112,14 @@ struct ProfileEditorView: View {
                 }
 
                 profilePINSection
+
+                #if os(tvOS)
+                    Section {
+                        Toggle("Show on Top Shelf", isOn: $showsOnTopShelf)
+                    } footer: {
+                        Text("Shows rows from this profile above lume on the Apple TV Home Screen. Only one profile can be on the Top Shelf, so turning it on here turns it off for the others.")
+                    }
+                #endif
 
                 if isEditing, allProfiles.count > 1 {
                     Section {
@@ -265,6 +278,7 @@ struct ProfileEditorView: View {
         if let profile {
             profileManager.updateProfile(profile, name: trimmedName, symbolName: symbolName, color: color, isChild: isChild)
             profileManager.updateProfilePIN(profile, pinHash: pinHash)
+            saveTopShelf(for: profile.id)
         } else {
             let profile = profileManager.createProfile(
                 name: trimmedName,
@@ -273,12 +287,29 @@ struct ProfileEditorView: View {
                 isChild: isChild
             )
             profileManager.updateProfilePIN(profile, pinHash: pinHash)
+            saveTopShelf(for: profile.id)
         }
         dismiss()
     }
 
+    /// Turns the Top Shelf on for this profile (and so off for every other),
+    /// or off when this profile had it, then rebuilds it.
+    private func saveTopShelf(for id: UUID) {
+        #if os(tvOS)
+            let followed = TopShelfSettings.followedProfile() == id
+            guard showsOnTopShelf != followed else { return }
+            TopShelfSettings.setFollowedProfile(showsOnTopShelf ? id : nil)
+            WidgetSnapshotExporter.refresh(
+                container: modelContext.container,
+                isChildProfile: profileManager?.activeProfileIsChild ?? false
+            )
+        #endif
+    }
+
     private func delete() {
         guard let profileManager, let profile else { return }
+        showsOnTopShelf = false
+        saveTopShelf(for: profile.id)
         Task { await profileManager.deleteProfile(profile) }
         dismiss()
     }

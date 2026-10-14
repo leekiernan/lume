@@ -61,35 +61,54 @@ struct TopShelfSettingsTests {
         #expect(TopShelfSettings.toggled(homeTrending, in: added) == [moviesFavorites])
     }
 
-    /// The followed profile defaults to the first, and a stored one that has
-    /// since been deleted falls back to it too.
-    @Test func `the Top Shelf follows the stored profile, else the first`() throws {
+    /// Off until a profile turns it on; turning it on for one profile turns
+    /// it off for the rest.
+    @Test func `the Top Shelf follows at most one profile`() throws {
         let defaults = try makeDefaults()
         let first = UUID(), second = UUID()
-        #expect(TopShelfSettings.profileID(among: [first, second], defaults: defaults) == first)
-        TopShelfSettings.storeProfile(second, defaults: defaults)
-        #expect(TopShelfSettings.profileID(among: [first, second], defaults: defaults) == second)
-        #expect(TopShelfSettings.profileID(among: [first], defaults: defaults) == first)
+        #expect(TopShelfSettings.followedProfile(defaults: defaults) == nil)
+        TopShelfSettings.setFollowedProfile(first, defaults: defaults)
+        #expect(TopShelfSettings.followedProfile(defaults: defaults) == first)
+        TopShelfSettings.setFollowedProfile(second, defaults: defaults)
+        #expect(TopShelfSettings.followedProfile(defaults: defaults) == second)
+        TopShelfSettings.setFollowedProfile(nil, defaults: defaults)
+        #expect(TopShelfSettings.followedProfile(defaults: defaults) == nil)
     }
 
-    /// Only a promoted row is recorded, and only while the followed profile
-    /// is the active one — another profile's rows would be the wrong titles.
+    /// Turning it off and on for the same profile keeps its rows; another
+    /// profile starts with none, since rows belong to one profile's layout.
+    @Test func `rows survive off and on, not a change of profile`() throws {
+        let defaults = try makeDefaults()
+        let first = UUID(), second = UUID()
+        TopShelfSettings.setFollowedProfile(first, defaults: defaults)
+        defaults.set(TopShelfSettings.encode([homeTrending]), forKey: TopShelfSettings.sourcesKey)
+
+        TopShelfSettings.setFollowedProfile(nil, defaults: defaults)
+        TopShelfSettings.setFollowedProfile(first, defaults: defaults)
+        #expect(TopShelfSettings.sources(defaults: defaults) == [homeTrending])
+
+        TopShelfSettings.setFollowedProfile(second, defaults: defaults)
+        #expect(TopShelfSettings.sources(defaults: defaults).isEmpty)
+    }
+
+    /// Every row is recorded, promoted or not, so a row promoted later has
+    /// titles straight away — but only while the followed profile is the
+    /// active one, since another profile's rows would be the wrong titles.
     @Test func `list rows are recorded only for the followed profile`() throws {
         let defaults = try makeDefaults()
         let previous = ActiveProfileStore.current
         defer { ActiveProfileStore.current = previous }
         let followed = UUID()
         ActiveProfileStore.current = followed
-        defaults.set(TopShelfSettings.encode([homeTrending]), forKey: TopShelfSettings.sourcesKey)
 
         TopShelfSettings.record(["movie-a"], for: homeTrending, defaults: defaults)
         #expect(TopShelfSettings.recordedItems(for: homeTrending, defaults: defaults).isEmpty)
 
-        TopShelfSettings.storeProfile(followed, defaults: defaults)
+        TopShelfSettings.setFollowedProfile(followed, defaults: defaults)
         TopShelfSettings.record(["movie-a", "movie-b"], for: homeTrending, defaults: defaults)
         TopShelfSettings.record(["movie-c"], for: moviesFavorites, defaults: defaults)
         #expect(TopShelfSettings.recordedItems(for: homeTrending, defaults: defaults) == ["movie-a", "movie-b"])
-        #expect(TopShelfSettings.recordedItems(for: moviesFavorites, defaults: defaults).isEmpty)
+        #expect(TopShelfSettings.recordedItems(for: moviesFavorites, defaults: defaults) == ["movie-c"])
 
         ActiveProfileStore.current = UUID()
         TopShelfSettings.record(["movie-z"], for: homeTrending, defaults: defaults)

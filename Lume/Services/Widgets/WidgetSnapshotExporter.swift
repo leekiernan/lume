@@ -82,24 +82,33 @@ enum WidgetSnapshotExporter {
     }
 
     /// Exports a fresh snapshot for the active playlist and tells the Top
-    /// Shelf to re-read it. A no-op unless the profile the Top Shelf follows
-    /// is active: the catalog holds only the active profile's watch state, so
-    /// another profile's export would be wrong. The last snapshot stays.
+    /// Shelf to re-read it. With no profile followed the Top Shelf is off,
+    /// and an empty snapshot puts the app's artwork back. Otherwise a no-op
+    /// unless the followed profile is active: the catalog holds only the
+    /// active profile's watch state, so another profile's export would be
+    /// wrong. The last snapshot stays.
     nonisolated static func export(
         container: ModelContainer,
         rows: [TopShelfRowPlan],
         isChildProfile: Bool,
         now: Date = Date()
     ) {
-        guard TopShelfSettings.followsActiveProfile() else { return }
-        let storedID = UserDefaults.standard.string(forKey: PlaylistSelectionStore.key) ?? ""
-        var snapshot = makeSnapshot(
-            container: container,
-            rows: rows,
-            storedPlaylistID: storedID,
-            isChildProfile: isChildProfile,
-            now: now
-        )
+        var snapshot: WidgetSnapshot
+        if TopShelfSettings.followedProfile() == nil {
+            snapshot = WidgetSnapshot(generatedAt: now, sections: [])
+        } else if TopShelfSettings.followsActiveProfile() {
+            let storedID = UserDefaults.standard.string(forKey: PlaylistSelectionStore.key) ?? ""
+            snapshot = makeSnapshot(
+                container: container,
+                rows: rows,
+                storedPlaylistID: storedID,
+                isChildProfile: isChildProfile,
+                now: now
+            )
+        } else {
+            Logger.database.info("Top Shelf export skipped: it follows another profile")
+            return
+        }
         snapshot.topShelf = TopShelfSettings.configuration()
         do {
             try WidgetDataStore.save(snapshot)
@@ -107,6 +116,8 @@ enum WidgetSnapshotExporter {
             Logger.database.error("Top Shelf snapshot export failed: \(error.localizedDescription, privacy: .public)")
             return
         }
+        let counts = snapshot.sections.map { "\($0.id)=\($0.items.count)" }.joined(separator: ", ")
+        Logger.database.info("Top Shelf snapshot written: \(snapshot.sections.count) rows [\(counts, privacy: .public)]")
         #if os(tvOS)
             TVTopShelfContentProvider.topShelfContentDidChange()
         #endif

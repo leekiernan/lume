@@ -75,11 +75,12 @@ import SwiftUI
         @State private var editorError: String?
         @State private var editorChecking = false
         @State private var isReordering = false
-        /// The row whose ⭐ was pressed: the dialog offers the hero and the Top
-        /// Shelf, so the row needs no second button for either.
-        @State private var starTarget: HomeSectionRef?
         /// The rows promoted to the Top Shelf, across every surface.
         @AppStorage(TopShelfSettings.sourcesKey) private var topShelfSourcesRaw = ""
+        /// Who the Top Shelf follows and who is active: rows can be added to it
+        /// only while they are the same profile.
+        @AppStorage(TopShelfSettings.profileKey) private var topShelfProfileRaw = ""
+        @AppStorage(ActiveProfileStore.key) private var activeProfileRaw = ""
         @Environment(\.modelContext) private var modelContext
         @Environment(ProfileManager.self) private var profileManager: ProfileManager?
         @FocusState private var focusedControl: FocusTarget?
@@ -104,22 +105,6 @@ import SwiftUI
             // in the list the first time someone opens this pane.
             .onAppear(perform: seedDefaultHeroIfNeeded)
             .paywall(isPresented: $showPaywall, highlight: paywallHighlight)
-            .confirmationDialog(
-                starTarget.map { name(for: $0) } ?? "",
-                isPresented: Binding(get: { starTarget != nil }, set: { if !$0 { starTarget = nil } }),
-                titleVisibility: .visible,
-                presenting: starTarget
-            ) { ref in
-                Button(isHero(ref) ? "Stop Using as Hero" : "Use as Hero") { togglePromoted(ref) }
-                if TopShelfSettings.followsActiveProfile() {
-                    Button(isOnTopShelf(ref) ? "Remove from Top Shelf" : "Add to Top Shelf") { toggleTopShelf(ref) }
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: { _ in
-                if !TopShelfSettings.followsActiveProfile() {
-                    Text("The Top Shelf follows another profile, so its rows are chosen from that profile.")
-                }
-            }
         }
 
         // MARK: - Derived state
@@ -192,8 +177,13 @@ import SwiftUI
             }
         }
 
+        /// Whether the active profile has the Top Shelf on (in its editor).
+        private var topShelfIsOn: Bool {
+            !topShelfProfileRaw.isEmpty && topShelfProfileRaw == activeProfileRaw
+        }
+
         private func isOnTopShelf(_ ref: HomeSectionRef) -> Bool {
-            TopShelfSettings.decode(topShelfSourcesRaw).contains(TopShelfSource(surface: surface, ref: ref))
+            topShelfIsOn && TopShelfSettings.decode(topShelfSourcesRaw).contains(TopShelfSource(surface: surface, ref: ref))
         }
 
         /// Copies the row to the bottom of the Top Shelf, or takes it off; the
@@ -249,6 +239,11 @@ import SwiftUI
                 Text(footerText)
                     .tvSettingsFooter()
                     .padding(.top, 6)
+
+                Text(topShelfIsOn
+                    ? LocalizedStringKey("Press ⭐ to make a section the hero. Press and hold it to add the section to the Top Shelf or take it off.")
+                    : LocalizedStringKey("Press ⭐ to make a section the hero."))
+                    .tvSettingsFooter()
             }
         }
 
@@ -290,8 +285,12 @@ import SwiftUI
         private func actions(for ref: HomeSectionRef) -> some View {
             let title = name(for: ref)
             if ref.isPromotable {
+                // A press makes the row the hero; a press and hold, while the
+                // Top Shelf is on for this profile, adds it there or takes it
+                // off. The gesture takes the press once it recognizes, so a
+                // hold doesn't also toggle the hero.
                 Button {
-                    starTarget = ref
+                    togglePromoted(ref)
                 } label: {
                     // Filled while this row *is* the hero, so the state reads
                     // without moving focus onto it. The Top Shelf shows as the
@@ -300,9 +299,15 @@ import SwiftUI
                         .foregroundStyle(isHero(ref) ? AnyShapeStyle(Color.lumeAccent) : AnyShapeStyle(.foreground))
                 }
                 .buttonStyle(TVContentIconButtonStyle())
+                .onLongPressGesture(minimumDuration: 0.4) {
+                    if topShelfIsOn { toggleTopShelf(ref) }
+                }
                 .accessibilityAddTraits(isHero(ref) ? .isSelected : [])
-                .accessibilityLabel("Hero and Top Shelf options for \(title)")
+                .accessibilityLabel(isHero(ref) ? "Stop using \(title) as the hero" : "Use \(title) as the hero")
                 .accessibilityValue(isHero(ref) ? Text("Hero") : Text(verbatim: ""))
+                .accessibilityAction(named: isOnTopShelf(ref) ? Text("Remove from Top Shelf") : Text("Add to Top Shelf")) {
+                    if topShelfIsOn { toggleTopShelf(ref) }
+                }
             }
             if let section = custom(ref) {
                 Button {
