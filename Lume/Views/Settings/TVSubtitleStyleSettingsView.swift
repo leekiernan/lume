@@ -72,14 +72,4 @@
         }
     }
 
-    private extension CaseIterable where Self: Equatable, AllCases: BidirectionalCollection {
-        /// The next case, wrapping to the first — what a cycle row advances to.
-        func cycledNext() -> Self {
-            let all = Self.allCases
-            guard let index = all.firstIndex(of: self) else { return self }
-            let next = all.index(after: index)
-            return next == all.endIndex ? all[all.startIndex] : all[next]
-        }
-    }
-
 #endif

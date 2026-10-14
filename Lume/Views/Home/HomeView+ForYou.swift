@@ -63,7 +63,7 @@ extension HomeView {
         }
         recommendations = items
         #if os(tvOS)
-            TopShelfSettings.record(items.map(WidgetSnapshotExporter.itemKey), for: TopShelfSource(surface: .home, ref: .builtin(.forYou)))
+            TopShelfSettings.record(items.map(\.id), for: TopShelfSource(surface: .home, ref: .builtin(.forYou)))
         #endif
         recommendationsLoaded = true
     }

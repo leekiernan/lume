@@ -17,8 +17,9 @@
 //  channels, and restricted categories for a child profile.
 //
 //  Exported on tvOS only, the one platform that ships an extension reading
-//  the snapshot (`LumeTopShelf`), and only while the profile the Top Shelf
-//  follows is active. Building it is platform-neutral, for tests.
+//  the snapshot (`LumeTopShelf`), through `TopShelfRefresher`, and only while
+//  the profile the Top Shelf follows is active. Building it is
+//  platform-neutral, for tests.
 //
 
 import Foundation
@@ -27,6 +28,13 @@ import SwiftData
 #if os(tvOS)
     import TVServices
 #endif
+
+/// The profile an export is for, captured on the main actor with its child
+/// flag so the two can't come from different profiles.
+nonisolated struct TopShelfExportRequest: Equatable {
+    let profileID: UUID
+    let isChildProfile: Bool
+}
 
 /// One promoted row as the export needs it: what it is, what the Top Shelf
 /// calls it, and — for a list row — the titles it last showed in the app.
@@ -45,87 +53,83 @@ enum WidgetSnapshotExporter {
     /// share a name ("Favorites" on Home and on Movies) are told apart by
     /// their area.
     static func plan(defaults: UserDefaults = .standard) -> [TopShelfRowPlan] {
-        let rows = TopShelfSettings.sources(defaults: defaults).compactMap { source -> (TopShelfSource, String)? in
-            switch source.ref {
-            case let .builtin(section):
-                return (source, section.displayName)
-            case let .custom(id):
-                let raw = defaults.string(forKey: CustomHomeSections.storageKey(source.surface)) ?? ""
-                return CustomHomeSections.decode(raw).first { $0.id == id }.map { (source, $0.title) }
-            }
+        let rows = TopShelfSettings.sources(defaults: defaults).compactMap { source in
+            source.rowName(defaults: defaults).map { (source, $0) }
         }
         let counts = Dictionary(rows.map { ($0.1, 1) }, uniquingKeysWith: +)
-        return rows.map { source, title in
+        return rows.map { source, name in
             TopShelfRowPlan(
                 source: source,
-                title: counts[title, default: 0] > 1 ? "\(source.surface.displayName) · \(title)" : title,
+                title: counts[name, default: 0] > 1 ? source.qualified(name) : name,
                 recordedItems: TopShelfSettings.recordedItems(for: source, defaults: defaults)
             )
         }
     }
 
-    /// Rebuilds the snapshot off the main actor: a handful of bounded fetches,
-    /// cheap enough for every launch, backgrounding and settings change. Held
-    /// under a background-task assertion so a backgrounding export finishes
-    /// instead of being suspended mid-write.
-    static func refresh(container: ModelContainer, isChildProfile: Bool) {
-        #if os(tvOS)
-            let rows = plan()
-            Task {
-                await BackgroundActivity.perform("Top Shelf snapshot") {
-                    await Task.detached(priority: .utility) {
-                        export(container: container, rows: rows, isChildProfile: isChildProfile)
-                    }.value
-                }
-            }
-        #endif
-    }
-
-    /// Exports a fresh snapshot for the active playlist and tells the Top
-    /// Shelf to re-read it. With no profile followed the Top Shelf is off,
-    /// and an empty snapshot puts the app's artwork back. Otherwise a no-op
-    /// unless the followed profile is active: the catalog holds only the
-    /// active profile's watch state, so another profile's export would be
-    /// wrong. The last snapshot stays.
+    /// Writes the snapshot `TopShelfSettings.exportAction` calls for and tells
+    /// the Top Shelf to re-read it. `request` is the profile that was active
+    /// when the export was asked for, with its child flag: the catalog holds
+    /// only the active profile's watch state, so rows are built only when the
+    /// request is for the followed profile and that profile is still active.
+    /// Run by `TopShelfRefresher`, one export at a time.
     nonisolated static func export(
         container: ModelContainer,
         rows: [TopShelfRowPlan],
-        isChildProfile: Bool,
+        request: TopShelfExportRequest,
         now: Date = Date()
     ) {
+        let followed = TopShelfSettings.followedProfile()
         var snapshot: WidgetSnapshot
-        if TopShelfSettings.followedProfile() == nil {
+        switch TopShelfSettings.exportAction(
+            followed: followed,
+            active: request.profileID,
+            snapshotProfile: TopShelfSettings.snapshotProfile()
+        ) {
+        case .keep:
+            return
+        case .clear:
             snapshot = WidgetSnapshot(generatedAt: now, sections: [])
-        } else if TopShelfSettings.followsActiveProfile() {
+        case .build:
+            // A switch may have landed since the request: its child flag
+            // would then describe the wrong profile.
+            guard ActiveProfileStore.current == request.profileID else {
+                Logger.database.info("Top Shelf export skipped: the profile changed since it was asked for")
+                return
+            }
             let storedID = UserDefaults.standard.string(forKey: PlaylistSelectionStore.key) ?? ""
             snapshot = makeSnapshot(
                 container: container,
                 rows: rows,
                 storedPlaylistID: storedID,
-                isChildProfile: isChildProfile,
+                isChildProfile: request.isChildProfile,
                 now: now
             )
-        } else {
-            Logger.database.info("Top Shelf export skipped: it follows another profile")
-            return
         }
         snapshot.topShelf = TopShelfSettings.configuration()
+        let owner = snapshot.sections.isEmpty ? nil : followed
+        write(snapshot, owner: owner)
+    }
+
+    /// Saves the snapshot unless it shows what the one on disk already does:
+    /// every backgrounding asks for an export, and an unchanged one would
+    /// still make the Top Shelf reload its images.
+    private nonisolated static func write(_ snapshot: WidgetSnapshot, owner: UUID?) {
+        if let current = WidgetDataStore.load(), current.sections == snapshot.sections, current.topShelf == snapshot.topShelf {
+            TopShelfSettings.setSnapshotProfile(owner)
+            return
+        }
         do {
             try WidgetDataStore.save(snapshot)
         } catch {
             Logger.database.error("Top Shelf snapshot export failed: \(error.localizedDescription, privacy: .public)")
             return
         }
+        TopShelfSettings.setSnapshotProfile(owner)
         let counts = snapshot.sections.map { "\($0.id)=\($0.items.count)" }.joined(separator: ", ")
         Logger.database.info("Top Shelf snapshot written: \(snapshot.sections.count) rows [\(counts, privacy: .public)]")
         #if os(tvOS)
             TVTopShelfContentProvider.topShelfContentDidChange()
         #endif
-    }
-
-    /// The `HomeMediaItem.id` form a list row's titles are recorded in.
-    static func itemKey(_ item: HomeMediaItem) -> String {
-        item.id
     }
 
     /// Builds the snapshot for the active playlist. Hidden categories and
@@ -164,16 +168,39 @@ enum WidgetSnapshotExporter {
     }
 
     /// What every row's fetch is narrowed to: the active playlist, under the
-    /// viewer's visibility rules.
-    private nonisolated struct Scope {
+    /// viewer's visibility rules. A class so the series split, which both
+    /// watch rows read, is worked out once per export.
+    private final nonisolated class Scope {
         let context: ModelContext
         let container: ModelContainer
         let prefix: String
         let restriction: ContentRestriction
 
+        init(context: ModelContext, container: ModelContainer, prefix: String, restriction: ContentRestriction) {
+            self.context = context
+            self.container = container
+            self.prefix = prefix
+            self.restriction = restriction
+        }
+
         func shows(_ id: String, category: String?) -> Bool {
             id.hasPrefix(prefix) && !restriction.hides(categoryID: category)
         }
+
+        /// The recently watched shows, most recent first, and where each
+        /// continues — the split the Home and Series rails make
+        /// (`ContinueWatchingLoader`): a show with an episode to go is in
+        /// Continue Watching, one with none left is in Watch Again.
+        private(set) lazy var watchedSeries: (shows: [Series], split: ContinueWatchingLoader.Result) = {
+            var descriptor = FetchDescriptor<Series>(
+                predicate: #Predicate { $0.lastWatchedDate != nil },
+                sortBy: [SortDescriptor(\.lastWatchedDate, order: .reverse)]
+            )
+            // Both rows together never show more than this many shows.
+            descriptor.fetchLimit = WidgetSnapshotExporter.limit * 2
+            let shows = ((try? context.fetch(descriptor)) ?? []).filter { shows($0.id, category: $0.categoryId) }
+            return (shows, ContinueWatchingLoader.load(container: container, series: shows.map(\.persistentModelID)))
+        }()
     }
 
     private nonisolated static func categoryIDs(
@@ -199,7 +226,7 @@ enum WidgetSnapshotExporter {
     // MARK: - Continue Watching
 
     /// Resumable titles, most recently watched first: partially watched movies
-    /// and the in-progress episode of each show, plus — on Home, which mixes
+    /// and each show with an episode to go, plus — on Home, which mixes
     /// everything — channels watched lately.
     private nonisolated static func continueWatching(_ surface: SectionSurface, in scope: Scope) -> [WidgetMediaItem] {
         var entries: [(date: Date, item: WidgetMediaItem)] = []
@@ -208,14 +235,18 @@ enum WidgetSnapshotExporter {
                 predicate: #Predicate { $0.lastWatchedDate != nil && !$0.isWatched && $0.watchProgress > 0 },
                 sortBy: [SortDescriptor(\.lastWatchedDate, order: .reverse)]
             )
-            descriptor.fetchLimit = 60
+            descriptor.fetchLimit = limit * 2
             for movie in (try? scope.context.fetch(descriptor)) ?? [] where scope.shows(movie.id, category: movie.categoryId) {
                 guard let date = movie.lastWatchedDate, let item = item(movie, progress: true) else { continue }
                 entries.append((date, item))
             }
         }
         if surface != .movies {
-            entries += resumableEpisodes(in: scope)
+            let (shows, split) = scope.watchedSeries
+            for show in shows where !split.finished.contains(show.id) {
+                guard let date = show.lastWatchedDate, let item = item(show, continuingAt: split.continuations[show.id]) else { continue }
+                entries.append((date, item))
+            }
         }
         if surface == .home {
             var descriptor = FetchDescriptor<LiveStream>(
@@ -231,39 +262,6 @@ enum WidgetSnapshotExporter {
         return entries.sorted { $0.date > $1.date }.map(\.item)
     }
 
-    /// The most recently watched in-progress episode of each show, found the
-    /// way `SeriesResumeLoader` finds it: one fetch over the indexed watch-state
-    /// columns rather than faulting every recently watched show's `episodes`.
-    private nonisolated static func resumableEpisodes(in scope: Scope) -> [(date: Date, item: WidgetMediaItem)] {
-        var descriptor = FetchDescriptor<Episode>(
-            predicate: #Predicate { $0.watchProgress > 0 && $0.isWatched == false }
-        )
-        descriptor.relationshipKeyPathsForPrefetching = [\.series]
-        var newest: [String: Episode] = [:]
-        for episode in (try? scope.context.fetch(descriptor)) ?? [] {
-            guard let show = episode.series, scope.shows(show.id, category: show.categoryId) else { continue }
-            let watched = episode.lastWatchedDate ?? .distantPast
-            if let seen = newest[show.id], (seen.lastWatchedDate ?? .distantPast) >= watched { continue }
-            newest[show.id] = episode
-        }
-        return newest.values.compactMap { episode in
-            guard let show = episode.series,
-                  let date = show.lastWatchedDate ?? episode.lastWatchedDate,
-                  let deepLink = WidgetDeepLink.play(kind: .episode, id: episode.id) else { return nil }
-            return (date, WidgetMediaItem(
-                id: "episode-\(episode.id)",
-                kind: .episode,
-                title: show.name,
-                subtitle: "S\(episode.seasonNum) E\(episode.episodeNum) · \(episode.title)",
-                imageURL: URL(string: show.cover ?? episode.movieImage ?? ""),
-                backdropURL: TMDBClient.backdropURL(show.backdropPath),
-                progress: fraction(episode.watchProgress, of: episode.durationSecs),
-                deepLink: deepLink,
-                detailLink: WidgetDeepLink.openSeries(id: show.id)
-            ))
-        }
-    }
-
     // MARK: - Watch Again
 
     /// Finished movies and series, most recently watched first — the split
@@ -275,21 +273,15 @@ enum WidgetSnapshotExporter {
                 predicate: #Predicate { $0.lastWatchedDate != nil && $0.isWatched == true },
                 sortBy: [SortDescriptor(\.lastWatchedDate, order: .reverse)]
             )
-            descriptor.fetchLimit = 60
+            descriptor.fetchLimit = limit * 2
             for movie in (try? scope.context.fetch(descriptor)) ?? [] where scope.shows(movie.id, category: movie.categoryId) {
                 guard let date = movie.lastWatchedDate, let item = item(movie, progress: false) else { continue }
                 entries.append((date, item))
             }
         }
         if surface != .movies {
-            var descriptor = FetchDescriptor<Series>(
-                predicate: #Predicate { $0.lastWatchedDate != nil },
-                sortBy: [SortDescriptor(\.lastWatchedDate, order: .reverse)]
-            )
-            descriptor.fetchLimit = 60
-            let shows = ((try? scope.context.fetch(descriptor)) ?? []).filter { scope.shows($0.id, category: $0.categoryId) }
-            let finished = ContinueWatchingLoader.load(container: scope.container, series: shows.map(\.persistentModelID)).finished
-            for show in shows where finished.contains(show.id) {
+            let (shows, split) = scope.watchedSeries
+            for show in shows where split.finished.contains(show.id) {
                 guard let date = show.lastWatchedDate, let item = item(show) else { continue }
                 entries.append((date, item))
             }
@@ -336,22 +328,25 @@ enum WidgetSnapshotExporter {
     /// The newest titles first, by the sort keys the Movies and Series rows
     /// use (`added` / `lastModified`, both indexed with the filter columns).
     private nonisolated static func recentlyAdded(_ surface: SectionSurface, in scope: Scope) -> [WidgetMediaItem] {
+        // The playlist is in the predicate, so other playlists' newer titles
+        // can't fill the fetch and leave this row short.
+        let prefix = scope.prefix
         switch surface {
         case .movies:
             var descriptor = FetchDescriptor<Movie>(
-                predicate: #Predicate { $0.added != nil },
+                predicate: #Predicate { $0.added != nil && $0.id.starts(with: prefix) },
                 sortBy: [SortDescriptor(\.added, comparator: .lexical, order: .reverse)]
             )
-            descriptor.fetchLimit = 200
+            descriptor.fetchLimit = limit * 4
             return ((try? scope.context.fetch(descriptor)) ?? [])
                 .filter { scope.shows($0.id, category: $0.categoryId) }
                 .compactMap { item($0, progress: false) }
         case .series:
             var descriptor = FetchDescriptor<Series>(
-                predicate: #Predicate { $0.lastModified != nil },
+                predicate: #Predicate { $0.lastModified != nil && $0.id.starts(with: prefix) },
                 sortBy: [SortDescriptor(\.lastModified, comparator: .lexical, order: .reverse)]
             )
-            descriptor.fetchLimit = 200
+            descriptor.fetchLimit = limit * 4
             return ((try? scope.context.fetch(descriptor)) ?? [])
                 .filter { scope.shows($0.id, category: $0.categoryId) }
                 .compactMap(item)
@@ -365,25 +360,22 @@ enum WidgetSnapshotExporter {
     /// The titles a list row (trending, a watchlist, a custom list, For You)
     /// last showed in the app, in order — see `TopShelfSettings.record`.
     private nonisolated static func recorded(_ keys: [String], in scope: Scope) -> [WidgetMediaItem] {
-        keys.compactMap { key in
-            guard let separator = key.firstIndex(of: "-") else { return nil }
-            let kind = key[..<separator]
-            let id = String(key[key.index(after: separator)...])
-            switch kind {
-            case "movie":
+        keys.compactMap { raw in
+            guard let key = MediaItemKey(raw) else { return nil }
+            let id = key.id
+            switch key.kind {
+            case .movie:
                 guard let movie = first(Movie.self, #Predicate { $0.id == id }, in: scope.context),
                       scope.shows(movie.id, category: movie.categoryId) else { return nil }
                 return item(movie, progress: false)
-            case "series":
+            case .series:
                 guard let show = first(Series.self, #Predicate { $0.id == id }, in: scope.context),
                       scope.shows(show.id, category: show.categoryId) else { return nil }
                 return item(show)
-            case "live":
+            case .live:
                 guard let stream = first(LiveStream.self, #Predicate { $0.id == id && $0.isHidden == false }, in: scope.context),
                       scope.shows(stream.id, category: stream.categoryId) else { return nil }
                 return item(stream)
-            default:
-                return nil
             }
         }
     }
@@ -425,6 +417,27 @@ enum WidgetSnapshotExporter {
             progress: nil,
             deepLink: deepLink,
             detailLink: deepLink
+        )
+    }
+
+    /// A show in Continue Watching: plays the episode it continues with, as
+    /// the rail's card does, under the rail's "S7, E12 · 32m left" label. A
+    /// show whose episodes this device hasn't loaded yet has no continuation
+    /// and opens its page instead.
+    private nonisolated static func item(_ show: Series, continuingAt continuation: SeriesContinuation?) -> WidgetMediaItem? {
+        guard let continuation else { return item(show) }
+        let episode = show.episodes.first { $0.seasonNum == continuation.season && $0.episodeNum == continuation.episode }
+        guard let episode, let deepLink = WidgetDeepLink.play(kind: .episode, id: episode.id) else { return item(show) }
+        return WidgetMediaItem(
+            id: "episode-\(episode.id)",
+            kind: .episode,
+            title: show.name,
+            subtitle: ContinueWatching.seriesLabel(continuation),
+            imageURL: URL(string: show.cover ?? episode.movieImage ?? ""),
+            backdropURL: TMDBClient.backdropURL(show.backdropPath),
+            progress: continuation.fraction.flatMap { $0 > 0 ? $0 : nil },
+            deepLink: deepLink,
+            detailLink: WidgetDeepLink.openSeries(id: show.id)
         )
     }
 

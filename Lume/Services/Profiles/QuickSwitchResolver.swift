@@ -36,7 +36,7 @@ extension [Playlist] {
     /// their own unsorted `@Query` or fetch, whose order SQLite doesn't promise
     /// to repeat, and the content tabs, the switchers and auto-sync all have to
     /// land on the same playlist.
-    func active(for storedID: String) -> Playlist? {
+    nonisolated func active(for storedID: String) -> Playlist? {
         first(where: { $0.id.uuidString == storedID })
             ?? self.min { ($0.addedAt, $0.id.uuidString) < ($1.addedAt, $1.id.uuidString) }
     }

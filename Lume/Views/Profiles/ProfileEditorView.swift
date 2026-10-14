@@ -6,7 +6,7 @@ import SwiftUI
 struct ProfileEditorView: View {
     @Environment(ProfileManager.self) private var profileManager: ProfileManager?
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.topShelfRefresher) private var topShelf
 
     /// The roster comes from `ProfileManager` — `UserProfile` lives in the cloud
     /// store (a separate container this view's env context doesn't bind to).
@@ -299,17 +299,14 @@ struct ProfileEditorView: View {
             let followed = TopShelfSettings.followedProfile() == id
             guard showsOnTopShelf != followed else { return }
             TopShelfSettings.setFollowedProfile(showsOnTopShelf ? id : nil)
-            WidgetSnapshotExporter.refresh(
-                container: modelContext.container,
-                isChildProfile: profileManager?.activeProfileIsChild ?? false
-            )
+            topShelf?.refresh()
         #endif
     }
 
     private func delete() {
+        // A profile holding the Top Shelf turns it off once it's gone — see
+        // `TopShelfRefresher.rosterChanged` — so a refused delete keeps it.
         guard let profileManager, let profile else { return }
-        showsOnTopShelf = false
-        saveTopShelf(for: profile.id)
         Task { await profileManager.deleteProfile(profile) }
         dismiss()
     }

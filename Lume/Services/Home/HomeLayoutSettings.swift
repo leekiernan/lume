@@ -14,7 +14,7 @@ import SwiftUI
 /// A reorderable built-in row. The raw value is the stable key stored in the
 /// user's section order, so cases must not be renamed once shipped. Not every
 /// case applies to every surface — see `cases(for:)`.
-enum HomeSection: String, CaseIterable, Identifiable {
+nonisolated enum HomeSection: String, CaseIterable, Identifiable {
     /// In-progress titles (and recently watched channels on Home).
     case continueWatching
     /// Finished titles: the "Watch Again" row. The key predates the name.
@@ -117,7 +117,7 @@ enum HomeSection: String, CaseIterable, Identifiable {
 /// custom section (`CustomHomeSection`) identified by its id. This is what the
 /// stored order and the hidden set are lists of, so built-in and custom rows
 /// interleave freely and hide the same way.
-enum HomeSectionRef: Hashable, Identifiable {
+nonisolated enum HomeSectionRef: Hashable, Identifiable {
     case builtin(HomeSection)
     case custom(UUID)
 

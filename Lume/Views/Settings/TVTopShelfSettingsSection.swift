@@ -16,11 +16,6 @@ import SwiftUI
 
 #if os(tvOS)
 
-    extension Color {
-        /// Marks a row that is on the Top Shelf, in its area's list.
-        static let topShelfGold = Color(red: 0.96, green: 0.77, blue: 0.29)
-    }
-
     struct TVTopShelfSettingsSection: View {
         /// A promoted row as a row of the shared reorderable list.
         private struct Row: ReorderableRowItem {
@@ -38,8 +33,7 @@ import SwiftUI
         @AppStorage(TopShelfSettings.styleKey) private var styleRaw = TopShelfConfiguration.default.style.rawValue
         @AppStorage(TopShelfSettings.itemsPerSectionKey) private var itemsPerSection = TopShelfConfiguration.default.itemsPerSection
         @AppStorage(ActiveProfileStore.key) private var activeProfileRaw = ""
-        @Environment(\.modelContext) private var modelContext
-        @Environment(ProfileManager.self) private var profileManager: ProfileManager?
+        @Environment(\.topShelfRefresher) private var topShelf
         @State private var isReordering = false
 
         private var sources: [TopShelfSource] {
@@ -53,7 +47,7 @@ import SwiftUI
         /// Reads both stored keys, so the block appears and goes as the
         /// profile or the Top Shelf's owner changes.
         private var isOn: Bool {
-            !profileRaw.isEmpty && profileRaw == activeProfileRaw
+            TopShelfSettings.isOn(followedRaw: profileRaw, activeRaw: activeProfileRaw)
         }
 
         var body: some View {
@@ -84,14 +78,12 @@ import SwiftUI
                     )
 
                     TVOptionCycleRow(title: "Layout", valueLabel: style.label) {
-                        styleRaw = style == .sectioned
-                            ? TopShelfConfiguration.Style.carousel.rawValue
-                            : TopShelfConfiguration.Style.sectioned.rawValue
+                        styleRaw = TopShelfConfiguration.Style.allCases.element(after: style).rawValue
                     }
                     .padding(.top, 8)
 
                     TVOptionCycleRow(title: "Items per Section", valueLabel: "\(itemsPerSection)") {
-                        itemsPerSection = Self.nextItemCount(after: itemsPerSection)
+                        itemsPerSection = TopShelfConfiguration.itemCountChoices.element(after: itemsPerSection)
                     }
                 }
 
@@ -106,8 +98,8 @@ import SwiftUI
                 .padding(.horizontal, TVSettingsMetrics.rowHPadding)
                 .padding(.top, 6)
             }
-            .onChange(of: "\(sourcesRaw)|\(styleRaw)|\(itemsPerSection)") {
-                WidgetSnapshotExporter.refresh(container: modelContext.container, isChildProfile: profileManager?.activeProfileIsChild ?? false)
+            .onChange(of: Settings(sources: sourcesRaw, style: styleRaw, itemsPerSection: itemsPerSection)) {
+                topShelf?.refresh()
             }
         }
 
@@ -123,25 +115,18 @@ import SwiftUI
 
         /// "Area · Row", since rows of the same name come from different areas.
         private func title(for source: TopShelfSource) -> String {
-            let name: String = switch source.ref {
-            case let .builtin(section):
-                section.displayName
-            case let .custom(id):
-                CustomHomeSections.decode(UserDefaults.standard.string(forKey: CustomHomeSections.storageKey(source.surface)) ?? "")
-                    .first { $0.id == id }?.title ?? String(localized: "Removed Row")
-            }
-            return "\(source.surface.displayName) · \(name)"
+            source.qualified(source.rowName() ?? String(localized: "Removed Row"))
         }
 
         private func icon(for source: TopShelfSource) -> String? {
             source.ref.builtin?.systemImage ?? "list.bullet.rectangle"
         }
 
-        /// The next item-count choice, wrapping around after the largest.
-        static func nextItemCount(after current: Int) -> Int {
-            let choices = TopShelfConfiguration.itemCountChoices
-            guard let index = choices.firstIndex(of: current) else { return choices[0] }
-            return choices[(index + 1) % choices.count]
+        /// What the Top Shelf is rebuilt on when it changes.
+        private struct Settings: Equatable {
+            let sources: String
+            let style: String
+            let itemsPerSection: Int
         }
     }
 

@@ -157,7 +157,11 @@ struct WidgetSnapshotExporterTests {
         #expect(items(snapshot, Self.homeContinueWatching).map(\.kind) == [.episode, .movie])
         let episode = try #require(items(snapshot, Self.homeContinueWatching).first)
         #expect(episode.title == "Show")
-        #expect(episode.subtitle == "S1 E2 · Second")
+        // The rail's label, built by the rail's own code.
+        #expect(episode.subtitle == ContinueWatching.seriesLabel(
+            SeriesContinuation(season: 1, episode: 2, fraction: 0.5, remaining: 600)
+        ))
+        #expect(episode.deepLink == WidgetDeepLink.play(kind: .episode, id: "\(playlist.id.uuidString)-s1-1-2"))
         #expect(episode.progress == 0.5)
         let movie = try #require(items(snapshot, Self.homeContinueWatching).last)
         #expect(movie.title == "Resumable")
@@ -275,6 +279,40 @@ struct WidgetSnapshotExporterTests {
     }
 
     /// Finished titles, the opposite of Continue Watching.
+    /// The in-app rail keeps a show whose next episode is waiting; so must
+    /// the Top Shelf, playing that episode.
+    @Test func `continue watching keeps a show with its next episode waiting`() throws {
+        let (container, playlist) = try seedContainer()
+        let prefix = playlist.id.uuidString
+        let context = container.mainContext
+        let episode = try #require(try context.fetch(FetchDescriptor<Episode>()).first { $0.id == "\(prefix)-s1-1-2" })
+        episode.watchProgress = 0
+        try context.save()
+
+        let continuing = TopShelfSource(surface: .series, ref: .builtin(.continueWatching))
+        let item = try #require(items(snapshot(container, playlist, [continuing]), continuing).first)
+        #expect(item.title == "Show")
+        #expect(item.deepLink == WidgetDeepLink.play(kind: .episode, id: "\(prefix)-s1-1-2"))
+        #expect(item.progress == nil)
+    }
+
+    /// A show with nothing left moves from Continue Watching to Watch Again,
+    /// as on the rails.
+    @Test func `a finished show is in watch again, not continue watching`() throws {
+        let (container, playlist) = try seedContainer()
+        let prefix = playlist.id.uuidString
+        let context = container.mainContext
+        let episode = try #require(try context.fetch(FetchDescriptor<Episode>()).first { $0.id == "\(prefix)-s1-1-2" })
+        episode.setWatched(true)
+        try context.save()
+
+        let continuing = TopShelfSource(surface: .series, ref: .builtin(.continueWatching))
+        let watchAgain = TopShelfSource(surface: .series, ref: .builtin(.recentlyWatched))
+        let result = snapshot(container, playlist, [continuing, watchAgain])
+        #expect(items(result, continuing).isEmpty)
+        #expect(items(result, watchAgain).map(\.title) == ["Show"])
+    }
+
     @Test func `watch again shows finished movies`() throws {
         let (container, playlist) = try seedContainer()
         let watchAgain = TopShelfSource(surface: .movies, ref: .builtin(.recentlyWatched))

@@ -81,8 +81,7 @@ import SwiftUI
         /// only while they are the same profile.
         @AppStorage(TopShelfSettings.profileKey) private var topShelfProfileRaw = ""
         @AppStorage(ActiveProfileStore.key) private var activeProfileRaw = ""
-        @Environment(\.modelContext) private var modelContext
-        @Environment(ProfileManager.self) private var profileManager: ProfileManager?
+        @Environment(\.topShelfRefresher) private var topShelf
         @FocusState private var focusedControl: FocusTarget?
 
         init(surface: SectionSurface, proxy: ScrollViewProxy) {
@@ -179,7 +178,7 @@ import SwiftUI
 
         /// Whether the active profile has the Top Shelf on (in its editor).
         private var topShelfIsOn: Bool {
-            !topShelfProfileRaw.isEmpty && topShelfProfileRaw == activeProfileRaw
+            TopShelfSettings.isOn(followedRaw: topShelfProfileRaw, activeRaw: activeProfileRaw)
         }
 
         private func isOnTopShelf(_ ref: HomeSectionRef) -> Bool {
@@ -191,7 +190,7 @@ import SwiftUI
         private func toggleTopShelf(_ ref: HomeSectionRef) {
             let source = TopShelfSource(surface: surface, ref: ref)
             topShelfSourcesRaw = TopShelfSettings.encode(TopShelfSettings.toggled(source, in: TopShelfSettings.decode(topShelfSourcesRaw)))
-            WidgetSnapshotExporter.refresh(container: modelContext.container, isChildProfile: profileManager?.activeProfileIsChild ?? false)
+            topShelf?.refresh()
         }
 
         private func isHero(_ ref: HomeSectionRef) -> Bool {
@@ -485,6 +484,9 @@ import SwiftUI
                 closeEditor()
                 restoreFocus(to: .addSection)
             }
+            // A deleted row can't stay the hero or on the Top Shelf.
+            if isHero(.custom(id)) { heroSectionRaw = "" }
+            if isOnTopShelf(.custom(id)) { toggleTopShelf(.custom(id)) }
             let remaining = CustomHomeSections.remove(id: id, from: customSections)
             let order = sections.filter { $0 != .custom(id) }
             customSectionsRaw = CustomHomeSections.encode(remaining)
