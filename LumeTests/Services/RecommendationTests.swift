@@ -104,10 +104,13 @@ struct RecommendationEngineTests {
         #expect(ids.first == "similar") // most similar ranks first
     }
 
-    /// The time limit is the guard: with the default, number-aware comparator
-    /// the `id > cursor` pages re-read earlier rows instead of advancing, and
-    /// this test took about 100 s instead of 1 s.
-    @Test(.timeLimit(.minutes(1)))
+    /// Hundred-row pages over ids that cross a digit-count boundary. With the
+    /// default, number-aware comparator the `id > cursor` pages lose their
+    /// place: at these pages the best match is skipped outright, so the
+    /// expectation fails; at the production page size the same bug instead
+    /// took this fixture 100 s. The time limit is a backstop, generous enough
+    /// for a busy main actor in the full suite.
+    @Test(.timeLimit(.minutes(3)))
     func `finds the best candidate past the first pages`() async throws {
         // More candidates than one page, with ids crossing a digit-count
         // boundary: the paging has to reach the best match wherever it sorts.
@@ -119,7 +122,8 @@ struct RecommendationEngineTests {
         makeMovie(container, id: "m-11400", vector: [0.9, 0.1, 0, 0])
         try container.mainContext.save()
 
-        let result = await makeEngine(container).recommendations()
+        let engine = RecommendationEngine(modelContainer: container, cacheStore: isolatedStore(), pageSize: 100)
+        let result = await engine.recommendations()
 
         #expect(result.first?.id == "m-11400")
     }

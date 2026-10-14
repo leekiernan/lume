@@ -21,6 +21,11 @@ struct ContentView: View {
     /// chooser after the user has already dismissed it, and stops a later sync
     /// (which can bring in more profiles) from popping it mid-use.
     @State private var startupChoiceResolved = false
+    /// A `lume://` link (the Top Shelf's) not yet handled. Caught here rather
+    /// than in `MainTabView` because a link that launches the app can arrive
+    /// while the profile chooser or the sign-in screen is up; it waits for
+    /// the tabs.
+    @State private var pendingLink: URL?
 
     var body: some View {
         Group {
@@ -34,7 +39,7 @@ struct ContentView: View {
                 if showStartupProfileChooser {
                     ProfileSelectionView(onComplete: dismissStartupProfileChooser)
                 } else {
-                    MainTabView()
+                    MainTabView(pendingLink: $pendingLink)
                 }
             } else if cloudSync?.status.hasCompletedInitialSync ?? true {
                 LoginView()
@@ -42,6 +47,7 @@ struct ContentView: View {
                 CloudSyncLaunchView(onSkip: { cloudSync?.skipInitialSyncWait() })
             }
         }
+        .onOpenURL { pendingLink = $0 }
         .task {
             if CommandLine.arguments.contains("-ui-testing") {
                 seedTestPlaylist()

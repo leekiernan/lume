@@ -74,8 +74,8 @@ struct LibrarySectionsView<CollectionRow: View>: View {
     private var localHeroSource: some View {
         if case let .builtin(section) = heroRef, let kind = LibraryCollection.Kind(heroSection: section) {
             collectionRow(kind)
-                .environment(\.heroItemsSink) { feed.localHeroItems = $0 }
-                .onDisappear { feed.localHeroItems = [] }
+                .environment(\.heroItemsSink, HeroItemsSink(feed: feed))
+                .onDisappear { feed.setLocalHeroItems([]) }
         }
     }
 

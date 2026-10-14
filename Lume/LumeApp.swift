@@ -27,6 +27,8 @@ struct LumeApp: App {
     @State private var profileManager: ProfileManager
     @State private var playlistSwitch = PlaylistSwitchModel()
     @State private var parentalControls: ParentalControls
+    /// Rebuilds the Top Shelf snapshot — see `TopShelfRefresher`.
+    @State private var topShelf: TopShelfRefresher
     #if os(iOS)
         @UIApplicationDelegateAdaptor(LumeAppDelegate.self) private var appDelegate
     #endif
@@ -53,6 +55,7 @@ struct LumeApp: App {
         }
         _profileManager = State(initialValue: profiles)
         _parentalControls = State(initialValue: ParentalControls(profileManager: profiles))
+        _topShelf = State(initialValue: TopShelfRefresher(container: catalog, profiles: profiles))
     }
 
     /// Builds **two separate containers** (the foreground-freeze fix):
@@ -250,12 +253,6 @@ struct LumeApp: App {
 
     @Environment(\.scenePhase) private var scenePhase
 
-    /// Rebuilds the Top Shelf snapshot — see `WidgetSnapshotExporter.refresh`.
-    /// tvOS only: no other platform ships an extension that reads it.
-    private func exportTopShelfSnapshot() {
-        WidgetSnapshotExporter.refresh(container: catalogContainer, isChildProfile: profileManager.activeProfileIsChild)
-    }
-
     /// The user's appearance override (issue #135), applied at the scene root
     /// as a window-level style override so every screen (and sheets presented
     /// from it) restyles immediately — see `AppearanceSettings.swift` for why
@@ -279,6 +276,7 @@ struct LumeApp: App {
                 .environment(profileManager)
                 .environment(playlistSwitch)
                 .environment(parentalControls)
+                .environment(\.topShelfRefresher, topShelf)
                 .task {
                     // Subscribe to MetricKit before anything else: payloads for a
                     // previous run are delivered shortly after launch, and one
@@ -387,7 +385,20 @@ struct LumeApp: App {
 
                     // Seed the Top Shelf snapshot once services are up (after
                     // profile bootstrap, so the catalog is profile-scoped).
-                    exportTopShelfSnapshot()
+                    topShelf.refresh()
+                }
+                // A switch ending, to the profile the Top Shelf follows or
+                // away from it, changes what it should show.
+                .onChange(of: profileManager.isSwitching) { _, switching in
+                    if !switching { topShelf.refresh() }
+                }
+                // The launch refresh is dropped until bootstrap has resolved
+                // the active profile.
+                .onChange(of: profileManager.isReady) { _, ready in
+                    if ready { topShelf.refresh() }
+                }
+                .onChange(of: profileManager.profiles.map(\.id)) { _, ids in
+                    topShelf.rosterChanged(ids)
                 }
                 .onChange(of: cloudSync.status.lastReconcile) {
                     // A reconcile may have pulled a PIN this device didn't have
@@ -423,7 +434,7 @@ struct LumeApp: App {
                     // the foreground is when it needs this session's progress,
                     // favourites and profile.
                     if phase == .background {
-                        exportTopShelfSnapshot()
+                        topShelf.refresh(immediately: true)
                     }
                 }
                 .appAppearance(AppAppearance.resolve(appearanceRaw))

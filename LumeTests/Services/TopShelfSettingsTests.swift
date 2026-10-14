@@ -114,4 +114,39 @@ struct TopShelfSettingsTests {
         TopShelfSettings.record(["movie-z"], for: homeTrending, defaults: defaults)
         #expect(TopShelfSettings.recordedItems(for: homeTrending, defaults: defaults) == ["movie-a", "movie-b"])
     }
+
+    /// The export's one decision, for every combination that matters.
+    @Test func `the export builds, keeps or clears by who follows, who is active and whose rows it shows`() {
+        let followed = UUID(), other = UUID()
+        #expect(TopShelfSettings.exportAction(followed: nil, active: followed, snapshotProfile: followed) == .clear)
+        #expect(TopShelfSettings.exportAction(followed: followed, active: followed, snapshotProfile: nil) == .build)
+        #expect(TopShelfSettings.exportAction(followed: followed, active: other, snapshotProfile: followed) == .keep)
+        // It moved to a profile that isn't active: the old profile's rows go.
+        #expect(TopShelfSettings.exportAction(followed: followed, active: other, snapshotProfile: other) == .clear)
+        #expect(TopShelfSettings.exportAction(followed: followed, active: other, snapshotProfile: nil) == .clear)
+    }
+
+    @Test func `the Top Shelf is on only for the profile it follows`() {
+        let id = UUID().uuidString
+        #expect(TopShelfSettings.isOn(followedRaw: id, activeRaw: id))
+        #expect(!TopShelfSettings.isOn(followedRaw: id, activeRaw: UUID().uuidString))
+        #expect(!TopShelfSettings.isOn(followedRaw: "", activeRaw: ""))
+        #expect(!TopShelfSettings.isOn(followedRaw: nil, activeRaw: id))
+    }
+
+    /// A failed or offline load must not wipe what a row last showed, and a
+    /// batch writes every changed row.
+    @Test func `an empty load keeps a row's titles, and a batch records every row`() throws {
+        let defaults = try makeDefaults()
+        let previous = ActiveProfileStore.current
+        defer { ActiveProfileStore.current = previous }
+        let followed = UUID()
+        ActiveProfileStore.current = followed
+        TopShelfSettings.setFollowedProfile(followed, defaults: defaults)
+
+        TopShelfSettings.record([homeTrending: ["movie-a"], moviesFavorites: ["movie-b"]], defaults: defaults)
+        TopShelfSettings.record([homeTrending: []], defaults: defaults)
+        #expect(TopShelfSettings.recordedItems(for: homeTrending, defaults: defaults) == ["movie-a"])
+        #expect(TopShelfSettings.recordedItems(for: moviesFavorites, defaults: defaults) == ["movie-b"])
+    }
 }

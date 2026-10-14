@@ -175,7 +175,7 @@ nonisolated extension PlayableMedia {
            FileManager.default.fileExists(atPath: path)
         {
             return PlayableMedia(
-                id: "movie-\(movie.id)",
+                id: MediaItemKey.movie(movie.id).description,
                 url: URL(fileURLWithPath: path),
                 title: movie.name,
                 subtitle: movie.releaseDate,
@@ -191,7 +191,7 @@ nonisolated extension PlayableMedia {
         guard let url = vodURL(directURL: movie.directURL, playlist: playlist,
                                build: { XtreamClient.buildMovieURL(for: movie, playlist: playlist) }) else { return nil }
         return PlayableMedia(
-            id: "movie-\(movie.id)",
+            id: MediaItemKey.movie(movie.id).description,
             url: url,
             title: movie.name,
             subtitle: movie.releaseDate,
@@ -231,7 +231,7 @@ nonisolated extension PlayableMedia {
         {
             let seriesName = episode.series?.name
             return PlayableMedia(
-                id: "episode-\(episode.id)",
+                id: MediaItemKey.episode(episode.id).description,
                 url: URL(fileURLWithPath: path),
                 title: seriesName ?? episode.title,
                 subtitle: "S\(episode.seasonNum) E\(episode.episodeNum) · \(episode.title)",
@@ -260,7 +260,7 @@ nonisolated extension PlayableMedia {
         let seriesName = episode.series?.name
         let subtitle = "S\(episode.seasonNum) E\(episode.episodeNum) · \(episode.title)"
         return PlayableMedia(
-            id: "episode-\(episode.id)",
+            id: MediaItemKey.episode(episode.id).description,
             url: url,
             title: seriesName ?? episode.title,
             subtitle: subtitle,
@@ -300,7 +300,7 @@ nonisolated extension PlayableMedia {
             url = resolved
         }
         return PlayableMedia(
-            id: "live-\(stream.id)",
+            id: MediaItemKey.live(stream.id).description,
             url: url,
             title: stream.name,
             subtitle: nil,

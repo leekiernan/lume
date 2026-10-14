@@ -12,7 +12,7 @@ import SwiftUI
 
 // MARK: - Selection store
 
-enum PlaylistSelectionStore {
+nonisolated enum PlaylistSelectionStore {
     /// `@AppStorage` key holding the selected playlist's `id.uuidString`.
     /// An empty value means "no explicit choice yet" — callers fall back to the
     /// first playlist.

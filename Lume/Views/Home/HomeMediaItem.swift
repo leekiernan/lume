@@ -15,12 +15,16 @@ enum HomeMediaItem: Identifiable, Hashable {
     case series(Series)
     case live(LiveStream)
 
-    var id: String {
+    var key: MediaItemKey {
         switch self {
-        case let .movie(movie): "movie-\(movie.id)"
-        case let .series(series): "series-\(series.id)"
-        case let .live(stream): "live-\(stream.id)"
+        case let .movie(movie): .movie(movie.id)
+        case let .series(series): .series(series.id)
+        case let .live(stream): .live(stream.id)
         }
+    }
+
+    var id: String {
+        key.description
     }
 
     var title: String {

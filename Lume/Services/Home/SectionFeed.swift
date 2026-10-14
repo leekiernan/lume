@@ -60,7 +60,7 @@ final class SectionFeed {
     private(set) var collections: [HomeSectionRef: SectionCollectionSnapshot] = [:] {
         // A list row promoted to the Top Shelf shows there what it last
         // showed here — see `TopShelfSettings.record`.
-        didSet { recordTopShelfRows() }
+        didSet { recordTopShelfRows(changedFrom: oldValue) }
     }
 
     /// Every source's load state and the catalog scope they were matched in —
@@ -80,14 +80,16 @@ final class SectionFeed {
         self.surface = surface
     }
 
-    private func recordTopShelfRows() {
+    /// Only the rows whose titles changed, in one write.
+    private func recordTopShelfRows(changedFrom old: [HomeSectionRef: SectionCollectionSnapshot]) {
         #if os(tvOS)
+            var changed: [TopShelfSource: [String]] = [:]
             for (ref, collection) in collections {
-                TopShelfSettings.record(
-                    collection.preview.map(WidgetSnapshotExporter.itemKey),
-                    for: TopShelfSource(surface: surface, ref: ref)
-                )
+                let keys = collection.preview.map(\.id)
+                guard old[ref]?.preview.map(\.id) != keys else { continue }
+                changed[TopShelfSource(surface: surface, ref: ref)] = keys
             }
+            if !changed.isEmpty { TopShelfSettings.record(changed) }
         #endif
     }
 
@@ -98,7 +100,13 @@ final class SectionFeed {
     /// The hero's titles when it is a local row (Continue Watching, Favorites,
     /// Recently Added…). Only the page holds those rows' queries, so it hands
     /// their items in; a list row's come from `collections` instead.
-    var localHeroItems: [HomeMediaItem] = []
+    private(set) var localHeroItems: [HomeMediaItem] = []
+
+    /// Hands the page's local hero titles in, ignoring an unchanged set.
+    func setLocalHeroItems(_ items: [HomeMediaItem]) {
+        guard items.map(\.id) != localHeroItems.map(\.id) else { return }
+        localHeroItems = items
+    }
 
     private var heroSourceItems: [HomeMediaItem] {
         guard let heroRef else { return [] }

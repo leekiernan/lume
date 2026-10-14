@@ -17,8 +17,8 @@ enum HeroItem: Identifiable, Hashable {
 
     var id: String {
         switch self {
-        case let .movie(movie, _, _, _, _): "movie-\(movie.id)"
-        case let .series(series, _, _, _, _): "series-\(series.id)"
+        case let .movie(movie, _, _, _, _): MediaItemKey.movie(movie.id).description
+        case let .series(series, _, _, _, _): MediaItemKey.series(series.id).description
         }
     }
 

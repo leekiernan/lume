@@ -102,7 +102,11 @@ extension ContentSyncManager {
     /// The cyclomatic-complexity opt-out below is deliberate: this is a flat
     /// field copy with one independent guard per provider field, not branching
     /// logic.
-    func applyMovieFields(from dto: XtreamVODStream, to movie: Movie, playlistPrefix: String) { // swiftlint:disable:this cyclomatic_complexity
+    ///
+    /// `nonisolated`: it reads no actor state, so it runs on the caller's
+    /// isolation — the one that owns the model's context. Run on the actor, a
+    /// main-context model would be mutated off the main actor.
+    nonisolated func applyMovieFields(from dto: XtreamVODStream, to movie: Movie, playlistPrefix: String) { // swiftlint:disable:this cyclomatic_complexity
         let covered = movie.proxyMetadataData == nil ? nil : movie.proxyCoveredFields
         defer {
             if let covered, covered != movie.proxyCoveredFields { movie.invalidateProxyMetadata() }
@@ -140,7 +144,10 @@ extension ContentSyncManager {
     /// `rating5Based` are stored as the provider's own strings here, so no
     /// numeric normalisation applies — `"7"` and `"7.0"` are different values
     /// and must stay so.
-    func applySeriesFields(from dto: XtreamSeries, to series: Series, playlistPrefix: String) {
+    /// `nonisolated`: it reads no actor state, so it runs on the caller's
+    /// isolation — the one that owns the model's context. Run on the actor, a
+    /// main-context model would be mutated off the main actor.
+    nonisolated func applySeriesFields(from dto: XtreamSeries, to series: Series, playlistPrefix: String) {
         let covered = series.proxyMetadataData == nil ? nil : series.proxyCoveredFields
         defer {
             if let covered, covered != series.proxyCoveredFields { series.invalidateProxyMetadata() }
@@ -164,7 +171,10 @@ extension ContentSyncManager {
     ///
     /// Dirty-checked for the same reason, and under the same exactness rules, as
     /// `applyMovieFields`, including the complexity opt-out.
-    func applyLiveStreamFields(from dto: XtreamLiveStream, to stream: LiveStream, playlistPrefix: String) { // swiftlint:disable:this cyclomatic_complexity
+    /// `nonisolated`: it reads no actor state, so it runs on the caller's
+    /// isolation — the one that owns the model's context. Run on the actor, a
+    /// main-context model would be mutated off the main actor.
+    nonisolated func applyLiveStreamFields(from dto: XtreamLiveStream, to stream: LiveStream, playlistPrefix: String) { // swiftlint:disable:this cyclomatic_complexity
         let name = dto.name ?? ""
         if stream.name != name { stream.name = name }
         if stream.streamIcon != dto.streamIcon { stream.streamIcon = dto.streamIcon }

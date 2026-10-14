@@ -134,7 +134,7 @@ import SwiftUI
             // Try local file first, then fall back to streaming via the playlist
             if let path = movie.localFileURL, FileManager.default.fileExists(atPath: path) {
                 playingMedia = PlayableMedia(
-                    id: "movie-\(movie.id)",
+                    id: MediaItemKey.movie(movie.id).description,
                     url: URL(fileURLWithPath: path),
                     title: movie.name,
                     subtitle: movie.releaseDate,
@@ -155,7 +155,7 @@ import SwiftUI
             if let path = episode.localFileURL, FileManager.default.fileExists(atPath: path) {
                 let seriesName = episode.series?.name
                 playingMedia = PlayableMedia(
-                    id: "episode-\(episode.id)",
+                    id: MediaItemKey.episode(episode.id).description,
                     url: URL(fileURLWithPath: path),
                     title: seriesName ?? episode.title,
                     subtitle: "S\(episode.seasonNum) E\(episode.episodeNum) · \(episode.title)",

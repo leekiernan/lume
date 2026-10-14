@@ -238,7 +238,7 @@ struct HomeView: View {
             // A local row as the hero: hand its titles to the feed, which only
             // resolves list rows itself.
             .onChange(of: localHeroItems(content).map(\.id), initial: true) {
-                feed.localHeroItems = localHeroItems(content)
+                feed.setLocalHeroItems(localHeroItems(content))
             }
             .task(id: sportsWarmKey) {
                 warmSports()

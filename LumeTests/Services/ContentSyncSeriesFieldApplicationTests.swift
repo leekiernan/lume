@@ -13,7 +13,7 @@ import SwiftData
 import Testing
 
 struct ContentSyncSeriesFieldTests {
-    @Test func `changed series fields are written`() async throws {
+    @Test func `changed series fields are written`() throws {
         let container = try FieldFixtures.makeContainer()
         let manager = ContentSyncManager(modelContainer: container)
         let playlistId = UUID()
@@ -28,7 +28,7 @@ struct ContentSyncSeriesFieldTests {
         context.insert(series)
         try context.save()
 
-        try await manager.applySeriesFields(from: FieldFixtures.decodeSeries(FieldFixtures.seriesJSON()), to: series, playlistPrefix: prefix)
+        try manager.applySeriesFields(from: FieldFixtures.decodeSeries(FieldFixtures.seriesJSON()), to: series, playlistPrefix: prefix)
 
         #expect(context.hasChanges, "A changed provider payload must dirty the context")
         #expect(series.name == "Acapulco")
@@ -47,7 +47,7 @@ struct ContentSyncSeriesFieldTests {
         #expect(series.categoryId == prefix + "434")
     }
 
-    @Test func `unchanged series batch leaves the context clean`() async throws {
+    @Test func `unchanged series batch leaves the context clean`() throws {
         let container = try FieldFixtures.makeContainer()
         let manager = ContentSyncManager(modelContainer: container)
         let playlistId = UUID()
@@ -59,7 +59,7 @@ struct ContentSyncSeriesFieldTests {
         firstSync.autosaveEnabled = false
         let inserted = Series(id: id, seriesId: 13855, name: "")
         firstSync.insert(inserted)
-        await manager.applySeriesFields(from: dto, to: inserted, playlistPrefix: prefix)
+        manager.applySeriesFields(from: dto, to: inserted, playlistPrefix: prefix)
         try firstSync.save()
 
         // Second sync of the identical payload, through a fresh context exactly
@@ -69,12 +69,12 @@ struct ContentSyncSeriesFieldTests {
         let stored = try #require(try reSync.fetch(
             FetchDescriptor<Series>(predicate: #Predicate { $0.id == id })
         ).first)
-        await manager.applySeriesFields(from: dto, to: stored, playlistPrefix: prefix)
+        manager.applySeriesFields(from: dto, to: stored, playlistPrefix: prefix)
 
         #expect(!reSync.hasChanges, "An unchanged payload must not dirty the context — the save is then skipped")
     }
 
-    @Test func `a provider genre seeds an unset series genre exactly once`() async throws {
+    @Test func `a provider genre seeds an unset series genre exactly once`() throws {
         let container = try FieldFixtures.makeContainer()
         let manager = ContentSyncManager(modelContainer: container)
         let playlistId = UUID()
@@ -87,7 +87,7 @@ struct ContentSyncSeriesFieldTests {
         let inserted = Series(id: id, seriesId: 13855, name: "")
         firstSync.insert(inserted)
         #expect(inserted.genre == nil)
-        await manager.applySeriesFields(from: dto, to: inserted, playlistPrefix: prefix)
+        manager.applySeriesFields(from: dto, to: inserted, playlistPrefix: prefix)
         #expect(inserted.genre == "Comedy / Drama", "An unset genre must be seeded from the provider")
         try firstSync.save()
 
@@ -96,13 +96,13 @@ struct ContentSyncSeriesFieldTests {
         let stored = try #require(try reSync.fetch(
             FetchDescriptor<Series>(predicate: #Predicate { $0.id == id })
         ).first)
-        await manager.applySeriesFields(from: dto, to: stored, playlistPrefix: prefix)
+        manager.applySeriesFields(from: dto, to: stored, playlistPrefix: prefix)
 
         #expect(stored.genre == "Comedy / Drama")
         #expect(!reSync.hasChanges, "The seeded genre must not be rewritten on the next sync")
     }
 
-    @Test func `a TMDB series genre is never overwritten and never dirties the context`() async throws {
+    @Test func `a TMDB series genre is never overwritten and never dirties the context`() throws {
         let container = try FieldFixtures.makeContainer()
         let manager = ContentSyncManager(modelContainer: container)
         let playlistId = UUID()
@@ -114,7 +114,7 @@ struct ContentSyncSeriesFieldTests {
         firstSync.autosaveEnabled = false
         let inserted = Series(id: id, seriesId: 13855, name: "")
         firstSync.insert(inserted)
-        await manager.applySeriesFields(from: dto, to: inserted, playlistPrefix: prefix)
+        manager.applySeriesFields(from: dto, to: inserted, playlistPrefix: prefix)
         // TMDB enrichment then takes ownership of the genre.
         inserted.genre = "Comedy, Drama"
         try firstSync.save()
@@ -126,13 +126,13 @@ struct ContentSyncSeriesFieldTests {
         let stored = try #require(try reSync.fetch(
             FetchDescriptor<Series>(predicate: #Predicate { $0.id == id })
         ).first)
-        await manager.applySeriesFields(from: dto, to: stored, playlistPrefix: prefix)
+        manager.applySeriesFields(from: dto, to: stored, playlistPrefix: prefix)
 
         #expect(stored.genre == "Comedy, Drama", "TMDB owns the genre; the provider must not overwrite it")
         #expect(!reSync.hasChanges)
     }
 
-    @Test func `absent and empty series metadata leave unset fields clean`() async throws {
+    @Test func `absent and empty series metadata leave unset fields clean`() throws {
         let container = try FieldFixtures.makeContainer()
         let manager = ContentSyncManager(modelContainer: container)
         let playlistId = UUID()
@@ -144,7 +144,7 @@ struct ContentSyncSeriesFieldTests {
         firstSync.autosaveEnabled = false
         let inserted = Series(id: id, seriesId: 13855, name: "")
         firstSync.insert(inserted)
-        try await manager.applySeriesFields(
+        try manager.applySeriesFields(
             from: FieldFixtures.decodeSeries(FieldFixtures.seriesJSON(cast: "null", director: "null", tmdb: "null")),
             to: inserted,
             playlistPrefix: prefix
@@ -160,7 +160,7 @@ struct ContentSyncSeriesFieldTests {
         let stored = try #require(try toEmpty.fetch(
             FetchDescriptor<Series>(predicate: #Predicate { $0.id == id })
         ).first)
-        try await manager.applySeriesFields(
+        try manager.applySeriesFields(
             from: FieldFixtures.decodeSeries(FieldFixtures.seriesJSON(cast: "\"\"", director: "\"\"", tmdb: "\"\"")),
             to: stored,
             playlistPrefix: prefix
@@ -176,7 +176,7 @@ struct ContentSyncSeriesFieldTests {
         let reFetched = try #require(try toNil.fetch(
             FetchDescriptor<Series>(predicate: #Predicate { $0.id == id })
         ).first)
-        try await manager.applySeriesFields(
+        try manager.applySeriesFields(
             from: FieldFixtures.decodeSeries(FieldFixtures.seriesJSON(cast: "null", director: "null", tmdb: "null")),
             to: reFetched,
             playlistPrefix: prefix
@@ -187,7 +187,7 @@ struct ContentSyncSeriesFieldTests {
         #expect(reFetched.tmdb == nil)
     }
 
-    @Test func `a series payload without a category leaves the stored category alone`() async throws {
+    @Test func `a series payload without a category leaves the stored category alone`() throws {
         let container = try FieldFixtures.makeContainer()
         let manager = ContentSyncManager(modelContainer: container)
         let playlistId = UUID()
@@ -198,7 +198,7 @@ struct ContentSyncSeriesFieldTests {
         firstSync.autosaveEnabled = false
         let inserted = Series(id: id, seriesId: 13855, name: "")
         firstSync.insert(inserted)
-        try await manager.applySeriesFields(from: FieldFixtures.decodeSeries(FieldFixtures.seriesJSON()), to: inserted, playlistPrefix: prefix)
+        try manager.applySeriesFields(from: FieldFixtures.decodeSeries(FieldFixtures.seriesJSON()), to: inserted, playlistPrefix: prefix)
         try firstSync.save()
 
         let reSync = ModelContext(container)
@@ -206,7 +206,7 @@ struct ContentSyncSeriesFieldTests {
         let stored = try #require(try reSync.fetch(
             FetchDescriptor<Series>(predicate: #Predicate { $0.id == id })
         ).first)
-        try await manager.applySeriesFields(
+        try manager.applySeriesFields(
             from: FieldFixtures.decodeSeries(FieldFixtures.seriesJSON(categoryId: "null")),
             to: stored,
             playlistPrefix: prefix
@@ -216,7 +216,7 @@ struct ContentSyncSeriesFieldTests {
         #expect(!reSync.hasChanges)
     }
 
-    @Test func `series user state and enrichment survive a re-sync`() async throws {
+    @Test func `series user state and enrichment survive a re-sync`() throws {
         let container = try FieldFixtures.makeContainer()
         let manager = ContentSyncManager(modelContainer: container)
         let playlistId = UUID()
@@ -232,7 +232,7 @@ struct ContentSyncSeriesFieldTests {
         firstSync.insert(inserted)
         // tmdb absent, as the measured provider sends it: the resolved id and
         // the rest of the enrichment are then TMDB's alone.
-        try await manager.applySeriesFields(
+        try manager.applySeriesFields(
             from: FieldFixtures.decodeSeries(FieldFixtures.seriesJSON(tmdb: "null")),
             to: inserted,
             playlistPrefix: prefix
@@ -245,7 +245,7 @@ struct ContentSyncSeriesFieldTests {
         let stored = try #require(try reSync.fetch(
             FetchDescriptor<Series>(predicate: #Predicate { $0.id == id })
         ).first)
-        try await manager.applySeriesFields(
+        try manager.applySeriesFields(
             from: FieldFixtures.decodeSeries(FieldFixtures.seriesJSON(name: "Acapulco (2021)", tmdb: "null")),
             to: stored,
             playlistPrefix: prefix

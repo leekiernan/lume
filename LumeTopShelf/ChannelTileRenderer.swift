@@ -62,20 +62,26 @@ enum ChannelTileRenderer {
     // MARK: - Tile
 
     private static func tile(for channel: Channel, in directory: URL) async -> URL? {
-        let file = directory.appendingPathComponent(fileName(for: channel))
+        let file = directory.appendingPathComponent(fileName(for: channel, logoURL: channel.logoURL))
         if FileManager.default.fileExists(atPath: file.path) { return file }
         var logo: CGImage?
         if let logoURL = channel.logoURL {
             logo = await downloadLogo(logoURL)
         }
+        // A logo that failed to download gets the name tile under the
+        // name-only key, so the next load tries the logo again rather than
+        // keeping the fallback for good.
+        let target = logo == nil && channel.logoURL != nil
+            ? directory.appendingPathComponent(fileName(for: channel, logoURL: nil))
+            : file
         let image = render(logo: logo, name: channel.name)
-        guard let data = image.pngData(), (try? data.write(to: file, options: .atomic)) != nil else { return nil }
-        return file
+        guard let data = image.pngData(), (try? data.write(to: target, options: .atomic)) != nil else { return nil }
+        return target
     }
 
     /// Keyed by what the tile shows, so a changed logo or name renders anew.
-    private static func fileName(for channel: Channel) -> String {
-        let key = "\(renderVersion)|\(channel.logoURL?.absoluteString ?? "")|\(channel.name)"
+    private static func fileName(for channel: Channel, logoURL: URL?) -> String {
+        let key = "\(renderVersion)|\(logoURL?.absoluteString ?? "")|\(channel.name)"
         let digest = SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined()
         return "\(digest.prefix(32)).png"
     }
@@ -144,7 +150,9 @@ enum ChannelTileRenderer {
     /// at full size.
     private static func downloadLogo(_ url: URL) async -> CGImage? {
         var request = URLRequest(url: url)
-        request.timeoutInterval = 10
+        // Downloads run in parallel and the Top Shelf waits for all of them,
+        // so this bounds how long one slow provider can hold it up.
+        request.timeoutInterval = 4
         guard let (data, _) = try? await URLSession.shared.data(for: request),
               let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary)
         else { return nil }

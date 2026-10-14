@@ -123,7 +123,7 @@ enum FieldFixtures {
 }
 
 struct ContentSyncMovieFieldTests {
-    @Test func `changed movie fields are written`() async throws {
+    @Test func `changed movie fields are written`() throws {
         let container = try FieldFixtures.makeContainer()
         let manager = ContentSyncManager(modelContainer: container)
         let playlistId = UUID()
@@ -139,7 +139,7 @@ struct ContentSyncMovieFieldTests {
         try context.save()
 
         let dto = try FieldFixtures.decodeMovie(FieldFixtures.movieJSON())
-        await manager.applyMovieFields(from: dto, to: movie, playlistPrefix: prefix)
+        manager.applyMovieFields(from: dto, to: movie, playlistPrefix: prefix)
 
         #expect(context.hasChanges, "A changed provider payload must dirty the context")
         #expect(movie.name == "The Matrix")
@@ -155,7 +155,7 @@ struct ContentSyncMovieFieldTests {
         #expect(movie.categoryId == prefix + "77")
     }
 
-    @Test func `unchanged movie batch leaves the context clean`() async throws {
+    @Test func `unchanged movie batch leaves the context clean`() throws {
         let container = try FieldFixtures.makeContainer()
         let manager = ContentSyncManager(modelContainer: container)
         let playlistId = UUID()
@@ -167,7 +167,7 @@ struct ContentSyncMovieFieldTests {
         firstSync.autosaveEnabled = false
         let inserted = Movie(id: movieId, streamId: 12345, name: "")
         firstSync.insert(inserted)
-        await manager.applyMovieFields(from: dto, to: inserted, playlistPrefix: prefix)
+        manager.applyMovieFields(from: dto, to: inserted, playlistPrefix: prefix)
         try firstSync.save()
 
         // Second sync of the identical payload, through a fresh context exactly
@@ -177,12 +177,12 @@ struct ContentSyncMovieFieldTests {
         let stored = try #require(try reSync.fetch(
             FetchDescriptor<Movie>(predicate: #Predicate { $0.id == movieId })
         ).first)
-        await manager.applyMovieFields(from: dto, to: stored, playlistPrefix: prefix)
+        manager.applyMovieFields(from: dto, to: stored, playlistPrefix: prefix)
 
         #expect(!reSync.hasChanges, "An unchanged payload must not dirty the context — the save is then skipped")
     }
 
-    @Test func `numeric movie fields round-trip through both provider representations`() async throws {
+    @Test func `numeric movie fields round-trip through both provider representations`() throws {
         let container = try FieldFixtures.makeContainer()
         let manager = ContentSyncManager(modelContainer: container)
         let playlistId = UUID()
@@ -193,7 +193,7 @@ struct ContentSyncMovieFieldTests {
         firstSync.autosaveEnabled = false
         let inserted = Movie(id: movieId, streamId: 12345, name: "")
         firstSync.insert(inserted)
-        try await manager.applyMovieFields(
+        try manager.applyMovieFields(
             from: FieldFixtures.decodeMovie(FieldFixtures.movieJSON(rating: "\"8.7\"", ratingFiveBased: "4.35")),
             to: inserted,
             playlistPrefix: prefix
@@ -208,7 +208,7 @@ struct ContentSyncMovieFieldTests {
         let stored = try #require(try reSync.fetch(
             FetchDescriptor<Movie>(predicate: #Predicate { $0.id == movieId })
         ).first)
-        try await manager.applyMovieFields(
+        try manager.applyMovieFields(
             from: FieldFixtures.decodeMovie(FieldFixtures.movieJSON(rating: "8.7", ratingFiveBased: "\"4.35\"")),
             to: stored,
             playlistPrefix: prefix
@@ -219,7 +219,7 @@ struct ContentSyncMovieFieldTests {
         #expect(stored.rating5Based == 4.35)
     }
 
-    @Test func `movie nil to empty string is written`() async throws {
+    @Test func `movie nil to empty string is written`() throws {
         let container = try FieldFixtures.makeContainer()
         let manager = ContentSyncManager(modelContainer: container)
         let playlistId = UUID()
@@ -231,7 +231,7 @@ struct ContentSyncMovieFieldTests {
         firstSync.autosaveEnabled = false
         let inserted = Movie(id: movieId, streamId: 12345, name: "")
         firstSync.insert(inserted)
-        try await manager.applyMovieFields(
+        try manager.applyMovieFields(
             from: FieldFixtures.decodeMovie(FieldFixtures.movieJSON(streamIcon: "null", containerExtension: "null", tmdb: "null")),
             to: inserted,
             playlistPrefix: prefix
@@ -244,7 +244,7 @@ struct ContentSyncMovieFieldTests {
         let stored = try #require(try reSync.fetch(
             FetchDescriptor<Movie>(predicate: #Predicate { $0.id == movieId })
         ).first)
-        try await manager.applyMovieFields(
+        try manager.applyMovieFields(
             from: FieldFixtures.decodeMovie(FieldFixtures.movieJSON(streamIcon: "\"\"", containerExtension: "\"\"", tmdb: "\"\"")),
             to: stored,
             playlistPrefix: prefix
@@ -257,7 +257,7 @@ struct ContentSyncMovieFieldTests {
         #expect(stored.tmdbId == nil, "An unparseable tmdb must leave the resolved id alone")
     }
 
-    @Test func `movie empty string to nil is written`() async throws {
+    @Test func `movie empty string to nil is written`() throws {
         let container = try FieldFixtures.makeContainer()
         let manager = ContentSyncManager(modelContainer: container)
         let playlistId = UUID()
@@ -268,7 +268,7 @@ struct ContentSyncMovieFieldTests {
         firstSync.autosaveEnabled = false
         let inserted = Movie(id: movieId, streamId: 12345, name: "")
         firstSync.insert(inserted)
-        try await manager.applyMovieFields(
+        try manager.applyMovieFields(
             from: FieldFixtures.decodeMovie(FieldFixtures.movieJSON(streamIcon: "\"\"", added: "\"\"")),
             to: inserted,
             playlistPrefix: prefix
@@ -282,7 +282,7 @@ struct ContentSyncMovieFieldTests {
         let stored = try #require(try reSync.fetch(
             FetchDescriptor<Movie>(predicate: #Predicate { $0.id == movieId })
         ).first)
-        try await manager.applyMovieFields(
+        try manager.applyMovieFields(
             from: FieldFixtures.decodeMovie(FieldFixtures.movieJSON(streamIcon: "null", added: "null")),
             to: stored,
             playlistPrefix: prefix
@@ -293,7 +293,7 @@ struct ContentSyncMovieFieldTests {
         #expect(stored.added == nil)
     }
 
-    @Test func `movie empty strings on both sides stay clean`() async throws {
+    @Test func `movie empty strings on both sides stay clean`() throws {
         let container = try FieldFixtures.makeContainer()
         let manager = ContentSyncManager(modelContainer: container)
         let playlistId = UUID()
@@ -305,7 +305,7 @@ struct ContentSyncMovieFieldTests {
         firstSync.autosaveEnabled = false
         let inserted = Movie(id: movieId, streamId: 12345, name: "")
         firstSync.insert(inserted)
-        await manager.applyMovieFields(from: dto, to: inserted, playlistPrefix: prefix)
+        manager.applyMovieFields(from: dto, to: inserted, playlistPrefix: prefix)
         try firstSync.save()
 
         let reSync = ModelContext(container)
@@ -314,12 +314,12 @@ struct ContentSyncMovieFieldTests {
             FetchDescriptor<Movie>(predicate: #Predicate { $0.id == movieId })
         ).first)
         #expect(stored.streamIcon == "")
-        await manager.applyMovieFields(from: dto, to: stored, playlistPrefix: prefix)
+        manager.applyMovieFields(from: dto, to: stored, playlistPrefix: prefix)
 
         #expect(!reSync.hasChanges)
     }
 
-    @Test func `a movie payload without a category leaves the stored category alone`() async throws {
+    @Test func `a movie payload without a category leaves the stored category alone`() throws {
         let container = try FieldFixtures.makeContainer()
         let manager = ContentSyncManager(modelContainer: container)
         let playlistId = UUID()
@@ -330,7 +330,7 @@ struct ContentSyncMovieFieldTests {
         firstSync.autosaveEnabled = false
         let inserted = Movie(id: movieId, streamId: 12345, name: "")
         firstSync.insert(inserted)
-        try await manager.applyMovieFields(from: FieldFixtures.decodeMovie(FieldFixtures.movieJSON()), to: inserted, playlistPrefix: prefix)
+        try manager.applyMovieFields(from: FieldFixtures.decodeMovie(FieldFixtures.movieJSON()), to: inserted, playlistPrefix: prefix)
         try firstSync.save()
 
         let reSync = ModelContext(container)
@@ -338,7 +338,7 @@ struct ContentSyncMovieFieldTests {
         let stored = try #require(try reSync.fetch(
             FetchDescriptor<Movie>(predicate: #Predicate { $0.id == movieId })
         ).first)
-        try await manager.applyMovieFields(
+        try manager.applyMovieFields(
             from: FieldFixtures.decodeMovie(FieldFixtures.movieJSON(categoryId: "null")),
             to: stored,
             playlistPrefix: prefix
@@ -348,7 +348,7 @@ struct ContentSyncMovieFieldTests {
         #expect(!reSync.hasChanges)
     }
 
-    @Test func `movie user state and enrichment survive a re-sync`() async throws {
+    @Test func `movie user state and enrichment survive a re-sync`() throws {
         let container = try FieldFixtures.makeContainer()
         let manager = ContentSyncManager(modelContainer: container)
         let playlistId = UUID()
@@ -362,7 +362,7 @@ struct ContentSyncMovieFieldTests {
         firstSync.autosaveEnabled = false
         let inserted = Movie(id: movieId, streamId: 12345, name: "")
         firstSync.insert(inserted)
-        try await manager.applyMovieFields(from: FieldFixtures.decodeMovie(FieldFixtures.movieJSON()), to: inserted, playlistPrefix: prefix)
+        try manager.applyMovieFields(from: FieldFixtures.decodeMovie(FieldFixtures.movieJSON()), to: inserted, playlistPrefix: prefix)
         inserted.isFavorite = true
         inserted.favoriteOrder = 4
         inserted.watchProgress = 1234
@@ -380,7 +380,7 @@ struct ContentSyncMovieFieldTests {
         let stored = try #require(try reSync.fetch(
             FetchDescriptor<Movie>(predicate: #Predicate { $0.id == movieId })
         ).first)
-        try await manager.applyMovieFields(
+        try manager.applyMovieFields(
             from: FieldFixtures.decodeMovie(FieldFixtures.movieJSON(name: "The Matrix (Remastered)")),
             to: stored,
             playlistPrefix: prefix
@@ -406,7 +406,7 @@ struct ContentSyncMovieFieldTests {
 }
 
 struct ContentSyncLiveStreamFieldTests {
-    @Test func `changed live stream fields are written`() async throws {
+    @Test func `changed live stream fields are written`() throws {
         let container = try FieldFixtures.makeContainer()
         let manager = ContentSyncManager(modelContainer: container)
         let playlistId = UUID()
@@ -419,7 +419,7 @@ struct ContentSyncLiveStreamFieldTests {
         context.insert(stream)
         try context.save()
 
-        try await manager.applyLiveStreamFields(from: FieldFixtures.decodeLiveStream(FieldFixtures.liveJSON()), to: stream, playlistPrefix: prefix)
+        try manager.applyLiveStreamFields(from: FieldFixtures.decodeLiveStream(FieldFixtures.liveJSON()), to: stream, playlistPrefix: prefix)
 
         #expect(context.hasChanges)
         #expect(stream.name == "BBC One HD")
@@ -434,7 +434,7 @@ struct ContentSyncLiveStreamFieldTests {
         #expect(stream.categoryId == prefix + "12")
     }
 
-    @Test func `unchanged live stream batch leaves the context clean`() async throws {
+    @Test func `unchanged live stream batch leaves the context clean`() throws {
         let container = try FieldFixtures.makeContainer()
         let manager = ContentSyncManager(modelContainer: container)
         let playlistId = UUID()
@@ -446,7 +446,7 @@ struct ContentSyncLiveStreamFieldTests {
         firstSync.autosaveEnabled = false
         let inserted = LiveStream(id: streamId, streamId: 9876, name: "")
         firstSync.insert(inserted)
-        await manager.applyLiveStreamFields(from: dto, to: inserted, playlistPrefix: prefix)
+        manager.applyLiveStreamFields(from: dto, to: inserted, playlistPrefix: prefix)
         try firstSync.save()
 
         let reSync = ModelContext(container)
@@ -454,12 +454,12 @@ struct ContentSyncLiveStreamFieldTests {
         let stored = try #require(try reSync.fetch(
             FetchDescriptor<LiveStream>(predicate: #Predicate { $0.id == streamId })
         ).first)
-        await manager.applyLiveStreamFields(from: dto, to: stored, playlistPrefix: prefix)
+        manager.applyLiveStreamFields(from: dto, to: stored, playlistPrefix: prefix)
 
         #expect(!reSync.hasChanges, "An unchanged payload must not dirty the context — the save is then skipped")
     }
 
-    @Test func `live stream empty and nil epg ids round-trip both ways`() async throws {
+    @Test func `live stream empty and nil epg ids round-trip both ways`() throws {
         let container = try FieldFixtures.makeContainer()
         let manager = ContentSyncManager(modelContainer: container)
         let playlistId = UUID()
@@ -470,7 +470,7 @@ struct ContentSyncLiveStreamFieldTests {
         firstSync.autosaveEnabled = false
         let inserted = LiveStream(id: streamId, streamId: 9876, name: "")
         firstSync.insert(inserted)
-        try await manager.applyLiveStreamFields(
+        try manager.applyLiveStreamFields(
             from: FieldFixtures.decodeLiveStream(FieldFixtures.liveJSON(streamIcon: "null", epgChannelId: "null")),
             to: inserted,
             playlistPrefix: prefix
@@ -484,7 +484,7 @@ struct ContentSyncLiveStreamFieldTests {
         let stored = try #require(try toEmpty.fetch(
             FetchDescriptor<LiveStream>(predicate: #Predicate { $0.id == streamId })
         ).first)
-        try await manager.applyLiveStreamFields(
+        try manager.applyLiveStreamFields(
             from: FieldFixtures.decodeLiveStream(FieldFixtures.liveJSON(streamIcon: "\"\"", epgChannelId: "\"\"")),
             to: stored,
             playlistPrefix: prefix
@@ -499,7 +499,7 @@ struct ContentSyncLiveStreamFieldTests {
         let reFetched = try #require(try toNil.fetch(
             FetchDescriptor<LiveStream>(predicate: #Predicate { $0.id == streamId })
         ).first)
-        try await manager.applyLiveStreamFields(
+        try manager.applyLiveStreamFields(
             from: FieldFixtures.decodeLiveStream(FieldFixtures.liveJSON(streamIcon: "null", epgChannelId: "null")),
             to: reFetched,
             playlistPrefix: prefix
@@ -509,7 +509,7 @@ struct ContentSyncLiveStreamFieldTests {
         #expect(reFetched.streamIcon == nil)
     }
 
-    @Test func `live stream user state survives a re-sync`() async throws {
+    @Test func `live stream user state survives a re-sync`() throws {
         let container = try FieldFixtures.makeContainer()
         let manager = ContentSyncManager(modelContainer: container)
         let playlistId = UUID()
@@ -521,7 +521,7 @@ struct ContentSyncLiveStreamFieldTests {
         firstSync.autosaveEnabled = false
         let inserted = LiveStream(id: streamId, streamId: 9876, name: "")
         firstSync.insert(inserted)
-        try await manager.applyLiveStreamFields(from: FieldFixtures.decodeLiveStream(FieldFixtures.liveJSON()), to: inserted, playlistPrefix: prefix)
+        try manager.applyLiveStreamFields(from: FieldFixtures.decodeLiveStream(FieldFixtures.liveJSON()), to: inserted, playlistPrefix: prefix)
         inserted.isFavorite = true
         inserted.favoriteOrder = 2
         inserted.isHidden = true
@@ -534,7 +534,7 @@ struct ContentSyncLiveStreamFieldTests {
         let stored = try #require(try reSync.fetch(
             FetchDescriptor<LiveStream>(predicate: #Predicate { $0.id == streamId })
         ).first)
-        try await manager.applyLiveStreamFields(
+        try manager.applyLiveStreamFields(
             from: FieldFixtures.decodeLiveStream(FieldFixtures.liveJSON(name: "BBC One UHD", num: 4)),
             to: stored,
             playlistPrefix: prefix

@@ -356,8 +356,23 @@ extension LibraryCollection.Kind {
     }
 }
 
+/// Where a collection row that is its page's hero reports the titles it
+/// would show: its page's feed. A value, not a closure, so the environment can
+/// tell it hasn't changed and leaves the row's dependents alone.
+struct HeroItemsSink: Equatable {
+    let feed: SectionFeed
+
+    func callAsFunction(_ items: [HomeMediaItem]) {
+        feed.setLocalHeroItems(items)
+    }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.feed === rhs.feed
+    }
+}
+
 extension EnvironmentValues {
     /// Set on a collection row that is its page's hero: the row draws nothing
     /// and reports the titles it would show, for `SectionFeed.localHeroItems`.
-    @Entry var heroItemsSink: (([HomeMediaItem]) -> Void)?
+    @Entry var heroItemsSink: HeroItemsSink?
 }

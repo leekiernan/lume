@@ -21,7 +21,7 @@ struct MultiViewSessionTests {
     private func channel(_ streamID: Int, playlist: UUID = UUID()) -> PlayableMedia {
         let id = "\(playlist.uuidString)-live-\(streamID)"
         return PlayableMedia(
-            id: "live-\(id)",
+            id: MediaItemKey.live(id).description,
             url: URL(string: "http://example.com/live/\(streamID).ts")!,
             title: "Channel \(streamID)",
             subtitle: nil,

@@ -421,10 +421,10 @@ struct SearchView: View {
         // `SortDescriptor(\.name)` used.
         let localMovies = sortedByName(hydrateSearchHits(localHits.movies, in: modelContext) as [Movie], name: \.name)
         results.movies = (hydrateMovies(ids: portal.movies) + localMovies)
-            .filter { shows("movie-\($0.id)", categoryID: $0.categoryId) }
+            .filter { shows(MediaItemKey.movie($0.id).description, categoryID: $0.categoryId) }
         let localSeries = sortedByName(hydrateSearchHits(localHits.series, in: modelContext) as [Series], name: \.name)
         results.series = (hydrateSeries(ids: portal.series) + localSeries)
-            .filter { shows("series-\($0.id)", categoryID: $0.categoryId) }
+            .filter { shows(MediaItemKey.series($0.id).description, categoryID: $0.categoryId) }
 
         let named = sortedByName(hydrateSearchHits(localHits.streams, in: modelContext) as [LiveStream], name: \.name)
         let programmeStreams = Dictionary(
@@ -433,7 +433,7 @@ struct SearchView: View {
             uniquingKeysWith: { first, _ in first }
         )
         let airing = localHits.programmes.filter(\.isCurrent).compactMap { programmeStreams[$0.stream] }
-        results.nowPlaying = (named + airing).filter { shows("live-\($0.id)", categoryID: $0.categoryId) }
+        results.nowPlaying = (named + airing).filter { shows(MediaItemKey.live($0.id).description, categoryID: $0.categoryId) }
         results.upcoming = Array(localHits.programmes.filter { !$0.isCurrent }.compactMap { hit in
             programmeStreams[hit.stream].map { UpcomingProgramme(stream: $0, slot: hit.slot) }
         }

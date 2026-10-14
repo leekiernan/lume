@@ -78,7 +78,7 @@ struct CatalogueIdentityInvalidationTests {
         #expect(!series.tmdbCastInvalidated)
     }
 
-    @Test func `current provider rating wins even when it equals the old TMDB fallback`() async throws {
+    @Test func `current provider rating wins even when it equals the old TMDB fallback`() throws {
         let container = try FieldFixtures.makeContainer()
         let context = container.mainContext
         let movie = Movie(id: "movie", streamId: 1, name: "Movie")
@@ -89,7 +89,7 @@ struct CatalogueIdentityInvalidationTests {
         #expect(movie.rating == 8)
         let manager = ContentSyncManager(modelContainer: container)
         let dto = try FieldFixtures.decodeMovie(#"{"stream_id":1,"name":"Movie","tmdb":"604","rating":8}"#)
-        await manager.applyMovieFields(from: dto, to: movie, playlistPrefix: "provider-")
+        manager.applyMovieFields(from: dto, to: movie, playlistPrefix: "provider-")
         #expect(movie.tmdbId == 604 && movie.rating == 8)
     }
 }
