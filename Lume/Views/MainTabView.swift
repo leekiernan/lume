@@ -36,8 +36,10 @@ struct MainTabView: View {
     /// the tab bar immediately, rather than waiting for an unrelated change.
     @AppStorage(SportsSyncService.enabledKey) private var sportsEnabled = SportsSyncService.enabledDefault
 
-    /// Selected tab and the Movies/Series navigation stacks, shared so an
-    /// `onOpenURL` deep link can switch tabs and push a detail screen.
+    /// A deep link `ContentView` caught, handled once the tabs are up.
+    var pendingLink: Binding<URL?> = .constant(nil)
+    /// Selected tab and the Movies/Series navigation stacks, shared so a
+    /// deep link can switch tabs and push a detail screen.
     @State var router = DeepLinkRouter()
 
     /// Whether a `lume://downloads` deep link (a download notification tap)
@@ -214,7 +216,9 @@ struct MainTabView: View {
         #if os(iOS)
             .tabBarMinimizeOnScrollDownIfAvailable()
         #endif
-            .onOpenURL { url in
+            .onChange(of: pendingLink.wrappedValue, initial: true) { _, url in
+                guard let url else { return }
+                pendingLink.wrappedValue = nil
                 handleDeepLink(url)
             }
         #if !os(macOS)
