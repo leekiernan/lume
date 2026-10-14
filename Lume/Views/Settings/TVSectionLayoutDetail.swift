@@ -12,6 +12,7 @@
 //  surfaces' stored keys differ, and @AppStorage keys are fixed at init.
 //
 
+import SwiftData
 import SwiftUI
 
 #if os(tvOS)
@@ -74,6 +75,13 @@ import SwiftUI
         @State private var editorError: String?
         @State private var editorChecking = false
         @State private var isReordering = false
+        /// The row whose ⭐ was pressed: the dialog offers the hero and the Top
+        /// Shelf, so the row needs no second button for either.
+        @State private var starTarget: HomeSectionRef?
+        /// The rows promoted to the Top Shelf, across every surface.
+        @AppStorage(TopShelfSettings.sourcesKey) private var topShelfSourcesRaw = ""
+        @Environment(\.modelContext) private var modelContext
+        @Environment(ProfileManager.self) private var profileManager: ProfileManager?
         @FocusState private var focusedControl: FocusTarget?
 
         init(surface: SectionSurface, proxy: ScrollViewProxy) {
@@ -96,6 +104,22 @@ import SwiftUI
             // in the list the first time someone opens this pane.
             .onAppear(perform: seedDefaultHeroIfNeeded)
             .paywall(isPresented: $showPaywall, highlight: paywallHighlight)
+            .confirmationDialog(
+                starTarget.map { name(for: $0) } ?? "",
+                isPresented: Binding(get: { starTarget != nil }, set: { if !$0 { starTarget = nil } }),
+                titleVisibility: .visible,
+                presenting: starTarget
+            ) { ref in
+                Button(isHero(ref) ? "Stop Using as Hero" : "Use as Hero") { togglePromoted(ref) }
+                if TopShelfSettings.followsActiveProfile() {
+                    Button(isOnTopShelf(ref) ? "Remove from Top Shelf" : "Add to Top Shelf") { toggleTopShelf(ref) }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: { _ in
+                if !TopShelfSettings.followsActiveProfile() {
+                    Text("The Top Shelf follows another profile, so its rows are chosen from that profile.")
+                }
+            }
         }
 
         // MARK: - Derived state
@@ -168,6 +192,18 @@ import SwiftUI
             }
         }
 
+        private func isOnTopShelf(_ ref: HomeSectionRef) -> Bool {
+            TopShelfSettings.decode(topShelfSourcesRaw).contains(TopShelfSource(surface: surface, ref: ref))
+        }
+
+        /// Copies the row to the bottom of the Top Shelf, or takes it off; the
+        /// row itself stays in this layout either way.
+        private func toggleTopShelf(_ ref: HomeSectionRef) {
+            let source = TopShelfSource(surface: surface, ref: ref)
+            topShelfSourcesRaw = TopShelfSettings.encode(TopShelfSettings.toggled(source, in: TopShelfSettings.decode(topShelfSourcesRaw)))
+            WidgetSnapshotExporter.refresh(container: modelContext.container, isChildProfile: profileManager?.activeProfileIsChild ?? false)
+        }
+
         private func isHero(_ ref: HomeSectionRef) -> Bool {
             HomeLayoutSettings.heroRef(heroSectionRaw) == ref
         }
@@ -206,7 +242,8 @@ import SwiftUI
                     scrollProxy: proxy,
                     icon: { icon(for: $0.ref) },
                     accessory: { AnyView(accessory(for: $0.ref)) },
-                    actions: { AnyView(actions(for: $0.ref)) }
+                    actions: { AnyView(actions(for: $0.ref)) },
+                    isHighlighted: { isOnTopShelf($0.ref) }
                 )
 
                 Text(footerText)
@@ -254,16 +291,18 @@ import SwiftUI
             let title = name(for: ref)
             if ref.isPromotable {
                 Button {
-                    togglePromoted(ref)
+                    starTarget = ref
                 } label: {
                     // Filled while this row *is* the hero, so the state reads
-                    // without moving focus onto it.
+                    // without moving focus onto it. The Top Shelf shows as the
+                    // row's gold top edge instead.
                     Image(systemName: isHero(ref) ? "star.fill" : "star")
                         .foregroundStyle(isHero(ref) ? AnyShapeStyle(Color.lumeAccent) : AnyShapeStyle(.foreground))
                 }
                 .buttonStyle(TVContentIconButtonStyle())
                 .accessibilityAddTraits(isHero(ref) ? .isSelected : [])
-                .accessibilityLabel(isHero(ref) ? "Stop showing \(title) as the hero" : "Show \(title) as the hero")
+                .accessibilityLabel("Hero and Top Shelf options for \(title)")
+                .accessibilityValue(isHero(ref) ? Text("Hero") : Text(verbatim: ""))
             }
             if let section = custom(ref) {
                 Button {

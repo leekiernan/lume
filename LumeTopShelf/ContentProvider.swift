@@ -3,9 +3,9 @@
 //  LumeTopShelf
 //
 //  The tvOS Top Shelf — the marquee row above the app icon on the Apple TV
-//  home screen: Continue Watching and Favorites
-//  from the shared snapshot the app exports, shown, ordered and sized the way
-//  the user set it up in Settings › Home (`TopShelfConfiguration`). Selecting
+//  home screen: the rows the user promoted from the Home, Movies and Series
+//  layouts (Settings › Library), from the shared snapshot the app exports,
+//  shown and sized the way they set it up (`TopShelfConfiguration`). Selecting
 //  an item deep-links into the app via `lume://`. The system fetches poster
 //  and backdrop artwork itself; channel logos go up as tiles rendered here
 //  (`ChannelTileRenderer`).
@@ -21,11 +21,9 @@ final class ContentProvider: TVTopShelfContentProvider {
             return
         }
         let configuration = snapshot.topShelf ?? .default
-        let sections = configuration.isEnabled
-            ? TopShelfSection.build(from: snapshot, configuration: configuration)
-            : []
-        // Switched off, or nothing to show: tvOS falls back to the app's static
-        // Top Shelf image.
+        let sections = TopShelfSection.build(from: snapshot, configuration: configuration)
+        // No rows promoted, or none with anything to show: tvOS falls back to
+        // the app's static Top Shelf image.
         guard !sections.isEmpty else {
             completionHandler(nil)
             return
@@ -48,9 +46,10 @@ final class ContentProvider: TVTopShelfContentProvider {
     }
 }
 
-/// One configured section's entries, ready to become either layout's items.
+/// One promoted row's entries, ready to become either layout's items.
 private struct TopShelfSection {
-    let kind: TopShelfConfiguration.Section
+    let id: String
+    let title: String
     let entries: [Entry]
 
     /// A single Top Shelf entry, from either a title or a channel.
@@ -75,23 +74,12 @@ private struct TopShelfSection {
         }
     }
 
-    var title: String {
-        switch kind {
-        case .continueWatching: String(localized: "Continue Watching", comment: "Top Shelf section")
-        case .favorites: String(localized: "Favorites", comment: "Top Shelf section")
-        }
-    }
-
-    /// The configured sections in order, each capped at the chosen size;
-    /// empty sections are left out.
+    /// The promoted rows in order, each capped at the chosen size; empty rows
+    /// are left out.
     static func build(from snapshot: WidgetSnapshot, configuration: TopShelfConfiguration) -> [TopShelfSection] {
-        configuration.sections.compactMap { kind in
-            let entries: [Entry] = switch kind {
-            case .continueWatching: snapshot.continueWatching.map(Entry.init(media:))
-            case .favorites: snapshot.favorites.map(Entry.init(media:))
-            }
-            let capped = Array(entries.prefix(configuration.itemsPerSection))
-            return capped.isEmpty ? nil : TopShelfSection(kind: kind, entries: capped)
+        snapshot.sections.compactMap { section in
+            let capped = section.items.prefix(configuration.itemsPerSection).map(Entry.init(media:))
+            return capped.isEmpty ? nil : TopShelfSection(id: section.id, title: section.title, entries: capped)
         }
     }
 
@@ -100,7 +88,7 @@ private struct TopShelfSection {
         // Identifiers are scoped to the section: a favorite that's also in
         // progress appears in both rows.
         let collection = TVTopShelfItemCollection(items: entries.map {
-            $0.sectionedItem(identifier: "\(kind.rawValue)-\($0.id)", tile: tiles[$0.id])
+            $0.sectionedItem(identifier: "\(id)-\($0.id)", tile: tiles[$0.id])
         })
         collection.title = title
         return collection
@@ -109,8 +97,8 @@ private struct TopShelfSection {
     /// The carousel is one flat list: the sections in order, each item labelled
     /// with its section, and a title that appears in two sections (a favorite
     /// that's also in progress) shown once. Channels are left out — a logo is
-    /// all the art they have, and it can't fill a full-screen backdrop — so On
-    /// Now and favorite channels show only in the sectioned layout.
+    /// all the art they have, and it can't fill a full-screen backdrop — so
+    /// they show only in the sectioned layout.
     static func carouselItems(_ sections: [TopShelfSection]) -> [TVTopShelfCarouselItem] {
         var seen = Set<String>()
         return sections.flatMap { section in

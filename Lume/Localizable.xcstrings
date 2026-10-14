@@ -5294,6 +5294,58 @@
         }
       }
     },
+    "Add to Top Shelf" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zum Top Shelf hinzufügen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir a Top Shelf"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter au Top Shelf"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiungi a Top Shelf"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "トップシェルフに追加"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "탑 셸프에 추가"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicionar à Top Shelf"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加到顶部栏"
+          }
+        }
+      }
+    },
     "Added" : {
       "localizations" : {
         "de" : {
@@ -26513,12 +26565,11 @@
       }
     },
     "Hero" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Held"
+            "value" : "Hero"
           }
         },
         "es" : {
@@ -26530,7 +26581,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "À la une"
+            "value" : "Vedette"
           }
         },
         "it" : {
@@ -26548,7 +26599,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "대표 화면"
+            "value" : "히어로"
           }
         },
         "pt" : {
@@ -26560,7 +26611,59 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "主打"
+            "value" : "主推"
+          }
+        }
+      }
+    },
+    "Hero and Top Shelf options for %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hero- und Top-Shelf-Optionen für %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opciones de destacado y Top Shelf para %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Options vedette et Top Shelf pour %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opzioni in evidenza e Top Shelf per %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@のヒーローとトップシェルフのオプション"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@의 히어로 및 탑 셸프 옵션"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opções de destaque e Top Shelf para %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 的主推和顶部栏选项"
           }
         }
       }
@@ -29659,6 +29762,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "IntroDB"
+          }
+        }
+      }
+    },
+    "It follows %@: switch to that profile to change its rows or refresh it." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Es folgt %@: Wechsle zu diesem Profil, um seine Zeilen zu ändern oder es zu aktualisieren."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sigue a %@: cambia a ese perfil para cambiar sus filas o actualizarlo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il suit %@ : passez à ce profil pour modifier ses rangées ou l’actualiser."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Segue %@: passa a quel profilo per cambiarne le righe o aggiornarlo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@に従っています。行を変更したり更新したりするには、そのプロフィールに切り替えてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 프로필을 따릅니다. 행을 바꾸거나 새로 고치려면 해당 프로필로 전환하세요."
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Segue %@: mude para esse perfil para alterar as linhas ou atualizá-la."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "它跟随 %@：切换到该个人资料以更改其行或刷新。"
           }
         }
       }
@@ -39109,6 +39264,58 @@
         }
       }
     },
+    "No rows yet. Press ⭐ on a row in an area below and choose Add to Top Shelf." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch keine Zeilen. Drücke ⭐ bei einer Zeile in einem Bereich unten und wähle „Zum Top Shelf hinzufügen“."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no hay filas. Pulsa ⭐ en una fila de un área de abajo y elige Añadir a Top Shelf."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune rangée pour l’instant. Appuyez sur ⭐ sur une rangée d’une zone ci-dessous et choisissez Ajouter au Top Shelf."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ancora nessuna riga. Premi ⭐ su una riga di un’area qui sotto e scegli Aggiungi a Top Shelf."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "まだ行がありません。下のエリアの行で⭐を押し、「トップシェルフに追加」を選んでください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아직 행이 없습니다. 아래 영역의 행에서 ⭐를 누르고 탑 셸프에 추가를 선택하세요."
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ainda não há linhas. Prima ⭐ numa linha de uma área abaixo e escolha Adicionar à Top Shelf."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有行。在下方某个区域的行上按 ⭐，然后选择“添加到顶部栏”。"
+          }
+        }
+      }
+    },
     "No Series" : {
       "localizations" : {
         "de" : {
@@ -46782,6 +46989,58 @@
         }
       }
     },
+    "Profile" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profil"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perfil"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profil"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profilo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プロフィール"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프로필"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perfil"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "个人资料"
+          }
+        }
+      }
+    },
     "Profile 1" : {
       "comment" : "Name of the automatically-created first profile",
       "localizations" : {
@@ -49115,6 +49374,58 @@
         }
       }
     },
+    "Remove %@ from the Top Shelf" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ aus dem Top Shelf entfernen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitar %@ de Top Shelf"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer %@ du Top Shelf"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rimuovi %@ da Top Shelf"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@をトップシェルフから削除"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "탑 셸프에서 %@ 제거"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remover %@ da Top Shelf"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从顶部栏移除 %@"
+          }
+        }
+      }
+    },
     "Remove a reminder before adding another." : {
       "localizations" : {
         "de" : {
@@ -49438,6 +49749,58 @@
         }
       }
     },
+    "Remove from Top Shelf" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aus dem Top Shelf entfernen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitar de Top Shelf"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer du Top Shelf"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rimuovi da Top Shelf"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "トップシェルフから削除"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "탑 셸프에서 제거"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remover da Top Shelf"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从顶部栏移除"
+          }
+        }
+      }
+    },
     "Remove Section" : {
       "localizations" : {
         "de" : {
@@ -49486,6 +49849,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "移除栏目"
+          }
+        }
+      }
+    },
+    "Removed Row" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entfernte Zeile"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fila eliminada"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rangée supprimée"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riga rimossa"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "削除された行"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "삭제된 행"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linha removida"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已删除的行"
           }
         }
       }
@@ -56094,58 +56509,6 @@
         }
       }
     },
-    "Show in Top Shelf" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Im Top Shelf anzeigen"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostrar en Top Shelf"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Afficher dans le Top Shelf"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostra nella Top Shelf"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "トップシェルフに表示"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "탑 셸프에 표시"
-          }
-        },
-        "pt" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostrar no Top Shelf"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在顶部栏中显示"
-          }
-        }
-      }
-    },
     "Show Large" : {
       "localizations" : {
         "de" : {
@@ -60359,6 +60722,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "不再将%@设为主打"
+          }
+        }
+      }
+    },
+    "Stop Using as Hero" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht mehr als Hero verwenden"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dejar de usar como destacado"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ne plus utiliser en vedette"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non usare più come in evidenza"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ヒーローから外す"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "히어로에서 해제"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deixar de usar como destaque"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消主推"
           }
         }
       }
@@ -65641,6 +66056,58 @@
         }
       }
     },
+    "The Top Shelf follows another profile, so its rows are chosen from that profile." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Top Shelf folgt einem anderen Profil, daher werden seine Zeilen in diesem Profil ausgewählt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Top Shelf sigue a otro perfil, así que sus filas se eligen desde ese perfil."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le Top Shelf suit un autre profil : ses rangées se choisissent depuis ce profil."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Top Shelf segue un altro profilo, quindi le sue righe si scelgono da quel profilo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "トップシェルフは別のプロフィールに従っているため、その行はそのプロフィールで選びます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "탑 셸프는 다른 프로필을 따르므로 해당 프로필에서 행을 선택합니다."
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A Top Shelf segue outro perfil, por isso as linhas são escolhidas nesse perfil."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "顶部栏跟随另一个个人资料，因此需在该个人资料中选择其行。"
+          }
+        }
+      }
+    },
     "The TV guide refreshes automatically in the background at this interval." : {
       "localizations" : {
         "de" : {
@@ -70442,6 +70909,58 @@
         }
       }
     },
+    "Use as Hero" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Als Hero verwenden"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usar como destacado"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utiliser en vedette"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa come in evidenza"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ヒーローにする"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "히어로로 사용"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usar como destaque"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设为主推"
+          }
+        }
+      }
+    },
     "Use Default List" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -72397,54 +72916,54 @@
         }
       }
     },
-    "What lume shows above its icon on the Apple TV Home Screen. A section appears only when it has something to show. When switched off, the Top Shelf shows the lume artwork." : {
+    "What lume shows above its icon on the Apple TV Home Screen, refreshed when you leave lume. A row appears only when it has something to show." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Was lume über seinem Symbol auf dem Home-Bildschirm des Apple TV zeigt. Ein Bereich erscheint nur, wenn er etwas zu zeigen hat. Ist die Option aus, zeigt der Top Shelf das lume-Bild."
+            "value" : "Was lume über seinem Symbol auf dem Home-Bildschirm des Apple TV zeigt, aktualisiert, wenn du lume verlässt. Eine Zeile erscheint nur, wenn sie etwas anzuzeigen hat."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lo que lume muestra encima de su icono en la pantalla de inicio del Apple TV. Una sección solo aparece cuando tiene algo que mostrar. Si está desactivado, Top Shelf muestra la imagen de lume."
+            "value" : "Lo que lume muestra encima de su icono en la pantalla de inicio del Apple TV, actualizado al salir de lume. Una fila solo aparece si tiene algo que mostrar."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ce que lume affiche au-dessus de son icône sur l’écran d’accueil de l’Apple TV. Une section n’apparaît que si elle a du contenu. Désactivé, le Top Shelf affiche l’illustration de lume."
+            "value" : "Ce que lume affiche au-dessus de son icône sur l’écran d’accueil de l’Apple TV, actualisé quand vous quittez lume. Une rangée n’apparaît que si elle a quelque chose à montrer."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ciò che lume mostra sopra la sua icona nella schermata Home di Apple TV. Una sezione compare solo quando ha qualcosa da mostrare. Se disattivata, la Top Shelf mostra l’immagine di lume."
+            "value" : "Ciò che lume mostra sopra la sua icona nella schermata Home di Apple TV, aggiornato quando esci da lume. Una riga compare solo se ha qualcosa da mostrare."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Apple TVのホーム画面でlumeのアイコンの上に表示される内容です。セクションは表示する項目がある場合にのみ表示されます。オフにすると、トップシェルフにはlumeのアートワークが表示されます。"
+            "value" : "Apple TVのホーム画面でlumeのアイコンの上に表示される内容で、lumeを離れると更新されます。行は表示する項目がある場合にのみ表示されます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Apple TV 홈 화면에서 lume 아이콘 위에 표시되는 내용입니다. 섹션은 표시할 항목이 있을 때만 나타납니다. 끄면 탑 셸프에 lume 아트워크가 표시됩니다."
+            "value" : "Apple TV 홈 화면에서 lume 아이콘 위에 표시되는 내용으로, lume을 나가면 새로 고쳐집니다. 행은 표시할 항목이 있을 때만 나타납니다."
           }
         },
         "pt" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "O que o lume mostra acima do ícone na tela de início da Apple TV. Uma seção só aparece quando tem algo para mostrar. Quando desativado, o Top Shelf mostra a arte do lume."
+            "value" : "O que o lume mostra acima do ícone no ecrã principal da Apple TV, atualizado quando sai do lume. Uma linha só aparece quando tem algo para mostrar."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "lume 在 Apple TV 主屏幕上其图标上方显示的内容。分区仅在有内容时显示。关闭后，顶部栏将显示 lume 的图片。"
+            "value" : "lume 在 Apple TV 主屏幕上其图标上方显示的内容，离开 lume 时更新。行仅在有内容时显示。"
           }
         }
       }

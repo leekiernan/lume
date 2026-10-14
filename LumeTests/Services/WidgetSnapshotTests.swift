@@ -55,11 +55,10 @@ struct WidgetSnapshotCodingTests {
         let deepLink = try #require(WidgetDeepLink.play(kind: .movie, id: "p-1"))
         let snapshot = WidgetSnapshot(
             generatedAt: Date(timeIntervalSince1970: 1_700_000_000),
-            continueWatching: [WidgetMediaItem(
+            sections: [WidgetSection(id: "home/continueWatching", title: "Continue Watching", items: [WidgetMediaItem(
                 id: "movie-p-1", kind: .movie, title: "A", subtitle: "2024",
                 imageURL: URL(string: "https://example.com/a.jpg"), progress: 0.5, deepLink: deepLink
-            )],
-            favorites: []
+            )])]
         )
 
         let encoder = JSONEncoder()
@@ -75,6 +74,28 @@ struct WidgetSnapshotCodingTests {
 
 @MainActor
 struct WidgetSnapshotExporterTests {
+    private static let homeContinueWatching = TopShelfSource(surface: .home, ref: .builtin(.continueWatching))
+    private static let homeFavorites = TopShelfSource(surface: .home, ref: .builtin(.favorites))
+
+    /// The snapshot with `sources` promoted, list rows showing `recorded`.
+    private func snapshot(
+        _ container: ModelContainer, _ playlist: Playlist,
+        _ sources: [TopShelfSource] = [homeContinueWatching, homeFavorites],
+        recorded: [TopShelfSource: [String]] = [:],
+        isChildProfile: Bool = false
+    ) -> WidgetSnapshot {
+        WidgetSnapshotExporter.makeSnapshot(
+            container: container,
+            rows: sources.map { TopShelfRowPlan(source: $0, title: $0.token, recordedItems: recorded[$0] ?? []) },
+            storedPlaylistID: playlist.id.uuidString,
+            isChildProfile: isChildProfile
+        )
+    }
+
+    private func items(_ snapshot: WidgetSnapshot, _ source: TopShelfSource) -> [WidgetMediaItem] {
+        snapshot.sections.first { $0.id == source.token }?.items ?? []
+    }
+
     /// One playlist with resumable, watched, favorite and EPG-backed content.
     private func seedContainer() throws -> (ModelContainer, Playlist) {
         let container = try makeTestContainer()
@@ -130,17 +151,15 @@ struct WidgetSnapshotExporterTests {
 
     @Test func `continue watching resumes movies and the series' in-progress episode`() throws {
         let (container, playlist) = try seedContainer()
-        let snapshot = WidgetSnapshotExporter.makeSnapshot(
-            container: container, storedPlaylistID: playlist.id.uuidString, isChildProfile: false
-        )
+        let snapshot = snapshot(container, playlist)
 
         // The series was watched more recently than the movie.
-        #expect(snapshot.continueWatching.map(\.kind) == [.episode, .movie])
-        let episode = try #require(snapshot.continueWatching.first)
+        #expect(items(snapshot, Self.homeContinueWatching).map(\.kind) == [.episode, .movie])
+        let episode = try #require(items(snapshot, Self.homeContinueWatching).first)
         #expect(episode.title == "Show")
         #expect(episode.subtitle == "S1 E2 · Second")
         #expect(episode.progress == 0.5)
-        let movie = try #require(snapshot.continueWatching.last)
+        let movie = try #require(items(snapshot, Self.homeContinueWatching).last)
         #expect(movie.title == "Resumable")
         #expect(movie.backdropURL == TMDBClient.backdropURL("/m1-backdrop.jpg"))
         // Select opens the detail screen — an episode's is its show's.
@@ -148,17 +167,15 @@ struct WidgetSnapshotExporterTests {
         #expect(episode.detailLink == WidgetDeepLink.openSeries(id: "\(playlist.id.uuidString)-s1"))
         #expect(movie.progress == 0.25)
         // The fully-watched movie must not resurface.
-        #expect(!snapshot.continueWatching.contains { $0.title == "Watched" })
+        #expect(!items(snapshot, Self.homeContinueWatching).contains { $0.title == "Watched" })
     }
 
     @Test func `favorites interleave kinds in unified order`() throws {
         let (container, playlist) = try seedContainer()
-        let snapshot = WidgetSnapshotExporter.makeSnapshot(
-            container: container, storedPlaylistID: playlist.id.uuidString, isChildProfile: false
-        )
+        let snapshot = snapshot(container, playlist)
 
-        #expect(snapshot.favorites.map(\.title) == ["Show", "Favorite Movie", "News 24"])
-        #expect(snapshot.favorites.map(\.kind) == [.series, .movie, .live])
+        #expect(items(snapshot, Self.homeFavorites).map(\.title) == ["Show", "Favorite Movie", "News 24"])
+        #expect(items(snapshot, Self.homeFavorites).map(\.kind) == [.series, .movie, .live])
     }
 
     @Test func `a child profile keeps restricted categories out of the snapshot`() throws {
@@ -175,16 +192,12 @@ struct WidgetSnapshotExporterTests {
         context.insert(hidden)
         try context.save()
 
-        let adult = WidgetSnapshotExporter.makeSnapshot(
-            container: container, storedPlaylistID: playlist.id.uuidString, isChildProfile: false
-        )
-        #expect(adult.favorites.contains { $0.title == "Hidden" })
+        let adult = snapshot(container, playlist)
+        #expect(items(adult, Self.homeFavorites).contains { $0.title == "Hidden" })
 
-        let child = WidgetSnapshotExporter.makeSnapshot(
-            container: container, storedPlaylistID: playlist.id.uuidString, isChildProfile: true
-        )
-        #expect(!child.favorites.contains { $0.title == "Hidden" })
-        #expect(!child.continueWatching.contains { $0.title == "Hidden" })
+        let child = snapshot(container, playlist, isChildProfile: true)
+        #expect(!items(child, Self.homeFavorites).contains { $0.title == "Hidden" })
+        #expect(!items(child, Self.homeContinueWatching).contains { $0.title == "Hidden" })
     }
 
     @Test func `hidden categories and channels stay out for every profile`() throws {
@@ -206,12 +219,10 @@ struct WidgetSnapshotExporterTests {
         context.insert(channel)
         try context.save()
 
-        let snapshot = WidgetSnapshotExporter.makeSnapshot(
-            container: container, storedPlaylistID: playlist.id.uuidString, isChildProfile: false
-        )
-        #expect(!snapshot.favorites.contains { $0.title == "In Hidden Category" })
-        #expect(!snapshot.continueWatching.contains { $0.title == "In Hidden Category" })
-        #expect(!snapshot.favorites.contains { $0.title == "Hidden Channel" })
+        let snapshot = snapshot(container, playlist)
+        #expect(!items(snapshot, Self.homeFavorites).contains { $0.title == "In Hidden Category" })
+        #expect(!items(snapshot, Self.homeContinueWatching).contains { $0.title == "In Hidden Category" })
+        #expect(!items(snapshot, Self.homeFavorites).contains { $0.title == "Hidden Channel" })
     }
 
     @Test func `content from other playlists is excluded`() throws {
@@ -225,20 +236,60 @@ struct WidgetSnapshotExporterTests {
         context.insert(foreign)
         try context.save()
 
-        let snapshot = WidgetSnapshotExporter.makeSnapshot(
-            container: container, storedPlaylistID: playlist.id.uuidString, isChildProfile: false
-        )
-        #expect(!snapshot.favorites.contains { $0.title == "Foreign" })
-        #expect(!snapshot.continueWatching.contains { $0.title == "Foreign" })
+        let snapshot = snapshot(container, playlist)
+        #expect(!items(snapshot, Self.homeFavorites).contains { $0.title == "Foreign" })
+        #expect(!items(snapshot, Self.homeContinueWatching).contains { $0.title == "Foreign" })
     }
 
     @Test func `no playlists produces an empty snapshot`() throws {
         let container = try makeTestContainer()
         let snapshot = WidgetSnapshotExporter.makeSnapshot(
-            container: container, storedPlaylistID: "", isChildProfile: false
+            container: container,
+            rows: [TopShelfRowPlan(source: Self.homeFavorites, title: "", recordedItems: [])],
+            storedPlaylistID: "", isChildProfile: false
         )
-        #expect(snapshot.continueWatching.isEmpty)
-        #expect(snapshot.favorites.isEmpty)
+        #expect(snapshot.sections.isEmpty)
+    }
+
+    /// Nothing promoted is the default, and means the Top Shelf is off.
+    @Test func `no promoted rows produce no sections`() throws {
+        let (container, playlist) = try seedContainer()
+        #expect(snapshot(container, playlist, []).sections.isEmpty)
+    }
+
+    /// Rows keep the user's order, each under the title it was planned with.
+    @Test func `sections follow the promoted order`() throws {
+        let (container, playlist) = try seedContainer()
+        let result = snapshot(container, playlist, [Self.homeFavorites, Self.homeContinueWatching])
+        #expect(result.sections.map(\.id) == [Self.homeFavorites.token, Self.homeContinueWatching.token])
+    }
+
+    /// A Movies or Series row only ever shows its own kind; Home mixes them.
+    @Test func `each surface keeps to its own kind`() throws {
+        let (container, playlist) = try seedContainer()
+        let movies = TopShelfSource(surface: .movies, ref: .builtin(.favorites))
+        let series = TopShelfSource(surface: .series, ref: .builtin(.favorites))
+        let result = snapshot(container, playlist, [movies, series])
+        #expect(items(result, movies).map(\.title) == ["Favorite Movie"])
+        #expect(items(result, series).map(\.title) == ["Show"])
+    }
+
+    /// Finished titles, the opposite of Continue Watching.
+    @Test func `watch again shows finished movies`() throws {
+        let (container, playlist) = try seedContainer()
+        let watchAgain = TopShelfSource(surface: .movies, ref: .builtin(.recentlyWatched))
+        #expect(items(snapshot(container, playlist, [watchAgain]), watchAgain).map(\.title) == ["Watched"])
+    }
+
+    /// A list row shows what the app last loaded, in order, still under the
+    /// visibility rules and scoped to the active playlist.
+    @Test func `a list row resolves the titles it last showed`() throws {
+        let (container, playlist) = try seedContainer()
+        let prefix = playlist.id.uuidString
+        let trending = TopShelfSource(surface: .home, ref: .builtin(.trendingMovies))
+        let recorded = ["movie-\(prefix)-m3", "series-\(prefix)-s1", "movie-\(UUID().uuidString)-x9", "bogus"]
+        let result = snapshot(container, playlist, [trending], recorded: [trending: recorded])
+        #expect(items(result, trending).map(\.title) == ["Favorite Movie", "Show"])
     }
 }
 

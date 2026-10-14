@@ -250,23 +250,10 @@ struct LumeApp: App {
 
     @Environment(\.scenePhase) private var scenePhase
 
-    /// Rebuilds the Top Shelf snapshot off the main actor: a handful of bounded
-    /// fetches, cheap enough for every launch and backgrounding. Held under a
-    /// background-task assertion so a backgrounding export finishes instead of
-    /// being suspended mid-write. tvOS only — no other platform ships an
-    /// extension that reads it.
+    /// Rebuilds the Top Shelf snapshot — see `WidgetSnapshotExporter.refresh`.
+    /// tvOS only: no other platform ships an extension that reads it.
     private func exportTopShelfSnapshot() {
-        #if os(tvOS)
-            let container = catalogContainer
-            let isChild = profileManager.activeProfileIsChild
-            Task {
-                await BackgroundActivity.perform("Top Shelf snapshot") {
-                    await Task.detached(priority: .utility) {
-                        WidgetSnapshotExporter.export(container: container, isChildProfile: isChild)
-                    }.value
-                }
-            }
-        #endif
+        WidgetSnapshotExporter.refresh(container: catalogContainer, isChildProfile: profileManager.activeProfileIsChild)
     }
 
     /// The user's appearance override (issue #135), applied at the scene root

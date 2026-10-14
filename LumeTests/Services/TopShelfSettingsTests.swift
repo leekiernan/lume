@@ -2,6 +2,9 @@ import Foundation
 @testable import Lume
 import Testing
 
+/// Writes `ActiveProfileStore` for the profile test, so it takes the
+/// process-wide lock (see `GlobalStateTrait`).
+@Suite(.globalState)
 struct TopShelfSettingsTests {
     /// A throwaway defaults domain per test, so nothing leaks into
     /// `UserDefaults.standard` or across tests.
@@ -9,37 +12,32 @@ struct TopShelfSettingsTests {
         try #require(UserDefaults(suiteName: "TopShelfSettingsTests-\(UUID().uuidString)"))
     }
 
+    private let homeTrending = TopShelfSource(surface: .home, ref: .builtin(.trendingMovies))
+    private let moviesFavorites = TopShelfSource(surface: .movies, ref: .builtin(.favorites))
+
     @Test func `nothing stored resolves to the default configuration`() throws {
-        #expect(try TopShelfSettings.configuration(defaults: makeDefaults()) == .default)
+        let defaults = try makeDefaults()
+        #expect(TopShelfSettings.configuration(defaults: defaults) == .default)
+        // No rows promoted: the Top Shelf is off.
+        #expect(TopShelfSettings.sources(defaults: defaults).isEmpty)
     }
 
     @Test func `stored choices come back as the configuration`() throws {
         let defaults = try makeDefaults()
-        defaults.set(false, forKey: TopShelfSettings.enabledKey)
         defaults.set("carousel", forKey: TopShelfSettings.styleKey)
         defaults.set(20, forKey: TopShelfSettings.itemsPerSectionKey)
-        defaults.set("favorites,continueWatching", forKey: TopShelfSettings.sectionOrderKey)
-        defaults.set("favorites", forKey: TopShelfSettings.disabledSectionsKey)
-
         let configuration = TopShelfSettings.configuration(defaults: defaults)
-        #expect(!configuration.isEnabled)
         #expect(configuration.style == .carousel)
         #expect(configuration.itemsPerSection == 20)
-        // The stored order, minus the switched-off section.
-        #expect(configuration.sections == [.continueWatching])
     }
 
     @Test func `unknown stored values fall back`() throws {
         let defaults = try makeDefaults()
         defaults.set("mosaic", forKey: TopShelfSettings.styleKey)
         defaults.set(7, forKey: TopShelfSettings.itemsPerSectionKey)
-        defaults.set("bogus,favorites,favorites", forKey: TopShelfSettings.sectionOrderKey)
-
         let configuration = TopShelfSettings.configuration(defaults: defaults)
         #expect(configuration.style == .sectioned)
         #expect(configuration.itemsPerSection == TopShelfConfiguration.default.itemsPerSection)
-        // Unknown and repeated names dropped, the missing section appended.
-        #expect(configuration.sections == [.favorites, .continueWatching])
     }
 
     @Test func `the snapshot carries enough items for the largest section`() {
@@ -47,27 +45,54 @@ struct TopShelfSettingsTests {
         #expect(TopShelfConfiguration.itemCountChoices.contains(TopShelfConfiguration.default.itemsPerSection))
     }
 
-    @Test func `a snapshot written before the Top Shelf settings still decodes`() throws {
-        let json = """
-        {"generatedAt":"2026-01-01T00:00:00Z","favorites":[],"onNow":[],
-         "continueWatching":[{"id":"movie-1","kind":"movie","title":"A","deepLink":"lume://play/movie/1"}]}
-        """
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let snapshot = try decoder.decode(WidgetSnapshot.self, from: Data(json.utf8))
-        #expect(snapshot.topShelf == nil)
-        #expect(snapshot.continueWatching.first?.backdropURL == nil)
+    /// A source names its surface and its row, custom rows included, and
+    /// round-trips through storage.
+    @Test func `promoted rows round-trip, unknown and repeated ones dropped`() {
+        let custom = TopShelfSource(surface: .series, ref: .custom(UUID()))
+        let raw = TopShelfSettings.encode([homeTrending, moviesFavorites, custom])
+        #expect(TopShelfSettings.decode(raw) == [homeTrending, moviesFavorites, custom])
+        #expect(TopShelfSettings.decode("\(raw),bogus,cinema/favorites,\(homeTrending.token)") == [homeTrending, moviesFavorites, custom])
     }
 
-    @Test func `a snapshot naming a section this build doesn't know still decodes`() throws {
-        let json = """
-        {"generatedAt":"2026-01-01T00:00:00Z","favorites":[],"onNow":[],"continueWatching":[],
-         "topShelf":{"isEnabled":true,"style":"sectioned","itemsPerSection":10,
-                     "sections":["continueWatching","onNow","favorites"]}}
-        """
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let snapshot = try decoder.decode(WidgetSnapshot.self, from: Data(json.utf8))
-        #expect(snapshot.topShelf?.sections == [.continueWatching, .favorites])
+    /// Adding puts a row at the bottom; adding it again takes it off.
+    @Test func `toggling adds at the bottom and removes`() {
+        let added = TopShelfSettings.toggled(moviesFavorites, in: [homeTrending])
+        #expect(added == [homeTrending, moviesFavorites])
+        #expect(TopShelfSettings.toggled(homeTrending, in: added) == [moviesFavorites])
+    }
+
+    /// The followed profile defaults to the first, and a stored one that has
+    /// since been deleted falls back to it too.
+    @Test func `the Top Shelf follows the stored profile, else the first`() throws {
+        let defaults = try makeDefaults()
+        let first = UUID(), second = UUID()
+        #expect(TopShelfSettings.profileID(among: [first, second], defaults: defaults) == first)
+        TopShelfSettings.storeProfile(second, defaults: defaults)
+        #expect(TopShelfSettings.profileID(among: [first, second], defaults: defaults) == second)
+        #expect(TopShelfSettings.profileID(among: [first], defaults: defaults) == first)
+    }
+
+    /// Only a promoted row is recorded, and only while the followed profile
+    /// is the active one — another profile's rows would be the wrong titles.
+    @Test func `list rows are recorded only for the followed profile`() throws {
+        let defaults = try makeDefaults()
+        let previous = ActiveProfileStore.current
+        defer { ActiveProfileStore.current = previous }
+        let followed = UUID()
+        ActiveProfileStore.current = followed
+        defaults.set(TopShelfSettings.encode([homeTrending]), forKey: TopShelfSettings.sourcesKey)
+
+        TopShelfSettings.record(["movie-a"], for: homeTrending, defaults: defaults)
+        #expect(TopShelfSettings.recordedItems(for: homeTrending, defaults: defaults).isEmpty)
+
+        TopShelfSettings.storeProfile(followed, defaults: defaults)
+        TopShelfSettings.record(["movie-a", "movie-b"], for: homeTrending, defaults: defaults)
+        TopShelfSettings.record(["movie-c"], for: moviesFavorites, defaults: defaults)
+        #expect(TopShelfSettings.recordedItems(for: homeTrending, defaults: defaults) == ["movie-a", "movie-b"])
+        #expect(TopShelfSettings.recordedItems(for: moviesFavorites, defaults: defaults).isEmpty)
+
+        ActiveProfileStore.current = UUID()
+        TopShelfSettings.record(["movie-z"], for: homeTrending, defaults: defaults)
+        #expect(TopShelfSettings.recordedItems(for: homeTrending, defaults: defaults) == ["movie-a", "movie-b"])
     }
 }

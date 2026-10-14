@@ -57,7 +57,12 @@ final class SectionFeed {
     /// ordered source plus a bounded catalog preview. The source tail remains
     /// available for an incrementally-loaded full grid without keeping all of
     /// its SwiftData models alive on the browse screen.
-    private(set) var collections: [HomeSectionRef: SectionCollectionSnapshot] = [:]
+    private(set) var collections: [HomeSectionRef: SectionCollectionSnapshot] = [:] {
+        // A list row promoted to the Top Shelf shows there what it last
+        // showed here — see `TopShelfSettings.record`.
+        didSet { recordTopShelfRows() }
+    }
+
     /// Every source's load state and the catalog scope they were matched in —
     /// see `SectionFeedLoadMachine`. Only `transition(_:)` advances it.
     private(set) var loads = SectionFeedLoadMachine()
@@ -73,6 +78,17 @@ final class SectionFeed {
 
     init(surface: SectionSurface) {
         self.surface = surface
+    }
+
+    private func recordTopShelfRows() {
+        #if os(tvOS)
+            for (ref, collection) in collections {
+                TopShelfSettings.record(
+                    collection.preview.map(WidgetSnapshotExporter.itemKey),
+                    for: TopShelfSource(surface: surface, ref: ref)
+                )
+            }
+        #endif
     }
 
     func items(for section: HomeSectionRef) -> [HomeMediaItem] {

@@ -64,6 +64,9 @@
         /// The row's own actions (promote, edit, remove), shown at rest after
         /// the title; hide always leads the row, in every list.
         var actions: ((Item) -> AnyView)?
+        /// Rows drawn with a gold top edge — a section that is also on the Top
+        /// Shelf. nil for lists where that doesn't apply.
+        var isHighlighted: ((Item) -> Bool)?
         /// Proxy for the host's enclosing `ScrollView`. tvOS only auto-scrolls
         /// when focus *moves* between views; while a row is lifted it keeps focus
         /// and merely changes position, so we scroll it back into view ourselves
@@ -91,7 +94,8 @@
             toggleAccessibility: @escaping (Bool, String) -> String = { $0 ? "Show \($1)" : "Hide \($1)" },
             icon: ((Item) -> String?)? = nil,
             accessory: ((Item) -> AnyView)? = nil,
-            actions: ((Item) -> AnyView)? = nil
+            actions: ((Item) -> AnyView)? = nil,
+            isHighlighted: ((Item) -> Bool)? = nil
         ) {
             self.items = items
             self.title = title
@@ -108,6 +112,7 @@
             self.icon = icon
             self.accessory = accessory
             self.actions = actions
+            self.isHighlighted = isHighlighted
         }
 
         private var displayed: [Item] {
@@ -146,6 +151,7 @@
                         icon: icon?(item),
                         accessory: accessory?(item),
                         actions: actions?(item),
+                        isHighlighted: isHighlighted?(item) ?? false,
                         toggleImageName: toggleImage(isHidden(item)),
                         toggleAccessibilityLabel: toggleAccessibility(isHidden(item), title(item)),
                         isRestricted: isRestricted?(item),
@@ -261,6 +267,7 @@
         let icon: String?
         let accessory: AnyView?
         let actions: AnyView?
+        let isHighlighted: Bool
         let toggleImageName: String
         let toggleAccessibilityLabel: String
         /// nil when the row has no restriction toggle (e.g. the channel list).
@@ -316,6 +323,15 @@
                     }
                 }
                 .buttonStyle(TVReorderRowButtonStyle(isLifted: isLifted, dimmed: isHidden))
+                .overlay(alignment: .top) {
+                    if isHighlighted {
+                        Capsule()
+                            .fill(Color.topShelfGold)
+                            .frame(height: 4)
+                            .padding(.horizontal, 10)
+                            .accessibilityHidden(true)
+                    }
+                }
                 .focused(focus, equals: id)
                 // Only attach the handlers while lifted: passing nil keeps normal
                 // focus traversal / Menu behaviour when at rest.

@@ -16,20 +16,25 @@ import Foundation
 /// Extensions never query the catalog — they read this file only.
 nonisolated struct WidgetSnapshot: Codable, Equatable {
     var generatedAt: Date
-    var continueWatching: [WidgetMediaItem]
-    var favorites: [WidgetMediaItem]
-    /// How the tvOS Top Shelf presents this snapshot. Only the tvOS app writes
-    /// it; absent (an older snapshot, or iOS), the Top Shelf uses the default.
+    /// The rows promoted to the Top Shelf, in the user's order. None means the
+    /// Top Shelf is off and tvOS shows the app's static image.
+    var sections: [WidgetSection]
+    /// How the Top Shelf presents this snapshot.
     var topShelf: TopShelfConfiguration?
 
-    static let empty = WidgetSnapshot(
-        generatedAt: .distantPast,
-        continueWatching: [],
-        favorites: []
-    )
+    static let empty = WidgetSnapshot(generatedAt: .distantPast, sections: [])
 }
 
-/// One resumable or favorite title. `deepLink` carries the full launch intent so
+/// One promoted row: its title as the Top Shelf heads it, and its titles.
+nonisolated struct WidgetSection: Codable, Equatable, Identifiable {
+    /// The row's identity in the app (`TopShelfSource.token`), stable across
+    /// exports so the Top Shelf keeps its place.
+    var id: String
+    var title: String
+    var items: [WidgetMediaItem]
+}
+
+/// One title or channel. `deepLink` carries the full launch intent so
 /// renderers never rebuild routing logic.
 nonisolated struct WidgetMediaItem: Codable, Equatable, Identifiable {
     nonisolated enum Kind: String, Codable {
