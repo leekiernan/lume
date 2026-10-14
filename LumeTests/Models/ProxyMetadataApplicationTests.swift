@@ -96,7 +96,7 @@ struct ProxyMetadataApplicationTests {
         #expect(movie.hasFreshTMDBDetails(in: context, language: "en-GB"))
     }
 
-    @Test func `provider identity replacement clears completion without erasing user state`() async throws {
+    @Test func `provider identity replacement clears completion without erasing user state`() throws {
         let (container, playlist, movie, details) = try fixture()
         let context = container.mainContext
         movie.watchProgress = 123
@@ -105,7 +105,7 @@ struct ProxyMetadataApplicationTests {
         try context.save()
         let manager = ContentSyncManager(modelContainer: container)
         let dto = try FieldFixtures.decodeMovie(#"{"stream_id":1,"name":"Movie","tmdb":"604"}"#)
-        await manager.applyMovieFields(from: dto, to: movie, playlistPrefix: "\(playlist.id.uuidString)-vod-")
+        manager.applyMovieFields(from: dto, to: movie, playlistPrefix: "\(playlist.id.uuidString)-vod-")
         #expect(movie.tmdbId == 604)
         #expect(movie.proxyMetadataData == nil)
         #expect(movie.tmdbEnrichedAt == nil && movie.tmdbArtworkEnrichedAt == nil)

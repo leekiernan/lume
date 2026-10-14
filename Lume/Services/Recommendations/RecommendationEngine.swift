@@ -48,8 +48,9 @@ actor RecommendationEngine {
     /// the profile from a bounded fetch.
     private let signalLimit = 200
     /// Candidates scored per page, then released — bounds peak memory regardless
-    /// of catalog size.
-    private let pageSize = 1000
+    /// of catalog size. Injectable so a test can cross page boundaries without
+    /// a catalog-sized fixture.
+    private let pageSize: Int
 
     private let favoriteWeight: Float = 1.0
     private let watchedWeight: Float = 0.6
@@ -60,11 +61,13 @@ actor RecommendationEngine {
     init(
         modelContainer: ModelContainer,
         cacheStore: RecommendationCacheStore = RecommendationCacheStore(),
-        recalculationInterval: TimeInterval = RecommendationEngine.recalculationInterval
+        recalculationInterval: TimeInterval = RecommendationEngine.recalculationInterval,
+        pageSize: Int = 1000
     ) {
         self.modelContainer = modelContainer
         self.cacheStore = cacheStore
         self.recalculationInterval = recalculationInterval
+        self.pageSize = pageSize
     }
 
     /// The top `limit` unwatched titles for the active profile, best first.

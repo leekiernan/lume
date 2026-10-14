@@ -53,7 +53,7 @@ struct LumeMetadataAvailabilityTests {
         #expect(series.seriesId == 2 && series.name == "Title" && series.lumeMeta == nil)
     }
 
-    @Test func `importing availability never marks metadata artwork or ratings complete`() async throws {
+    @Test func `importing availability never marks metadata artwork or ratings complete`() throws {
         let container = try FieldFixtures.makeContainer()
         let context = ModelContext(container)
         let movie = Movie(id: "movie", streamId: 1, name: "Title")
@@ -66,8 +66,8 @@ struct LumeMetadataAvailabilityTests {
          "lume_meta":{"v":1,"tmdb":"2026-10-09T03:00:00Z","artwork":"2026-10-09T03:00:00Z","ratings":"2026-10-09T03:00:00Z"}}
         """#
         let manager = ContentSyncManager(modelContainer: container)
-        try await manager.applyMovieFields(from: FieldFixtures.decodeMovie(json), to: movie, playlistPrefix: "p-")
-        try await manager.applySeriesFields(from: FieldFixtures.decodeSeries(json), to: series, playlistPrefix: "p-")
+        try manager.applyMovieFields(from: FieldFixtures.decodeMovie(json), to: movie, playlistPrefix: "p-")
+        try manager.applySeriesFields(from: FieldFixtures.decodeSeries(json), to: series, playlistPrefix: "p-")
         try context.save()
         #expect(movie.tmdbId == 123 && series.tmdbId == 123)
         #expect(movie.tmdbEnrichedAt == nil && movie.tmdbArtworkEnrichedAt == nil && movie.ratingsEnrichedAt == nil)
