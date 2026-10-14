@@ -2,9 +2,8 @@ import Foundation
 @testable import Lume
 import Testing
 
-/// Writes `ActiveProfileStore` for the profile test, so it takes the
-/// process-wide lock (see `GlobalStateTrait`).
-@Suite(.globalState)
+/// Every test takes its own defaults domain and passes profiles explicitly,
+/// so the suite touches no process-wide state.
 struct TopShelfSettingsTests {
     /// A throwaway defaults domain per test, so nothing leaks into
     /// `UserDefaults.standard` or across tests.
@@ -91,28 +90,31 @@ struct TopShelfSettingsTests {
         #expect(TopShelfSettings.sources(defaults: defaults).isEmpty)
     }
 
-    /// Every row is recorded, promoted or not, so a row promoted later has
-    /// titles straight away — but only while the followed profile is the
-    /// active one, since another profile's rows would be the wrong titles.
-    @Test func `list rows are recorded only for the followed profile`() throws {
+    /// Every row is recorded for the active profile, Top Shelf on or not, so
+    /// turning it on or promoting a row later finds titles already there;
+    /// each profile keeps its own.
+    @Test func `list rows are recorded for each profile, Top Shelf on or not`() throws {
         let defaults = try makeDefaults()
-        let previous = ActiveProfileStore.current
-        defer { ActiveProfileStore.current = previous }
-        let followed = UUID()
-        ActiveProfileStore.current = followed
+        let first = UUID(), second = UUID()
 
-        TopShelfSettings.record(["movie-a"], for: homeTrending, defaults: defaults)
-        #expect(TopShelfSettings.recordedItems(for: homeTrending, defaults: defaults).isEmpty)
+        TopShelfSettings.record(["movie-a", "movie-b"], for: homeTrending, profile: first, defaults: defaults)
+        TopShelfSettings.record(["movie-c"], for: moviesFavorites, profile: first, defaults: defaults)
+        TopShelfSettings.record(["movie-z"], for: homeTrending, profile: second, defaults: defaults)
 
-        TopShelfSettings.setFollowedProfile(followed, defaults: defaults)
-        TopShelfSettings.record(["movie-a", "movie-b"], for: homeTrending, defaults: defaults)
-        TopShelfSettings.record(["movie-c"], for: moviesFavorites, defaults: defaults)
-        #expect(TopShelfSettings.recordedItems(for: homeTrending, defaults: defaults) == ["movie-a", "movie-b"])
-        #expect(TopShelfSettings.recordedItems(for: moviesFavorites, defaults: defaults) == ["movie-c"])
+        #expect(TopShelfSettings.recordedItems(for: homeTrending, profile: first, defaults: defaults) == ["movie-a", "movie-b"])
+        #expect(TopShelfSettings.recordedItems(for: moviesFavorites, profile: first, defaults: defaults) == ["movie-c"])
+        #expect(TopShelfSettings.recordedItems(for: homeTrending, profile: second, defaults: defaults) == ["movie-z"])
+        #expect(TopShelfSettings.recordedItems(for: homeTrending, profile: nil, defaults: defaults).isEmpty)
+    }
 
-        ActiveProfileStore.current = UUID()
-        TopShelfSettings.record(["movie-z"], for: homeTrending, defaults: defaults)
-        #expect(TopShelfSettings.recordedItems(for: homeTrending, defaults: defaults) == ["movie-a", "movie-b"])
+    /// Turning the Top Shelf on for a profile keeps what its rows recorded
+    /// before — the order a new Apple TV is set up in.
+    @Test func `turning the Top Shelf on keeps what rows recorded before`() throws {
+        let defaults = try makeDefaults()
+        let profile = UUID()
+        TopShelfSettings.record(["movie-a"], for: homeTrending, profile: profile, defaults: defaults)
+        TopShelfSettings.setFollowedProfile(profile, defaults: defaults)
+        #expect(TopShelfSettings.recordedItems(for: homeTrending, profile: profile, defaults: defaults) == ["movie-a"])
     }
 
     /// The export's one decision, for every combination that matters.
@@ -138,15 +140,10 @@ struct TopShelfSettingsTests {
     /// batch writes every changed row.
     @Test func `an empty load keeps a row's titles, and a batch records every row`() throws {
         let defaults = try makeDefaults()
-        let previous = ActiveProfileStore.current
-        defer { ActiveProfileStore.current = previous }
-        let followed = UUID()
-        ActiveProfileStore.current = followed
-        TopShelfSettings.setFollowedProfile(followed, defaults: defaults)
-
-        TopShelfSettings.record([homeTrending: ["movie-a"], moviesFavorites: ["movie-b"]], defaults: defaults)
-        TopShelfSettings.record([homeTrending: []], defaults: defaults)
-        #expect(TopShelfSettings.recordedItems(for: homeTrending, defaults: defaults) == ["movie-a"])
-        #expect(TopShelfSettings.recordedItems(for: moviesFavorites, defaults: defaults) == ["movie-b"])
+        let profile = UUID()
+        TopShelfSettings.record([homeTrending: ["movie-a"], moviesFavorites: ["movie-b"]], profile: profile, defaults: defaults)
+        TopShelfSettings.record([homeTrending: []], profile: profile, defaults: defaults)
+        #expect(TopShelfSettings.recordedItems(for: homeTrending, profile: profile, defaults: defaults) == ["movie-a"])
+        #expect(TopShelfSettings.recordedItems(for: moviesFavorites, profile: profile, defaults: defaults) == ["movie-b"])
     }
 }

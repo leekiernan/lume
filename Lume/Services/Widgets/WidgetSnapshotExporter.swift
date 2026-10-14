@@ -57,11 +57,12 @@ enum WidgetSnapshotExporter {
             source.rowName(defaults: defaults).map { (source, $0) }
         }
         let counts = Dictionary(rows.map { ($0.1, 1) }, uniquingKeysWith: +)
+        let followed = TopShelfSettings.followedProfile(defaults: defaults)
         return rows.map { source, name in
             TopShelfRowPlan(
                 source: source,
                 title: counts[name, default: 0] > 1 ? source.qualified(name) : name,
-                recordedItems: TopShelfSettings.recordedItems(for: source, defaults: defaults)
+                recordedItems: TopShelfSettings.recordedItems(for: source, profile: followed, defaults: defaults)
             )
         }
     }
