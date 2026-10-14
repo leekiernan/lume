@@ -4303,6 +4303,58 @@
         }
       }
     },
+    "Add %@ to the Top Shelf" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ zum Top Shelf hinzufügen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir %@ a Top Shelf"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter %@ au Top Shelf"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiungi %@ alla Top Shelf"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ をトップシェルフに追加"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@을(를) 탑 셸프에 추가"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicionar %@ à Top Shelf"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将“%@”添加到顶部栏"
+          }
+        }
+      }
+    },
     "Add a playlist in Settings to get started" : {
       "localizations" : {
         "de" : {
@@ -5290,58 +5342,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "添加到收藏"
-          }
-        }
-      }
-    },
-    "Add to Top Shelf" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zum Top Shelf hinzufügen"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Añadir a Top Shelf"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajouter au Top Shelf"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aggiungi a Top Shelf"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "トップシェルフに追加"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "탑 셸프에 추가"
-          }
-        },
-        "pt" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Adicionar à Top Shelf"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "添加到顶部栏"
           }
         }
       }
@@ -39160,54 +39160,54 @@
         }
       }
     },
-    "No rows yet. Press and hold ⭐ on a row in an area below to add it." : {
+    "No rows yet. Press %@ on a row in an area below to add it." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Noch keine Reihen. Halte ⭐ bei einer Reihe in einem Bereich unten gedrückt, um sie hinzuzufügen."
+            "value" : "Noch keine Reihen. Drücke %@ bei einer Reihe in einem Bereich unten, um sie hinzuzufügen."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aún no hay filas. Mantén pulsado ⭐ en una fila de un área de abajo para añadirla."
+            "value" : "Aún no hay filas. Pulsa %@ en una fila de un área de abajo para añadirla."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aucune rangée pour l’instant. Maintenez ⭐ enfoncé sur une rangée d’une zone ci-dessous pour l’ajouter."
+            "value" : "Aucune rangée pour l’instant. Appuyez sur %@ sur une rangée d’une zone ci-dessous pour l’ajouter."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ancora nessuna riga. Tieni premuto ⭐ su una riga in un’area qui sotto per aggiungerla."
+            "value" : "Ancora nessuna riga. Premi %@ su una riga in un’area qui sotto per aggiungerla."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "まだ列がありません。下のエリアの列で ⭐ を長押しすると追加できます。"
+            "value" : "まだ列がありません。下のエリアの列で %@ を押すと追加できます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "아직 행이 없습니다. 아래 영역의 행에서 ⭐를 길게 누르면 추가됩니다."
+            "value" : "아직 행이 없습니다. 아래 영역의 행에서 %@를 누르면 추가됩니다."
           }
         },
         "pt" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ainda não há linhas. Mantenha ⭐ pressionado numa linha de uma área abaixo para adicioná-la."
+            "value" : "Ainda não há linhas. Pressione %@ numa linha de uma área abaixo para adicioná-la."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "还没有行。在下方区域的某一行上按住 ⭐ 即可添加。"
+            "value" : "还没有行。在下方区域的某一行上按 %@ 即可添加。"
           }
         }
       }
@@ -46465,106 +46465,106 @@
         }
       }
     },
-    "Press ⭐ to make a section the hero." : {
+    "Press %@ to make a section the hero, and %@ to add it to the Top Shelf or take it off." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Drücke ⭐, um einen Bereich zum Hero zu machen."
+            "value" : "Drücke %1$@, um einen Bereich zum Hero zu machen, und %2$@, um ihn zum Top Shelf hinzuzufügen oder daraus zu entfernen."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pulsa ⭐ para convertir una sección en el destacado."
+            "value" : "Pulsa %1$@ para convertir una sección en el destacado y %2$@ para añadirla a Top Shelf o quitarla."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Appuyez sur ⭐ pour faire d’une section la vedette."
+            "value" : "Appuyez sur %1$@ pour faire d’une section la vedette, et sur %2$@ pour l’ajouter au Top Shelf ou l’en retirer."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Premi ⭐ per rendere una sezione quella in evidenza."
+            "value" : "Premi %1$@ per rendere una sezione quella in evidenza e %2$@ per aggiungerla alla Top Shelf o toglierla."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "⭐ を押すとセクションをヒーローにします。"
+            "value" : "%1$@ を押すとセクションをヒーローに、%2$@ を押すとトップシェルフに追加または削除します。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "⭐를 누르면 섹션이 히어로가 됩니다."
+            "value" : "%1$@를 누르면 섹션이 히어로가 되고, %2$@를 누르면 탑 셸프에 추가하거나 뺍니다."
           }
         },
         "pt" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pressione ⭐ para tornar uma seção o destaque."
+            "value" : "Pressione %1$@ para tornar uma seção o destaque e %2$@ para adicioná-la à Top Shelf ou removê-la."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "按 ⭐ 将某个版块设为主打。"
+            "value" : "按 %1$@ 将某个版块设为主打，按 %2$@ 将其添加到顶部栏或从中移除。"
           }
         }
       }
     },
-    "Press ⭐ to make a section the hero. Press and hold it to add the section to the Top Shelf or take it off." : {
+    "Press %@ to make a section the hero." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Drücke ⭐, um einen Bereich zum Hero zu machen. Halte ⭐ gedrückt, um ihn zum Top Shelf hinzuzufügen oder daraus zu entfernen."
+            "value" : "Drücke %@, um einen Bereich zum Hero zu machen."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pulsa ⭐ para convertir una sección en el destacado. Mantenlo pulsado para añadir la sección a Top Shelf o quitarla."
+            "value" : "Pulsa %@ para convertir una sección en el destacado."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Appuyez sur ⭐ pour faire d’une section la vedette. Maintenez-le enfoncé pour ajouter la section au Top Shelf ou l’en retirer."
+            "value" : "Appuyez sur %@ pour faire d’une section la vedette."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Premi ⭐ per rendere una sezione quella in evidenza. Tienilo premuto per aggiungere la sezione alla Top Shelf o toglierla."
+            "value" : "Premi %@ per rendere una sezione quella in evidenza."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "⭐ を押すとセクションをヒーローにします。長押しすると、セクションをトップシェルフに追加または削除します。"
+            "value" : "%@ を押すとセクションをヒーローにします。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "⭐를 누르면 섹션이 히어로가 됩니다. 길게 누르면 섹션을 탑 셸프에 추가하거나 뺍니다."
+            "value" : "%@를 누르면 섹션이 히어로가 됩니다."
           }
         },
         "pt" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pressione ⭐ para tornar uma seção o destaque. Mantenha pressionado para adicionar a seção à Top Shelf ou removê-la."
+            "value" : "Pressione %@ para tornar uma seção o destaque."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "按 ⭐ 将某个版块设为主打。按住它可将该版块添加到顶部栏或从中移除。"
+            "value" : "按 %@ 将某个版块设为主打。"
           }
         }
       }
@@ -49693,58 +49693,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "从最近观看中移除"
-          }
-        }
-      }
-    },
-    "Remove from Top Shelf" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aus dem Top Shelf entfernen"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Quitar de Top Shelf"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Retirer du Top Shelf"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rimuovi da Top Shelf"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "トップシェルフから削除"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "탑 셸프에서 제거"
-          }
-        },
-        "pt" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remover da Top Shelf"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "从顶部栏移除"
           }
         }
       }

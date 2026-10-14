@@ -239,10 +239,14 @@ import SwiftUI
                     .tvSettingsFooter()
                     .padding(.top, 6)
 
-                Text(topShelfIsOn
-                    ? LocalizedStringKey("Press ⭐ to make a section the hero. Press and hold it to add the section to the Top Shelf or take it off.")
-                    : LocalizedStringKey("Press ⭐ to make a section the hero."))
-                    .tvSettingsFooter()
+                Group {
+                    if topShelfIsOn {
+                        Text("Press \(Image(systemName: "star")) to make a section the hero, and \(Image(systemName: "tv")) to add it to the Top Shelf or take it off.")
+                    } else {
+                        Text("Press \(Image(systemName: "star")) to make a section the hero.")
+                    }
+                }
+                .tvSettingsFooter()
             }
         }
 
@@ -284,28 +288,31 @@ import SwiftUI
         private func actions(for ref: HomeSectionRef) -> some View {
             let title = name(for: ref)
             if ref.isPromotable {
-                // A press makes the row the hero; a press and hold, while the
-                // Top Shelf is on for this profile, adds it there or takes it
-                // off. The gesture takes the press once it recognizes, so a
-                // hold doesn't also toggle the hero.
                 Button {
                     togglePromoted(ref)
                 } label: {
                     // Filled while this row *is* the hero, so the state reads
-                    // without moving focus onto it. The Top Shelf shows as the
-                    // row's gold top edge instead.
+                    // without moving focus onto it.
                     Image(systemName: isHero(ref) ? "star.fill" : "star")
                         .foregroundStyle(isHero(ref) ? AnyShapeStyle(Color.lumeAccent) : AnyShapeStyle(.foreground))
                 }
                 .buttonStyle(TVContentIconButtonStyle())
-                .onLongPressGesture(minimumDuration: 0.4) {
-                    if topShelfIsOn { toggleTopShelf(ref) }
-                }
                 .accessibilityAddTraits(isHero(ref) ? .isSelected : [])
                 .accessibilityLabel(isHero(ref) ? "Stop using \(title) as the hero" : "Use \(title) as the hero")
                 .accessibilityValue(isHero(ref) ? Text("Hero") : Text(verbatim: ""))
-                .accessibilityAction(named: isOnTopShelf(ref) ? Text("Remove from Top Shelf") : Text("Add to Top Shelf")) {
-                    if topShelfIsOn { toggleTopShelf(ref) }
+
+                // Only while the Top Shelf is on for this profile. Gold, like
+                // the row's top edge, while the row is on it.
+                if topShelfIsOn {
+                    Button {
+                        toggleTopShelf(ref)
+                    } label: {
+                        Image(systemName: isOnTopShelf(ref) ? "tv.fill" : "tv")
+                            .foregroundStyle(isOnTopShelf(ref) ? AnyShapeStyle(Color.topShelfGold) : AnyShapeStyle(.foreground))
+                    }
+                    .buttonStyle(TVContentIconButtonStyle())
+                    .accessibilityAddTraits(isOnTopShelf(ref) ? .isSelected : [])
+                    .accessibilityLabel(isOnTopShelf(ref) ? "Remove \(title) from the Top Shelf" : "Add \(title) to the Top Shelf")
                 }
             }
             if let section = custom(ref) {

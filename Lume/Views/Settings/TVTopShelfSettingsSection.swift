@@ -5,7 +5,7 @@
 //  The Top Shelf block of the tvOS Library pane, above the areas: the rows
 //  promoted to it (in order, removable) and its layout. Shown only while the
 //  active profile has the Top Shelf on (in its profile editor). Rows are
-//  promoted from the areas below — a long press on a row's ⭐ — and stay in
+//  promoted from the areas below — a row's 📺 button — and stay in
 //  their area; the Top Shelf shows a copy, and the area's list marks it with a
 //  gold top edge. With no rows tvOS shows the app's artwork. Stored per device
 //  (see `TopShelfSettings`); every change rebuilds the snapshot straight away.
@@ -61,7 +61,7 @@ import SwiftUI
                 TVSettingsSectionLabel("Top Shelf")
 
                 if sources.isEmpty {
-                    Text("No rows yet. Press and hold ⭐ on a row in an area below to add it.")
+                    Text("No rows yet. Press \(Image(systemName: "tv")) on a row in an area below to add it.")
                         .tvSettingsFooter()
                         .padding(.top, 6)
                 } else {

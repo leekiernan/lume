@@ -7,8 +7,8 @@
 //  `refresh()` instead of gathering the container and the active profile's
 //  child flag itself.
 //
-//  - Requests coalesce: a burst (a reorder is one per remote press, and a
-//    long press on a row's ⭐ changes two settings) becomes one export.
+//  - Requests coalesce: a burst (a reorder is one per remote press, and
+//    adding a row from an area changes two settings) becomes one export.
 //  - Exports run one at a time, in the order they were asked for, so an older
 //    one can never finish last and leave a stale Top Shelf.
 //  - The request captures the active profile and its child flag together on
