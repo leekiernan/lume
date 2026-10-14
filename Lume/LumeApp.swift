@@ -250,6 +250,25 @@ struct LumeApp: App {
 
     @Environment(\.scenePhase) private var scenePhase
 
+    /// Rebuilds the Top Shelf snapshot off the main actor: a handful of bounded
+    /// fetches, cheap enough for every launch and backgrounding. Held under a
+    /// background-task assertion so a backgrounding export finishes instead of
+    /// being suspended mid-write. tvOS only — no other platform ships an
+    /// extension that reads it.
+    private func exportTopShelfSnapshot() {
+        #if os(tvOS)
+            let container = catalogContainer
+            let isChild = profileManager.activeProfileIsChild
+            Task {
+                await BackgroundActivity.perform("Top Shelf snapshot") {
+                    await Task.detached(priority: .utility) {
+                        WidgetSnapshotExporter.export(container: container, isChildProfile: isChild)
+                    }.value
+                }
+            }
+        #endif
+    }
+
     /// The user's appearance override (issue #135), applied at the scene root
     /// as a window-level style override so every screen (and sheets presented
     /// from it) restyles immediately — see `AppearanceSettings.swift` for why
@@ -378,6 +397,10 @@ struct LumeApp: App {
                     EPGSyncService.shared.configure(container: catalogContainer)
                     EPGSyncService.shared.syncIfDue(reason: "launch")
                     EPGSyncService.shared.startPeriodicChecks()
+
+                    // Seed the Top Shelf snapshot once services are up (after
+                    // profile bootstrap, so the catalog is profile-scoped).
+                    exportTopShelfSnapshot()
                 }
                 .onChange(of: cloudSync.status.lastReconcile) {
                     // A reconcile may have pulled a PIN this device didn't have
@@ -409,6 +432,12 @@ struct LumeApp: App {
                             ImageMemoryCache.shared.purge(reason: "app backgrounded")
                         }
                     #endif
+                    // The Top Shelf shows while Lume isn't in front, so leaving
+                    // the foreground is when it needs this session's progress,
+                    // favourites and profile.
+                    if phase == .background {
+                        exportTopShelfSnapshot()
+                    }
                 }
                 .appAppearance(AppAppearance.resolve(appearanceRaw))
         }

@@ -8,7 +8,7 @@
 //  its rows via `TVSectionLayoutDetail`, its categories via Content Management.
 //  Mirrors the iOS/macOS `LibrarySettingsView`, which uses a list and drill-ins
 //  instead; the tvOS sidebar is already long, so the areas share one category
-//  here.
+//  here. Home also carries the Top Shelf settings (`TVTopShelfSettingsSection`).
 //
 
 import SwiftUI
@@ -40,6 +40,12 @@ import SwiftUI
                     } else {
                         Text("This area is switched off. It has no tab, and its content is skipped when playlists sync.")
                             .tvSettingsFooter()
+                    }
+
+                    // The Top Shelf mirrors Home's rows, so it lives with them —
+                    // whether or not the Home tab itself is on.
+                    if layoutArea == .home {
+                        TVTopShelfSettingsSection(proxy: proxy)
                     }
                 }
             }

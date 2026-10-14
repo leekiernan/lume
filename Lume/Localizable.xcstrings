@@ -10305,6 +10305,59 @@
         }
       }
     },
+    "Carousel" : {
+      "comment" : "Top Shelf layout: full-width backdrop carousel",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Karussell"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carrusel"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carrousel"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carosello"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カルーセル"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "캐러셀"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carrossel"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轮播"
+          }
+        }
+      }
+    },
     "Cast" : {
       "localizations" : {
         "de" : {
@@ -29658,6 +29711,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "意大利"
+          }
+        }
+      }
+    },
+    "Items per Section" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einträge pro Bereich"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elementos por sección"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Éléments par section"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elementi per sezione"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セクションあたりの項目数"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "섹션당 항목 수"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Itens por seção"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每个分区的项目数"
           }
         }
       }
@@ -51172,6 +51277,59 @@
         }
       }
     },
+    "Rows" : {
+      "comment" : "Top Shelf layout: rows of posters under section titles",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reihen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rangées"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Righe"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "행"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fileiras"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行"
+          }
+        }
+      }
+    },
     "Rugby" : {
       "localizations" : {
         "de" : {
@@ -55932,6 +56090,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "显示详细信息"
+          }
+        }
+      }
+    },
+    "Show in Top Shelf" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Im Top Shelf anzeigen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar en Top Shelf"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher dans le Top Shelf"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra nella Top Shelf"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "トップシェルフに表示"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "탑 셸프에 표시"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar no Top Shelf"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在顶部栏中显示"
           }
         }
       }
@@ -64070,6 +64280,58 @@
         }
       }
     },
+    "The carousel shows movies and series. Channels have no wide artwork, so they appear only in Rows." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Karussell zeigt Filme und Serien. Sender haben kein breites Bildmaterial und erscheinen daher nur in Reihen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El carrusel muestra películas y series. Los canales no tienen imágenes panorámicas, así que solo aparecen en Filas."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le carrousel affiche les films et les séries. Les chaînes n’ont pas d’illustration panoramique et n’apparaissent donc que dans Rangées."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il carosello mostra film e serie. I canali non hanno immagini panoramiche, quindi compaiono solo in Righe."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カルーセルには映画とシリーズが表示されます。チャンネルにはワイドなアートワークがないため、「行」にのみ表示されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "캐러셀에는 영화와 시리즈가 표시됩니다. 채널은 와이드 아트워크가 없어 행에서만 표시됩니다."
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O carrossel mostra filmes e séries. Os canais não têm arte panorâmica, então aparecem apenas em Fileiras."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轮播显示电影和剧集。频道没有宽幅图片，因此只在“行”布局中显示。"
+          }
+        }
+      }
+    },
     "The connection timed out. Check the URL and your network, then try again." : {
       "localizations" : {
         "de" : {
@@ -67523,6 +67785,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "高分热播节目"
+          }
+        }
+      }
+    },
+    "Top Shelf" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Top Shelf"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Top Shelf"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Top Shelf"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Top Shelf"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "トップシェルフ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "탑 셸프"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Top Shelf"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "顶部栏"
           }
         }
       }
@@ -72079,6 +72393,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "网站"
+          }
+        }
+      }
+    },
+    "What lume shows above its icon on the Apple TV Home Screen. A section appears only when it has something to show. When switched off, the Top Shelf shows the lume artwork." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Was lume über seinem Symbol auf dem Home-Bildschirm des Apple TV zeigt. Ein Bereich erscheint nur, wenn er etwas zu zeigen hat. Ist die Option aus, zeigt der Top Shelf das lume-Bild."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lo que lume muestra encima de su icono en la pantalla de inicio del Apple TV. Una sección solo aparece cuando tiene algo que mostrar. Si está desactivado, Top Shelf muestra la imagen de lume."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce que lume affiche au-dessus de son icône sur l’écran d’accueil de l’Apple TV. Une section n’apparaît que si elle a du contenu. Désactivé, le Top Shelf affiche l’illustration de lume."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ciò che lume mostra sopra la sua icona nella schermata Home di Apple TV. Una sezione compare solo quando ha qualcosa da mostrare. Se disattivata, la Top Shelf mostra l’immagine di lume."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple TVのホーム画面でlumeのアイコンの上に表示される内容です。セクションは表示する項目がある場合にのみ表示されます。オフにすると、トップシェルフにはlumeのアートワークが表示されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple TV 홈 화면에서 lume 아이콘 위에 표시되는 내용입니다. 섹션은 표시할 항목이 있을 때만 나타납니다. 끄면 탑 셸프에 lume 아트워크가 표시됩니다."
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O que o lume mostra acima do ícone na tela de início da Apple TV. Uma seção só aparece quando tem algo para mostrar. Quando desativado, o Top Shelf mostra a arte do lume."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "lume 在 Apple TV 主屏幕上其图标上方显示的内容。分区仅在有内容时显示。关闭后，顶部栏将显示 lume 的图片。"
           }
         }
       }

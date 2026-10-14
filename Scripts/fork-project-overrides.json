@@ -81,6 +81,26 @@
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeuitests;"
     },
+    "C6BD5701000000000000E006": {
+      "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
+      "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;"
+    },
+    "C6BD5701000000000000E007": {
+      "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
+      "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;"
+    },
+    "C6BD5701000000000000E008": {
+      "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
+      "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;"
+    },
+    "C6BD5701000000000000E009": {
+      "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
+      "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;"
+    },
     "C6BE110000000000000000AA": {
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",

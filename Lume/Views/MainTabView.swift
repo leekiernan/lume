@@ -38,13 +38,21 @@ struct MainTabView: View {
 
     /// Selected tab and the Movies/Series navigation stacks, shared so an
     /// `onOpenURL` deep link can switch tabs and push a detail screen.
-    @State private var router = DeepLinkRouter()
+    @State var router = DeepLinkRouter()
 
     /// Whether a `lume://downloads` deep link (a download notification tap)
     /// asked for the downloads list. Presented as a sheet from here rather than
     /// pushed into Settings, so the link doesn't disturb whatever the user had
     /// open.
-    @State private var showsDownloads = false
+    @State var showsDownloads = false
+
+    /// The stream a Top Shelf `lume://play/...` link asked to play. Presented
+    /// here, since the link can arrive on any tab, independent of any tab's own
+    /// player cover.
+    @State var linkedMedia: PlayableMedia?
+    #if os(macOS)
+        @Environment(\.openWindow) var openWindow
+    #endif
 
     /// Not `private`: the auto-sync state below is driven by the
     /// MainTabView+AutoSync extension (separate file).
@@ -108,7 +116,7 @@ struct MainTabView: View {
     /// write moves one of its `@Query`s, and constructing a `ContentRestriction`
     /// digests every excluded id — 433 of them on a real hidden-category set.
     /// The two id sets are cheap to rebuild and compare; the digest is not.
-    private var contentRestriction: ContentRestriction {
+    var contentRestriction: ContentRestriction {
         restrictionMemo.restriction(
             isChild: profileManager?.activeProfileIsChild,
             restrictedIDs: restrictedCategories.map(\.id),
@@ -209,6 +217,11 @@ struct MainTabView: View {
             .onOpenURL { url in
                 handleDeepLink(url)
             }
+        #if !os(macOS)
+            .fullScreenCover(item: $linkedMedia) { media in
+                FullScreenPlayerView(media: media)
+            }
+        #endif
             .task(id: autoSyncTrigger) {
                 // On launch, playlist insertion, profile switch, or area toggle,
                 // sync the active playlist if it is due (plus any playlist that
@@ -485,52 +498,6 @@ struct MainTabView: View {
             }
         }
     #endif
-
-    // MARK: - Deep links
-
-    /// Resolves a `lume://movie/{tmdbId}` / `lume://series/{tmdbId}` link to a
-    /// catalog item, switches to the matching tab and pushes its detail screen.
-    /// Silently ignores unknown links and titles not present in the catalog
-    /// (e.g. a tmdbId that was never synced or enriched).
-    private func handleDeepLink(_ url: URL) {
-        guard let link = DeepLink(url: url) else { return }
-        switch link {
-        case let .movie(tmdbId):
-            guard let movie = resolveMovie(tmdbId: tmdbId) else { return }
-            router.selectedTab = .movies
-            router.moviesPath = NavigationPath()
-            router.moviesPath.append(movie)
-        case let .series(tmdbId):
-            guard let series = resolveSeries(tmdbId: tmdbId) else { return }
-            router.selectedTab = .series
-            router.seriesPath = NavigationPath()
-            router.seriesPath.append(series)
-        case .downloads:
-            showsDownloads = true
-        case .liveTV:
-            router.selectedTab = .liveTV
-            router.liveTVPath = NavigationPath()
-        }
-    }
-
-    /// Finds a movie by `tmdbId`, preferring the active playlist but falling back
-    /// to any other playlist's copy. Restricted categories stay hidden for a
-    /// child profile.
-    private func resolveMovie(tmdbId: Int) -> Movie? {
-        let descriptor = FetchDescriptor<Movie>(predicate: #Predicate { $0.tmdbId == tmdbId })
-        return CatalogMatchSelection.preferred(
-            in: (try? modelContext.fetch(descriptor)) ?? [], restriction: contentRestriction,
-            playlistPrefix: playlists.active(for: selectedPlaylistID)?.contentIDPrefix
-        )
-    }
-
-    private func resolveSeries(tmdbId: Int) -> Series? {
-        let descriptor = FetchDescriptor<Series>(predicate: #Predicate { $0.tmdbId == tmdbId })
-        return CatalogMatchSelection.preferred(
-            in: (try? modelContext.fetch(descriptor)) ?? [], restriction: contentRestriction,
-            playlistPrefix: playlists.active(for: selectedPlaylistID)?.contentIDPrefix
-        )
-    }
 }
 
 // MARK: - Sync cover presentation
