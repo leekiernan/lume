@@ -90,8 +90,10 @@ nonisolated enum TopShelfSettings {
     /// The profile `sourcesKey` belongs to, kept while the Top Shelf is off
     /// so turning it back on for the same profile restores its rows.
     private static let rowsProfileKey = "topShelf.rowsProfile.v1"
-    /// What each list row last showed in the app — see `record`.
-    private static let rowItemsKey = "topShelf.rowItems.v1"
+    /// What each list row last showed in the app, per profile — see `record`.
+    private static let rowItemsKey = "topShelf.rowItems.v2"
+    /// v1 kept one profile's rows and only while it held the Top Shelf.
+    private static let legacyRowItemsKey = "topShelf.rowItems.v1"
     /// The profile whose rows the snapshot on disk shows; unset while it is
     /// empty. Lets an export tell a snapshot worth keeping from one left
     /// over from a profile the Top Shelf no longer follows.
@@ -147,7 +149,6 @@ nonisolated enum TopShelfSettings {
         let owner = defaults.string(forKey: rowsProfileKey) ?? defaults.string(forKey: profileKey)
         if owner != id.uuidString {
             defaults.removeObject(forKey: sourcesKey)
-            defaults.removeObject(forKey: rowItemsKey)
             defaults.set(id.uuidString, forKey: rowsProfileKey)
         }
         defaults.set(id.uuidString, forKey: profileKey)
@@ -187,36 +188,61 @@ nonisolated enum TopShelfSettings {
     // MARK: - What list rows last showed
 
     /// The titles a list row (trending, a watchlist, a custom list, For You)
-    /// last showed, as `MediaItemKey`s (`HomeMediaItem.id`). Those rows come from
-    /// the network or the recommender, which the background export doesn't
-    /// run; it shows what the app last loaded instead, and a row not opened
-    /// since keeps what it had. Every row of the followed profile is kept, not
-    /// just the promoted ones, so a row promoted from Settings has titles
-    /// straight away rather than only after its area is next opened.
+    /// last showed, as `MediaItemKey`s (`HomeMediaItem.id`). Those rows come
+    /// from the network or the recommender, which the background export
+    /// doesn't run; it shows what the app last loaded instead, and a row not
+    /// opened since keeps what it had.
+    ///
+    /// Every row is kept for whichever profile is active, whether or not the
+    /// Top Shelf is on: what the Top Shelf can show must not depend on the
+    /// order things happened in. Kept only while the Top Shelf was on, a row
+    /// loaded before it was turned on — or before the row was promoted —
+    /// stayed empty until its titles next changed.
     ///
     /// An empty list is never recorded: a load that failed or ran offline
     /// would otherwise wipe what the row last showed.
-    static func record(_ itemKeys: [String], for source: TopShelfSource, defaults: UserDefaults = .standard) {
-        record([source: itemKeys], defaults: defaults)
+    static func record(
+        _ itemKeys: [String],
+        for source: TopShelfSource,
+        profile: UUID? = ActiveProfileStore.current,
+        defaults: UserDefaults = .standard
+    ) {
+        record([source: itemKeys], profile: profile, defaults: defaults)
     }
 
     /// Records several rows with one read and at most one write, so a page
     /// that resolves its rows one by one doesn't rewrite the whole store (and
     /// post a defaults change) per row.
-    static func record(_ rows: [TopShelfSource: [String]], defaults: UserDefaults = .standard) {
-        guard followsActiveProfile(defaults: defaults) else { return }
-        var stored = defaults.dictionary(forKey: rowItemsKey) as? [String: [String]] ?? [:]
+    static func record(
+        _ rows: [TopShelfSource: [String]],
+        profile: UUID? = ActiveProfileStore.current,
+        defaults: UserDefaults = .standard
+    ) {
+        guard let profile else { return }
+        var stored = storedRows(defaults)
+        var rowsOfProfile = stored[profile.uuidString] ?? [:]
         var changed = false
         for (source, itemKeys) in rows where !itemKeys.isEmpty {
             let capped = Array(itemKeys.prefix(TopShelfConfiguration.maxItemsPerSection))
-            guard stored[source.token] != capped else { continue }
-            stored[source.token] = capped
+            guard rowsOfProfile[source.token] != capped else { continue }
+            rowsOfProfile[source.token] = capped
             changed = true
         }
-        if changed { defaults.set(stored, forKey: rowItemsKey) }
+        guard changed else { return }
+        stored[profile.uuidString] = rowsOfProfile
+        defaults.set(stored, forKey: rowItemsKey)
+        defaults.removeObject(forKey: legacyRowItemsKey)
     }
 
-    static func recordedItems(for source: TopShelfSource, defaults: UserDefaults = .standard) -> [String] {
-        (defaults.dictionary(forKey: rowItemsKey) as? [String: [String]])?[source.token] ?? []
+    /// What `source` last showed for `profile` — the followed one, for the
+    /// export.
+    static func recordedItems(for source: TopShelfSource, profile: UUID?, defaults: UserDefaults = .standard) -> [String] {
+        guard let profile else { return [] }
+        return storedRows(defaults)[profile.uuidString]?[source.token] ?? []
+    }
+
+    /// Profile → row token → item keys.
+    private static func storedRows(_ defaults: UserDefaults) -> [String: [String: [String]]] {
+        defaults.dictionary(forKey: rowItemsKey) as? [String: [String: [String]]] ?? [:]
     }
 }
