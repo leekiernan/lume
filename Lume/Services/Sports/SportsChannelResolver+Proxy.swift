@@ -98,20 +98,22 @@ nonisolated extension SportsChannelResolver {
                       candidate.name == channel.summary.name,
                       candidate.epgID == (channel.summary.epgChannelId ?? ""),
                       channel.categoryID == CatalogID.category(playlistID, type: "live", key: candidate.categoryID),
-                      candidate.evidence.isValid(kickoff: fixture.startDate) else { continue }
-                let evidence = candidate.evidence
+                      let evidence = candidate.evidence.validated(kickoff: fixture.startDate) else { continue }
                 let source: ResolvedChannelSource
                 let score: Int
-                switch evidence.strength {
-                case "explicit_pairing":
-                    // A reviewed supplement backs a provider guide that didn't
-                    // name the fixture; the provider's own headline ranks above it.
-                    source = .epgTitleSubtitle
-                    score = evidence.source == "provider" ? 4 : 3
-                case "description_pairing":
-                    source = .epgDescription
-                    score = 1
-                default:
+                switch evidence {
+                case let .timed(value):
+                    switch value.pairing {
+                    case .explicit:
+                        // A reviewed supplement backs a provider guide that didn't
+                        // name the fixture; the provider's own headline ranks above it.
+                        source = .epgTitleSubtitle
+                        score = value.source == .provider ? 4 : 3
+                    case .description:
+                        source = .epgDescription
+                        score = 1
+                    }
+                case .untimedChannelPairing:
                     source = .channelName
                     score = nameMatchScore
                     plan.suggestionIDs.insert(id)

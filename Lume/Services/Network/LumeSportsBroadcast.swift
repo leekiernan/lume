@@ -71,21 +71,6 @@ nonisolated struct LumeSportsEvidence: Decodable, Hashable {
         case programmeID = "programme_id"
         case source, field, text, strength, classification, start, stop
     }
-
-    func isValid(kickoff: Date) -> Bool {
-        guard !text.isEmpty, text.count <= 4096,
-              ["live", "unknown"].contains(classification) else { return false }
-        if strength == "untimed_channel_pairing" {
-            return source == "provider_channel" && field == "name" && start == nil && stop == nil && programmeID == nil
-        }
-        guard source == "provider" || source.hasPrefix("supplement:"),
-              (strength == "explicit_pairing" && ["title", "subtitle"].contains(field))
-              || (strength == "description_pairing" && field == "description"),
-              let programmeID, !programmeID.isEmpty, let start, let stop,
-              start >= kickoff.addingTimeInterval(-SportsMatcher.leadTime),
-              start <= kickoff.addingTimeInterval(SportsMatcher.lateStart), stop > kickoff, stop > start else { return false }
-        return true
-    }
 }
 
 nonisolated struct LumeSportsBatch: Decodable {

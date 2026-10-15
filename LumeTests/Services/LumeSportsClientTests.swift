@@ -180,7 +180,7 @@ struct LumeSportsClientTests {
         candidate["evidence"] = evidence
         let invalid = try #require(try LumeSportsBatch.decode(Data(body(items: [item(candidates: [candidate])]).utf8)))
         let decoded = try #require(invalid.items.first?.value?.candidates?.first?.evidence)
-        #expect(!decoded.isValid(kickoff: now))
+        #expect(decoded.validated(kickoff: now) == nil)
     }
 
     @Test func `outage cooldown prevents timeout fanout across batches and surfaces`() async throws {
