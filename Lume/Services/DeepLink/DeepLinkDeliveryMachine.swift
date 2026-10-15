@@ -10,8 +10,13 @@ nonisolated struct DeepLinkDeliveryMachine: Equatable {
 
     struct Readiness: Equatable {
         let profileReady: Bool
+        /// The catalogue is open and launch has decided what to sync.
         let catalogReady: Bool
         let presentationBlocked: Bool
+        /// A playlist sync is running. It doesn't hold a link back — the
+        /// catalogue is browsable while it syncs, and a full sync takes
+        /// minutes — but a link it may still bring in waits for it.
+        var catalogSyncing = false
 
         var canResolve: Bool {
             profileReady && catalogReady && !presentationBlocked
@@ -49,9 +54,16 @@ nonisolated struct DeepLinkDeliveryMachine: Equatable {
         return request
     }
 
-    /// A newer URL owns delivery even if the old lookup returns later.
-    mutating func finish(_ request: Request, outcome: Outcome) -> Bool {
+    /// A newer URL owns delivery even if the old lookup returns later. A link
+    /// the catalogue doesn't have yet goes back to waiting while a sync runs
+    /// (a first sync on a new device) and is tried again when it ends;
+    /// returns false then, as the link is still pending.
+    mutating func finish(_ request: Request, outcome: Outcome, whileSyncing syncing: Bool = false) -> Bool {
         guard state == .resolving(request) else { return false }
+        if outcome == .rejected, syncing {
+            state = .waiting(request)
+            return false
+        }
         state = .finished(request, outcome)
         return true
     }

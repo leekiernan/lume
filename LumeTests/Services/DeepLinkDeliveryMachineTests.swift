@@ -48,4 +48,35 @@ struct DeepLinkDeliveryMachineTests {
         let currentAccepted = machine.finish(current, outcome: .handled)
         #expect(currentAccepted)
     }
+
+    /// A sync doesn't hold a link back: the catalogue is browsable while it
+    /// runs, and a full sync takes minutes.
+    @Test func `a running sync doesn't hold a link back`() {
+        var machine = DeepLinkDeliveryMachine()
+        machine.receive(url)
+        let syncing = DeepLinkDeliveryMachine.Readiness(
+            profileReady: true, catalogReady: true, presentationBlocked: false, catalogSyncing: true
+        )
+        let started = machine.begin(when: syncing)
+        #expect(started != nil)
+    }
+
+    /// A link the catalogue doesn't have yet waits while a sync could still
+    /// bring it in, and is tried again once the sync ends.
+    @Test func `a link not yet in the catalogue waits for the sync`() throws {
+        var machine = DeepLinkDeliveryMachine()
+        machine.receive(url)
+        let token = machine.pendingToken
+        let started = machine.begin(when: ready)
+        let first = try #require(started)
+        let settled = machine.finish(first, outcome: .rejected, whileSyncing: true)
+        #expect(!settled)
+        #expect(machine.pendingToken == token)
+
+        let retried = machine.begin(when: ready)
+        let second = try #require(retried)
+        let finished = machine.finish(second, outcome: .rejected)
+        #expect(finished)
+        #expect(machine.pendingToken == nil)
+    }
 }

@@ -123,9 +123,9 @@ struct MainTabView: View {
         #endif
         return .init(
             profileReady: profileManager?.isReady ?? true,
-            catalogReady: preparedAutoSyncTrigger == autoSyncTrigger && !isAutoSyncBusy
-                && backgroundSyncIDs.isEmpty && !playlists.contains { $0.syncStatus == .syncing },
-            presentationBlocked: blocked
+            catalogReady: preparedAutoSyncTrigger == autoSyncTrigger,
+            presentationBlocked: blocked,
+            catalogSyncing: isAutoSyncBusy || !backgroundSyncIDs.isEmpty || playlists.contains { $0.syncStatus == .syncing }
         )
     }
 
@@ -244,7 +244,9 @@ struct MainTabView: View {
                 await Task.yield()
                 guard !Task.isCancelled, let request = linkDelivery.begin(when: linkReadiness) else { return }
                 let outcome = handleDeepLink(request.url)
-                if linkDelivery.finish(request, outcome: outcome) { pendingLink.wrappedValue = nil }
+                if linkDelivery.finish(request, outcome: outcome, whileSyncing: linkReadiness.catalogSyncing) {
+                    pendingLink.wrappedValue = nil
+                }
             }
         #if !os(macOS)
             .fullScreenCover(item: $linkedMedia) { media in
