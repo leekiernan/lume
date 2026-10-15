@@ -152,38 +152,35 @@ nonisolated struct TMDBClient {
         return titles
     }
 
-    static var heroBackdropSize: String {
+    static var heroBackdropSize: TMDBBackdropSize {
         // A supported baseline for metadata/warm-start URLs. Hero rendering
         // selects a larger original or a smaller rendition from its geometry.
-        "w1280"
+        .w1280
     }
 
-    static var heroLogoSize: String {
+    static var heroLogoSize: TMDBLogoSize {
         #if os(tvOS)
-            "original"
+            .original
         #else
-            "w500"
+            .w500
         #endif
     }
 
     /// Builds a full image URL from a TMDB relative path (e.g. `/abc.jpg`).
     /// Defaults to the platform-appropriate hero backdrop size.
-    static func backdropURL(_ path: String?, size: String = heroBackdropSize) -> URL? {
-        guard let path, !path.isEmpty else { return nil }
-        return URL(string: imageBaseURL + size + path)
+    static func backdropURL(_ path: String?, size: TMDBBackdropSize = heroBackdropSize) -> URL? {
+        TMDBArtworkURL.url(TMDBImagePath(path), size: size)
     }
 
     /// Builds a full cast-profile image URL from a TMDB relative path.
-    static func profileURL(_ path: String?, size: String = "w185") -> URL? {
-        guard let path, !path.isEmpty else { return nil }
-        return URL(string: imageBaseURL + size + path)
+    static func profileURL(_ path: String?, size: TMDBProfileSize = .w185) -> URL? {
+        TMDBArtworkURL.url(TMDBImagePath(path), size: size)
     }
 
     /// Builds a full title-logo image URL from a TMDB relative path. Logos are
     /// transparent PNGs of the title's wordmark, sized for the hero treatments.
-    static func logoURL(_ path: String?, size: String = heroLogoSize) -> URL? {
-        guard let path, !path.isEmpty else { return nil }
-        return URL(string: imageBaseURL + size + path)
+    static func logoURL(_ path: String?, size: TMDBLogoSize = heroLogoSize) -> URL? {
+        TMDBArtworkURL.url(TMDBImagePath(path), size: size)
     }
 
     // MARK: - Title details

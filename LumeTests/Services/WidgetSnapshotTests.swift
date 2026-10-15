@@ -168,7 +168,7 @@ struct WidgetSnapshotExporterTests {
         #expect(movie.title == "Resumable")
         #expect(movie.backdropURL == TMDBClient.backdropURL("/m1-backdrop.jpg"))
         // The carousel draws the title's logo into its art.
-        #expect(movie.logoURL == TMDBClient.logoURL("/m1-logo.png", size: "w500"))
+        #expect(movie.logoURL == TMDBClient.logoURL("/m1-logo.png", size: .w500))
         #expect(episode.logoURL == nil)
         // Select opens the detail screen — an episode's is its show's.
         #expect(movie.detailLink == WidgetDeepLink.openMovie(id: "\(playlist.id.uuidString)-m1"))

@@ -36,8 +36,8 @@ nonisolated enum HeroArtworkPolicy {
     }
 
     static func posterURL(_ url: URL?, pixelWidth: CGFloat) -> URL? {
-        let size = pixelWidth <= 342 ? "w342" : pixelWidth <= 500 ? "w500" : pixelWidth <= 780 ? "w780" : "original"
-        return TMDBArtworkURL.resized(url, to: size, allowedSizes: ["w92", "w154", "w185", "w342", "w500", "w780", "original"])
+        let size: TMDBPosterSize = pixelWidth <= 342 ? .w342 : pixelWidth <= 500 ? .w500 : pixelWidth <= 780 ? .w780 : .original
+        return TMDBArtworkURL.resized(url, to: size)
     }
 
     /// Stable from the first layout pass, including the warm-start placeholder.
@@ -61,7 +61,7 @@ nonisolated enum HeroArtworkPolicy {
     /// TMDB sizes resize the same composition; they are not alternative crops.
     /// Restrict rewriting to known TMDB raster backdrop URLs, never provider art.
     static func backdropURL(_ url: URL?, pixelWidth: CGFloat) -> URL? {
-        let size = pixelWidth <= 300 ? "w300" : pixelWidth <= 780 ? "w780" : pixelWidth <= 1280 ? "w1280" : "original"
-        return TMDBArtworkURL.resized(url, to: size, allowedSizes: ["w300", "w780", "w1280", "w1920", "original"])
+        let size: TMDBBackdropSize = pixelWidth <= 300 ? .w300 : pixelWidth <= 780 ? .w780 : pixelWidth <= 1280 ? .w1280 : .original
+        return TMDBArtworkURL.resized(url, to: size)
     }
 }

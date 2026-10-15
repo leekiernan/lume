@@ -118,8 +118,8 @@ struct TMDBClientTests {
     }
 
     @Test func `backdrop URL custom size`() {
-        let url = TMDBClient.backdropURL("/abc.jpg", size: "w500")
-        #expect(url?.absoluteString == "https://image.tmdb.org/t/p/w500/abc.jpg")
+        let url = TMDBClient.backdropURL("/abc.jpg", size: .w780)
+        #expect(url?.absoluteString == "https://image.tmdb.org/t/p/w780/abc.jpg")
     }
 
     // MARK: - profileURL
@@ -135,7 +135,7 @@ struct TMDBClientTests {
     }
 
     @Test func `profile URL custom size`() {
-        let url = TMDBClient.profileURL("/def.jpg", size: "w45")
+        let url = TMDBClient.profileURL("/def.jpg", size: .w45)
         #expect(url?.absoluteString == "https://image.tmdb.org/t/p/w45/def.jpg")
     }
 

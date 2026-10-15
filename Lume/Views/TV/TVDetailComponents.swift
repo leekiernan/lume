@@ -384,7 +384,7 @@
 
         var body: some View {
             VStack(spacing: 14) {
-                CachedAsyncImage(url: TMDBClient.profileURL(member.profilePath, size: "w342"), maxPixelSize: TVDetailMetrics.castAvatar) { phase in
+                CachedAsyncImage(url: TMDBClient.profileURL(member.profilePath, size: .h632), maxPixelSize: TVDetailMetrics.castAvatar) { phase in
                     switch phase {
                     case let .success(image):
                         image.resizable().aspectRatio(contentMode: .fill)

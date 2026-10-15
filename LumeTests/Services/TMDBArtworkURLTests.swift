@@ -7,7 +7,7 @@ struct TMDBArtworkURLTests {
         let path = " /poster.jpg\n"
         #expect(TMDBClient.posterURL(path)?.absoluteString == "https://image.tmdb.org/t/p/w500/poster.jpg")
         #expect(TMDBClient.posterURL(path) == PosterArtworkSource(provider: nil, posterPath: path).primaryURL)
-        #expect(TMDBClient.posterURL(path, size: "original")?.path == "/t/p/original/poster.jpg")
+        #expect(TMDBClient.posterURL(path, size: .original)?.path == "/t/p/original/poster.jpg")
         #expect(TMDBClient.posterURL(nil) == nil)
     }
 

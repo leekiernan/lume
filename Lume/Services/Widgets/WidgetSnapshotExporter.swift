@@ -478,7 +478,7 @@ enum WidgetSnapshotExporter {
     /// The carousel draws a logo about a third of its width: enough at this
     /// size, where the hero's `original` would be a large download for an
     /// extension.
-    private nonisolated static let topShelfLogoSize = "w500"
+    private nonisolated static let topShelfLogoSize: TMDBLogoSize = .w500
 
     private nonisolated static func item(_ movie: Movie, progress: Bool) -> WidgetMediaItem? {
         guard let deepLink = WidgetDeepLink.play(kind: .movie, id: movie.id) else { return nil }

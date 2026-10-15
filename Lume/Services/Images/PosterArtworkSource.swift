@@ -9,7 +9,7 @@ nonisolated struct PosterArtworkSource: Hashable {
 
     init(provider: String?, posterPath: String?) {
         let raw = provider?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        providerURL = Self.remoteURL(raw)
+        providerURL = RemoteImageURL(raw)?.url
 
         tmdbURL = TMDBClient.posterURL(posterPath)
 
@@ -31,12 +31,5 @@ nonisolated struct PosterArtworkSource: Hashable {
         guard failed else { return primaryURL }
         guard providerURL != nil, tmdbURL != primaryURL else { return nil }
         return tmdbURL
-    }
-
-    private static func remoteURL(_ raw: String) -> URL? {
-        guard let url = URL(string: raw),
-              ["http", "https"].contains(url.scheme?.lowercased() ?? ""),
-              let host = url.host, !host.isEmpty else { return nil }
-        return url
     }
 }
