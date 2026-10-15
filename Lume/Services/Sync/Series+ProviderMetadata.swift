@@ -29,7 +29,7 @@ nonisolated extension Series {
         if !fillMissing {
             let catalogueOwned = tmdbAssignment?.origin == .catalogue
             applyCatalogueTMDB(metadata.tmdb, previous: nil)
-            if Self.catalogueTMDB(metadata.tmdb) != nil || catalogueOwned { tmdb = metadata.tmdb }
+            if Self.catalogueTMDB(metadata.tmdb) != nil || catalogueOwned, tmdb != metadata.tmdb { tmdb = metadata.tmdb }
         } else if tmdbId == nil, let id = Self.catalogueTMDB(metadata.tmdb), let identity = TMDBSeriesID(id) {
             assignTMDB(.series(identity), origin: .providerDetails)
             tmdb = metadata.tmdb
