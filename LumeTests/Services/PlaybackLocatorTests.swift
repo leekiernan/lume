@@ -7,7 +7,8 @@ struct PlaybackLocatorTests {
         let value = "ffmpeg http://localhost/ch/1_"
         let command = try #require(PlaybackLocator(stored: value, source: .stalker, portalType: .itv))
         guard case .portal = command else { Issue.record("Expected portal command"); return }
-        let decoded = try #require(StalkerLink.decode(#require(command.playerURL)))
+        let placeholder = try #require(command.playerURL)
+        let decoded = try #require(StalkerLink.decode(placeholder))
         #expect(decoded.cmd == value && decoded.type == .itv)
         #expect(PlaybackLocator(stored: value, source: .m3u, portalType: .itv) == nil)
     }
