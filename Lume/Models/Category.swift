@@ -87,9 +87,8 @@ final class Category {
 }
 
 extension Category {
-    var type: CategoryType {
-        get { CategoryType(rawValue: typeRaw) ?? .live }
-        set { typeRaw = newValue.rawValue }
+    var type: CategoryType? {
+        CategoryType(rawValue: typeRaw)
     }
 
     convenience init(apiId: String, name: String, parentId: Int, type: CategoryType, playlist: Playlist? = nil) {

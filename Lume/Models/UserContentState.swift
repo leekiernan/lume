@@ -75,9 +75,10 @@ final class UserContentState {
 
     var updatedAt: Date = Date()
 
-    var kind: SyncedContentKind {
-        get { SyncedContentKind(rawValue: kindRaw) ?? .movie }
-        set { kindRaw = newValue.rawValue }
+    /// A newer client may introduce another kind. Preserve that record rather
+    /// than interpreting or rewriting it as an unrelated movie.
+    var kind: SyncedContentKind? {
+        SyncedContentKind(rawValue: kindRaw)
     }
 
     init(
