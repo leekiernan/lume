@@ -550,7 +550,9 @@ nonisolated extension TitleDetailsResponse {
     /// language-neutral one, and finally any other; ties broken by TMDB vote
     /// average. `preferredLanguage` is an ISO 639-1 code (e.g. `de`).
     private func bestLogoPath(preferredLanguage: String) -> String? {
-        let logos = images?.logos ?? []
+        // Rank only artwork our raster renderer can use. A preferred SVG or
+        // malformed path must not hide the next usable wordmark.
+        let logos = (images?.logos ?? []).filter { TMDBImagePath($0.filePath) != nil }
         guard !logos.isEmpty else { return nil }
         func rank(_ logo: LogoEntry) -> Int {
             switch logo.languageCode {
