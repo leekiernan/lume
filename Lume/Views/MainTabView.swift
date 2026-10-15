@@ -41,6 +41,9 @@ struct MainTabView: View {
     var pendingLink: Binding<URL?> = .constant(nil)
     @State var linkDelivery = DeepLinkDeliveryMachine()
     @State private var preparedAutoSyncTrigger: AutoSyncTrigger?
+    /// A nil sync request starts dismissal; only onDismiss releases the host
+    /// for a linked player. Do not consume its URL mid-animation.
+    @State private var autoSyncCoverActive = false
     /// Selected tab and the Movies/Series navigation stacks, shared so a
     /// deep link can switch tabs and push a detail screen.
     @State var router = DeepLinkRouter()
@@ -114,7 +117,7 @@ struct MainTabView: View {
     }
 
     private var linkReadiness: DeepLinkDeliveryMachine.Readiness {
-        var blocked = hasBlockingPresentation || linkedMedia != nil
+        var blocked = hasBlockingPresentation || autoSyncCoverActive || linkedMedia != nil
         #if os(tvOS)
             blocked = blocked || router.isQuickSwitchPresented || router.isMultiViewPresented
         #endif
@@ -285,7 +288,13 @@ struct MainTabView: View {
             .onChange(of: cloudSync?.status.lastPlaylistReconnection) { _, reconnection in
                 if let reconnection { retryFailedSyncs(reconnection.ids) }
             }
-            .syncCover(item: $activeSyncRequest, onDismiss: promoteNextIfIdle)
+            .onChange(of: activeSyncRequest?.id, initial: true) { _, id in
+                if id != nil { autoSyncCoverActive = true }
+            }
+            .syncCover(item: $activeSyncRequest) {
+                autoSyncCoverActive = false
+                promoteNextIfIdle()
+            }
             .onChange(of: isAutoSyncBusy, initial: true) { _, busy in
                 EPGSyncService.shared.setAutoSyncQueued(busy)
             }
