@@ -37,7 +37,7 @@ import os
 
 final nonisolated class TextEmbedder {
     enum EmbedderError: Error {
-        /// No embedding model of any kind exists for this device.
+        /// The selected model could not be acquired within this pass's budget.
         case modelUnavailable
         /// Model assets are not on-device and could not be downloaded.
         case assetsUnavailable
@@ -90,19 +90,19 @@ final nonisolated class TextEmbedder {
     /// contextual model's assets are never served there and asking for them
     /// hangs. Everywhere else the contextual model is the only choice, so that
     /// one device can never end up with a catalog embedded half in each space.
-    static func preferred() throws -> TextEmbedder {
+    static func preferred() async throws -> TextEmbedder {
         #if os(tvOS)
-            try sentence()
+            try await sentence()
         #else
-            try contextual()
+            try await contextual()
         #endif
     }
 
     /// The contextual (preferred) embedder. The Latin-script model covers every
     /// language the app localizes to plus most other European ones in one shared
     /// vector space. `prepare()` must succeed before `vector(for:)`.
-    static func contextual() throws -> TextEmbedder {
-        guard let embedding = NLContextualEmbedding(script: .latin) else {
+    static func contextual() async throws -> TextEmbedder {
+        guard let embedding = try await EmbeddingModelAcquisition.acquire(lookup: { NLContextualEmbedding(script: .latin) }) else {
             throw EmbedderError.modelUnavailable
         }
         return TextEmbedder(backend: .contextual(embedding))
@@ -117,8 +117,8 @@ final nonisolated class TextEmbedder {
     /// because the genre words carry the signal and most are cognates. Not worth
     /// a second, English-language TMDB fetch per title (which would also
     /// overwrite the localized genre the user sees).
-    static func sentence() throws -> TextEmbedder {
-        guard let embedding = NLEmbedding.sentenceEmbedding(for: .english) else {
+    static func sentence() async throws -> TextEmbedder {
+        guard let embedding = try await EmbeddingModelAcquisition.acquire(lookup: { NLEmbedding.sentenceEmbedding(for: .english) }) else {
             throw EmbedderError.modelUnavailable
         }
         return TextEmbedder(backend: .sentence(embedding))

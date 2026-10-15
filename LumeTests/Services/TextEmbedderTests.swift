@@ -8,7 +8,7 @@
 //  The tests run on the iOS simulator only (see CLAUDE.md), so the tvOS branch
 //  of `TextEmbedder.preferred()` cannot be exercised here — what *is* covered is
 //  everything the tvOS path depends on: that the sentence backend loads with no
-//  assets and no network, that it produces usable vectors, that it is stamped
+//  assets and no network (with bounded OS discovery retries), that it produces usable vectors, that it is stamped
 //  with its own space id, and that a space change invalidates the store.
 //
 
@@ -20,7 +20,7 @@ struct TextEmbedderTests {
     // MARK: - Backends
 
     @Test func `sentence backend needs no assets and no prepare`() async throws {
-        let embedder = try TextEmbedder.sentence()
+        let embedder = try await TextEmbedder.sentence()
         // Must not hang, throw or reach the network — this is the whole point
         // of the backend on tvOS, where contextual assets are never served.
         try await embedder.prepare()
@@ -30,8 +30,8 @@ struct TextEmbedderTests {
         #expect(vector.contains { $0 != 0 })
     }
 
-    @Test func `sentence backend separates genres in short documents`() throws {
-        let embedder = try TextEmbedder.sentence()
+    @Test func `sentence backend separates genres in short documents`() async throws {
+        let embedder = try await TextEmbedder.sentence()
         func vector(_ text: String) throws -> [Float] {
             let vector = try embedder.vector(for: text)
             return try #require(vector)
@@ -47,21 +47,24 @@ struct TextEmbedderTests {
             > RecommendationScoring.cosineSimilarity(nemo, godfather))
     }
 
-    @Test func `sentence backend prefers short documents`() throws {
-        #expect(try TextEmbedder.sentence().prefersShortDocuments)
+    @Test func `sentence backend prefers short documents`() async throws {
+        let embedder = try await TextEmbedder.sentence()
+        #expect(embedder.prefersShortDocuments)
     }
 
-    @Test func `backends occupy different vector spaces`() throws {
-        let sentence = try TextEmbedder.sentence()
+    @Test func `backends occupy different vector spaces`() async throws {
+        let sentence = try await TextEmbedder.sentence()
         // Not available on every host; skip rather than fail when it isn't.
-        guard let contextual = try? TextEmbedder.contextual() else { return }
+        guard let contextual = try? await TextEmbedder.contextual() else { return }
         #expect(sentence.spaceID != contextual.spaceID)
         #expect(!contextual.prefersShortDocuments)
     }
 
-    @Test func `unload is safe on a backend that was never prepared`() throws {
-        try TextEmbedder.sentence().unload()
-        try TextEmbedder.sentence().unload()
+    @Test func `unload is safe on a backend that was never prepared`() async throws {
+        let first = try await TextEmbedder.sentence()
+        let second = try await TextEmbedder.sentence()
+        first.unload()
+        second.unload()
     }
 
     // MARK: - Space bookkeeping
