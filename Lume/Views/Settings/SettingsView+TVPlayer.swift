@@ -127,7 +127,7 @@ import SwiftUI
                 TVSettingsSectionLabel("Subtitles")
 
                 Button {
-                    showingSubtitleStyle = true
+                    playerRoute = .subtitleStyle
                 } label: {
                     HStack(spacing: 16) {
                         Text("Subtitle Style")
@@ -145,7 +145,7 @@ import SwiftUI
         /// options in place. Returning focus to the sidebar (Menu) restores it.
         private func tvEngineOptionsRow(_ engine: PlayerEngineKind) -> some View {
             Button {
-                selectedEngineOptions = engine
+                playerRoute = .engine(engine)
             } label: {
                 HStack(spacing: 16) {
                     Text("\(engine.displayName) Options")
@@ -253,7 +253,7 @@ import SwiftUI
         /// list in place, mirroring `tvEngineOptionsRow`.
         private func tvPreferredLanguageRow() -> some View {
             Button {
-                preferredLanguagePane = .list
+                playerRoute = .languages(.list)
             } label: {
                 HStack(spacing: 16) {
                     Text("Audio Languages")
@@ -288,7 +288,7 @@ import SwiftUI
         /// The drilled-in pane for the language list: the ordered list itself,
         /// or the add picker one level deeper.
         @ViewBuilder
-        func tvPreferredLanguageDetail(_ pane: PreferredLanguagePane, proxy: ScrollViewProxy) -> some View {
+        func tvPreferredLanguageDetail(_ pane: PlayerSettingsRoute.LanguagePane, proxy: ScrollViewProxy) -> some View {
             switch pane {
             case .list: tvPreferredLanguageOrderDetail(proxy: proxy)
             case .add: tvAddPreferredLanguageDetail()
@@ -332,7 +332,7 @@ import SwiftUI
 
                 VStack(alignment: .leading, spacing: 8) {
                     Button {
-                        preferredLanguagePane = .add
+                        playerRoute = .languages(.add)
                     } label: {
                         HStack(spacing: 16) {
                             Text("Add Language")
@@ -396,7 +396,7 @@ import SwiftUI
         private func tvAddPreferredLanguageRow(_ language: PreferredLanguage) -> some View {
             Button {
                 setPreferredLanguageCodes(preferredLanguageCodes + [language.code])
-                preferredLanguagePane = .list
+                playerRoute = .languages(.list)
             } label: {
                 HStack(spacing: 16) {
                     Text(verbatim: language.name)

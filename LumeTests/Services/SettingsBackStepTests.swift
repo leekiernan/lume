@@ -5,17 +5,13 @@ struct SettingsBackStepTests {
     private func step(
         playlist: Bool = false,
         epg: Bool = false,
-        engine: Bool = false,
-        language: SettingsBackStep.LanguagePane? = nil,
-        subtitleStyle: Bool = false,
+        player: PlayerSettingsRoute = .overview,
         areas: Bool = false
     ) -> SettingsBackStep {
         SettingsBackStep.next(
             hasPlaylist: playlist,
             showingEPGSources: epg,
-            hasEngineOptions: engine,
-            languagePane: language,
-            showingSubtitleStyle: subtitleStyle,
+            playerRoute: player,
             showingAreaCategories: areas
         )
     }
@@ -27,13 +23,31 @@ struct SettingsBackStepTests {
     @Test func `each drill-in closes before reaching the sidebar`() {
         #expect(step(playlist: true) == .closePlaylist)
         #expect(step(epg: true) == .closeEPGSources)
-        #expect(step(engine: true) == .closeEngineOptions)
-        #expect(step(subtitleStyle: true) == .closeSubtitleStyle)
+        #expect(step(player: .engine(.ksPlayer)) == .closeEngineOptions)
+        #expect(step(player: .subtitleStyle) == .closeSubtitleStyle)
         #expect(step(areas: true) == .closeAreaCategories)
     }
 
     @Test func `the language picker steps back to the list, then to the player`() {
-        #expect(step(language: .add) == .closeLanguagePicker)
-        #expect(step(language: .list) == .closeLanguageList)
+        #expect(step(player: .languages(.add)) == .closeLanguagePicker)
+        #expect(step(player: .languages(.list)) == .closeLanguageList)
+    }
+
+    @Test func `player drill-ins have a single parent route`() {
+        var route = PlayerSettingsRoute.languages(.add)
+        let toList = route.goBack()
+        #expect(toList)
+        #expect(route == .languages(.list))
+        let toOverview = route.goBack()
+        #expect(toOverview)
+        #expect(route == .overview)
+        let atRoot = route.goBack()
+        #expect(!atRoot)
+        route = .engine(.ksPlayer)
+        let fromEngine = route.goBack()
+        #expect(fromEngine && route == .overview)
+        route = .subtitleStyle
+        let fromStyle = route.goBack()
+        #expect(fromStyle && route == .overview)
     }
 }

@@ -138,12 +138,23 @@ struct TopShelfSettingsTests {
 
     /// A failed or offline load must not wipe what a row last showed, and a
     /// batch writes every changed row.
-    @Test func `an empty load keeps a row's titles, and a batch records every row`() throws {
+    @Test func `a successful empty load clears only its own row and profile`() throws {
         let defaults = try makeDefaults()
         let profile = UUID()
         TopShelfSettings.record([homeTrending: ["movie-a"], moviesFavorites: ["movie-b"]], profile: profile, defaults: defaults)
+        let other = UUID()
+        TopShelfSettings.record(["movie-z"], for: homeTrending, profile: other, defaults: defaults)
         TopShelfSettings.record([homeTrending: []], profile: profile, defaults: defaults)
-        #expect(TopShelfSettings.recordedItems(for: homeTrending, profile: profile, defaults: defaults) == ["movie-a"])
+        #expect(TopShelfSettings.recordedItems(for: homeTrending, profile: profile, defaults: defaults).isEmpty)
         #expect(TopShelfSettings.recordedItems(for: moviesFavorites, profile: profile, defaults: defaults) == ["movie-b"])
+        #expect(TopShelfSettings.recordedItems(for: homeTrending, profile: other, defaults: defaults) == ["movie-z"])
+    }
+
+    @Test func `unavailable rows preserve their last good titles`() throws {
+        let defaults = try makeDefaults()
+        let profile = UUID()
+        TopShelfSettings.record(["movie-a"], for: homeTrending, profile: profile, defaults: defaults)
+        TopShelfSettings.record([homeTrending: TopShelfRowContent.unavailable], profile: profile, defaults: defaults)
+        #expect(TopShelfSettings.recordedItems(for: homeTrending, profile: profile, defaults: defaults) == ["movie-a"])
     }
 }

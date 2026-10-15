@@ -42,6 +42,31 @@ nonisolated struct TopShelfRowPlan: Equatable {
     let source: TopShelfSource
     let title: String
     let recordedItems: [String]
+
+    /// The row as the layout defines it — which row and what it's called —
+    /// without the titles it last recorded, which change whenever a feed
+    /// loads.
+    var layoutIdentity: String {
+        "\(source.token)|\(title)"
+    }
+
+    /// Whether an export planned from `planned` may still publish against
+    /// `current`: the same rows, named the same, in the same order. Recorded
+    /// titles don't count — feeds record as they load, and comparing them
+    /// would discard an export whenever a row finished loading mid-export.
+    static func sameLayout(_ planned: [Self], _ current: [Self]) -> Bool {
+        planned.map(\.layoutIdentity) == current.map(\.layoutIdentity)
+    }
+}
+
+/// Capture settings once, rather than mixing the enqueue-time rows with
+/// profile or layout values read later on a background task.
+nonisolated struct TopShelfExportInput: Equatable {
+    let request: TopShelfExportRequest
+    let followed: UUID?
+    let playlistID: String
+    let rows: [TopShelfRowPlan]
+    let configuration: TopShelfConfiguration
 }
 
 enum WidgetSnapshotExporter {
@@ -75,11 +100,13 @@ enum WidgetSnapshotExporter {
     /// Run by `TopShelfRefresher`, one export at a time.
     nonisolated static func export(
         container: ModelContainer,
-        rows: [TopShelfRowPlan],
-        request: TopShelfExportRequest,
+        input: TopShelfExportInput,
+        canPublish: @escaping @MainActor @Sendable () -> Bool,
         now: Date = Date()
     ) async {
-        let followed = TopShelfSettings.followedProfile()
+        guard !Task.isCancelled else { return }
+        let request = input.request
+        let followed = input.followed
         var snapshot: WidgetSnapshot
         switch TopShelfSettings.exportAction(
             followed: followed,
@@ -97,16 +124,15 @@ enum WidgetSnapshotExporter {
                 Logger.database.info("Top Shelf export skipped: the profile changed since it was asked for")
                 return
             }
-            let storedID = UserDefaults.standard.string(forKey: PlaylistSelectionStore.key) ?? ""
             snapshot = makeSnapshot(
                 container: container,
-                rows: rows,
-                storedPlaylistID: storedID,
+                rows: input.rows,
+                storedPlaylistID: input.playlistID,
                 isChildProfile: request.isChildProfile,
                 now: now
             )
         }
-        snapshot.topShelf = TopShelfSettings.configuration()
+        snapshot.topShelf = input.configuration
         let owner = snapshot.sections.isEmpty ? nil : followed
         #if os(tvOS)
             // The carousel's art, with each title's logo drawn in, is rendered
@@ -115,29 +141,40 @@ enum WidgetSnapshotExporter {
             // follows in a second write once it has rendered.
             let carousel = snapshot.topShelf?.style == .carousel
             if carousel { TopShelfCarouselArt.applyCached(to: &snapshot) }
-            write(snapshot, owner: owner)
+            guard await publish(snapshot, owner: owner, canPublish: canPublish) else { return }
             if carousel, await TopShelfCarouselArt.renderMissing(in: &snapshot) {
-                write(snapshot, owner: owner)
+                guard await publish(snapshot, owner: owner, canPublish: canPublish) else { return }
             }
+            guard !Task.isCancelled, await canPublish() else { return }
             TopShelfCarouselArt.prune(keeping: carousel ? snapshot : WidgetSnapshot(generatedAt: now, sections: []))
         #else
-            write(snapshot, owner: owner)
+            _ = await publish(snapshot, owner: owner, canPublish: canPublish)
         #endif
+    }
+
+    /// Validation and publication share the main actor with settings changes,
+    /// so an obsolete render cannot write after a newer request invalidates it.
+    private static func publish(_ snapshot: WidgetSnapshot, owner: UUID?, canPublish: @MainActor () -> Bool) -> Bool {
+        guard !Task.isCancelled, canPublish() else {
+            Logger.database.info("Top Shelf export superseded before publishing")
+            return false
+        }
+        return write(snapshot, owner: owner)
     }
 
     /// Saves the snapshot unless it shows what the one on disk already does:
     /// every backgrounding asks for an export, and an unchanged one would
     /// still make the Top Shelf reload its images.
-    private nonisolated static func write(_ snapshot: WidgetSnapshot, owner: UUID?) {
+    private nonisolated static func write(_ snapshot: WidgetSnapshot, owner: UUID?) -> Bool {
         if let current = WidgetDataStore.load(), current.sections == snapshot.sections, current.topShelf == snapshot.topShelf {
             TopShelfSettings.setSnapshotProfile(owner)
-            return
+            return true
         }
         do {
             try WidgetDataStore.save(snapshot)
         } catch {
             Logger.database.error("Top Shelf snapshot export failed: \(error.localizedDescription, privacy: .public)")
-            return
+            return false
         }
         TopShelfSettings.setSnapshotProfile(owner)
         let counts = snapshot.sections.map { "\($0.id)=\($0.items.count)" }.joined(separator: ", ")
@@ -145,6 +182,7 @@ enum WidgetSnapshotExporter {
         #if os(tvOS)
             TVTopShelfContentProvider.topShelfContentDidChange()
         #endif
+        return true
     }
 
     /// Builds the snapshot for the active playlist. Hidden categories and
@@ -202,13 +240,22 @@ enum WidgetSnapshotExporter {
             id.hasPrefix(prefix) && !restriction.hides(categoryID: category)
         }
 
+        var excludedCategories: Set<String?> {
+            Set(restriction.excludedCategoryIDs.map(String?.some))
+        }
+
         /// The recently watched shows, most recent first, and where each
         /// continues — the split the Home and Series rails make
         /// (`ContinueWatchingLoader`): a show with an episode to go is in
         /// Continue Watching, one with none left is in Watch Again.
         private(set) lazy var watchedSeries: (shows: [Series], split: ContinueWatchingLoader.Result) = {
+            let prefix = self.prefix
+            let excluded = excludedCategories
             var descriptor = FetchDescriptor<Series>(
-                predicate: #Predicate { $0.lastWatchedDate != nil },
+                predicate: #Predicate {
+                    $0.lastWatchedDate != nil && $0.id.starts(with: prefix)
+                        && ($0.categoryId == nil || !excluded.contains($0.categoryId))
+                },
                 sortBy: [SortDescriptor(\.lastWatchedDate, order: .reverse)]
             )
             // Both rows together never show more than this many shows.
@@ -245,9 +292,14 @@ enum WidgetSnapshotExporter {
     /// everything — channels watched lately.
     private nonisolated static func continueWatching(_ surface: SectionSurface, in scope: Scope) -> [WidgetMediaItem] {
         var entries: [(date: Date, item: WidgetMediaItem)] = []
+        let prefix = scope.prefix
+        let excluded = scope.excludedCategories
         if surface != .series {
             var descriptor = FetchDescriptor<Movie>(
-                predicate: #Predicate { $0.lastWatchedDate != nil && !$0.isWatched && $0.watchProgress > 0 },
+                predicate: #Predicate {
+                    $0.lastWatchedDate != nil && !$0.isWatched && $0.watchProgress > 0
+                        && $0.id.starts(with: prefix) && ($0.categoryId == nil || !excluded.contains($0.categoryId))
+                },
                 sortBy: [SortDescriptor(\.lastWatchedDate, order: .reverse)]
             )
             descriptor.fetchLimit = limit * 2
@@ -265,7 +317,10 @@ enum WidgetSnapshotExporter {
         }
         if surface == .home {
             var descriptor = FetchDescriptor<LiveStream>(
-                predicate: #Predicate { $0.lastWatchedDate != nil && $0.isHidden == false },
+                predicate: #Predicate {
+                    $0.lastWatchedDate != nil && $0.isHidden == false
+                        && $0.id.starts(with: prefix) && ($0.categoryId == nil || !excluded.contains($0.categoryId))
+                },
                 sortBy: [SortDescriptor(\.lastWatchedDate, order: .reverse)]
             )
             descriptor.fetchLimit = limit
@@ -283,9 +338,14 @@ enum WidgetSnapshotExporter {
     /// the Home and Series rails use (`ContinueWatchingLoader`).
     private nonisolated static func watchAgain(_ surface: SectionSurface, in scope: Scope) -> [WidgetMediaItem] {
         var entries: [(date: Date, item: WidgetMediaItem)] = []
+        let prefix = scope.prefix
+        let excluded = scope.excludedCategories
         if surface != .series {
             var descriptor = FetchDescriptor<Movie>(
-                predicate: #Predicate { $0.lastWatchedDate != nil && $0.isWatched == true },
+                predicate: #Predicate {
+                    $0.lastWatchedDate != nil && $0.isWatched == true
+                        && $0.id.starts(with: prefix) && ($0.categoryId == nil || !excluded.contains($0.categoryId))
+                },
                 sortBy: [SortDescriptor(\.lastWatchedDate, order: .reverse)]
             )
             descriptor.fetchLimit = limit * 2
@@ -346,10 +406,14 @@ enum WidgetSnapshotExporter {
         // The playlist is in the predicate, so other playlists' newer titles
         // can't fill the fetch and leave this row short.
         let prefix = scope.prefix
+        let excluded = scope.excludedCategories
         switch surface {
         case .movies:
             var descriptor = FetchDescriptor<Movie>(
-                predicate: #Predicate { $0.added != nil && $0.id.starts(with: prefix) },
+                predicate: #Predicate {
+                    $0.added != nil && $0.id.starts(with: prefix)
+                        && ($0.categoryId == nil || !excluded.contains($0.categoryId))
+                },
                 sortBy: [SortDescriptor(\.added, comparator: .lexical, order: .reverse)]
             )
             descriptor.fetchLimit = limit * 4
@@ -358,7 +422,10 @@ enum WidgetSnapshotExporter {
                 .compactMap { item($0, progress: false) }
         case .series:
             var descriptor = FetchDescriptor<Series>(
-                predicate: #Predicate { $0.lastModified != nil && $0.id.starts(with: prefix) },
+                predicate: #Predicate {
+                    $0.lastModified != nil && $0.id.starts(with: prefix)
+                        && ($0.categoryId == nil || !excluded.contains($0.categoryId))
+                },
                 sortBy: [SortDescriptor(\.lastModified, comparator: .lexical, order: .reverse)]
             )
             descriptor.fetchLimit = limit * 4

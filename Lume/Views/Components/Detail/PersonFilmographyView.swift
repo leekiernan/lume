@@ -21,11 +21,8 @@ struct PersonFilmographyView: View {
 
     @State private var entries: [HomeListEntry] = []
     @State private var items: [HomeMediaItem] = []
-    @State private var pagination = PaginationMachine()
-    @State private var loadingCredits = true
-    /// The `loadKey` whose credits are in `entries`. `.task` restarts when a
-    /// covered page reappears, and a fetch cut short by that must run again.
-    @State private var loadedKey: String?
+    @State private var loads = PersonFilmographyLoadMachine()
+    @State private var pageTask: Task<Void, Never>?
 
     private let pageSize = 100
 
@@ -42,14 +39,18 @@ struct PersonFilmographyView: View {
             headshot
             CollectionGridContent(
                 items: items,
-                isLoading: loadingCredits || pagination.isLoading,
-                isLoadingMore: pagination.isLoading,
+                isLoading: loads.isLoadingCredits || loads.pagination.isLoading,
+                isLoadingMore: loads.pagination.isLoading,
                 emptyMessage: Text("None of \(route.name)'s films or series are in this playlist."),
                 animationNamespace: animationNamespace,
                 onReachEnd: requestNextPage
             )
         }
         .task(id: loadKey) { await load() }
+        .onDisappear {
+            pageTask?.cancel()
+            loads.cancelPage()
+        }
     }
 
     private var headshot: some View {
@@ -94,35 +95,40 @@ struct PersonFilmographyView: View {
 
     private func load() async {
         let key = loadKey
-        guard loadedKey != key else { return }
-        loadingCredits = true
+        guard let request = loads.beginCredits(for: key) else {
+            if items.isEmpty { requestNextPage() }
+            return
+        }
+        pageTask?.cancel()
         entries = []
         items = []
         let remote = await PersonCreditsStore.shared.credits(for: route.personID)
-        guard !Task.isCancelled, key == loadKey else { return }
-        entries = remote ?? PersonFilmography.localEntries(personID: route.personID, in: modelContext)
-        loadedKey = key
-        pagination.prepare(for: key)
-        pagination.seed(nextOffset: 0, canLoadMore: !entries.isEmpty)
-        loadingCredits = false
+        guard !Task.isCancelled, key == loadKey else {
+            loads.abandonCredits(request)
+            return
+        }
+        let resolved = remote ?? PersonFilmography.localEntries(personID: route.personID, in: modelContext)
+        guard loads.finishCredits(request, hasEntries: !resolved.isEmpty) else { return }
+        entries = resolved
         requestNextPage()
     }
 
     private func requestNextPage() {
-        guard pagination.canLoadMore, !pagination.isLoading else { return }
-        Task { await loadNextPage() }
+        guard let request = loads.beginPage() else { return }
+        let source = entries
+        let context = feedContext
+        pageTask = Task { await loadNextPage(request, entries: source, context: context) }
     }
 
-    private func loadNextPage() async {
-        guard let request = pagination.beginLoading() else { return }
+    private func loadNextPage(_ request: PaginationMachine.Request, entries: [HomeListEntry], context: SectionFeed.Context) async {
         let page = await SectionCollectionResolver.page(
-            entries: entries, from: request.offset, limit: pageSize, context: feedContext
+            entries: entries, from: request.offset, limit: pageSize, context: context
         )
         guard !Task.isCancelled else {
-            pagination.abandon(request)
+            loads.abandonPage(request)
             return
         }
-        guard pagination.finish(
+        guard loads.finishPage(
             request,
             scanned: page.nextOffset - request.offset,
             hasMore: page.hasMoreCandidates
@@ -130,6 +136,6 @@ struct PersonFilmographyView: View {
 
         var existing = Set(items.map(\.id))
         items.append(contentsOf: page.items.filter { existing.insert($0.id).inserted })
-        if page.items.isEmpty, pagination.canLoadMore { requestNextPage() }
+        if page.items.isEmpty, loads.pagination.canLoadMore { requestNextPage() }
     }
 }

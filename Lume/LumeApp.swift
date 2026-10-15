@@ -390,7 +390,7 @@ struct LumeApp: App {
                 // A switch ending, to the profile the Top Shelf follows or
                 // away from it, changes what it should show.
                 .onChange(of: profileManager.isSwitching) { _, switching in
-                    if !switching { topShelf.refresh() }
+                    if switching { topShelf.invalidate() } else { topShelf.refresh() }
                 }
                 // The launch refresh is dropped until bootstrap has resolved
                 // the active profile.

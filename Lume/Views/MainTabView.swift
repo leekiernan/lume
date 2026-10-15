@@ -11,6 +11,7 @@ import SwiftUI
 struct MainTabView: View {
     @Environment(\.modelContext) var modelContext
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.topShelfRefresher) private var topShelf
     // Optional so previews (which don't inject it) don't crash.
     @Environment(PlaylistSwitchModel.self) private var playlistSwitch: PlaylistSwitchModel?
     @Environment(ProfileManager.self) private var profileManager: ProfileManager?
@@ -38,6 +39,11 @@ struct MainTabView: View {
 
     /// A deep link `ContentView` caught, handled once the tabs are up.
     var pendingLink: Binding<URL?> = .constant(nil)
+    @State var linkDelivery = DeepLinkDeliveryMachine()
+    @State private var preparedAutoSyncTrigger: AutoSyncTrigger?
+    /// A nil sync request starts dismissal; only onDismiss releases the host
+    /// for a linked player. Do not consume its URL mid-animation.
+    @State private var autoSyncCoverActive = false
     /// Selected tab and the Movies/Series navigation stacks, shared so a
     /// deep link can switch tabs and push a detail screen.
     @State var router = DeepLinkRouter()
@@ -108,6 +114,19 @@ struct MainTabView: View {
             || showsDownloads
             || playlistSwitch?.isSwitching == true
             || profileManager?.isSwitching == true
+    }
+
+    private var linkReadiness: DeepLinkDeliveryMachine.Readiness {
+        var blocked = hasBlockingPresentation || autoSyncCoverActive || linkedMedia != nil
+        #if os(tvOS)
+            blocked = blocked || router.isQuickSwitchPresented || router.isMultiViewPresented
+        #endif
+        return .init(
+            profileReady: profileManager?.isReady ?? true,
+            catalogReady: preparedAutoSyncTrigger == autoSyncTrigger,
+            presentationBlocked: blocked,
+            catalogSyncing: isAutoSyncBusy || !backgroundSyncIDs.isEmpty || playlists.contains { $0.syncStatus == .syncing }
+        )
     }
 
     /// Hides categories (and their content) from every browse, Home and Search
@@ -218,8 +237,16 @@ struct MainTabView: View {
         #endif
             .onChange(of: pendingLink.wrappedValue, initial: true) { _, url in
                 guard let url else { return }
-                pendingLink.wrappedValue = nil
-                handleDeepLink(url)
+                linkDelivery.receive(url)
+            }
+            .task(id: DeepLinkDeliveryMachine.Attempt(token: linkDelivery.pendingToken, readiness: linkReadiness)) {
+                // Let a dismissed sync/switch cover leave the presentation host.
+                await Task.yield()
+                guard !Task.isCancelled, let request = linkDelivery.begin(when: linkReadiness) else { return }
+                let outcome = handleDeepLink(request.url)
+                if linkDelivery.finish(request, outcome: outcome, whileSyncing: linkReadiness.catalogSyncing) {
+                    pendingLink.wrappedValue = nil
+                }
             }
         #if !os(macOS)
             .fullScreenCover(item: $linkedMedia) { media in
@@ -232,12 +259,14 @@ struct MainTabView: View {
                 // was just added), and repair catalog phases the active profile
                 // enables but that playlist's most recent successful sync skipped.
                 enqueueDueSyncs(playlists)
+                preparedAutoSyncTrigger = autoSyncTrigger
                 // The guide is checked here too: a profile with Live TV off
                 // skips it, so switching to one with Live TV on — or turning it
                 // on — is when a stale guide needs refreshing.
                 EPGSyncService.shared.syncIfDue(reason: "profile or areas")
             }
             .onChange(of: selectedPlaylistID) {
+                topShelf?.refresh()
                 // On playlist switch, sync the newly selected one if it's due —
                 // unless the switch asked to land in the cached catalog instead.
                 // This is also where a playlist deferred at launch for not being
@@ -257,10 +286,17 @@ struct MainTabView: View {
                 // Coming back to `.active` also refreshes stale sports data.
                 SportsSyncService.shared.isForeground = phase == .active
             }
+            .onChange(of: contentRestriction.visibilityToken) { topShelf?.refresh() }
             .onChange(of: cloudSync?.status.lastPlaylistReconnection) { _, reconnection in
                 if let reconnection { retryFailedSyncs(reconnection.ids) }
             }
-            .syncCover(item: $activeSyncRequest, onDismiss: promoteNextIfIdle)
+            .onChange(of: activeSyncRequest?.id, initial: true) { _, id in
+                if id != nil { autoSyncCoverActive = true }
+            }
+            .syncCover(item: $activeSyncRequest) {
+                autoSyncCoverActive = false
+                promoteNextIfIdle()
+            }
             .onChange(of: isAutoSyncBusy, initial: true) { _, busy in
                 EPGSyncService.shared.setAutoSyncQueued(busy)
             }

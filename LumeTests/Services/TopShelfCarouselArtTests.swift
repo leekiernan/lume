@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 @testable import Lume
 import Testing
 import UIKit
@@ -8,6 +9,16 @@ import UIKit
 struct TopShelfCarouselArtTests {
     private let folder = FileManager.default.temporaryDirectory
         .appendingPathComponent("TopShelfCarouselArtTests-\(UUID().uuidString)", isDirectory: true)
+
+    /// Reads fixtures from disk: the real loader only fetches over the network.
+    private static let readFile: TopShelfCarouselArt.Loader = { url, maxPixelSize in
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        let options = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
+        ] as CFDictionary
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, options)
+    }
 
     private func fixture(_ name: String, size: CGSize, draw: (CGContext) -> Void) throws -> URL {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -55,7 +66,7 @@ struct TopShelfCarouselArtTests {
             item("channel", kind: .live, backdrop: backdrop, logo: light)
         ])])
 
-        let rendered = await TopShelfCarouselArt.renderMissing(in: &snapshot, directory: folder)
+        let rendered = await TopShelfCarouselArt.renderMissing(in: &snapshot, directory: folder, load: Self.readFile)
 
         #expect(rendered)
         let items = snapshot.sections[0].items
@@ -78,11 +89,17 @@ struct TopShelfCarouselArtTests {
             item("light", backdrop: backdrop, logo: light)
         ])])
         var first = fresh
-        _ = await TopShelfCarouselArt.renderMissing(in: &first, directory: folder)
+        _ = await TopShelfCarouselArt.renderMissing(in: &first, directory: folder, load: Self.readFile)
 
         var second = fresh
         TopShelfCarouselArt.applyCached(to: &second, in: folder)
         #expect(second.sections == first.sections)
-        #expect(await !TopShelfCarouselArt.renderMissing(in: &second, directory: folder))
+        #expect(await !TopShelfCarouselArt.renderMissing(in: &second, directory: folder, load: Self.readFile))
+    }
+
+    /// A provider's logo URL could be anything; only http(s) is fetched.
+    @Test func `the real loader never reads a local file`() async throws {
+        let backdrop = try backdrop()
+        #expect(await TopShelfImages.download(backdrop, maxPixelSize: 100) == nil)
     }
 }

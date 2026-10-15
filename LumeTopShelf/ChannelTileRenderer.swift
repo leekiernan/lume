@@ -29,16 +29,11 @@ enum ChannelTileRenderer {
         guard let directory = TopShelfImages.directory("TopShelfChannelTiles") else { return [:] }
         // The same channel can appear more than once: render it once.
         let unique = Dictionary(channels.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first }).values
-        let tiles = await withTaskGroup(of: (String, URL?).self) { group in
-            for channel in unique {
-                group.addTask { await (channel.id, tile(for: channel, in: directory)) }
-            }
-            var result: [String: URL] = [:]
-            for await (id, url) in group {
-                if let url { result[id] = url }
-            }
-            return result
+        let rendered = await TopShelfImages.boundedMap(Array(unique)) { channel in
+            await (channel.id, tile(for: channel, in: directory))
         }
+        let tiles = Dictionary(rendered.compactMap { id, url in url.map { (id, $0) } }, uniquingKeysWith: { first, _ in first })
+        guard !Task.isCancelled else { return tiles }
         TopShelfImages.prune(directory, keeping: Set(tiles.values.map(\.lastPathComponent)))
         return tiles
     }
@@ -52,6 +47,7 @@ enum ChannelTileRenderer {
     // MARK: - Tile
 
     private static func tile(for channel: Channel, in directory: URL) async -> URL? {
+        guard !Task.isCancelled else { return nil }
         let file = directory.appendingPathComponent(fileName(for: channel, logoURL: channel.logoURL))
         if FileManager.default.fileExists(atPath: file.path) { return file }
         var logo: CGImage?
@@ -64,7 +60,8 @@ enum ChannelTileRenderer {
         let target = logo == nil && channel.logoURL != nil
             ? directory.appendingPathComponent(fileName(for: channel, logoURL: nil))
             : file
-        return TopShelfImages.write(render(logo: logo, name: channel.name), to: target)
+        guard !Task.isCancelled else { return nil }
+        return autoreleasepool { TopShelfImages.write(render(logo: logo, name: channel.name), to: target) }
     }
 
     /// Keyed by what the tile shows, so a changed logo or name renders anew.

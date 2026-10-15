@@ -78,6 +78,12 @@ nonisolated enum TopShelfExportAction: Equatable {
     case keep
 }
 
+/// A resolved empty row clears its old titles; an unavailable row keeps them.
+nonisolated enum TopShelfRowContent: Equatable {
+    case loaded([String])
+    case unavailable
+}
+
 nonisolated enum TopShelfSettings {
     static let styleKey = "topShelf.style.v1"
     static let itemsPerSectionKey = "topShelf.itemsPerSection.v1"
@@ -199,8 +205,8 @@ nonisolated enum TopShelfSettings {
     /// loaded before it was turned on — or before the row was promoted —
     /// stayed empty until its titles next changed.
     ///
-    /// An empty list is never recorded: a load that failed or ran offline
-    /// would otherwise wipe what the row last showed.
+    /// Call only for resolved rows, including an empty list. A failed load
+    /// must use `.unavailable` rather than pretending it resolved empty.
     static func record(
         _ itemKeys: [String],
         for source: TopShelfSource,
@@ -218,11 +224,20 @@ nonisolated enum TopShelfSettings {
         profile: UUID? = ActiveProfileStore.current,
         defaults: UserDefaults = .standard
     ) {
+        record(rows.mapValues(TopShelfRowContent.loaded), profile: profile, defaults: defaults)
+    }
+
+    static func record(
+        _ rows: [TopShelfSource: TopShelfRowContent],
+        profile: UUID? = ActiveProfileStore.current,
+        defaults: UserDefaults = .standard
+    ) {
         guard let profile else { return }
         var stored = storedRows(defaults)
         var rowsOfProfile = stored[profile.uuidString] ?? [:]
         var changed = false
-        for (source, itemKeys) in rows where !itemKeys.isEmpty {
+        for (source, content) in rows {
+            guard case let .loaded(itemKeys) = content else { continue }
             let capped = Array(itemKeys.prefix(TopShelfConfiguration.maxItemsPerSection))
             guard rowsOfProfile[source.token] != capped else { continue }
             rowsOfProfile[source.token] = capped

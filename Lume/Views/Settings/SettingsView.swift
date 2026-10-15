@@ -105,25 +105,9 @@ struct SettingsView: View {
         /// the tab bar — which is when `tvTabBarEntryCatcher` takes it.
         @FocusState var detailFocused: Bool
         @FocusState var tabBarEntryFocused: Bool
-        /// The engine whose options are drilled into within the Player category,
-        /// replacing the player detail in place (same reasoning as `selectedPlaylist`).
-        /// Not `private`: read by the SettingsView+TVPlayer extension (separate file).
-        @State var selectedEngineOptions: PlayerEngineKind?
-        /// Which preferred-language pane is drilled into within the Player
-        /// category — the ordered list, or its add picker one level deeper —
-        /// replacing the player detail in place (same reasoning as
-        /// `selectedEngineOptions`). Not `private`: read by the
-        /// SettingsView+TVPlayer extension (separate file).
-        @State var preferredLanguagePane: PreferredLanguagePane?
-        /// Whether the Player category is drilled into Subtitle Style in place
-        /// (same reasoning as `selectedEngineOptions`). Not `private`: set by
-        /// the SettingsView+TVPlayer extension (separate file).
-        @State var showingSubtitleStyle = false
+        /// The Player pane's single drill-in, shared with its split-out views.
+        @State var playerRoute: PlayerSettingsRoute = .overview
         @State var isReorderingPlayerList = false
-
-        enum PreferredLanguagePane {
-            case list, add
-        }
 
         /// Which area the Library category is configuring, and whether it has
         /// drilled into that area's categories. The rows pane is
@@ -459,9 +443,7 @@ struct SettingsView: View {
                         // detail (a playlist, or an engine's options), so the
                         // pane reverts to its top-level list.
                         selectedPlaylist = nil
-                        selectedEngineOptions = nil
-                        preferredLanguagePane = nil
-                        showingSubtitleStyle = false
+                        playerRoute = .overview
                         showingAreaCategories = false
                         showingEPGSources = false
                     }
@@ -507,14 +489,11 @@ struct SettingsView: View {
                         case .storage: StorageManagementView()
                         case .integrations: tvIntegrationsDetail
                         case .player:
-                            if let selectedEngineOptions {
-                                tvEngineOptionsDetail(for: selectedEngineOptions)
-                            } else if let preferredLanguagePane {
-                                tvPreferredLanguageDetail(preferredLanguagePane, proxy: proxy)
-                            } else if showingSubtitleStyle {
-                                TVSubtitleStyleSettingsView()
-                            } else {
-                                tvPlayerDetail(proxy: proxy)
+                            switch playerRoute {
+                            case .overview: tvPlayerDetail(proxy: proxy)
+                            case let .engine(engine): tvEngineOptionsDetail(for: engine)
+                            case let .languages(pane): tvPreferredLanguageDetail(pane, proxy: proxy)
+                            case .subtitleStyle: TVSubtitleStyleSettingsView()
                             }
                         case .about: tvAboutDetail
                         }
@@ -535,17 +514,10 @@ struct SettingsView: View {
         }
 
         private func handleDetailBack() {
-            let pane: SettingsBackStep.LanguagePane? = switch preferredLanguagePane {
-            case .list: .list
-            case .add: .add
-            case nil: nil
-            }
             apply(SettingsBackStep.next(
                 hasPlaylist: selectedPlaylist != nil,
                 showingEPGSources: showingEPGSources,
-                hasEngineOptions: selectedEngineOptions != nil,
-                languagePane: pane,
-                showingSubtitleStyle: showingSubtitleStyle,
+                playerRoute: playerRoute,
                 showingAreaCategories: showingAreaCategories
             ))
         }
@@ -554,10 +526,7 @@ struct SettingsView: View {
             switch step {
             case .closePlaylist: selectedPlaylist = nil
             case .closeEPGSources: showingEPGSources = false
-            case .closeEngineOptions: selectedEngineOptions = nil
-            case .closeLanguagePicker: preferredLanguagePane = .list
-            case .closeLanguageList: preferredLanguagePane = nil
-            case .closeSubtitleStyle: showingSubtitleStyle = false
+            case .closeEngineOptions, .closeLanguagePicker, .closeLanguageList, .closeSubtitleStyle: playerRoute.goBack()
             case .closeAreaCategories: showingAreaCategories = false
             case .toSidebar: focusedCategory = selectedCategory
             }

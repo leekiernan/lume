@@ -15,6 +15,31 @@
     import UIKit
 
     nonisolated enum TopShelfImages {
+        /// Roll a small number of workers forward instead of decoding every
+        /// channel logo at once in the memory-constrained extension.
+        static func boundedMap<Input: Sendable, Output: Sendable>(
+            _ inputs: [Input], concurrency: Int = 3,
+            transform: @escaping @Sendable (Input) async -> Output
+        ) async -> [Output] {
+            guard !Task.isCancelled else { return [] }
+            return await withTaskGroup(of: Output.self) { group in
+                var iterator = inputs.makeIterator()
+                for _ in 0 ..< min(max(1, concurrency), inputs.count) {
+                    if let input = iterator.next() { group.addTask { await transform(input) } }
+                }
+                var results: [Output] = []
+                for await result in group {
+                    guard !Task.isCancelled else {
+                        group.cancelAll()
+                        break
+                    }
+                    results.append(result)
+                    if let input = iterator.next() { group.addTask { await transform(input) } }
+                }
+                return results
+            }
+        }
+
         /// A cache folder beside the snapshot, created if needed.
         static func directory(_ name: String) -> URL? {
             guard let directory = WidgetDataStore.snapshotURL?
@@ -24,10 +49,13 @@
             return directory
         }
 
-        /// Downloads and decodes an image through an ImageIO thumbnail no larger
-        /// than `maxPixelSize` — extensions run on a tight memory budget, so a
-        /// huge image is never decoded at full size.
+        /// Downloads (http and https only) and decodes an image through an
+        /// ImageIO thumbnail no larger than `maxPixelSize` — extensions run on
+        /// a tight memory budget, so a huge image is never decoded at full size.
         static func download(_ url: URL, maxPixelSize: Int) async -> CGImage? {
+            // Logo URLs are the provider's: only fetch over the network, never
+            // a `file:` URL that would read a local file into a tile.
+            guard let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http" else { return nil }
             var request = URLRequest(url: url)
             // Downloads run in parallel and the Top Shelf waits for all of them,
             // so this bounds how long one slow host can hold it up.

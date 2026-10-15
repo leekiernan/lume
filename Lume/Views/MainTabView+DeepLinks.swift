@@ -17,34 +17,35 @@ extension MainTabView {
     /// catalog item, switches to the matching tab and pushes its detail screen.
     /// Silently ignores unknown links and titles not present in the catalog
     /// (e.g. a tmdbId that was never synced or enriched).
-    func handleDeepLink(_ url: URL) {
-        guard let link = DeepLink(url: url) else { return }
+    func handleDeepLink(_ url: URL) -> DeepLinkDeliveryMachine.Outcome {
+        guard let link = DeepLink(url: url) else { return .rejected }
         switch link {
         case let .movie(tmdbId):
-            guard let movie = resolveMovie(tmdbId: tmdbId) else { return }
+            guard let movie = resolveMovie(tmdbId: tmdbId) else { return .rejected }
             openMovieDetail(movie)
         case let .series(tmdbId):
-            guard let series = resolveSeries(tmdbId: tmdbId) else { return }
+            guard let series = resolveSeries(tmdbId: tmdbId) else { return .rejected }
             openSeriesDetail(series)
         case .playMovie, .playEpisode, .playLive, .openSeries, .openMovie:
-            handleTopShelfLink(link)
+            return handleTopShelfLink(link)
         case .downloads:
             showsDownloads = true
         case .liveTV:
             router.selectedTab = .liveTV
             router.liveTVPath = NavigationPath()
         }
+        return .handled
     }
 
     /// A Top Shelf link: `play` starts playback, `open` pushes a movie or series
     /// detail screen — both by catalog id, re-checked against the viewer's
     /// restrictions (`WidgetLinkResolver`).
-    private func handleTopShelfLink(_ link: DeepLink) {
+    private func handleTopShelfLink(_ link: DeepLink) -> DeepLinkDeliveryMachine.Outcome {
         switch WidgetLinkResolver.resolve(link, in: modelContext, restriction: contentRestriction) {
         case let .play(media):
             // The in-app play paths: external player hand-off first, then a
             // player window (macOS) or a full-screen cover.
-            if ExternalPlayback.open(media) { return }
+            if ExternalPlayback.open(media) { return .handled }
             #if os(macOS)
                 MacPlayerWindowRouter.shared.play(media, using: openWindow)
             #else
@@ -55,8 +56,9 @@ extension MainTabView {
         case let .openMovie(movie):
             openMovieDetail(movie)
         case nil:
-            break
+            return .rejected
         }
+        return .handled
     }
 
     private func openMovieDetail(_ movie: Movie) {
