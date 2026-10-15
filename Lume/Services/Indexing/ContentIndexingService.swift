@@ -94,8 +94,18 @@ final class ContentIndexingService {
 
     private var container: ModelContainer?
     private var task: Task<Void, Never>?
+    private let runPass: (ModelContainer, ContentIndexingService) async throws -> Void
 
-    private init() {}
+    private convenience init() {
+        self.init(runPass: { container, status in
+            try await ContentIndexer(modelContainer: container).run(status: status)
+        })
+    }
+
+    /// An injected pass keeps recovery tests independent of OS assets/network.
+    init(runPass: @escaping (ModelContainer, ContentIndexingService) async throws -> Void) {
+        self.runPass = runPass
+    }
 
     func configure(container: ModelContainer) {
         self.container = container
@@ -112,7 +122,6 @@ final class ContentIndexingService {
     /// claimed immediately, so a second kick during the delay coalesces to a no-op.
     func kick(after delay: Duration = .zero) {
         guard let container, task == nil, state != .unavailable else { return }
-        let indexer = ContentIndexer(modelContainer: container)
         // `.utility` so the embedding passes (each chunk embeds a vector per
         // title) run below the UI's QoS and yield to browsing — matching
         // `EPGSyncService`. Without it the pass inherited the caller's
@@ -124,9 +133,15 @@ final class ContentIndexingService {
                 guard !Task.isCancelled else { return }
             }
             do {
-                try await indexer.run(status: self)
+                try await runPass(container, self)
             } catch is CancellationError {
                 state = .interrupted
+            } catch TextEmbedder.EmbedderError.modelUnavailable {
+                // A nil OS lookup is not proof of permanent lack of support.
+                // Discovery already exhausted its short budget; end this pass
+                // without a retry loop, and allow the next launch/sync kick.
+                state = .interrupted
+                Logger.indexing.warning("Embedding model acquisition exhausted; a later indexing kick will retry")
             } catch is TextEmbedder.EmbedderError {
                 state = .unavailable
                 Logger.indexing.error("Embedding model unavailable; content indexing disabled")
@@ -135,6 +150,11 @@ final class ContentIndexingService {
                 Logger.indexing.error("Indexing pass interrupted: \(error)")
             }
         }
+    }
+
+    /// Waits for the pass claimed at call time, not any future indexing work.
+    func waitForCurrentPass() async {
+        await task?.value
     }
 
     #if DEBUG
