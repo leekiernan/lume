@@ -202,13 +202,22 @@ enum WidgetSnapshotExporter {
             id.hasPrefix(prefix) && !restriction.hides(categoryID: category)
         }
 
+        var excludedCategories: Set<String?> {
+            Set(restriction.excludedCategoryIDs.map(String?.some))
+        }
+
         /// The recently watched shows, most recent first, and where each
         /// continues — the split the Home and Series rails make
         /// (`ContinueWatchingLoader`): a show with an episode to go is in
         /// Continue Watching, one with none left is in Watch Again.
         private(set) lazy var watchedSeries: (shows: [Series], split: ContinueWatchingLoader.Result) = {
+            let prefix = self.prefix
+            let excluded = excludedCategories
             var descriptor = FetchDescriptor<Series>(
-                predicate: #Predicate { $0.lastWatchedDate != nil },
+                predicate: #Predicate {
+                    $0.lastWatchedDate != nil && $0.id.starts(with: prefix)
+                        && ($0.categoryId == nil || !excluded.contains($0.categoryId))
+                },
                 sortBy: [SortDescriptor(\.lastWatchedDate, order: .reverse)]
             )
             // Both rows together never show more than this many shows.
@@ -245,9 +254,14 @@ enum WidgetSnapshotExporter {
     /// everything — channels watched lately.
     private nonisolated static func continueWatching(_ surface: SectionSurface, in scope: Scope) -> [WidgetMediaItem] {
         var entries: [(date: Date, item: WidgetMediaItem)] = []
+        let prefix = scope.prefix
+        let excluded = scope.excludedCategories
         if surface != .series {
             var descriptor = FetchDescriptor<Movie>(
-                predicate: #Predicate { $0.lastWatchedDate != nil && !$0.isWatched && $0.watchProgress > 0 },
+                predicate: #Predicate {
+                    $0.lastWatchedDate != nil && !$0.isWatched && $0.watchProgress > 0
+                        && $0.id.starts(with: prefix) && ($0.categoryId == nil || !excluded.contains($0.categoryId))
+                },
                 sortBy: [SortDescriptor(\.lastWatchedDate, order: .reverse)]
             )
             descriptor.fetchLimit = limit * 2
@@ -265,7 +279,10 @@ enum WidgetSnapshotExporter {
         }
         if surface == .home {
             var descriptor = FetchDescriptor<LiveStream>(
-                predicate: #Predicate { $0.lastWatchedDate != nil && $0.isHidden == false },
+                predicate: #Predicate {
+                    $0.lastWatchedDate != nil && $0.isHidden == false
+                        && $0.id.starts(with: prefix) && ($0.categoryId == nil || !excluded.contains($0.categoryId))
+                },
                 sortBy: [SortDescriptor(\.lastWatchedDate, order: .reverse)]
             )
             descriptor.fetchLimit = limit
@@ -283,9 +300,14 @@ enum WidgetSnapshotExporter {
     /// the Home and Series rails use (`ContinueWatchingLoader`).
     private nonisolated static func watchAgain(_ surface: SectionSurface, in scope: Scope) -> [WidgetMediaItem] {
         var entries: [(date: Date, item: WidgetMediaItem)] = []
+        let prefix = scope.prefix
+        let excluded = scope.excludedCategories
         if surface != .series {
             var descriptor = FetchDescriptor<Movie>(
-                predicate: #Predicate { $0.lastWatchedDate != nil && $0.isWatched == true },
+                predicate: #Predicate {
+                    $0.lastWatchedDate != nil && $0.isWatched == true
+                        && $0.id.starts(with: prefix) && ($0.categoryId == nil || !excluded.contains($0.categoryId))
+                },
                 sortBy: [SortDescriptor(\.lastWatchedDate, order: .reverse)]
             )
             descriptor.fetchLimit = limit * 2
@@ -346,10 +368,14 @@ enum WidgetSnapshotExporter {
         // The playlist is in the predicate, so other playlists' newer titles
         // can't fill the fetch and leave this row short.
         let prefix = scope.prefix
+        let excluded = scope.excludedCategories
         switch surface {
         case .movies:
             var descriptor = FetchDescriptor<Movie>(
-                predicate: #Predicate { $0.added != nil && $0.id.starts(with: prefix) },
+                predicate: #Predicate {
+                    $0.added != nil && $0.id.starts(with: prefix)
+                        && ($0.categoryId == nil || !excluded.contains($0.categoryId))
+                },
                 sortBy: [SortDescriptor(\.added, comparator: .lexical, order: .reverse)]
             )
             descriptor.fetchLimit = limit * 4
@@ -358,7 +384,10 @@ enum WidgetSnapshotExporter {
                 .compactMap { item($0, progress: false) }
         case .series:
             var descriptor = FetchDescriptor<Series>(
-                predicate: #Predicate { $0.lastModified != nil && $0.id.starts(with: prefix) },
+                predicate: #Predicate {
+                    $0.lastModified != nil && $0.id.starts(with: prefix)
+                        && ($0.categoryId == nil || !excluded.contains($0.categoryId))
+                },
                 sortBy: [SortDescriptor(\.lastModified, comparator: .lexical, order: .reverse)]
             )
             descriptor.fetchLimit = limit * 4

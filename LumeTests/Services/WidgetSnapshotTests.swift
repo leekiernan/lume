@@ -259,6 +259,45 @@ struct WidgetSnapshotExporterTests {
         #expect(snapshot.sections.isEmpty)
     }
 
+    @Test func `newer foreign and hidden titles never crowd visible titles out of bounded rows`() throws {
+        let (container, playlist) = try seedContainer()
+        let context = container.mainContext
+        let hidden = Lume.Category(apiId: "hidden", name: "Hidden", parentId: 0, type: .vod, playlist: playlist)
+        hidden.isHidden = true
+        context.insert(hidden)
+        for index in 0 ..< 90 {
+            let prefix = index.isMultiple(of: 2) ? UUID().uuidString : playlist.id.uuidString
+            let category = index.isMultiple(of: 2) ? nil : hidden.id
+            for watched in [false, true] {
+                let movie = Movie(id: "\(prefix)-noise-\(index)-\(watched)", streamId: index, name: "Noise", categoryId: category)
+                movie.lastWatchedDate = Date()
+                movie.watchProgress = 100
+                movie.isWatched = watched
+                movie.added = "9999999999"
+                context.insert(movie)
+            }
+            let show = Series(id: "\(prefix)-noise-series-\(index)", seriesId: index, name: "Noise", categoryId: category)
+            show.lastWatchedDate = Date()
+            context.insert(show)
+            let channel = LiveStream(id: "\(prefix)-noise-live-\(index)", streamId: index, name: "Noise", categoryId: category)
+            channel.lastWatchedDate = Date()
+            context.insert(channel)
+        }
+        let channel = try #require(try context.fetch(FetchDescriptor<LiveStream>()).first { $0.name == "News 24" })
+        channel.lastWatchedDate = Date(timeIntervalSinceNow: -120)
+        let added = Movie(id: "\(playlist.id.uuidString)-added", streamId: 999, name: "New Arrival")
+        added.added = "100"
+        context.insert(added)
+        try context.save()
+
+        let watched = TopShelfSource(surface: .movies, ref: .builtin(.recentlyWatched))
+        let recentlyAdded = TopShelfSource(surface: .movies, ref: .builtin(.recentlyAdded))
+        let result = snapshot(container, playlist, [Self.homeContinueWatching, watched, recentlyAdded])
+        #expect(Set(items(result, Self.homeContinueWatching).map(\.title)) == ["Resumable", "Show", "News 24"])
+        #expect(items(result, watched).map(\.title) == ["Watched"])
+        #expect(items(result, recentlyAdded).map(\.title) == ["New Arrival"])
+    }
+
     /// Nothing promoted is the default, and means the Top Shelf is off.
     @Test func `no promoted rows produce no sections`() throws {
         let (container, playlist) = try seedContainer()
