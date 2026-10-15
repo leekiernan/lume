@@ -44,6 +44,16 @@ nonisolated struct TopShelfRowPlan: Equatable {
     let recordedItems: [String]
 }
 
+/// Capture settings once, rather than mixing the enqueue-time rows with
+/// profile or layout values read later on a background task.
+nonisolated struct TopShelfExportInput: Equatable {
+    let request: TopShelfExportRequest
+    let followed: UUID?
+    let playlistID: String
+    let rows: [TopShelfRowPlan]
+    let configuration: TopShelfConfiguration
+}
+
 enum WidgetSnapshotExporter {
     /// Every row holds as many items as the largest Top Shelf choice shows.
     private nonisolated static let limit = TopShelfConfiguration.maxItemsPerSection
@@ -75,11 +85,13 @@ enum WidgetSnapshotExporter {
     /// Run by `TopShelfRefresher`, one export at a time.
     nonisolated static func export(
         container: ModelContainer,
-        rows: [TopShelfRowPlan],
-        request: TopShelfExportRequest,
+        input: TopShelfExportInput,
+        canPublish: @escaping @MainActor @Sendable () -> Bool,
         now: Date = Date()
     ) async {
-        let followed = TopShelfSettings.followedProfile()
+        guard !Task.isCancelled else { return }
+        let request = input.request
+        let followed = input.followed
         var snapshot: WidgetSnapshot
         switch TopShelfSettings.exportAction(
             followed: followed,
@@ -97,16 +109,15 @@ enum WidgetSnapshotExporter {
                 Logger.database.info("Top Shelf export skipped: the profile changed since it was asked for")
                 return
             }
-            let storedID = UserDefaults.standard.string(forKey: PlaylistSelectionStore.key) ?? ""
             snapshot = makeSnapshot(
                 container: container,
-                rows: rows,
-                storedPlaylistID: storedID,
+                rows: input.rows,
+                storedPlaylistID: input.playlistID,
                 isChildProfile: request.isChildProfile,
                 now: now
             )
         }
-        snapshot.topShelf = TopShelfSettings.configuration()
+        snapshot.topShelf = input.configuration
         let owner = snapshot.sections.isEmpty ? nil : followed
         #if os(tvOS)
             // The carousel's art, with each title's logo drawn in, is rendered
@@ -115,29 +126,37 @@ enum WidgetSnapshotExporter {
             // follows in a second write once it has rendered.
             let carousel = snapshot.topShelf?.style == .carousel
             if carousel { TopShelfCarouselArt.applyCached(to: &snapshot) }
-            write(snapshot, owner: owner)
+            guard await publish(snapshot, owner: owner, canPublish: canPublish) else { return }
             if carousel, await TopShelfCarouselArt.renderMissing(in: &snapshot) {
-                write(snapshot, owner: owner)
+                guard await publish(snapshot, owner: owner, canPublish: canPublish) else { return }
             }
+            guard !Task.isCancelled, await canPublish() else { return }
             TopShelfCarouselArt.prune(keeping: carousel ? snapshot : WidgetSnapshot(generatedAt: now, sections: []))
         #else
-            write(snapshot, owner: owner)
+            _ = await publish(snapshot, owner: owner, canPublish: canPublish)
         #endif
+    }
+
+    /// Validation and publication share the main actor with settings changes,
+    /// so an obsolete render cannot write after a newer request invalidates it.
+    private static func publish(_ snapshot: WidgetSnapshot, owner: UUID?, canPublish: @MainActor () -> Bool) -> Bool {
+        guard !Task.isCancelled, canPublish() else { return false }
+        return write(snapshot, owner: owner)
     }
 
     /// Saves the snapshot unless it shows what the one on disk already does:
     /// every backgrounding asks for an export, and an unchanged one would
     /// still make the Top Shelf reload its images.
-    private nonisolated static func write(_ snapshot: WidgetSnapshot, owner: UUID?) {
+    private nonisolated static func write(_ snapshot: WidgetSnapshot, owner: UUID?) -> Bool {
         if let current = WidgetDataStore.load(), current.sections == snapshot.sections, current.topShelf == snapshot.topShelf {
             TopShelfSettings.setSnapshotProfile(owner)
-            return
+            return true
         }
         do {
             try WidgetDataStore.save(snapshot)
         } catch {
             Logger.database.error("Top Shelf snapshot export failed: \(error.localizedDescription, privacy: .public)")
-            return
+            return false
         }
         TopShelfSettings.setSnapshotProfile(owner)
         let counts = snapshot.sections.map { "\($0.id)=\($0.items.count)" }.joined(separator: ", ")
@@ -145,6 +164,7 @@ enum WidgetSnapshotExporter {
         #if os(tvOS)
             TVTopShelfContentProvider.topShelfContentDidChange()
         #endif
+        return true
     }
 
     /// Builds the snapshot for the active playlist. Hidden categories and

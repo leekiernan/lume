@@ -11,6 +11,7 @@ import SwiftUI
 struct MainTabView: View {
     @Environment(\.modelContext) var modelContext
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.topShelfRefresher) private var topShelf
     // Optional so previews (which don't inject it) don't crash.
     @Environment(PlaylistSwitchModel.self) private var playlistSwitch: PlaylistSwitchModel?
     @Environment(ProfileManager.self) private var profileManager: ProfileManager?
@@ -238,6 +239,7 @@ struct MainTabView: View {
                 EPGSyncService.shared.syncIfDue(reason: "profile or areas")
             }
             .onChange(of: selectedPlaylistID) {
+                topShelf?.refresh()
                 // On playlist switch, sync the newly selected one if it's due —
                 // unless the switch asked to land in the cached catalog instead.
                 // This is also where a playlist deferred at launch for not being
@@ -257,6 +259,7 @@ struct MainTabView: View {
                 // Coming back to `.active` also refreshes stale sports data.
                 SportsSyncService.shared.isForeground = phase == .active
             }
+            .onChange(of: contentRestriction.visibilityToken) { topShelf?.refresh() }
             .onChange(of: cloudSync?.status.lastPlaylistReconnection) { _, reconnection in
                 if let reconnection { retryFailedSyncs(reconnection.ids) }
             }

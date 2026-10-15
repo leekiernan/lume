@@ -67,6 +67,7 @@
             var rendered: Set<URL> = []
             let work = Array(pending)
             for start in stride(from: 0, to: work.count, by: concurrency) {
+                guard !Task.isCancelled else { return false }
                 let batch = work[start ..< min(start + concurrency, work.count)]
                 await withTaskGroup(of: URL?.self) { group in
                     for (file, request) in batch {
@@ -125,10 +126,11 @@
         }
 
         private static func render(_ request: Request, to file: URL) async -> URL? {
+            guard !Task.isCancelled else { return nil }
             if FileManager.default.fileExists(atPath: file.path) { return file }
             async let backdrop = TopShelfImages.download(request.backdrop, maxPixelSize: Int(canvas.width))
             async let logo = TopShelfImages.download(request.logo, maxPixelSize: Int(logoBox.width))
-            guard let backdrop = await backdrop, let logo = await logo else { return nil }
+            guard let backdrop = await backdrop, let logo = await logo, !Task.isCancelled else { return nil }
             return autoreleasepool {
                 TopShelfImages.writeJPEG(draw(backdrop: backdrop, logo: logo), to: file)
             }

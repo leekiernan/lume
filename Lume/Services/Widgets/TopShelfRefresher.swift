@@ -9,8 +9,8 @@
 //
 //  - Requests coalesce: a burst (a reorder is one per remote press, and
 //    adding a row from an area changes two settings) becomes one export.
-//  - Exports run one at a time, in the order they were asked for, so an older
-//    one can never finish last and leave a stale Top Shelf.
+//  - One export runs at a time; newer requests replace pending work and
+//    revoke the active export's publication rights immediately.
 //  - The request captures the active profile and its child flag together on
 //    the main actor; the export re-checks the profile before building rows.
 //  - The roster is watched too: a profile deleted while it holds the Top
@@ -26,35 +26,41 @@ import SwiftUI
 
 @MainActor
 final class TopShelfRefresher {
-    private let container: ModelContainer
-    private let profiles: ProfileManager
-    /// A request waiting out the coalescing delay.
-    private var pending: Task<Void, Never>?
-    /// The last export asked for; the next one waits for it.
-    private var tail: Task<Void, Never>?
-
-    private static let coalescing: Duration = .milliseconds(300)
+    private let coordinator: TopShelfExportCoordinator
 
     init(container: ModelContainer, profiles: ProfileManager) {
-        self.container = container
-        self.profiles = profiles
+        coordinator = TopShelfExportCoordinator { canPublish in
+            guard profiles.isReady, !profiles.isSwitching else { return }
+            let input = TopShelfExportInput(
+                request: TopShelfExportRequest(profileID: profiles.activeProfileID, isChildProfile: profiles.activeProfileIsChild),
+                followed: TopShelfSettings.followedProfile(),
+                playlistID: UserDefaults.standard.string(forKey: PlaylistSelectionStore.key) ?? "",
+                rows: WidgetSnapshotExporter.plan(),
+                configuration: TopShelfSettings.configuration()
+            )
+            let check: TopShelfExportCoordinator.PublicationCheck = {
+                canPublish() && !profiles.isSwitching
+                    && profiles.activeProfileID == input.request.profileID
+                    && profiles.activeProfileIsChild == input.request.isChildProfile
+                    && input.followed == TopShelfSettings.followedProfile()
+                    && input.playlistID == (UserDefaults.standard.string(forKey: PlaylistSelectionStore.key) ?? "")
+                    && input.configuration == TopShelfSettings.configuration()
+                    && input.rows == WidgetSnapshotExporter.plan()
+            }
+            await BackgroundActivity.perform("Top Shelf snapshot") {
+                let task = Task.detached(priority: .utility) {
+                    await WidgetSnapshotExporter.export(container: container, input: input, canPublish: check)
+                }
+                await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }
+            }
+        }
     }
 
     /// Asks for a new snapshot. `immediately` skips the coalescing delay —
     /// for backgrounding, when the app may be suspended before it ends.
     func refresh(immediately: Bool = false) {
         #if os(tvOS)
-            pending?.cancel()
-            guard !immediately else {
-                pending = nil
-                enqueue()
-                return
-            }
-            pending = Task { [weak self] in
-                try? await Task.sleep(for: Self.coalescing)
-                guard !Task.isCancelled else { return }
-                self?.enqueue()
-            }
+            coordinator.refresh(immediately: immediately)
         #endif
     }
 
@@ -66,28 +72,11 @@ final class TopShelfRefresher {
         refresh()
     }
 
-    #if os(tvOS)
-        private func enqueue() {
-            // Mid-switch the catalog and the active profile are changing; the
-            // switch's end asks again (see `LumeApp`).
-            guard profiles.isReady, !profiles.isSwitching else { return }
-            let request = TopShelfExportRequest(
-                profileID: profiles.activeProfileID,
-                isChildProfile: profiles.activeProfileIsChild
-            )
-            let rows = WidgetSnapshotExporter.plan()
-            let container = container
-            let previous = tail
-            tail = Task {
-                await previous?.value
-                await BackgroundActivity.perform("Top Shelf snapshot") {
-                    await Task.detached(priority: .userInitiated) {
-                        await WidgetSnapshotExporter.export(container: container, rows: rows, request: request)
-                    }.value
-                }
-            }
-        }
-    #endif
+    func invalidate() {
+        #if os(tvOS)
+            coordinator.invalidate()
+        #endif
+    }
 }
 
 extension EnvironmentValues {
