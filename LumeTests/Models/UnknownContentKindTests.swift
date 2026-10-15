@@ -33,7 +33,7 @@ struct UnknownContentKindTests {
         let engine = CloudSyncEngine(container: container, shadow: CloudSyncShadow(defaults: defaults))
         _ = await engine.reconcile()
         #expect(movie.isFavorite)
-        try engine.switchProfile(from: UserProfile.defaultProfileID, to: UUID())
+        try await engine.switchProfile(from: UserProfile.defaultProfileID, to: UUID())
         #expect(mirror.kind == nil)
         #expect(mirror.kindRaw == "future-content")
         #expect(mirror.updatedAt == Date(timeIntervalSince1970: 0))
