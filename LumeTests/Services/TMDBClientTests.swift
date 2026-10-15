@@ -176,19 +176,18 @@ struct TMDBClientTests {
 
     // MARK: - TMDBTitleDetails
 
-    @Test func `tmdb title details defaults`() {
-        let details = TMDBTitleDetails(
-            backdropPath: nil,
-            tagline: nil,
-            overview: nil,
-            voteAverage: nil,
-            runtimeMinutes: nil,
-            genreNames: [],
-            contentRating: nil,
-            cast: [],
-            similarIDs: [],
-            videos: []
-        )
+    @Test func `tmdb title details defaults`() throws {
+        let details = try TMDBTitleDetails(identity: .movie(#require(TMDBMovieID(603))),
+                                           backdropPath: nil,
+                                           tagline: nil,
+                                           overview: nil,
+                                           voteAverage: nil,
+                                           runtimeMinutes: nil,
+                                           genreNames: [],
+                                           contentRating: nil,
+                                           cast: [],
+                                           similarIDs: [],
+                                           videos: [])
         #expect(details.backdropPath == nil)
         #expect(details.tagline == nil)
         #expect(details.overview == nil)
@@ -200,20 +199,19 @@ struct TMDBClientTests {
         #expect(details.similarIDs.isEmpty)
     }
 
-    @Test func `tmdb title details with values`() {
-        let cast = [TMDBCastMember(tmdbPersonId: 1, name: "Actor", character: "Role", profilePath: "/p.jpg", order: 0)]
-        let details = TMDBTitleDetails(
-            backdropPath: "/back.jpg",
-            tagline: "Tagline",
-            overview: "Overview",
-            voteAverage: 7.5,
-            runtimeMinutes: 120,
-            genreNames: ["Action", "Drama"],
-            contentRating: "PG-13",
-            cast: cast,
-            similarIDs: [10, 20, 30],
-            videos: []
-        )
+    @Test func `tmdb title details with values`() throws {
+        let cast = try [TMDBCastMember(personID: #require(TMDBPersonID(1)), name: "Actor", character: "Role", profilePath: "/p.jpg", order: 0)]
+        let details = try TMDBTitleDetails(identity: .movie(#require(TMDBMovieID(603))),
+                                           backdropPath: "/back.jpg",
+                                           tagline: "Tagline",
+                                           overview: "Overview",
+                                           voteAverage: 7.5,
+                                           runtimeMinutes: 120,
+                                           genreNames: ["Action", "Drama"],
+                                           contentRating: "PG-13",
+                                           cast: cast,
+                                           similarIDs: [10, 20, 30],
+                                           videos: [])
         #expect(details.backdropPath == "/back.jpg")
         #expect(details.tagline == "Tagline")
         #expect(details.voteAverage == 7.5)
@@ -225,9 +223,9 @@ struct TMDBClientTests {
 
     // MARK: - TMDBCastMember
 
-    @Test func `tmdb cast member properties`() {
-        let member = TMDBCastMember(
-            tmdbPersonId: 123,
+    @Test func `tmdb cast member properties`() throws {
+        let member = try TMDBCastMember(
+            personID: #require(TMDBPersonID(123)),
             name: "Actor Name",
             character: "Character Name",
             profilePath: "/profile.jpg",
@@ -240,16 +238,16 @@ struct TMDBClientTests {
         #expect(member.order == 1)
     }
 
-    @Test func `tmdb cast member nil character`() {
-        let member = TMDBCastMember(tmdbPersonId: 1, name: "Actor", character: nil, profilePath: nil, order: 0)
+    @Test func `tmdb cast member nil character`() throws {
+        let member = try TMDBCastMember(personID: #require(TMDBPersonID(1)), name: "Actor", character: nil, profilePath: nil, order: 0)
         #expect(member.character == nil)
         #expect(member.profilePath == nil)
     }
 
-    @Test func `tmdb cast member hashable`() {
-        let memberA = TMDBCastMember(tmdbPersonId: 1, name: "A", character: nil, profilePath: nil, order: 0)
-        let memberB = TMDBCastMember(tmdbPersonId: 1, name: "A", character: nil, profilePath: nil, order: 0)
-        let memberC = TMDBCastMember(tmdbPersonId: 2, name: "B", character: nil, profilePath: nil, order: 0)
+    @Test func `tmdb cast member hashable`() throws {
+        let memberA = try TMDBCastMember(personID: #require(TMDBPersonID(1)), name: "A", character: nil, profilePath: nil, order: 0)
+        let memberB = try TMDBCastMember(personID: #require(TMDBPersonID(1)), name: "A", character: nil, profilePath: nil, order: 0)
+        let memberC = try TMDBCastMember(personID: #require(TMDBPersonID(2)), name: "B", character: nil, profilePath: nil, order: 0)
         #expect(memberA == memberB)
         #expect(memberA != memberC)
     }

@@ -3,6 +3,19 @@ import Foundation
 /// Mapping at the model boundary keeps storage/query columns scalar while
 /// giving callers validated values with explicit units and scales.
 nonisolated extension Movie {
+    var collection: TMDBCollection? {
+        get {
+            guard let id = TMDBCollectionID(collectionId) else { return nil }
+            return TMDBCollection(id: id, name: collectionName, poster: TMDBImagePath(collectionPosterPath), backdrop: TMDBImagePath(collectionBackdropPath))
+        }
+        set {
+            collectionId = newValue?.id.rawValue
+            collectionName = newValue?.name
+            collectionPosterPath = newValue?.poster?.rawValue
+            collectionBackdropPath = newValue?.backdrop?.rawValue
+        }
+    }
+
     var ratingScore: RatingScore? {
         get { RatingScore(rating, scale: .ten) }
         set { rating = newValue?.tenBased ?? 0 }

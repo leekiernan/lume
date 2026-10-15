@@ -196,7 +196,8 @@ nonisolated struct TMDBClient {
             "/movie/\(id)?append_to_response=credits,similar,release_dates,images,videos,external_ids"
                 + imageAndVideoLanguageQuery
         )
-        return response.normalized(isMovie: true, preferredLanguage: languageCode)
+        if let received = response.id, received != id.rawValue { throw TMDBError.invalidResponse }
+        return response.normalized(identity: .movie(id), preferredLanguage: languageCode)
     }
 
     /// Full detail payload for a TV series.
@@ -205,7 +206,8 @@ nonisolated struct TMDBClient {
             "/tv/\(id)?append_to_response=credits,similar,content_ratings,images,videos,external_ids"
                 + imageAndVideoLanguageQuery
         )
-        return response.normalized(isMovie: false, preferredLanguage: languageCode)
+        if let received = response.id, received != id.rawValue { throw TMDBError.invalidResponse }
+        return response.normalized(identity: .series(id), preferredLanguage: languageCode)
     }
 
     /// The proxy must deliver the same appended groups as the device request.
@@ -225,7 +227,8 @@ nonisolated struct TMDBClient {
               response.externalIds != nil,
               type == .movie ? response.releaseDates != nil : response.contentRatings != nil
         else { throw LumeMetadataError.incomplete }
-        return response.normalized(isMovie: type == .movie, preferredLanguage: String(language.prefix { $0 != "-" }))
+        guard let identity = TMDBTitleReference(kind: type, rawValue: response.id) else { throw LumeMetadataError.incomplete }
+        return response.normalized(identity: identity, preferredLanguage: String(language.prefix { $0 != "-" }))
     }
 
     /// Widens the appended `images`/`videos` to the user's language, English,
@@ -346,6 +349,7 @@ private nonisolated struct TrendingItem: Decodable {
 /// and certifications appended). Every field is optional so a single shape
 /// works for both endpoints.
 private nonisolated struct TitleDetailsResponse: Decodable {
+    let id: Int?
     let posterPath: String?
     let backdropPath: String?
     let tagline: String?
@@ -364,13 +368,17 @@ private nonisolated struct TitleDetailsResponse: Decodable {
     let imdbId: String? // movies expose it top-level
     let externalIds: ExternalIds? // tv (and movies) expose it under external_ids
 
-    struct Genre: Decodable { let name: String }
+    struct Genre: Decodable {
+        let id: Int?
+        let name: String
+    }
+
     struct Credits: Decodable { let cast: [TMDBCastMemberDTO]? }
     struct Similar: Decodable { let results: [SimilarItem] }
     struct Results<Entry: Decodable>: Decodable { let results: [Entry] }
 
     enum CodingKeys: String, CodingKey {
-        case tagline, overview, runtime, genres, credits, similar, videos, images
+        case id, tagline, overview, runtime, genres, credits, similar, videos, images
         case backdropPath = "backdrop_path"
         case posterPath = "poster_path"
         case voteAverage = "vote_average"
@@ -476,21 +484,24 @@ private nonisolated struct CollectionPart: Decodable {
 }
 
 nonisolated extension TitleDetailsResponse {
-    func normalized(isMovie: Bool, preferredLanguage: String = "en") -> TMDBTitleDetails {
+    func normalized(identity: TMDBTitleReference, preferredLanguage: String = "en") -> TMDBTitleDetails {
+        let isMovie = identity.kind == .movie
         let cast = (credits?.cast ?? [])
             .sorted { ($0.order ?? .max) < ($1.order ?? .max) }
             .prefix(20)
-            .map {
-                TMDBCastMember(
-                    tmdbPersonId: $0.id,
-                    name: $0.name,
-                    character: $0.character?.isEmpty == true ? nil : $0.character,
-                    profilePath: $0.profilePath,
-                    order: $0.order ?? 0
+            .compactMap { member -> TMDBCastMember? in
+                guard let id = TMDBPersonID(member.id) else { return nil }
+                return TMDBCastMember(
+                    personID: id,
+                    name: member.name,
+                    character: member.character?.isEmpty == true ? nil : member.character,
+                    profilePath: member.profilePath,
+                    order: member.order ?? 0
                 )
             }
 
         return TMDBTitleDetails(
+            identity: identity,
             posterPath: posterPath,
             backdropPath: backdropPath,
             tagline: (tagline?.isEmpty == true) ? nil : tagline,
@@ -498,7 +509,6 @@ nonisolated extension TitleDetailsResponse {
             voteAverage: RatingScore(voteAverage, scale: .ten)?.value,
             runtimeMinutes: MediaRuntime(minutes: isMovie ? runtime : episodeRunTime?.first)?.minutes,
             genreNames: genres?.map(\.name) ?? [],
-            contentRating: isMovie ? movieCertification() : tvRating(),
             cast: Array(cast),
             similarIDs: similar?.results.map(\.id) ?? [],
             videos: mappedVideos(),
@@ -507,7 +517,9 @@ nonisolated extension TitleDetailsResponse {
             collectionId: isMovie ? belongsToCollection?.id : nil,
             collectionName: isMovie ? belongsToCollection?.name : nil,
             collectionPosterPath: isMovie ? belongsToCollection?.posterPath : nil,
-            collectionBackdropPath: isMovie ? belongsToCollection?.backdropPath : nil
+            collectionBackdropPath: isMovie ? belongsToCollection?.backdropPath : nil,
+            genres: genres?.compactMap { TitleGenre(id: TMDBGenreID($0.id), name: $0.name) },
+            certification: isMovie ? movieCertification() : tvRating()
         )
     }
 
@@ -554,25 +566,25 @@ nonisolated extension TitleDetailsResponse {
     }
 
     /// Picks a US certification, falling back to the first non-empty one.
-    private func movieCertification() -> String? {
+    private func movieCertification() -> TitleCertification? {
         let entries = releaseDates?.results ?? []
-        func cert(for code: String) -> String? {
-            entries.first { $0.countryCode == code }?
-                .releaseDates.compactMap(\.certification)
-                .first { !$0.isEmpty }
-        }
-        if let usCert = cert(for: "US") { return usCert }
-        for entry in entries {
-            if let cert = entry.releaseDates.compactMap(\.certification).first(where: { !$0.isEmpty }) {
-                return cert
+        let ordered = entries.filter { $0.countryCode == "US" } + entries.filter { $0.countryCode != "US" }
+        for entry in ordered {
+            guard let country = CountryCode(entry.countryCode) else { continue }
+            for raw in entry.releaseDates {
+                if let certification = TitleCertification(country: country, label: raw.certification) { return certification }
             }
         }
         return nil
     }
 
-    private func tvRating() -> String? {
+    private func tvRating() -> TitleCertification? {
         let entries = contentRatings?.results ?? []
-        if let usRating = entries.first(where: { $0.countryCode == "US" })?.rating, !usRating.isEmpty { return usRating }
-        return entries.compactMap(\.rating).first { !$0.isEmpty }
+        let ordered = entries.filter { $0.countryCode == "US" } + entries.filter { $0.countryCode != "US" }
+        for entry in ordered {
+            guard let country = CountryCode(entry.countryCode) else { continue }
+            if let certification = TitleCertification(country: country, label: entry.rating) { return certification }
+        }
+        return nil
     }
 }

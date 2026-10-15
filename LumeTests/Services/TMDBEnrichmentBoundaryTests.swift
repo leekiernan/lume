@@ -38,7 +38,7 @@ struct TMDBEnrichmentBoundaryTests {
             viewContext.insert(movie)
             viewContext.insert(series)
             applyMovieDetails(details(name: "Original"), to: movie, context: viewContext)
-            applySeriesDetails(details(name: "Original"), to: series, context: viewContext)
+            applySeriesDetails(details(name: "Original", kind: .series), to: series, context: viewContext)
             let originalStamp = Date(timeIntervalSince1970: 100)
             movie.tmdbEnrichedAt = originalStamp
             series.tmdbEnrichedAt = originalStamp
@@ -53,7 +53,7 @@ struct TMDBEnrichmentBoundaryTests {
             let storedSeries = try #require(artworkContext.fetch(FetchDescriptor<Series>()).first)
             let fresh = details(name: "Replacement", poster: "/fresh.jpg")
             applyMovieArtwork(fresh, to: storedMovie)
-            applySeriesArtwork(fresh, to: storedSeries)
+            applySeriesArtwork(details(name: "Replacement", poster: "/fresh.jpg", kind: .series), to: storedSeries)
             try artworkContext.save()
 
             let checkContext = ModelContext(viewContext.container)
@@ -80,9 +80,9 @@ struct TMDBEnrichmentBoundaryTests {
         series.tmdbId = 456
         container.mainContext.insert(movie)
         container.mainContext.insert(series)
-        let missing = TMDBTitleDetails(genreNames: [], cast: [], similarIDs: [], videos: [])
+        let missing = try TMDBTitleDetails(identity: .movie(#require(TMDBMovieID(123))))
         applyMovieArtwork(missing, to: movie)
-        applySeriesArtwork(missing, to: series)
+        try applySeriesArtwork(TMDBTitleDetails(identity: .series(#require(TMDBSeriesID(456)))), to: series)
         #expect(movie.tmdbEnrichedAt == nil)
         #expect(series.tmdbEnrichedAt == nil)
         #expect(!SectionFeed.heroNeedsArtwork(backdropPath: nil, posterPath: nil, posterCheckedAt: movie.posterCheckedAt,
@@ -115,10 +115,10 @@ struct TMDBEnrichmentBoundaryTests {
         context.insert(movie)
         context.insert(series)
         applyMovieDetails(details(name: "Original"), to: movie, context: context)
-        applySeriesDetails(details(name: "Original"), to: series, context: context)
+        applySeriesDetails(details(name: "Original", kind: .series), to: series, context: context)
         try context.save()
         applyMovieDetails(details(name: "Replacement"), to: movie, context: context)
-        applySeriesDetails(details(name: "Replacement"), to: series, context: context)
+        applySeriesDetails(details(name: "Replacement", kind: .series), to: series, context: context)
         try context.save()
         #expect(movie.castMembers.map(\.name) == ["Replacement"])
         #expect(series.castMembers.map(\.name) == ["Replacement"])
@@ -129,9 +129,9 @@ struct TMDBEnrichmentBoundaryTests {
         #expect(TMDBFreshness.isFresh(series.tmdbArtworkEnrichedAt))
     }
 
-    private func details(name: String, poster: String? = nil) -> TMDBTitleDetails {
-        TMDBTitleDetails(posterPath: poster, genreNames: [],
-                         cast: [TMDBCastMember(tmdbPersonId: name == "Original" ? 1 : 2, name: name, character: nil, profilePath: nil, order: 0)],
+    private func details(name: String, poster: String? = nil, kind: LumeMetadataKind = .movie) -> TMDBTitleDetails {
+        TMDBTitleDetails(identity: TMDBTitleReference(kind: kind, rawValue: 603)!, posterPath: poster, genreNames: [],
+                         cast: [TMDBCastMember(personID: TMDBPersonID(name == "Original" ? 1 : 2)!, name: name, character: nil, profilePath: nil, order: 0)],
                          similarIDs: [], videos: [])
     }
 }

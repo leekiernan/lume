@@ -46,6 +46,8 @@ final class Series {
     var cast: String?
     var director: String?
     var genre: String?
+    var genresData: Data?
+    var certificationData: Data?
     var releaseDate: String?
     var lastModified: String?
     var rating: String?

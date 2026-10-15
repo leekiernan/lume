@@ -5,6 +5,7 @@ nonisolated enum TMDBNamespace {
     enum Series {}
     enum Person {}
     enum Collection {}
+    enum Genre {}
 }
 
 /// The namespace is part of the Swift type, not a convention on an Int.
@@ -39,6 +40,7 @@ typealias TMDBMovieID = TMDBID<TMDBNamespace.Movie>
 typealias TMDBSeriesID = TMDBID<TMDBNamespace.Series>
 typealias TMDBPersonID = TMDBID<TMDBNamespace.Person>
 typealias TMDBCollectionID = TMDBID<TMDBNamespace.Collection>
+typealias TMDBGenreID = TMDBID<TMDBNamespace.Genre>
 
 nonisolated enum TMDBTitleReference: Hashable, Codable {
     case movie(TMDBMovieID)

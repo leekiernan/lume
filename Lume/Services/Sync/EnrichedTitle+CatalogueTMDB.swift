@@ -42,6 +42,8 @@ nonisolated extension EnrichedTitle {
         logoPath = nil
         tagline = nil
         contentRating = nil
+        certificationData = nil
+        genresData = nil
         imdbId = nil
         similarTMDBIds = nil
         trailersData = nil

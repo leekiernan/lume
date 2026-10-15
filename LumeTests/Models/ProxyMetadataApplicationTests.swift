@@ -16,8 +16,8 @@ struct ProxyMetadataApplicationTests {
         let source = try #require(LumeProxySource(playlist: playlist))
         let receipt = LumeMetadataReceipt(sourceIdentity: source.identity, tmdbID: 603, language: "en-GB",
                                           tmdbAt: Date().addingTimeInterval(-7200), artworkAt: Date().addingTimeInterval(-3600))
-        let details = TMDBTitleDetails(proxyReceipt: receipt, posterPath: "/poster.jpg", overview: "Synopsis", genreNames: ["Drama"],
-                                       cast: [TMDBCastMember(tmdbPersonId: 7, name: "Actor", character: nil, profilePath: nil, order: 0)],
+        let details = TMDBTitleDetails(identity: .movie(TMDBMovieID(603)!), proxyReceipt: receipt, posterPath: "/poster.jpg", overview: "Synopsis", genreNames: ["Drama"],
+                                       cast: [TMDBCastMember(personID: TMDBPersonID(7)!, name: "Actor", character: nil, profilePath: nil, order: 0)],
                                        similarIDs: [8], videos: [])
         return (container, playlist, movie, details)
     }

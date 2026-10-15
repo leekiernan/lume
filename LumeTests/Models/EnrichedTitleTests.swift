@@ -12,11 +12,13 @@ struct EnrichedTitleTests {
         let series = Series(id: "series", seriesId: 1, name: "Series")
         context.insert(movie)
         context.insert(series)
-        let details = TMDBTitleDetails(posterPath: "/poster.jpg", backdropPath: "/backdrop.jpg", genreNames: ["Drama"],
-                                       cast: [TMDBCastMember(tmdbPersonId: 1, name: "Actor", character: nil, profilePath: nil, order: 0)],
-                                       similarIDs: [7], videos: [])
+        let details = try TMDBTitleDetails(identity: .movie(#require(TMDBMovieID(603))), posterPath: "/poster.jpg", backdropPath: "/backdrop.jpg", genreNames: ["Drama"],
+                                           cast: [TMDBCastMember(personID: #require(TMDBPersonID(1)), name: "Actor", character: nil, profilePath: nil, order: 0)],
+                                           similarIDs: [7], videos: [])
         applyMovieDetails(details, to: movie, context: context)
-        applySeriesDetails(details, to: series, context: context)
+        let seriesDetails = try TMDBTitleDetails(identity: .series(#require(TMDBSeriesID(603))), posterPath: details.posterPath,
+                                                 backdropPath: details.backdropPath, genreNames: details.genreNames, cast: details.cast)
+        applySeriesDetails(seriesDetails, to: series, context: context)
         movie.isFavorite = true
         movie.watchProgress = 123
         movie.tmdbArtworkEnrichedAt = Date()
@@ -59,7 +61,7 @@ struct EnrichedTitleTests {
         title.trailers = [TitleVideo(key: "video", name: "Trailer", type: "Trailer")]
         title.externalRatings = [ExternalRating(source: .imdb, value: 8.5)!]
         #expect(title.trailers.first?.key == "video")
-        #expect(title.externalRatings.first?.value == "8.5")
+        #expect(title.externalRatings.first?.value == "8.5/10")
     }
 
     @Test func `common artwork preserves provider fields and leaves cast and full freshness alone`() throws {
@@ -76,7 +78,8 @@ struct EnrichedTitleTests {
         title.plot = "Provider plot"
         title.posterPath = "/old.jpg"
         title.tmdbEnrichedAt = .distantPast
-        let details = TMDBTitleDetails(backdropPath: "/backdrop.jpg", overview: "TMDB plot", genreNames: ["Drama"],
+        let identity = TMDBTitleReference(kind: title is Movie ? .movie : .series, rawValue: 603)!
+        let details = TMDBTitleDetails(identity: identity, backdropPath: "/backdrop.jpg", overview: "TMDB plot", genreNames: ["Drama"],
                                        cast: [], similarIDs: [7], videos: [])
         title.applyCommonArtwork(details)
         #expect(title.plot == "Provider plot")

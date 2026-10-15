@@ -20,6 +20,8 @@ nonisolated protocol EnrichedTitle: PersistentModel {
     var imdbId: String? { get set }
     var plot: String? { get set }
     var genre: String? { get set }
+    var genresData: Data? { get set }
+    var certificationData: Data? { get set }
     var similarTMDBIds: [Int]? { get set }
     var trailersData: Data? { get set }
     var externalRatingsData: Data? { get set }
@@ -33,6 +35,11 @@ nonisolated extension Movie: EnrichedTitle {}
 nonisolated extension Series: EnrichedTitle {}
 
 nonisolated extension EnrichedTitle {
+    func accepts(_ details: TMDBTitleDetails) -> Bool {
+        let kind: LumeMetadataKind = self is Movie ? .movie : .series
+        return details.identity.kind == kind && (tmdbId == nil || tmdbId == details.identity.rawValue)
+    }
+
     /// Preserve the nil-on-disk representation for empty similar-title lists.
     var similarTitleIds: [Int] {
         get { similarTMDBIds ?? [] }
@@ -61,12 +68,13 @@ nonisolated extension EnrichedTitle {
 
     /// Never touches cast relationships or claims full-detail freshness.
     func applyCommonArtwork(_ details: TMDBTitleDetails) {
+        guard accepts(details) else { return }
         backdropPath = details.backdropPath ?? backdropPath
         posterPath = details.posterPath ?? posterPath
         posterCheckedAt = details.proxyReceipt?.artworkAt ?? Date()
         logoPath = details.logoPath ?? logoPath
         tagline = details.tagline ?? tagline
-        contentRating = details.contentRating ?? contentRating
+        certification = details.certification ?? certification
         imdbId = details.imdbId ?? imdbId
         similarTitleIds = details.similarIDs
         trailers = details.videos
@@ -77,7 +85,7 @@ nonisolated extension EnrichedTitle {
         if !details.genreNames.isEmpty {
             let value = details.genreNames.joined(separator: ", ")
             recordTMDBFallback(.genre, previous: genre, applied: value)
-            genre = value
+            genres = details.genres
         }
         tmdbArtworkEnrichedAt = details.proxyReceipt?.artworkAt ?? Date()
         recordProxyReceipt(details.proxyReceipt, fullDetails: false)
@@ -93,6 +101,8 @@ nonisolated extension EnrichedTitle {
         logoPath = nil
         tagline = nil
         contentRating = nil
+        certificationData = nil
+        genresData = nil
         tmdbEnrichedAt = nil
         tmdbArtworkEnrichedAt = nil
         similarTMDBIds = nil
