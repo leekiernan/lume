@@ -14,18 +14,18 @@ extension ContentIndexer {
     /// finds nothing is retried without the year.
     func searchMovieID(query: String, year: Int?) async throws -> Int? {
         if let id = try await tmdbClient.searchMovieID(query: query, year: year) {
-            return id
+            return id.rawValue
         }
         guard year != nil else { return nil }
-        return try await tmdbClient.searchMovieID(query: query, year: nil)
+        return try await tmdbClient.searchMovieID(query: query, year: nil)?.rawValue
     }
 
     func searchTVID(query: String, year: Int?) async throws -> Int? {
         if let id = try await tmdbClient.searchTVID(query: query, year: year) {
-            return id
+            return id.rawValue
         }
         guard year != nil else { return nil }
-        return try await tmdbClient.searchTVID(query: query, year: nil)
+        return try await tmdbClient.searchTVID(query: query, year: nil)?.rawValue
     }
 
     /// Runs a TMDB request, converting *permanent* failures (no match, bad
