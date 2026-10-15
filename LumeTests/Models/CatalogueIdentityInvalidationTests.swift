@@ -25,7 +25,7 @@ struct CatalogueIdentityInvalidationTests {
         movie.isFavorite = true
         movie.localFileURL = "download.mp4"
         applyMovieDetails(oldDetails(), to: movie, context: context)
-        movie.externalRatings = [ExternalRating(source: .imdb, value: "8.0/10")]
+        movie.externalRatings = try [#require(ExternalRating(source: .imdb, value: 8.0))]
         movie.ratingsEnrichedAt = Date()
         movie.indexedAt = Date()
         movie.embeddingData = Data([1, 2, 3])

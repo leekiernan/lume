@@ -57,7 +57,7 @@ struct EnrichedTitleTests {
         #expect(title.similarTMDBIds == nil)
         title.similarTitleIds = [1, 2]
         title.trailers = [TitleVideo(key: "video", name: "Trailer", type: "Trailer")]
-        title.externalRatings = [ExternalRating(source: .imdb, value: "8.5")]
+        title.externalRatings = [ExternalRating(source: .imdb, value: 8.5)!]
         #expect(title.trailers.first?.key == "video")
         #expect(title.externalRatings.first?.value == "8.5")
     }

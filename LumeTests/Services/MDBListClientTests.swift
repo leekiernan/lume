@@ -134,10 +134,10 @@ struct MDBListClientTests {
     // MARK: - ExternalRating display
 
     @Test func `compact value strips denominator`() {
-        #expect(ExternalRating(source: .imdb, value: "7.6/10").compactValue == "7.6")
-        #expect(ExternalRating(source: .metacritic, value: "67/100").compactValue == "67")
-        #expect(ExternalRating(source: .letterboxd, value: "4.1/5").compactValue == "4.1")
-        #expect(ExternalRating(source: .rottenTomatoes, value: "85%").compactValue == "85%")
+        #expect(ExternalRating(source: .imdb, value: 7.6)?.compactValue == "7.6")
+        #expect(ExternalRating(source: .metacritic, value: 67)?.compactValue == "67")
+        #expect(ExternalRating(source: .letterboxd, value: 4.1)?.compactValue == "4.1")
+        #expect(ExternalRating(source: .rottenTomatoes, value: 85)?.compactValue == "85%")
     }
 
     @Test func `display names are the brand names`() {
@@ -159,10 +159,10 @@ struct MDBListClientTests {
     }
 
     @Test func `external rating round-trips through Codable`() throws {
-        let original = [
-            ExternalRating(source: .imdb, value: "7.6/10"),
-            ExternalRating(source: .rtAudience, value: "91%"),
-            ExternalRating(source: .letterboxd, value: "4.1/5")
+        let original = try [
+            #require(ExternalRating(source: .imdb, value: 7.6)),
+            #require(ExternalRating(source: .rtAudience, value: 91)),
+            #require(ExternalRating(source: .letterboxd, value: 4.1))
         ]
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode([ExternalRating].self, from: data)

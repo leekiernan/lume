@@ -25,7 +25,7 @@ struct ProxyMetadataApplicationTests {
     @Test func `scalar publication persists original age but never full cast or ratings completion`() throws {
         let (container, _, movie, details) = try fixture()
         let context = container.mainContext
-        movie.externalRatings = [ExternalRating(source: .imdb, value: "8.0/10")]
+        movie.externalRatings = try [#require(ExternalRating(source: .imdb, value: 8.0))]
         applyMovieArtwork(details, to: movie)
         try context.save()
         let reloaded = try #require(ModelContext(container).fetch(FetchDescriptor<Movie>()).first)

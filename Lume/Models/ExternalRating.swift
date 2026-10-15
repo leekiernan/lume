@@ -50,9 +50,52 @@ nonisolated struct ExternalRating: Codable, Hashable, Identifiable {
     }
 
     let source: Source
-    /// The value formatted the way the aggregator brands its scores
-    /// (e.g. `7.6/10`, `85%`, `67/100`, `4.1/5`).
-    let value: String
+    let score: RatingScore
+
+    init?(source: Source, value: Double?) {
+        guard let score = RatingScore(value, scale: source.scoreScale) else { return nil }
+        self.source = source
+        self.score = score
+    }
+
+    /// Formatting is derived, never used as the stored numeric representation.
+    var value: String {
+        switch source {
+        case .imdb: String(format: "%.1f/10", score.value)
+        case .metacritic: "\(Int(score.value))/100"
+        case .letterboxd: String(format: "%.1f/5", score.value)
+        case .rottenTomatoes, .rtAudience, .trakt, .tmdb: "\(Int(score.value))%"
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey { case source, score, value }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        let source = try values.decode(Source.self, forKey: .source)
+        if values.contains(.score) {
+            let score = try values.decode(RatingScore.self, forKey: .score)
+            guard score.scale == source.scoreScale, let rating = Self(source: source, value: score.value) else {
+                throw DecodingError.dataCorruptedError(forKey: .score, in: values, debugDescription: "Rating scale does not match source")
+            }
+            self = rating
+        } else {
+            // Map the former formatted representation once when reading a
+            // cached blob; every subsequent write stores the numeric score.
+            let legacy = try values.decode(String.self, forKey: .value)
+            let number = legacy.split(separator: "/").first.map(String.init)?.replacingOccurrences(of: "%", with: "")
+            guard let rating = Self(source: source, value: number.flatMap(Double.init)) else {
+                throw DecodingError.dataCorruptedError(forKey: .value, in: values, debugDescription: "Invalid stored rating")
+            }
+            self = rating
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(source, forKey: .source)
+        try values.encode(score, forKey: .score)
+    }
 
     var id: String {
         source.rawValue
@@ -97,29 +140,14 @@ nonisolated extension ExternalRating.Source {
 }
 
 nonisolated extension ExternalRating {
-    /// The numeric portion of `value`, normalised to a 0…100 percentage where it
-    /// makes sense — used to colour-code the Rotten Tomatoes / Metacritic chips.
-    /// Returns nil for sources with a fixed brand tint.
-    private var percentScore: Double? {
-        switch source {
-        case .imdb, .trakt, .letterboxd, .tmdb:
-            nil
-        case .rottenTomatoes, .rtAudience:
-            // "85%"
-            Double(value.replacingOccurrences(of: "%", with: "").trimmingCharacters(in: .whitespaces))
-        case .metacritic:
-            // "67/100"
-            Double(value.split(separator: "/").first.map(String.init) ?? "")
-        }
-    }
-
     /// A compact value for the chip, dropping the denominator
     /// (e.g. `7.6/10` → `7.6`, `67/100` → `67`). Percentages keep their sign.
     var compactValue: String {
-        if let slash = value.firstIndex(of: "/") {
-            return String(value[value.startIndex ..< slash])
+        switch source {
+        case .imdb, .letterboxd: String(format: "%.1f", score.value)
+        case .metacritic: String(Int(score.value))
+        case .rottenTomatoes, .rtAudience, .trakt, .tmdb: value
         }
-        return value
     }
 
     /// Brand-ish tint for the chip. Rotten Tomatoes (critic + audience) and
@@ -131,20 +159,20 @@ nonisolated extension ExternalRating {
             Color(red: 0.96, green: 0.77, blue: 0.13) // IMDb gold
         case .rottenTomatoes:
             // "Fresh" at 60%+.
-            if (percentScore ?? 0) >= 60 {
+            if score.percentage >= 60 {
                 Color(red: 0.98, green: 0.36, blue: 0.22)
             } else {
                 Color(red: 0.45, green: 0.62, blue: 0.86)
             }
         case .rtAudience:
             // Upright popcorn at 60%+.
-            if (percentScore ?? 0) >= 60 {
+            if score.percentage >= 60 {
                 Color(red: 0.98, green: 0.83, blue: 0.16)
             } else {
                 Color(red: 0.45, green: 0.62, blue: 0.86)
             }
         case .metacritic:
-            switch percentScore ?? 0 {
+            switch score.percentage {
             case 61...: Color(red: 0.40, green: 0.73, blue: 0.30) // green
             case 40 ..< 61: Color(red: 0.98, green: 0.79, blue: 0.20) // yellow
             default: Color(red: 0.90, green: 0.30, blue: 0.27) // red
