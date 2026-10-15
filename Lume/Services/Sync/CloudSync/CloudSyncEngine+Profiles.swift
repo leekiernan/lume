@@ -191,7 +191,8 @@ private extension CloudSyncEngine {
         }
         let cleared = clears.ids
         for (id, mirror) in mirrors where localValues[id] == nil && cleared.contains(id) {
-            upsertMirror(&mirrors, id: id, profileID: profileID, kind: mirror.kind, values: .empty)
+            guard let kind = mirror.kind else { continue }
+            upsertMirror(&mirrors, id: id, profileID: profileID, kind: kind, values: .empty)
         }
     }
 
@@ -205,7 +206,8 @@ private extension CloudSyncEngine {
         let mirrors = try fetchMirrors(forProfile: profileID)
         var idsByKind: [SyncedContentKind: [String]] = [:]
         for (id, mirror) in mirrors {
-            idsByKind[mirror.kind, default: []].append(id)
+            guard let kind = mirror.kind else { continue }
+            idsByKind[kind, default: []].append(id)
         }
         // One batched fetch per kind instead of one single-row fetch per mirror.
         // A mirror whose catalog item hasn't synced here yet simply doesn't
@@ -225,6 +227,7 @@ private extension CloudSyncEngine {
         values: ContentStateValues
     ) {
         if let mirror = map[id] {
+            guard mirror.kind != nil else { return }
             // An export rewrites every mirror a profile owns, and nearly all of
             // them already hold these values. Writing them anyway (and bumping
             // `updatedAt`) dirtied ~19k unchanged records per profile switch

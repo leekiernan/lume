@@ -152,63 +152,62 @@ nonisolated struct TMDBClient {
         return titles
     }
 
-    static var heroBackdropSize: String {
+    static var heroBackdropSize: TMDBBackdropSize {
         // A supported baseline for metadata/warm-start URLs. Hero rendering
         // selects a larger original or a smaller rendition from its geometry.
-        "w1280"
+        .w1280
     }
 
-    static var heroLogoSize: String {
+    static var heroLogoSize: TMDBLogoSize {
         #if os(tvOS)
-            "original"
+            .original
         #else
-            "w500"
+            .w500
         #endif
     }
 
     /// Builds a full image URL from a TMDB relative path (e.g. `/abc.jpg`).
     /// Defaults to the platform-appropriate hero backdrop size.
-    static func backdropURL(_ path: String?, size: String = heroBackdropSize) -> URL? {
-        guard let path, !path.isEmpty else { return nil }
-        return URL(string: imageBaseURL + size + path)
+    static func backdropURL(_ path: String?, size: TMDBBackdropSize = heroBackdropSize) -> URL? {
+        TMDBArtworkURL.url(TMDBImagePath(path), size: size)
     }
 
     /// Builds a full cast-profile image URL from a TMDB relative path.
-    static func profileURL(_ path: String?, size: String = "w185") -> URL? {
-        guard let path, !path.isEmpty else { return nil }
-        return URL(string: imageBaseURL + size + path)
+    static func profileURL(_ path: String?, size: TMDBProfileSize = .w185) -> URL? {
+        TMDBArtworkURL.url(TMDBImagePath(path), size: size)
     }
 
     /// Builds a full title-logo image URL from a TMDB relative path. Logos are
     /// transparent PNGs of the title's wordmark, sized for the hero treatments.
-    static func logoURL(_ path: String?, size: String = heroLogoSize) -> URL? {
-        guard let path, !path.isEmpty else { return nil }
-        return URL(string: imageBaseURL + size + path)
+    static func logoURL(_ path: String?, size: TMDBLogoSize = heroLogoSize) -> URL? {
+        TMDBArtworkURL.url(TMDBImagePath(path), size: size)
     }
 
     // MARK: - Title details
 
-    func posterPath(_ id: Int, isMovie: Bool) async throws -> String? {
-        try await (get("/\(isMovie ? "movie" : "tv")/\(id)") as TMDBPosterResponse).posterPath
+    func posterPath(for title: TMDBTitleReference) async throws -> String? {
+        try await (get("/\(title.kind == .movie ? "movie" : "tv")/\(title.rawValue)") as TMDBPosterResponse).posterPath
     }
 
     /// Full detail payload for a movie, with credits, similar titles and the
     /// US content rating folded in via `append_to_response`.
-    func movieDetails(_ id: Int) async throws -> TMDBTitleDetails {
+    func movieDetails(_ id: TMDBMovieID) async throws -> TMDBTitleDetails {
         let response: TitleDetailsResponse = try await get(
             "/movie/\(id)?append_to_response=credits,similar,release_dates,images,videos,external_ids"
                 + imageAndVideoLanguageQuery
         )
-        return response.normalized(isMovie: true, preferredLanguage: languageCode)
+        if let received = response.id, received != id.rawValue { throw TMDBError.invalidResponse }
+        return response.normalized(identity: .movie(id), preferredLanguage: languageCode)
     }
 
     /// Full detail payload for a TV series.
-    func tvDetails(_ id: Int) async throws -> TMDBTitleDetails {
+    func tvDetails(_ id: TMDBSeriesID) async throws -> TMDBTitleDetails {
         let response: TitleDetailsResponse = try await get(
             "/tv/\(id)?append_to_response=credits,similar,content_ratings,images,videos,external_ids"
                 + imageAndVideoLanguageQuery
         )
-        return response.normalized(isMovie: false, preferredLanguage: languageCode)
+        if let received = response.id, received != id.rawValue { throw TMDBError.invalidResponse }
+        return response.normalized(identity: .series(id), preferredLanguage: languageCode)
     }
 
     /// The proxy must deliver the same appended groups as the device request.
@@ -228,7 +227,8 @@ nonisolated struct TMDBClient {
               response.externalIds != nil,
               type == .movie ? response.releaseDates != nil : response.contentRatings != nil
         else { throw LumeMetadataError.incomplete }
-        return response.normalized(isMovie: type == .movie, preferredLanguage: String(language.prefix { $0 != "-" }))
+        guard let identity = TMDBTitleReference(kind: type, rawValue: response.id) else { throw LumeMetadataError.incomplete }
+        return response.normalized(identity: identity, preferredLanguage: String(language.prefix { $0 != "-" }))
     }
 
     /// Widens the appended `images`/`videos` to the user's language, English,
@@ -246,23 +246,23 @@ nonisolated struct TMDBClient {
 
     /// Returns the TMDB id of the best (first) search match for a movie title.
     /// Used by the content indexer for titles whose provider supplies no id.
-    func searchMovieID(query: String, year: Int? = nil) async throws -> Int? {
+    func searchMovieID(query: String, year: Int? = nil) async throws -> TMDBMovieID? {
         var path = "/search/movie?query=\(Self.encodedQuery(query))&include_adult=false"
         if let year {
             path += "&primary_release_year=\(year)"
         }
         let response: SearchResponse = try await get(path)
-        return response.results.first?.id
+        return TMDBMovieID(response.results.first?.id)
     }
 
     /// Returns the TMDB id of the best (first) search match for a TV series.
-    func searchTVID(query: String, year: Int? = nil) async throws -> Int? {
+    func searchTVID(query: String, year: Int? = nil) async throws -> TMDBSeriesID? {
         var path = "/search/tv?query=\(Self.encodedQuery(query))&include_adult=false"
         if let year {
             path += "&first_air_date_year=\(year)"
         }
         let response: SearchResponse = try await get(path)
-        return response.results.first?.id
+        return TMDBSeriesID(response.results.first?.id)
     }
 
     /// Percent-encodes a search term for use as a query-item value —
@@ -275,9 +275,9 @@ nonisolated struct TMDBClient {
     }
 
     /// Returns the list of TMDB movie IDs that belong to a collection.
-    func collectionMovieIDs(_ id: Int) async throws -> [Int] {
+    func collectionMovieIDs(_ id: TMDBCollectionID) async throws -> [TMDBMovieID] {
         let response: CollectionDetailsResponse = try await get("/collection/\(id)")
-        return response.parts.map(\.id)
+        return response.parts.compactMap { TMDBMovieID($0.id) }
     }
 
     // MARK: - Networking
@@ -349,6 +349,7 @@ private nonisolated struct TrendingItem: Decodable {
 /// and certifications appended). Every field is optional so a single shape
 /// works for both endpoints.
 private nonisolated struct TitleDetailsResponse: Decodable {
+    let id: Int?
     let posterPath: String?
     let backdropPath: String?
     let tagline: String?
@@ -367,13 +368,17 @@ private nonisolated struct TitleDetailsResponse: Decodable {
     let imdbId: String? // movies expose it top-level
     let externalIds: ExternalIds? // tv (and movies) expose it under external_ids
 
-    struct Genre: Decodable { let name: String }
+    struct Genre: Decodable {
+        let id: Int?
+        let name: String
+    }
+
     struct Credits: Decodable { let cast: [TMDBCastMemberDTO]? }
     struct Similar: Decodable { let results: [SimilarItem] }
     struct Results<Entry: Decodable>: Decodable { let results: [Entry] }
 
     enum CodingKeys: String, CodingKey {
-        case tagline, overview, runtime, genres, credits, similar, videos, images
+        case id, tagline, overview, runtime, genres, credits, similar, videos, images
         case backdropPath = "backdrop_path"
         case posterPath = "poster_path"
         case voteAverage = "vote_average"
@@ -479,29 +484,31 @@ private nonisolated struct CollectionPart: Decodable {
 }
 
 nonisolated extension TitleDetailsResponse {
-    func normalized(isMovie: Bool, preferredLanguage: String = "en") -> TMDBTitleDetails {
+    func normalized(identity: TMDBTitleReference, preferredLanguage: String = "en") -> TMDBTitleDetails {
+        let isMovie = identity.kind == .movie
         let cast = (credits?.cast ?? [])
             .sorted { ($0.order ?? .max) < ($1.order ?? .max) }
             .prefix(20)
-            .map {
-                TMDBCastMember(
-                    tmdbPersonId: $0.id,
-                    name: $0.name,
-                    character: $0.character?.isEmpty == true ? nil : $0.character,
-                    profilePath: $0.profilePath,
-                    order: $0.order ?? 0
+            .compactMap { member -> TMDBCastMember? in
+                guard let id = TMDBPersonID(member.id) else { return nil }
+                return TMDBCastMember(
+                    personID: id,
+                    name: member.name,
+                    character: member.character?.isEmpty == true ? nil : member.character,
+                    profilePath: member.profilePath,
+                    order: member.order ?? 0
                 )
             }
 
         return TMDBTitleDetails(
+            identity: identity,
             posterPath: posterPath,
             backdropPath: backdropPath,
             tagline: (tagline?.isEmpty == true) ? nil : tagline,
             overview: (overview?.isEmpty == true) ? nil : overview,
-            voteAverage: voteAverage,
-            runtimeMinutes: isMovie ? runtime : episodeRunTime?.first,
+            voteAverage: RatingScore(voteAverage, scale: .ten)?.value,
+            runtimeMinutes: MediaRuntime(minutes: isMovie ? runtime : episodeRunTime?.first)?.minutes,
             genreNames: genres?.map(\.name) ?? [],
-            contentRating: isMovie ? movieCertification() : tvRating(),
             cast: Array(cast),
             similarIDs: similar?.results.map(\.id) ?? [],
             videos: mappedVideos(),
@@ -510,16 +517,16 @@ nonisolated extension TitleDetailsResponse {
             collectionId: isMovie ? belongsToCollection?.id : nil,
             collectionName: isMovie ? belongsToCollection?.name : nil,
             collectionPosterPath: isMovie ? belongsToCollection?.posterPath : nil,
-            collectionBackdropPath: isMovie ? belongsToCollection?.backdropPath : nil
+            collectionBackdropPath: isMovie ? belongsToCollection?.backdropPath : nil,
+            genres: genres?.compactMap { TitleGenre(id: TMDBGenreID($0.id), name: $0.name) },
+            certification: isMovie ? movieCertification() : tvRating()
         )
     }
 
     /// The IMDb id, preferring the top-level value (movies) and falling back to
     /// the appended `external_ids` (series). Empty strings are treated as absent.
     private func resolvedIMDbId() -> String? {
-        let candidate = imdbId ?? externalIds?.imdbId
-        guard let candidate, !candidate.isEmpty else { return nil }
-        return candidate
+        (IMDbTitleID(imdbId) ?? IMDbTitleID(externalIds?.imdbId))?.rawValue
     }
 
     /// YouTube videos sorted by usefulness — trailers first, then teasers,
@@ -543,7 +550,9 @@ nonisolated extension TitleDetailsResponse {
     /// language-neutral one, and finally any other; ties broken by TMDB vote
     /// average. `preferredLanguage` is an ISO 639-1 code (e.g. `de`).
     private func bestLogoPath(preferredLanguage: String) -> String? {
-        let logos = images?.logos ?? []
+        // Rank only artwork our raster renderer can use. A preferred SVG or
+        // malformed path must not hide the next usable wordmark.
+        let logos = (images?.logos ?? []).filter { TMDBImagePath($0.filePath) != nil }
         guard !logos.isEmpty else { return nil }
         func rank(_ logo: LogoEntry) -> Int {
             switch logo.languageCode {
@@ -559,25 +568,25 @@ nonisolated extension TitleDetailsResponse {
     }
 
     /// Picks a US certification, falling back to the first non-empty one.
-    private func movieCertification() -> String? {
+    private func movieCertification() -> TitleCertification? {
         let entries = releaseDates?.results ?? []
-        func cert(for code: String) -> String? {
-            entries.first { $0.countryCode == code }?
-                .releaseDates.compactMap(\.certification)
-                .first { !$0.isEmpty }
-        }
-        if let usCert = cert(for: "US") { return usCert }
-        for entry in entries {
-            if let cert = entry.releaseDates.compactMap(\.certification).first(where: { !$0.isEmpty }) {
-                return cert
+        let ordered = entries.filter { $0.countryCode == "US" } + entries.filter { $0.countryCode != "US" }
+        for entry in ordered {
+            guard let country = CountryCode(entry.countryCode) else { continue }
+            for raw in entry.releaseDates {
+                if let certification = TitleCertification(country: country, label: raw.certification) { return certification }
             }
         }
         return nil
     }
 
-    private func tvRating() -> String? {
+    private func tvRating() -> TitleCertification? {
         let entries = contentRatings?.results ?? []
-        if let usRating = entries.first(where: { $0.countryCode == "US" })?.rating, !usRating.isEmpty { return usRating }
-        return entries.compactMap(\.rating).first { !$0.isEmpty }
+        let ordered = entries.filter { $0.countryCode == "US" } + entries.filter { $0.countryCode != "US" }
+        for entry in ordered {
+            guard let country = CountryCode(entry.countryCode) else { continue }
+            if let certification = TitleCertification(country: country, label: entry.rating) { return certification }
+        }
+        return nil
     }
 }

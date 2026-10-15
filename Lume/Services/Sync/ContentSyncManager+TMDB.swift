@@ -61,8 +61,8 @@ extension ContentSyncManager {
     /// Fetches the list of TMDB movie IDs that belong to a collection.
     func fetchTMDBCollectionMovieIDs(collectionId: Int) async throws -> [Int] {
         let client = TMDBClient.shared
-        guard client.isConfigured else { return [] }
-        return try await client.collectionMovieIDs(collectionId)
+        guard client.isConfigured, let id = TMDBCollectionID(collectionId) else { return [] }
+        return try await client.collectionMovieIDs(id).map(\.rawValue)
     }
 }
 
@@ -71,28 +71,25 @@ extension ContentSyncManager {
 /// Scalar metadata/artwork only: safe for background enrichment while a
 /// detail screen holds cast faults. Does not claim full-detail freshness.
 nonisolated func applyMovieArtwork(_ details: TMDBTitleDetails, to movie: Movie) {
+    guard movie.accepts(details) else { return }
     movie.applyCommonArtwork(details)
-    if (movie.durationSecs ?? 0) == 0, let mins = details.runtimeMinutes, mins > 0 {
-        movie.recordTMDBFallback(.runtime, previous: movie.durationSecs.map(String.init), applied: String(mins * 60))
-        movie.durationSecs = mins * 60
+    if (movie.durationSecs ?? 0) == 0, let runtime = MediaRuntime(minutes: details.runtimeMinutes) {
+        movie.recordTMDBFallback(\.runtime, previous: movie.durationSecs, applied: runtime.seconds)
+        movie.durationSecs = runtime.seconds
     }
-    if movie.rating == 0, let vote = details.voteAverage, vote > 0 {
-        movie.recordTMDBFallback(.rating, previous: String(movie.rating), applied: String(vote))
-        movie.rating = vote
+    if movie.rating == 0, let score = RatingScore(details.voteAverage, scale: .ten), score.value > 0 {
+        movie.recordTMDBFallback(\.movieRating, previous: movie.rating, applied: score.value)
+        movie.rating = score.value
     }
 
-    if let collectionId = details.collectionId, collectionId > 0 {
-        movie.collectionId = collectionId
-        movie.collectionName = details.collectionName
-        movie.collectionPosterPath = details.collectionPosterPath
-        movie.collectionBackdropPath = details.collectionBackdropPath
-    }
+    if let collection = details.collection { movie.collection = collection }
 }
 
 /// Full-detail enrichment on the context that owns the displayed cast. Never
 /// call this from an artwork/indexing background context: replacing cast rows
 /// there can invalidate faults retained by a detail screen before they merge.
 nonisolated func applyMovieDetails(_ details: TMDBTitleDetails, to movie: Movie, context: ModelContext) {
+    guard movie.accepts(details) else { return }
     applyMovieArtwork(details, to: movie)
     replaceCast(of: movie.castMembers, with: details.cast, ownerId: movie.id, context: context) { castMember in
         castMember.movie = movie
@@ -105,16 +102,17 @@ nonisolated func applyMovieDetails(_ details: TMDBTitleDetails, to movie: Movie,
 /// Scalar metadata/artwork only: safe for background enrichment while a
 /// detail screen holds cast faults. Does not claim full-detail freshness.
 nonisolated func applySeriesArtwork(_ details: TMDBTitleDetails, to series: Series) {
+    guard series.accepts(details) else { return }
     series.applyCommonArtwork(details)
     if (series.cast ?? "").isEmpty, !details.cast.isEmpty {
         let value = details.cast.prefix(6).map(\.name).joined(separator: ", ")
-        series.recordTMDBFallback(.cast, previous: series.cast, applied: value)
+        series.recordTMDBFallback(\.cast, previous: series.cast, applied: value)
         series.cast = value
     }
     let currentRating = series.rating.flatMap(Double.init) ?? 0
-    if currentRating == 0, let vote = details.voteAverage, vote > 0 {
-        let value = String(format: "%.1f", vote)
-        series.recordTMDBFallback(.rating, previous: series.rating, applied: value)
+    if currentRating == 0, let score = RatingScore(details.voteAverage, scale: .ten), score.value > 0 {
+        let value = String(format: "%.1f", score.value)
+        series.recordTMDBFallback(\.seriesRating, previous: series.rating, applied: value)
         series.rating = value
     }
 }
@@ -123,6 +121,7 @@ nonisolated func applySeriesArtwork(_ details: TMDBTitleDetails, to series: Seri
 /// call this from an artwork/indexing background context: replacing cast rows
 /// there can invalidate faults retained by a detail screen before they merge.
 nonisolated func applySeriesDetails(_ details: TMDBTitleDetails, to series: Series, context: ModelContext) {
+    guard series.accepts(details) else { return }
     applySeriesArtwork(details, to: series)
     replaceCast(of: series.castMembers, with: details.cast, ownerId: series.id, context: context) { castMember in
         castMember.series = series

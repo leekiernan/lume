@@ -5,12 +5,12 @@ import Testing
 
 @MainActor
 struct CatalogueIdentityInvalidationTests {
-    private func oldDetails() -> TMDBTitleDetails {
-        TMDBTitleDetails(posterPath: "/old-poster", backdropPath: "/old-backdrop", tagline: "Old tagline", overview: "Old synopsis",
+    private func oldDetails(kind: LumeMetadataKind = .movie) -> TMDBTitleDetails {
+        TMDBTitleDetails(identity: TMDBTitleReference(kind: kind, rawValue: 603)!, posterPath: "/old-poster.jpg", backdropPath: "/old-backdrop.jpg", tagline: "Old tagline", overview: "Old synopsis",
                          voteAverage: 8, runtimeMinutes: 90, genreNames: ["Drama"], contentRating: "18",
-                         cast: [TMDBCastMember(tmdbPersonId: 7, name: "Old actor", character: nil, profilePath: nil, order: 0)],
-                         similarIDs: [8], videos: [], logoPath: "/old-logo", imdbId: "tt0133093",
-                         collectionId: 2344, collectionName: "Old collection", collectionPosterPath: "/collection", collectionBackdropPath: "/collection-backdrop")
+                         cast: [TMDBCastMember(personID: TMDBPersonID(7)!, name: "Old actor", character: nil, profilePath: nil, order: 0)],
+                         similarIDs: [8], videos: [], logoPath: "/old-logo.png", imdbId: "tt0133093",
+                         collectionId: 2344, collectionName: "Old collection", collectionPosterPath: "/collection.jpg", collectionBackdropPath: "/collection-backdrop.jpg")
     }
 
     @Test(arguments: [true, false])
@@ -25,7 +25,7 @@ struct CatalogueIdentityInvalidationTests {
         movie.isFavorite = true
         movie.localFileURL = "download.mp4"
         applyMovieDetails(oldDetails(), to: movie, context: context)
-        movie.externalRatings = [ExternalRating(source: .imdb, value: "8.0/10")]
+        movie.externalRatings = try [#require(ExternalRating(source: .imdb, value: 8.0))]
         movie.ratingsEnrichedAt = Date()
         movie.indexedAt = Date()
         movie.embeddingData = Data([1, 2, 3])
@@ -45,7 +45,7 @@ struct CatalogueIdentityInvalidationTests {
 
         // Sparse new metadata cannot accidentally retain a different title's logo,
         // IMDb ID or collection, and scalar-only hydration cannot revive its cast.
-        let sparse = TMDBTitleDetails(genreNames: [], cast: [], similarIDs: [], videos: [])
+        let sparse = try TMDBTitleDetails(identity: .movie(#require(TMDBMovieID(604))), genreNames: [], cast: [], similarIDs: [], videos: [])
         applyMovieArtwork(sparse, to: movie)
         #expect(movie.imdbId == nil && movie.logoPath == nil && movie.collectionId == nil && movie.orderedCast.isEmpty)
         applyMovieDetails(sparse, to: movie, context: context)
@@ -65,7 +65,7 @@ struct CatalogueIdentityInvalidationTests {
         let episode = Episode(id: "episode", episodeId: "1", title: "Pilot", containerExtension: "mp4", seasonNum: 1, episodeNum: 1)
         context.insert(episode)
         series.episodes.append(episode)
-        applySeriesDetails(oldDetails(), to: series, context: context)
+        applySeriesDetails(oldDetails(kind: .series), to: series, context: context)
         series.indexedAt = Date()
         series.embeddingData = Data([1])
 
@@ -74,7 +74,7 @@ struct CatalogueIdentityInvalidationTests {
         #expect(series.cover == "provider-cover" && series.episodesFetchedAt != nil && series.episodes.count == 1)
         #expect(series.imdbId == nil && series.logoPath == nil && series.posterPath == nil && series.orderedCast.isEmpty)
         #expect(series.indexedAt == nil && series.embeddingData == nil)
-        applySeriesDetails(TMDBTitleDetails(genreNames: [], cast: [], similarIDs: [], videos: []), to: series, context: context)
+        try applySeriesDetails(TMDBTitleDetails(identity: .series(#require(TMDBSeriesID(604))), genreNames: [], cast: [], similarIDs: [], videos: []), to: series, context: context)
         #expect(!series.tmdbCastInvalidated)
     }
 

@@ -134,7 +134,7 @@
                 posterFallbackURL: URL(string: movie.streamIcon ?? ""),
                 logoURL: TMDBClient.logoURL(movie.logoPath),
                 tagline: movie.tagline,
-                rating: rating5,
+                rating: movie.starRating,
                 badge: movie.contentRating,
                 metaItems: heroMetaItems,
                 fallbackSymbol: "film"
@@ -210,14 +210,6 @@
         }
 
         // MARK: - Derived data
-
-        /// A 0…5 rating, preferring TMDB's 5-based value, falling back to the
-        /// 10-based rating halved.
-        private var rating5: Double {
-            if movie.rating5Based > 0 { return min(movie.rating5Based, 5) }
-            if movie.rating > 0 { return min(movie.rating / 2, 5) }
-            return 0
-        }
 
         private var heroMetaItems: [TVMetaItem] {
             var items: [TVMetaItem] = []

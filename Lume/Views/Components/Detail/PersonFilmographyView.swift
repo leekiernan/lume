@@ -28,10 +28,10 @@ struct PersonFilmographyView: View {
 
     #if os(tvOS)
         private let headshotSize: CGFloat = TVDetailMetrics.castAvatar
-        private let headshotImageSize = "w342"
+        private let headshotImageSize: TMDBProfileSize = .h632
     #else
         private let headshotSize: CGFloat = 112
-        private let headshotImageSize = "w185"
+        private let headshotImageSize: TMDBProfileSize = .w185
     #endif
 
     var body: some View {

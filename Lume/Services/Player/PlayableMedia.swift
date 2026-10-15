@@ -185,7 +185,7 @@ nonisolated extension PlayableMedia {
                 contentRef: .movie(movie.id)
             )
         }
-        guard let url = vodURL(directURL: movie.directURL, playlist: playlist,
+        guard let url = vodURL(locator: movie.playbackLocator(source: playlist.sourceType), playlist: playlist,
                                build: { XtreamClient.buildMovieURL(for: movie, playlist: playlist) }) else { return nil }
         return PlayableMedia(
             id: MediaItemKey.movie(movie.id).description,
@@ -207,16 +207,12 @@ nonisolated extension PlayableMedia {
     /// `directURL` is a `create_link` command, wrapped in a placeholder the
     /// player resolves at playback time; otherwise it is the m3u direct URL or a
     /// built Xtream URL.
-    private static func vodURL(directURL: String?, playlist: Playlist, build: () -> URL?) -> URL? {
-        if playlist.sourceType == .stalker {
-            guard let cmd = directURL else { return nil }
-            return StalkerLink.placeholder(type: .vod, cmd: cmd)
-        }
+    private static func vodURL(locator: PlaybackLocator?, playlist: Playlist, build: () -> URL?) -> URL? {
         // WebDAV and the media servers deliberately take the direct-URL path:
         // the walk stored the resolved file URL (WebDAV) or the sync stored the
         // token-free stream URL (Jellyfin/Emby/Plex), and there is nothing to
         // build.
-        return directURL.flatMap(URL.init(string:)) ?? build()
+        locator?.playerURL ?? (playlist.sourceType == .xtream ? build() : nil)
     }
 
     static func from(episode: Episode, playlist: Playlist) -> PlayableMedia? {
@@ -241,11 +237,8 @@ nonisolated extension PlayableMedia {
         }
         let url: URL
         switch playlist.sourceType {
-        case .stalker:
-            guard let cmd = episode.directSource, let placeholder = StalkerLink.placeholder(type: .vod, cmd: cmd) else { return nil }
-            url = placeholder
-        case .m3u, .webdav, .jellyfin, .emby, .plex:
-            guard let resolved = episode.directSource.flatMap(URL.init(string:)) else { return nil }
+        case .stalker, .m3u, .webdav, .jellyfin, .emby, .plex:
+            guard let resolved = episode.playbackLocator(source: playlist.sourceType)?.playerURL else { return nil }
             url = resolved
         case .xtream:
             guard let built = XtreamClient.buildEpisodeURL(for: episode, playlist: playlist) else { return nil }
@@ -280,7 +273,7 @@ nonisolated extension PlayableMedia {
     ) -> PlayableMedia? {
         let url: URL
         if playlist.sourceType == .stalker {
-            guard let cmd = stream.directURL, let placeholder = StalkerLink.placeholder(type: .itv, cmd: cmd) else { return nil }
+            guard let placeholder = stream.playbackLocator(source: .stalker)?.playerURL else { return nil }
             url = placeholder
         } else {
             // WebDAV and the media servers deliberately take this direct-URL
@@ -289,8 +282,9 @@ nonisolated extension PlayableMedia {
             // An m3u channel plays at the URL the playlist listed; the chosen
             // container rewrites it only when the provider used one of the two
             // interchangeable live endpoints. Xtream URLs are built with it.
-            let directURL = stream.directURL.flatMap(URL.init(string:)).map(playlist.streamFormat.applied(to:))
-            guard let resolved = directURL ?? XtreamClient.buildLiveStreamURL(for: stream, playlist: playlist) else { return nil }
+            let directURL = stream.playbackLocator(source: playlist.sourceType)?.playerURL.map(playlist.streamFormat.applied(to:))
+            let builtURL = playlist.sourceType == .xtream ? XtreamClient.buildLiveStreamURL(for: stream, playlist: playlist) : nil
+            guard let resolved = directURL ?? builtURL else { return nil }
             url = resolved
         }
         return PlayableMedia(

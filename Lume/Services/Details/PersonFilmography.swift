@@ -47,7 +47,10 @@ actor PersonCreditsStore {
 
     init(limit: Int = 64, fetch: (@Sendable (Int) async throws -> [HomeListEntry])? = nil) {
         self.limit = limit
-        self.fetch = fetch ?? { try await TMDBClient.shared.personCredits($0) }
+        self.fetch = fetch ?? {
+            guard let id = TMDBPersonID($0) else { return [] }
+            return try await TMDBClient.shared.personCredits(id)
+        }
     }
 
     /// `nil` when TMDB is unavailable (no key, offline, an error); the caller

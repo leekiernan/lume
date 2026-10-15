@@ -436,8 +436,8 @@ actor ContentIndexer {
             return
         }
 
-        if movie.tmdbId == nil, let tmdbId = result.resolvedTMDBId {
-            movie.tmdbId = tmdbId
+        if movie.tmdbId == nil, let id = TMDBMovieID(result.resolvedTMDBId) {
+            movie.assignTMDB(.movie(id), origin: .deviceSearch)
         }
         if let details = result.details {
             // Background context: scalar metadata only. The embedding uses
@@ -474,8 +474,8 @@ actor ContentIndexer {
             return
         }
 
-        if series.tmdbId == nil, let tmdbId = result.resolvedTMDBId {
-            series.tmdbId = tmdbId
+        if series.tmdbId == nil, let id = TMDBSeriesID(result.resolvedTMDBId) {
+            series.assignTMDB(.series(id), origin: .deviceSearch)
         }
         if let details = result.details {
             // Background context: scalar metadata only. The embedding uses

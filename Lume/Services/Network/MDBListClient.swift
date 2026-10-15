@@ -101,25 +101,12 @@ nonisolated struct MDBListClient {
         var result: [ExternalRating] = []
         for entry in entries {
             guard let source = ExternalRating.Source(mdbListSource: entry.source),
-                  let value = entry.value,
+                  let rating = ExternalRating(source: source, value: entry.value),
                   !seen.contains(source) else { continue }
             seen.insert(source)
-            result.append(ExternalRating(source: source, value: source.formattedValue(value)))
+            result.append(rating)
         }
         return result.sorted { $0.source.displayPriority < $1.source.displayPriority }
-    }
-}
-
-private nonisolated extension ExternalRating.Source {
-    /// Formats MDBList's numeric value the way each aggregator brands its
-    /// scores (e.g. `7.6/10`, `85%`, `67/100`, `4.1/5`).
-    func formattedValue(_ value: Double) -> String {
-        switch self {
-        case .imdb: String(format: "%.1f/10", value)
-        case .metacritic: "\(Int(value))/100"
-        case .letterboxd: String(format: "%.1f/5", value)
-        case .rottenTomatoes, .rtAudience, .trakt, .tmdb: "\(Int(value))%"
-        }
     }
 }
 

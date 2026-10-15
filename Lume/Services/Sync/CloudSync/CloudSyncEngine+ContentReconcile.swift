@@ -14,6 +14,7 @@ import SwiftData
 extension CloudSyncEngine {
     func reconcileContent(livePrefixes: Set<String>, into result: inout CloudSyncReconcileResult) throws {
         var mirrors = try fetchContentMirrors()
+        let unsupported = Set(mirrors.filter { $0.value.kind == nil }.keys)
         expireClearedRecords(&mirrors, into: &result)
         let localValues = try fetchLocalContentValues()
         // A snapshot: clears recorded while this pass runs wait for the next.
@@ -22,6 +23,7 @@ extension CloudSyncEngine {
 
         var ids = Set(mirrors.keys).union(localValues.keys)
         ids.formUnion(shadow.contentShadowIDs())
+        ids.subtract(unsupported)
 
         var live: [String] = []
         for id in ids {
@@ -61,7 +63,7 @@ extension CloudSyncEngine {
     private func expireClearedRecords(_ mirrors: inout [String: UserContentState], into result: inout CloudSyncReconcileResult) {
         let now = Date()
         for (id, mirror) in mirrors
-            where Self.values(from: mirror).isCleared && IntentMerge.clearedRecordExpired(updatedAt: mirror.updatedAt, now: now)
+            where mirror.kind != nil && Self.values(from: mirror).isCleared && IntentMerge.clearedRecordExpired(updatedAt: mirror.updatedAt, now: now)
         {
             cloudContext.delete(mirror)
             mirrors[id] = nil

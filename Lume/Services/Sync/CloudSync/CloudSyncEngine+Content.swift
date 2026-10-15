@@ -42,11 +42,12 @@ extension CloudSyncEngine {
     /// `ContentIntentMerge`). Nil deletes the record: only for state that no
     /// longer has an owner (its playlist deleted).
     func applyContentToCloud(_ value: ContentStateValues?, id: String, kind: SyncedContentKind?, mirror: UserContentState?) {
+        if let mirror, mirror.kind == nil { return }
         guard let value else {
             if let mirror { cloudContext.delete(mirror) }
             return
         }
-        let kind = kind ?? mirror?.kind ?? .movie
+        guard let kind = kind ?? mirror?.kind else { return }
         if let mirror {
             // A push whose value the mirror already holds — the re-baseline
             // after a profile switch, or both sides converging — only moves the

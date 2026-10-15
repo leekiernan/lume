@@ -258,7 +258,7 @@ struct MovieDetailView: View {
             year: DetailFormat.year(from: movie.releaseDate),
             duration: DetailFormat.duration(movie.durationSecs),
             seasonInfo: nil,
-            rating: movie.rating > 0 ? movie.rating : nil,
+            rating: movie.ratingScore,
             contentRating: movie.contentRating
         )
     }

@@ -8,8 +8,8 @@ import Testing
 /// provider-fallback rule and the TMDB-enrichment write paths.
 @MainActor
 struct GenrePrecedenceTests {
-    private func tmdbDetails(genreNames: [String]) -> TMDBTitleDetails {
-        TMDBTitleDetails(genreNames: genreNames, cast: [], similarIDs: [], videos: [])
+    private func tmdbDetails(genreNames: [String], kind: LumeMetadataKind = .movie) -> TMDBTitleDetails {
+        TMDBTitleDetails(identity: TMDBTitleReference(kind: kind, rawValue: 603)!, genreNames: genreNames, cast: [], similarIDs: [], videos: [])
     }
 
     // MARK: - Provider fallback rule
@@ -36,7 +36,7 @@ struct GenrePrecedenceTests {
         let context = container.mainContext
         let series = Series(id: "p-series-1", seriesId: 1, name: "Show", genre: "Drama")
         context.insert(series)
-        applySeriesArtwork(tmdbDetails(genreNames: ["Action", "Thriller"]), to: series)
+        applySeriesArtwork(tmdbDetails(genreNames: ["Action", "Thriller"], kind: .series), to: series)
         #expect(series.genre == "Action, Thriller")
     }
 
@@ -45,7 +45,7 @@ struct GenrePrecedenceTests {
         let context = container.mainContext
         let series = Series(id: "p-series-1", seriesId: 1, name: "Show", genre: "Drama")
         context.insert(series)
-        applySeriesArtwork(tmdbDetails(genreNames: []), to: series)
+        applySeriesArtwork(tmdbDetails(genreNames: [], kind: .series), to: series)
         #expect(series.genre == "Drama")
     }
 

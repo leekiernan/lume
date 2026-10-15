@@ -83,6 +83,8 @@ final class Movie {
     var actors: String?
     var plot: String?
     var genre: String?
+    var genresData: Data?
+    var certificationData: Data?
     var releaseDate: String?
     var durationSecs: Int?
     var youtubeTrailer: String?
@@ -190,6 +192,7 @@ final class Movie {
 
     var traktId: String?
     var tmdbId: Int?
+    var tmdbAssignmentData: Data?
 
     init(
         id: String,

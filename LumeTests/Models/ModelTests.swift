@@ -37,7 +37,7 @@ struct ModelTests {
         #expect(live.type == .live)
         #expect(live.typeRaw == "live")
 
-        live.type = .series
+        live.typeRaw = CategoryType.series.rawValue
         #expect(live.type == .series)
         #expect(live.typeRaw == "series")
     }

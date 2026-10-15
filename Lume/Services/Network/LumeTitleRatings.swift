@@ -18,8 +18,12 @@ nonisolated enum RatingsFreshness {
     /// Unreleased or out under 30 days: a day. Under a year, or an unknown
     /// date: a week. Older: 14 days.
     static func window(releaseDate: String?, now: Date = Date()) -> TimeInterval {
-        guard let released = releaseDay(releaseDate) else { return recent }
-        let age = now.timeIntervalSince(released)
+        window(release: ReleaseDate(releaseDate), now: now)
+    }
+
+    static func window(release: ReleaseDate?, now: Date = Date()) -> TimeInterval {
+        guard let release else { return recent }
+        let age = now.timeIntervalSince(release.estimatedFreshnessDate)
         if age < 30 * 24 * 3600 { return newRelease }
         return age < 365 * 24 * 3600 ? recent : settled
     }
@@ -34,14 +38,6 @@ nonisolated enum RatingsFreshness {
     /// Provider release dates arrive as `yyyy-MM-dd`, with a time appended, or
     /// as a bare year, taken as mid-year: neither "new" all year nor never.
     static func releaseDay(_ raw: String?) -> Date? {
-        guard let raw = raw?.trimmingCharacters(in: .whitespaces), raw.count >= 4 else { return nil }
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(identifier: "UTC") ?? .current
-        let parts = raw.prefix(10).split(separator: "-").compactMap { Int($0) }
-        if parts.count == 3, (1 ... 12).contains(parts[1]), (1 ... 31).contains(parts[2]) {
-            return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
-        }
-        guard let year = Int(raw.prefix(4)), year > 1800 else { return nil }
-        return calendar.date(from: DateComponents(year: year, month: 7, day: 1))
+        ReleaseDate(raw)?.estimatedFreshnessDate
     }
 }

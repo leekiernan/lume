@@ -42,7 +42,7 @@ struct StorageManagerTests {
         movie.similarTMDBIds = [1, 2, 3]
         movie.trailers = [TitleVideo(key: "abc", name: "Trailer", type: "Trailer")]
         movie.imdbId = "tt1234567"
-        movie.externalRatings = [ExternalRating(source: .imdb, value: "8.0/10")]
+        movie.externalRatings = try [#require(ExternalRating(source: .imdb, value: 8.0))]
         movie.ratingsEnrichedAt = Date(timeIntervalSince1970: 1)
         movie.collectionId = 99
         movie.collectionName = "Series Collection"

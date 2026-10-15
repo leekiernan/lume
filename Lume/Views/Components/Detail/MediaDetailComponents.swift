@@ -124,8 +124,13 @@ struct DetailMetadata {
     var year: String?
     var duration: String?
     var seasonInfo: String?
-    var rating: Double?
+    var rating: RatingScore?
     var contentRating: String?
+
+    var ratingLabel: String? {
+        guard let rating, rating.value > 0 else { return nil }
+        return String(format: "%.1f", rating.tenBased)
+    }
 
     var hasContent: Bool {
         genre != nil || year != nil || duration != nil || seasonInfo != nil
@@ -174,10 +179,10 @@ struct MetadataLineView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            if let rating = metadata.rating, rating > 0 {
+            if let rating = metadata.ratingLabel {
                 HStack(spacing: 3) {
                     Image(systemName: "star.fill").font(.caption2)
-                    Text(String(format: "%.1f", rating))
+                    Text(rating)
                 }
             }
         }
@@ -377,40 +382,20 @@ enum DetailFormat {
 
     /// The first two genres of a comma-separated list ("Animation, Fantasy").
     static func genres(_ genre: String?) -> String? {
-        guard let genre else { return nil }
-        let names = genre.split(separator: ",").prefix(2)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
+        let names = GenreParser.tokens(from: genre).prefix(2)
         return names.isEmpty ? nil : names.joined(separator: ", ")
     }
 
     /// A four-digit year pulled from a release date string in any common shape.
     static func year(from dateString: String?) -> String? {
-        guard let dateString else { return nil }
-        if let match = dateString.range(of: #"\d{4}"#, options: .regularExpression) {
-            return String(dateString[match])
-        }
-        return nil
+        ReleaseDate(dateString).map { String($0.year) }
     }
 
     /// A localized abbreviated date ("Mar 15, 2021") from a release-date string.
     /// Uses shared, pre-configured parsers — allocating a `DateFormatter` per
     /// call is expensive, and this runs for every episode card in a season list.
     static func date(from dateString: String?) -> String? {
-        guard let dateString, !dateString.isEmpty else { return nil }
-        if let date = dateTimeParser.date(from: dateString) ?? dateParser.date(from: dateString) {
-            return date.formatted(date: .abbreviated, time: .omitted)
-        }
-        return nil
-    }
-
-    private static let dateTimeParser = parser(format: "yyyy-MM-dd HH:mm:ss")
-    private static let dateParser = parser(format: "yyyy-MM-dd")
-    private static func parser(format: String) -> DateFormatter {
-        let parser = DateFormatter()
-        parser.locale = Locale(identifier: "en_US_POSIX")
-        parser.dateFormat = format
-        return parser
+        ReleaseDate(dateString)?.calendarDate()?.formatted(date: .abbreviated, time: .omitted)
     }
 }
 
@@ -426,7 +411,7 @@ enum DetailFormat {
             genre: "Action, Sci-Fi",
             year: "1999",
             duration: "2h 16m",
-            rating: 8.7,
+            rating: RatingScore(8.7, scale: .ten),
             contentRating: "R"
         ),
         height: 400
@@ -441,7 +426,7 @@ enum DetailFormat {
         metadata: DetailMetadata(
             genre: "Action",
             year: "1999",
-            rating: 8.7
+            rating: RatingScore(8.7, scale: .ten)
         ),
         height: 400
     )
@@ -453,7 +438,7 @@ enum DetailFormat {
             genre: "Action, Sci-Fi",
             year: "1999",
             duration: "2h 16m",
-            rating: 8.7,
+            rating: RatingScore(8.7, scale: .ten),
             contentRating: "PG-13"
         )
     )
@@ -463,7 +448,7 @@ enum DetailFormat {
     MetadataLineView(
         metadata: DetailMetadata(
             year: "1999",
-            rating: 6.5
+            rating: RatingScore(6.5, scale: .ten)
         )
     )
 }

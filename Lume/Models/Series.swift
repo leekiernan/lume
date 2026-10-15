@@ -46,6 +46,8 @@ final class Series {
     var cast: String?
     var director: String?
     var genre: String?
+    var genresData: Data?
+    var certificationData: Data?
     var releaseDate: String?
     var lastModified: String?
     var rating: String?
@@ -143,6 +145,7 @@ final class Series {
     var addedToWatchlistDate: Date?
     var traktId: String?
     var tmdbId: Int?
+    var tmdbAssignmentData: Data?
 
     /// The user's "For You" vote, as a raw value (`0` none, `1` up, `-1` down).
     /// Mirrored to `UserContentState` so it syncs via iCloud. Access through

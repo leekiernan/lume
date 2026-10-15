@@ -1,29 +1,30 @@
 import Foundation
 
-/// Shared fields are not exclusively TMDB-owned. Remember exactly what a
-/// TMDB write replaced so withdrawing that identity can restore provider data.
-/// Legacy rows without this optional provenance are deliberately not guessed.
-nonisolated enum TMDBFallbackField: String, Codable {
-    case plot, genre, runtime, rating, cast
+nonisolated struct TMDBReplacement<Value: Codable & Equatable>: Codable {
+    let previous: Value?
+    let applied: Value
 }
 
-private nonisolated struct TMDBFallbackChange: Codable {
-    let previous: String?
-    let applied: String
+/// Field types are fixed here: a runtime cannot accidentally record a score
+/// or a display label. Scalars remain in their native storage units.
+nonisolated struct TMDBFallbacks: Codable {
+    var plot: TMDBReplacement<String>?
+    var genre: TMDBReplacement<String>?
+    var runtime: TMDBReplacement<Int>?
+    var movieRating: TMDBReplacement<Double>?
+    var seriesRating: TMDBReplacement<String>?
+    var cast: TMDBReplacement<String>?
 }
 
 nonisolated extension EnrichedTitle {
-    func recordTMDBFallback(_ field: TMDBFallbackField, previous: String?, applied: String) {
+    func recordTMDBFallback<Value>(_ field: WritableKeyPath<TMDBFallbacks, TMDBReplacement<Value>?>, previous: Value?, applied: Value) {
         guard previous != applied else { return }
         var changes = tmdbFallbackChanges
-        // Repeated enrichment retains the original provider value. A provider
-        // edit since our last write becomes the new value to restore instead.
-        let original: String? = if let retained = changes[field.rawValue], retained.applied == previous {
-            retained.previous // Nil means the provider had no value.
-        } else {
-            previous
-        }
-        changes[field.rawValue] = TMDBFallbackChange(previous: original, applied: applied)
+        // Retain the original provider value through repeated enrichment. A
+        // provider edit since our last write becomes the new restore point.
+        let retained = changes[keyPath: field]
+        let original = retained?.applied == previous ? retained?.previous : previous
+        changes[keyPath: field] = TMDBReplacement(previous: original, applied: applied)
         tmdbFallbackData = try? JSONEncoder().encode(changes)
     }
 
@@ -31,25 +32,43 @@ nonisolated extension EnrichedTitle {
     /// edits, watch state, downloads and episode caches are never touched.
     func restoreTMDBFallbacks() {
         let changes = tmdbFallbackChanges
-        if let change = changes[TMDBFallbackField.plot.rawValue], plot == change.applied { plot = change.previous }
-        if let change = changes[TMDBFallbackField.genre.rawValue], genre == change.applied { genre = change.previous }
+        if let change = changes.plot, plot == change.applied { plot = change.previous }
+        if let change = changes.genre, genre == change.applied { genre = change.previous }
         if let movie = self as? Movie {
-            if let change = changes[TMDBFallbackField.runtime.rawValue], movie.durationSecs.map(String.init) == change.applied {
-                movie.durationSecs = change.previous.flatMap(Int.init)
-            }
-            if let change = changes[TMDBFallbackField.rating.rawValue], String(movie.rating) == change.applied {
-                movie.rating = change.previous.flatMap(Double.init) ?? 0
-            }
+            if let change = changes.runtime, movie.durationSecs == change.applied { movie.durationSecs = change.previous }
+            if let change = changes.movieRating, movie.rating == change.applied { movie.rating = change.previous ?? 0 }
         }
         if let series = self as? Series {
-            if let change = changes[TMDBFallbackField.cast.rawValue], series.cast == change.applied { series.cast = change.previous }
-            if let change = changes[TMDBFallbackField.rating.rawValue], series.rating == change.applied { series.rating = change.previous }
+            if let change = changes.cast, series.cast == change.applied { series.cast = change.previous }
+            if let change = changes.seriesRating, series.rating == change.applied { series.rating = change.previous }
         }
         tmdbFallbackData = nil
     }
 
-    private var tmdbFallbackChanges: [String: TMDBFallbackChange] {
-        guard let tmdbFallbackData else { return [:] }
-        return (try? JSONDecoder().decode([String: TMDBFallbackChange].self, from: tmdbFallbackData)) ?? [:]
+    private var tmdbFallbackChanges: TMDBFallbacks {
+        guard let tmdbFallbackData else { return TMDBFallbacks() }
+        let decoder = JSONDecoder()
+        let legacy = try? decoder.decode([String: LegacyTMDBReplacement].self, from: tmdbFallbackData)
+        if let typed = try? decoder.decode(TMDBFallbacks.self, from: tmdbFallbackData), legacy?["rating"] == nil { return typed }
+        var values = TMDBFallbacks()
+        values.plot = legacy?["plot"].map { TMDBReplacement(previous: $0.previous, applied: $0.applied) }
+        values.genre = legacy?["genre"].map { TMDBReplacement(previous: $0.previous, applied: $0.applied) }
+        values.cast = legacy?["cast"].map { TMDBReplacement(previous: $0.previous, applied: $0.applied) }
+        if let value = legacy?["runtime"], let applied = Int(value.applied) {
+            values.runtime = TMDBReplacement(previous: value.previous.flatMap(Int.init), applied: applied)
+        }
+        if let value = legacy?["rating"] {
+            if self is Movie, let applied = Double(value.applied), applied.isFinite {
+                values.movieRating = TMDBReplacement(previous: value.previous.flatMap(Double.init), applied: applied)
+            } else if self is Series {
+                values.seriesRating = TMDBReplacement(previous: value.previous, applied: value.applied)
+            }
+        }
+        return values
     }
+}
+
+private nonisolated struct LegacyTMDBReplacement: Decodable {
+    let previous: String?
+    let applied: String
 }

@@ -254,6 +254,7 @@ enum StorageManager {
                     ))
                     for movie in movies {
                         movie.tmdbId = nil
+                        movie.tmdbAssignmentData = nil
                         movie.embeddingData = nil
                         movie.indexedAt = nil
                     }
@@ -263,6 +264,7 @@ enum StorageManager {
                     ))
                     for show in series {
                         show.tmdbId = nil
+                        show.tmdbAssignmentData = nil
                         show.embeddingData = nil
                         show.indexedAt = nil
                     }

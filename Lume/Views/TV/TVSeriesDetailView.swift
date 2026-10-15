@@ -149,7 +149,7 @@
                 posterFallbackURL: URL(string: series.cover ?? ""),
                 logoURL: TMDBClient.logoURL(series.logoPath),
                 tagline: series.tagline,
-                rating: rating5,
+                rating: series.starRating,
                 badge: series.contentRating,
                 metaItems: heroMetaItems,
                 fallbackSymbol: "tv"
@@ -309,12 +309,6 @@
         }
 
         // MARK: - Derived data
-
-        private var rating5: Double {
-            if let raw = series.rating5Based, let value = Double(raw), value > 0 { return min(value, 5) }
-            if let raw = series.rating, let value = Double(raw), value > 0 { return min(value / 2, 5) }
-            return 0
-        }
 
         private var heroMetaItems: [TVMetaItem] {
             var items: [TVMetaItem] = []

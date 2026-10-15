@@ -77,7 +77,9 @@ actor PosterArtworkRecovery {
         if TMDBFreshness.isFresh(stored.checkedAt), let checkedAt = stored.checkedAt {
             return PosterLookupResult(path: nil, checkedAt: checkedAt)
         }
-        guard let tmdbID = stored.tmdbID else {
+        guard let tmdbID = stored.tmdbID,
+              let title = TMDBTitleReference(kind: request.kind == .movie ? .movie : .series, rawValue: tmdbID)
+        else {
             Logger.network.notice("Poster metadata unavailable: no TMDB ID")
             throw TMDBError.missingToken
         }
@@ -87,7 +89,7 @@ actor PosterArtworkRecovery {
         }
         let path: String?
         do {
-            path = try await TMDBClient.shared.posterPath(tmdbID, isMovie: request.kind == .movie)
+            path = try await TMDBClient.shared.posterPath(for: title)
         } catch TMDBError.serverError(404) {
             // A successful absence is durable; transport/server errors are not.
             path = nil

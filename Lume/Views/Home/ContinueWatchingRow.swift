@@ -23,8 +23,8 @@ enum ContinueWatchingMetrics {
     static let logoMaxHeight: CGFloat = (cardHeight * 0.3).rounded()
     /// TMDB sizes: the card is never wider than ~350pt (tvOS), so `w780`
     /// covers 2× without pulling a 1920px hero backdrop per card.
-    static let backdropSize = "w780"
-    static let logoSize = "w500"
+    static let backdropSize: TMDBBackdropSize = .w780
+    static let logoSize: TMDBLogoSize = .w500
 
     #if os(tvOS)
         static let rowHeight: CGFloat? = cardHeight + 2 * PosterCardMetrics.railVerticalPadding
