@@ -3,6 +3,12 @@ import Foundation
 import Testing
 
 struct MetadataNumbersTests {
+    @MainActor @Test func `detail metadata preserves the score scale until formatting`() {
+        #expect(DetailMetadata(rating: RatingScore(4, scale: .five)).ratingLabel == "8.0")
+        #expect(DetailMetadata(rating: RatingScore(80, scale: .percentage)).ratingLabel == "8.0")
+        #expect(DetailMetadata(rating: RatingScore(0, scale: .ten)).ratingLabel == nil)
+    }
+
     @MainActor @Test func `model storage maps through typed units and scales`() {
         let movie = Movie(id: "movie", streamId: 1, name: "Test")
         movie.ratingScore = RatingScore(4, scale: .five)

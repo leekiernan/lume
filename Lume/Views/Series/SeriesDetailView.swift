@@ -244,13 +244,12 @@ struct SeriesDetailView: View {
     // MARK: - Derived data
 
     private var metadata: DetailMetadata {
-        let ratingValue = series.ratingScore?.value
-        return DetailMetadata(
+        DetailMetadata(
             genre: series.genre,
             year: DetailFormat.year(from: series.releaseDate),
             duration: nil,
             seasonInfo: availableSeasons.isEmpty ? nil : DetailFormat.seasonCount(availableSeasons.count),
-            rating: (ratingValue ?? 0) > 0 ? ratingValue : nil,
+            rating: series.ratingScore,
             contentRating: series.contentRating
         )
     }

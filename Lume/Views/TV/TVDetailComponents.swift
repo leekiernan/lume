@@ -22,7 +22,7 @@
 
     /// Five-star rating (with halves) plus the numeric value, on a 0…5 scale.
     struct TVStarRating: View {
-        let rating: Double // 0...5
+        let rating: RatingScore
         var showsValue: Bool = true
 
         var body: some View {
@@ -36,7 +36,7 @@
                 .foregroundStyle(Color.lumeAccent)
 
                 if showsValue {
-                    Text(String(format: "%.1f", rating))
+                    Text(String(format: "%.1f", rating.fiveBased))
                         .font(.system(size: 30, weight: .medium))
                         .foregroundStyle(.white)
                 }
@@ -45,8 +45,8 @@
 
         private func symbol(for index: Int) -> String {
             let position = Double(index)
-            if rating >= position + 1 { return "star.fill" }
-            if rating >= position + 0.5 { return "star.leadinghalf.filled" }
+            if rating.fiveBased >= position + 1 { return "star.fill" }
+            if rating.fiveBased >= position + 0.5 { return "star.leadinghalf.filled" }
             return "star"
         }
     }
@@ -155,7 +155,7 @@
         let posterFallbackURL: URL?
         var logoURL: URL?
         var tagline: String?
-        var rating: Double? // 0...5
+        var rating: RatingScore?
         var badge: String?
         let metaItems: [TVMetaItem]
         var fallbackSymbol: String = "film"
@@ -206,7 +206,7 @@
                         }
 
                         HStack(spacing: 20) {
-                            if let rating, rating > 0 {
+                            if let rating, rating.value > 0 {
                                 TVStarRating(rating: rating)
                             }
                             if let badge, !badge.isEmpty {
