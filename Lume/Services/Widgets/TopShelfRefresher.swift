@@ -45,10 +45,17 @@ final class TopShelfRefresher {
                     && input.followed == TopShelfSettings.followedProfile()
                     && input.playlistID == (UserDefaults.standard.string(forKey: PlaylistSelectionStore.key) ?? "")
                     && input.configuration == TopShelfSettings.configuration()
-                    && input.rows == WidgetSnapshotExporter.plan()
+                    // The rows as laid out, not their recorded titles: feeds
+                    // record as they load, so comparing titles would discard
+                    // an export whenever a row finished loading mid-export —
+                    // and nothing asks again until the app is next left.
+                    // Newer titles go out with the next export.
+                    && input.rows.map(\.layoutIdentity) == WidgetSnapshotExporter.plan().map(\.layoutIdentity)
             }
             await BackgroundActivity.perform("Top Shelf snapshot") {
-                let task = Task.detached(priority: .utility) {
+                // userInitiated: a backgrounding export has the assertion's
+                // few seconds, and utility work can be held back past them.
+                let task = Task.detached(priority: .userInitiated) {
                     await WidgetSnapshotExporter.export(container: container, input: input, canPublish: check)
                 }
                 await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }

@@ -42,6 +42,13 @@ nonisolated struct TopShelfRowPlan: Equatable {
     let source: TopShelfSource
     let title: String
     let recordedItems: [String]
+
+    /// The row as the layout defines it — which row and what it's called —
+    /// without the titles it last recorded, which change whenever a feed
+    /// loads.
+    var layoutIdentity: String {
+        "\(source.token)|\(title)"
+    }
 }
 
 /// Capture settings once, rather than mixing the enqueue-time rows with
@@ -140,7 +147,10 @@ enum WidgetSnapshotExporter {
     /// Validation and publication share the main actor with settings changes,
     /// so an obsolete render cannot write after a newer request invalidates it.
     private static func publish(_ snapshot: WidgetSnapshot, owner: UUID?, canPublish: @MainActor () -> Bool) -> Bool {
-        guard !Task.isCancelled, canPublish() else { return false }
+        guard !Task.isCancelled, canPublish() else {
+            Logger.database.info("Top Shelf export superseded before publishing")
+            return false
+        }
         return write(snapshot, owner: owner)
     }
 
