@@ -30,6 +30,14 @@ final class SectionFeed {
         let modelContext: ModelContext
         let restriction: ContentRestriction
         let playlistPrefix: String?
+        let profileID: UUID?
+
+        init(modelContext: ModelContext, restriction: ContentRestriction, playlistPrefix: String?, profileID: UUID? = ActiveProfileStore.current) {
+            self.modelContext = modelContext
+            self.restriction = restriction
+            self.playlistPrefix = playlistPrefix
+            self.profileID = profileID
+        }
 
         func belongsToActivePlaylist(_ id: String) -> Bool {
             guard let playlistPrefix else { return true }
@@ -57,11 +65,7 @@ final class SectionFeed {
     /// ordered source plus a bounded catalog preview. The source tail remains
     /// available for an incrementally-loaded full grid without keeping all of
     /// its SwiftData models alive on the browse screen.
-    private(set) var collections: [HomeSectionRef: SectionCollectionSnapshot] = [:] {
-        // A list row promoted to the Top Shelf shows there what it last
-        // showed here — see `TopShelfSettings.record`.
-        didSet { recordTopShelfRows(changedFrom: oldValue) }
-    }
+    private(set) var collections: [HomeSectionRef: SectionCollectionSnapshot] = [:]
 
     /// Every source's load state and the catalog scope they were matched in —
     /// see `SectionFeedLoadMachine`. Only `transition(_:)` advances it.
@@ -78,19 +82,6 @@ final class SectionFeed {
 
     init(surface: SectionSurface) {
         self.surface = surface
-    }
-
-    /// Only the rows whose titles changed, in one write.
-    private func recordTopShelfRows(changedFrom old: [HomeSectionRef: SectionCollectionSnapshot]) {
-        #if os(tvOS)
-            var changed: [TopShelfSource: [String]] = [:]
-            for (ref, collection) in collections {
-                let keys = collection.preview.map(\.id)
-                guard old[ref]?.preview.map(\.id) != keys else { continue }
-                changed[TopShelfSource(surface: surface, ref: ref)] = keys
-            }
-            if !changed.isEmpty { TopShelfSettings.record(changed) }
-        #endif
     }
 
     func items(for section: HomeSectionRef) -> [HomeMediaItem] {
@@ -499,7 +490,7 @@ extension SectionFeed {
     }
 
     private func contextIdentity(_ context: Context) -> String {
-        "\(context.playlistPrefix ?? "*")|\(context.restriction.visibilityToken)"
+        "\(context.profileID?.uuidString ?? "*")|\(context.playlistPrefix ?? "*")|\(context.restriction.visibilityToken)"
     }
 
     /// A session-cache key scoped to the catalog it was matched against. The
@@ -545,6 +536,7 @@ extension SectionFeed {
         for effect in effects {
             perform(effect)
         }
+        if case let .finished(source, .loaded) = event { recordTopShelfRows(for: source) }
     }
 
     private func perform(_ effect: SectionFeedLoadMachine.Effect) {

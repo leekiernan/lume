@@ -38,8 +38,13 @@ extension HomeView {
     /// voted on since the list was computed. That live re-validation is what lets
     /// a vote remove a card without forcing a full re-rank.
     func loadRecommendations() async {
+        let profile = ActiveProfileStore.current
+        let key = recommendationsKey
         guard recommendationsEnabled, premium.isPremium else {
             recommendations = []
+            #if os(tvOS)
+                TopShelfSettings.record([], for: TopShelfSource(surface: .home, ref: .builtin(.forYou)), profile: profile)
+            #endif
             return
         }
         // Don't calculate while syncing — leave whatever is already shown (or the
@@ -51,6 +56,7 @@ extension HomeView {
 
         let engine = RecommendationEngine(modelContainer: modelContext.container)
         let scored = await engine.recommendations(excluding: restriction.excludedCategoryIDs)
+        guard !Task.isCancelled, profile == ActiveProfileStore.current, key == recommendationsKey else { return }
         var items: [HomeMediaItem] = []
         for recommendation in scored {
             switch recommendation.kind {
@@ -63,7 +69,7 @@ extension HomeView {
         }
         recommendations = items
         #if os(tvOS)
-            TopShelfSettings.record(items.map(\.id), for: TopShelfSource(surface: .home, ref: .builtin(.forYou)))
+            TopShelfSettings.record(items.map(\.id), for: TopShelfSource(surface: .home, ref: .builtin(.forYou)), profile: profile)
         #endif
         recommendationsLoaded = true
     }
