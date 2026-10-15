@@ -101,10 +101,10 @@ nonisolated struct MDBListClient {
         var result: [ExternalRating] = []
         for entry in entries {
             guard let source = ExternalRating.Source(mdbListSource: entry.source),
-                  let value = entry.value,
+                  let score = RatingScore(entry.value, scale: source.scoreScale),
                   !seen.contains(source) else { continue }
             seen.insert(source)
-            result.append(ExternalRating(source: source, value: source.formattedValue(value)))
+            result.append(ExternalRating(source: source, value: source.formattedValue(score.value)))
         }
         return result.sorted { $0.source.displayPriority < $1.source.displayPriority }
     }

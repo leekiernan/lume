@@ -60,6 +60,14 @@ nonisolated struct ExternalRating: Codable, Hashable, Identifiable {
 }
 
 nonisolated extension ExternalRating.Source {
+    var scoreScale: RatingScore.Scale {
+        switch self {
+        case .imdb: .ten
+        case .letterboxd: .five
+        case .rottenTomatoes, .rtAudience, .metacritic, .trakt, .tmdb: .percentage
+        }
+    }
+
     /// Short label shown beneath the value.
     var displayName: String {
         switch self {

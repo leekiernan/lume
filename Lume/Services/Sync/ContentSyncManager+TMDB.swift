@@ -72,13 +72,13 @@ extension ContentSyncManager {
 /// detail screen holds cast faults. Does not claim full-detail freshness.
 nonisolated func applyMovieArtwork(_ details: TMDBTitleDetails, to movie: Movie) {
     movie.applyCommonArtwork(details)
-    if (movie.durationSecs ?? 0) == 0, let mins = details.runtimeMinutes, mins > 0 {
-        movie.recordTMDBFallback(.runtime, previous: movie.durationSecs.map(String.init), applied: String(mins * 60))
-        movie.durationSecs = mins * 60
+    if (movie.durationSecs ?? 0) == 0, let runtime = MediaRuntime(minutes: details.runtimeMinutes) {
+        movie.recordTMDBFallback(.runtime, previous: movie.durationSecs.map(String.init), applied: String(runtime.seconds))
+        movie.durationSecs = runtime.seconds
     }
-    if movie.rating == 0, let vote = details.voteAverage, vote > 0 {
-        movie.recordTMDBFallback(.rating, previous: String(movie.rating), applied: String(vote))
-        movie.rating = vote
+    if movie.rating == 0, let score = RatingScore(details.voteAverage, scale: .ten), score.value > 0 {
+        movie.recordTMDBFallback(.rating, previous: String(movie.rating), applied: String(score.value))
+        movie.rating = score.value
     }
 
     if let collectionId = details.collectionId, collectionId > 0 {
@@ -112,8 +112,8 @@ nonisolated func applySeriesArtwork(_ details: TMDBTitleDetails, to series: Seri
         series.cast = value
     }
     let currentRating = series.rating.flatMap(Double.init) ?? 0
-    if currentRating == 0, let vote = details.voteAverage, vote > 0 {
-        let value = String(format: "%.1f", vote)
+    if currentRating == 0, let score = RatingScore(details.voteAverage, scale: .ten), score.value > 0 {
+        let value = String(format: "%.1f", score.value)
         series.recordTMDBFallback(.rating, previous: series.rating, applied: value)
         series.rating = value
     }
