@@ -14,6 +14,19 @@
 import Foundation
 
 extension TMDBClient {
+    /// A single page for progressive rails. The old bounded multi-page API is
+    /// retained for discovery/editor callers, which explicitly request it.
+    func listPage(apiPath: String, media: HomeListEntry.MediaType?, number: Int) async throws -> HomeListPage {
+        guard (1 ... Self.listPageLimit).contains(number) else { throw TMDBError.invalidURL }
+        let separator = apiPath.contains("?") ? "&" : "?"
+        let response: TMDBListPage = try await get("/\(apiPath)\(separator)page=\(number)")
+        let entries = response.entries(defaulting: media).map {
+            HomeListEntry(tmdbId: $0.id, mediaType: $0.mediaType, title: $0.title)
+        }
+        let lastPage = min(Self.listPageLimit, max(response.totalPages ?? 1, 1))
+        return HomeListPage(entries: entries, nextPage: number < lastPage ? number + 1 : nil)
+    }
+
     /// How many pages to walk. TMDB serves 20 per page, so this is 100 titles —
     /// comfortably more than a row shows, and enough that a sparse catalog
     /// still finds matches.
