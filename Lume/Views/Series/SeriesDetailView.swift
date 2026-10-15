@@ -244,7 +244,7 @@ struct SeriesDetailView: View {
     // MARK: - Derived data
 
     private var metadata: DetailMetadata {
-        let ratingValue = series.rating.flatMap(Double.init)
+        let ratingValue = series.ratingScore?.value
         return DetailMetadata(
             genre: series.genre,
             year: DetailFormat.year(from: series.releaseDate),

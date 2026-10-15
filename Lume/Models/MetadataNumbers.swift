@@ -22,6 +22,10 @@ nonisolated struct RatingScore: Codable, Hashable {
         value / Double(scale.rawValue) * 5
     }
 
+    var tenBased: Double {
+        value / Double(scale.rawValue) * 10
+    }
+
     private enum CodingKeys: String, CodingKey { case value, scale }
 
     init(from decoder: Decoder) throws {

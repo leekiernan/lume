@@ -3,6 +3,21 @@ import Foundation
 import Testing
 
 struct MetadataNumbersTests {
+    @MainActor @Test func `model storage maps through typed units and scales`() {
+        let movie = Movie(id: "movie", streamId: 1, name: "Test")
+        movie.ratingScore = RatingScore(4, scale: .five)
+        movie.runtime = MediaRuntime(minutes: 90)
+        #expect(movie.rating == 8)
+        #expect(movie.starRating?.value == 4)
+        #expect(movie.durationSecs == 5400)
+        let series = Series(id: "series", seriesId: 1, name: "Test")
+        series.ratingScore = RatingScore(90, scale: .percentage)
+        #expect(series.rating == "9.0")
+        #expect(series.starRating?.value == 4.5)
+        series.rating = "not a number"
+        #expect(series.ratingScore == nil)
+    }
+
     @Test func `scores validate scale and retain a genuine zero`() throws {
         #expect(RatingScore(0, scale: .ten)?.value == 0)
         #expect(RatingScore(8, scale: .ten)?.fiveBased == 4)
