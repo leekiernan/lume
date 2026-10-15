@@ -89,12 +89,13 @@ actor ContentIndexer {
     /// an unavailable embedding model, or on a transient network failure (the
     /// next kick retries — already-indexed items are never reprocessed).
     func run(status: ContentIndexingService) async throws {
-        // Which backend, and therefore which vector space, is settled first:
-        // choosing costs nothing (no assets, no load, no network) and the
-        // "already done" check below is only meaningful against the *current*
+        // Which backend, and therefore which vector space, is settled first.
+        // OS model discovery may briefly retry, without requesting assets.
+        // The "already done" check is only meaningful against the *current*
         // space — a catalog embedded by the other backend is fully stamped and
         // entirely unusable, and has to re-open the pass.
-        let embedder = try TextEmbedder.preferred()
+        await status.setPreparing()
+        let embedder = try await TextEmbedder.preferred()
         // Release the model the moment the pass ends — completion, cancellation,
         // or throw — so the tens-of-MB embedding model isn't left resident between
         // passes or while the app is suspended in the background.
@@ -191,8 +192,8 @@ actor ContentIndexer {
     /// pass that sits in `.preparing`/`.waiting` for the life of the process
     /// without ever indexing a title. After `assetRetryLimit` attempts the run
     /// ends as `.unavailable`; the next launch tries again from scratch.
-    /// `modelUnavailable` — no model for this device at all — ends it
-    /// immediately, since no amount of waiting fixes that.
+    /// Initial model acquisition has its own short retry budget; this loop
+    /// retries asset preparation only, never switches the vector space.
     private func prepareEmbedder(_ embedder: TextEmbedder, status: ContentIndexingService) async throws {
         var pause = assetRetryPause
         for attempt in 1 ... assetRetryLimit {
