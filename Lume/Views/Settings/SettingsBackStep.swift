@@ -34,26 +34,19 @@ nonisolated enum SettingsBackStep: Equatable {
     static func next(
         hasPlaylist: Bool,
         showingEPGSources: Bool,
-        hasEngineOptions: Bool,
-        languagePane: LanguagePane?,
-        showingSubtitleStyle: Bool = false,
+        playerRoute: PlayerSettingsRoute = .overview,
         showingAreaCategories: Bool
     ) -> SettingsBackStep {
         if hasPlaylist { return .closePlaylist }
         if showingEPGSources { return .closeEPGSources }
-        if hasEngineOptions { return .closeEngineOptions }
-        switch languagePane {
-        case .add: return .closeLanguagePicker
-        case .list: return .closeLanguageList
-        case nil: break
+        switch playerRoute {
+        case .engine: return .closeEngineOptions
+        case .languages(.add): return .closeLanguagePicker
+        case .languages(.list): return .closeLanguageList
+        case .subtitleStyle: return .closeSubtitleStyle
+        case .overview: break
         }
-        if showingSubtitleStyle { return .closeSubtitleStyle }
         if showingAreaCategories { return .closeAreaCategories }
         return .toSidebar
-    }
-
-    /// Mirrors `SettingsView.PreferredLanguagePane`, which is tvOS-only.
-    enum LanguagePane {
-        case list, add
     }
 }
