@@ -188,13 +188,13 @@ nonisolated struct TMDBClient {
 
     // MARK: - Title details
 
-    func posterPath(_ id: Int, isMovie: Bool) async throws -> String? {
-        try await (get("/\(isMovie ? "movie" : "tv")/\(id)") as TMDBPosterResponse).posterPath
+    func posterPath(for title: TMDBTitleReference) async throws -> String? {
+        try await (get("/\(title.kind == .movie ? "movie" : "tv")/\(title.rawValue)") as TMDBPosterResponse).posterPath
     }
 
     /// Full detail payload for a movie, with credits, similar titles and the
     /// US content rating folded in via `append_to_response`.
-    func movieDetails(_ id: Int) async throws -> TMDBTitleDetails {
+    func movieDetails(_ id: TMDBMovieID) async throws -> TMDBTitleDetails {
         let response: TitleDetailsResponse = try await get(
             "/movie/\(id)?append_to_response=credits,similar,release_dates,images,videos,external_ids"
                 + imageAndVideoLanguageQuery
@@ -203,7 +203,7 @@ nonisolated struct TMDBClient {
     }
 
     /// Full detail payload for a TV series.
-    func tvDetails(_ id: Int) async throws -> TMDBTitleDetails {
+    func tvDetails(_ id: TMDBSeriesID) async throws -> TMDBTitleDetails {
         let response: TitleDetailsResponse = try await get(
             "/tv/\(id)?append_to_response=credits,similar,content_ratings,images,videos,external_ids"
                 + imageAndVideoLanguageQuery
@@ -275,9 +275,9 @@ nonisolated struct TMDBClient {
     }
 
     /// Returns the list of TMDB movie IDs that belong to a collection.
-    func collectionMovieIDs(_ id: Int) async throws -> [Int] {
+    func collectionMovieIDs(_ id: TMDBCollectionID) async throws -> [TMDBMovieID] {
         let response: CollectionDetailsResponse = try await get("/collection/\(id)")
-        return response.parts.map(\.id)
+        return response.parts.compactMap { TMDBMovieID($0.id) }
     }
 
     // MARK: - Networking
@@ -517,9 +517,7 @@ nonisolated extension TitleDetailsResponse {
     /// The IMDb id, preferring the top-level value (movies) and falling back to
     /// the appended `external_ids` (series). Empty strings are treated as absent.
     private func resolvedIMDbId() -> String? {
-        let candidate = imdbId ?? externalIds?.imdbId
-        guard let candidate, !candidate.isEmpty else { return nil }
-        return candidate
+        (IMDbTitleID(imdbId) ?? IMDbTitleID(externalIds?.imdbId))?.rawValue
     }
 
     /// YouTube videos sorted by usefulness — trailers first, then teasers,

@@ -54,10 +54,10 @@ nonisolated struct LumeTitleMetadataRouter {
 
     func deviceDetails(id: Int, type: LumeMetadataKind) async throws -> TMDBTitleDetails? {
         try Task.checkCancellation()
-        guard id > 0, tmdb.isConfigured else { return nil }
-        switch type {
-        case .movie: return try await tmdb.movieDetails(id)
-        case .series: return try await tmdb.tvDetails(id)
+        guard let title = TMDBTitleReference(kind: type, rawValue: id), tmdb.isConfigured else { return nil }
+        switch title {
+        case let .movie(id): return try await tmdb.movieDetails(id)
+        case let .series(id): return try await tmdb.tvDetails(id)
         }
     }
 }

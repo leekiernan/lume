@@ -13,7 +13,7 @@ import Foundation
 extension TMDBClient {
     /// The titles `personID` acted in, newest first, as list entries the
     /// collection resolver matches against the catalogue.
-    func personCredits(_ personID: Int) async throws -> [HomeListEntry] {
+    func personCredits(_ personID: TMDBPersonID) async throws -> [HomeListEntry] {
         let response: TMDBPersonCredits = try await get("/person/\(personID)/combined_credits")
         return TMDBPersonCredits.entries(from: response.cast)
     }

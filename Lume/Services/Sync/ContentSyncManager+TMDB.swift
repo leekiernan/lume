@@ -61,8 +61,8 @@ extension ContentSyncManager {
     /// Fetches the list of TMDB movie IDs that belong to a collection.
     func fetchTMDBCollectionMovieIDs(collectionId: Int) async throws -> [Int] {
         let client = TMDBClient.shared
-        guard client.isConfigured else { return [] }
-        return try await client.collectionMovieIDs(collectionId)
+        guard client.isConfigured, let id = TMDBCollectionID(collectionId) else { return [] }
+        return try await client.collectionMovieIDs(id).map(\.rawValue)
     }
 }
 
