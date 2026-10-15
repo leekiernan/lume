@@ -145,6 +145,7 @@ final class Series {
     var addedToWatchlistDate: Date?
     var traktId: String?
     var tmdbId: Int?
+    var tmdbAssignmentData: Data?
 
     /// The user's "For You" vote, as a raw value (`0` none, `1` up, `-1` down).
     /// Mirrored to `UserContentState` so it syncs via iCloud. Access through

@@ -192,6 +192,7 @@ final class Movie {
 
     var traktId: String?
     var tmdbId: Int?
+    var tmdbAssignmentData: Data?
 
     init(
         id: String,

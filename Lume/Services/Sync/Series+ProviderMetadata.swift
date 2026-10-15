@@ -26,8 +26,13 @@ nonisolated extension Series {
         defer {
             if let covered, covered != proxyCoveredFields { invalidateProxyMetadata() }
         }
-        if !fillMissing, Self.catalogueTMDB(metadata.tmdb) != nil {
+        if !fillMissing {
+            let catalogueOwned = tmdbAssignment?.origin == .catalogue
             applyCatalogueTMDB(metadata.tmdb, previous: nil)
+            if Self.catalogueTMDB(metadata.tmdb) != nil || catalogueOwned { tmdb = metadata.tmdb }
+        } else if tmdbId == nil, let id = Self.catalogueTMDB(metadata.tmdb), let identity = TMDBSeriesID(id) {
+            assignTMDB(.series(identity), origin: .providerDetails)
+            tmdb = metadata.tmdb
         }
         applyProviderField(metadata.cover, to: \.cover, fillMissing: fillMissing)
         applyProviderField(metadata.plot, to: \.plot, fillMissing: fillMissing)
@@ -38,16 +43,6 @@ nonisolated extension Series {
         // Genre keeps the existing TMDB-first/provider-fallback policy.
         let genre = GenreParser.providerFallback(current: genre, provider: metadata.genre)
         applyProviderField(genre, to: \.genre, fillMissing: true)
-        // Never withdrawn: `get_series_info` fills the same field, and the stored
-        // value doesn't say which response set it, so an absent catalogue ID
-        // can't tell a withdrawal from a sparse row. A corrected ID replaces the
-        // old one and re-enriches (movies, catalogue-only, also withdraw).
-        if let raw = metadata.tmdb, let identifier = Self.catalogueTMDB(raw) {
-            applyProviderField(raw, to: \.tmdb, fillMissing: fillMissing)
-            if tmdbId == nil {
-                tmdbId = identifier
-            }
-        }
     }
 
     private func applyProviderField(_ value: String?, to keyPath: ReferenceWritableKeyPath<Series, String?>, fillMissing: Bool) {

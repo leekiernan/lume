@@ -13,13 +13,17 @@ nonisolated extension EnrichedTitle {
     ///   one, is kept.
     func applyCatalogueTMDB(_ raw: String?, previous: String?) {
         if let supplied = Self.catalogueTMDB(raw) {
-            guard tmdbId != supplied else { return }
-            if tmdbId != nil { forgetTMDBEnrichment() }
-            tmdbId = supplied
+            guard let identity = TMDBTitleReference(kind: self is Movie ? .movie : .series, rawValue: supplied) else { return }
+            assignTMDB(identity, origin: .catalogue)
             return
         }
-        guard let withdrawn = Self.catalogueTMDB(previous), tmdbId == withdrawn else { return }
+        // Legacy movie IDs were catalogue-only. Legacy series IDs are ambiguous:
+        // retain them until a fresh response establishes their source.
+        let knownCatalogue = tmdbAssignment?.origin == .catalogue
+        let legacyMovieCatalogue = self is Movie && tmdbAssignment == nil && Self.catalogueTMDB(previous) == tmdbId && tmdbId != nil
+        guard knownCatalogue || legacyMovieCatalogue else { return }
         tmdbId = nil
+        tmdbAssignmentData = nil
         forgetTMDBEnrichment()
     }
 
@@ -30,7 +34,7 @@ nonisolated extension EnrichedTitle {
         return id
     }
 
-    private func forgetTMDBEnrichment() {
+    func forgetTMDBEnrichment() {
         restoreTMDBFallbacks()
         proxyMetadataData = nil
         tmdbEnrichedAt = nil

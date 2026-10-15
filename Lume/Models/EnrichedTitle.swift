@@ -6,6 +6,7 @@ import SwiftData
 nonisolated protocol EnrichedTitle: PersistentModel {
     var id: String { get }
     var tmdbId: Int? { get set }
+    var tmdbAssignmentData: Data? { get set }
     var proxyMetadataData: Data? { get set }
     var tmdbFallbackData: Data? { get set }
     var tmdbCastInvalidated: Bool { get set }
