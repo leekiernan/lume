@@ -99,6 +99,12 @@ struct PaginationMachine: Equatable {
         return true
     }
 
+    /// Releases ownership immediately when a view disappears. The cancelled
+    /// task may return later, but can no longer commit over a resumed page.
+    mutating func cancelLoading() {
+        if case .loading = state { state = .ready }
+    }
+
     /// Replaces the already-visible source window after a background refresh.
     /// Any older in-flight page becomes stale before the new cursor is exposed.
     mutating func replaceWindow(scanned: Int, hasMore: Bool) {
