@@ -35,14 +35,19 @@ struct SettingsBackStepTests {
 
     @Test func `player drill-ins have a single parent route`() {
         var route = PlayerSettingsRoute.languages(.add)
-        #expect(route.goBack())
+        let toList = route.goBack()
+        #expect(toList)
         #expect(route == .languages(.list))
-        #expect(route.goBack())
+        let toOverview = route.goBack()
+        #expect(toOverview)
         #expect(route == .overview)
-        #expect(!route.goBack())
+        let atRoot = route.goBack()
+        #expect(!atRoot)
         route = .engine(.ksPlayer)
-        #expect(route.goBack() && route == .overview)
+        let fromEngine = route.goBack()
+        #expect(fromEngine && route == .overview)
         route = .subtitleStyle
-        #expect(route.goBack() && route == .overview)
+        let fromStyle = route.goBack()
+        #expect(fromStyle && route == .overview)
     }
 }

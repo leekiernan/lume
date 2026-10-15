@@ -8,17 +8,21 @@ struct TopShelfExportMachineTests {
         let old = machine.request()
         let current = machine.request()
         machine.ready(old)
-        #expect(machine.begin() == nil)
+        let premature = machine.begin()
+        #expect(premature == nil)
         machine.ready(current)
-        #expect(machine.begin() == current)
+        let started = machine.begin()
+        #expect(started == current)
         #expect(machine.canPublish(current))
         let newer = machine.request()
         #expect(!machine.canPublish(current))
         machine.finish(old)
-        #expect(machine.begin() == nil)
+        let overlapping = machine.begin()
+        #expect(overlapping == nil)
         machine.ready(newer)
         machine.finish(current)
-        #expect(machine.begin() == newer)
+        let next = machine.begin()
+        #expect(next == newer)
     }
 
     @Test func `late artwork cannot publish and intermediate exports are dropped`() async {
@@ -66,11 +70,13 @@ struct TopShelfExportMachineTests {
         var machine = TopShelfExportMachine()
         let active = machine.request()
         machine.ready(active)
-        #expect(machine.begin() == active)
+        let started = machine.begin()
+        #expect(started == active)
         _ = machine.request()
         #expect(!machine.canPublish(active))
         machine.finish(active)
-        #expect(machine.begin() == nil)
+        let pending = machine.begin()
+        #expect(pending == nil)
     }
 }
 
