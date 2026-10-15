@@ -54,7 +54,15 @@
 
         /// Renders the art the snapshot's items don't have yet and points them
         /// at it. Returns whether any item gained art.
-        static func renderMissing(in snapshot: inout WidgetSnapshot, directory: URL? = defaultDirectory) async -> Bool {
+        /// How an image is fetched: `TopShelfImages.download`, or a test's
+        /// reader of local fixtures.
+        typealias Loader = @Sendable (URL, Int) async -> CGImage?
+
+        static func renderMissing(
+            in snapshot: inout WidgetSnapshot,
+            directory: URL? = defaultDirectory,
+            load: @escaping Loader = { await TopShelfImages.download($0, maxPixelSize: $1) }
+        ) async -> Bool {
             guard let directory else { return false }
             var pending: [URL: Request] = [:]
             for section in snapshot.sections {
@@ -71,7 +79,7 @@
                 let batch = work[start ..< min(start + concurrency, work.count)]
                 await withTaskGroup(of: URL?.self) { group in
                     for (file, request) in batch {
-                        group.addTask { await render(request, to: file) }
+                        group.addTask { await render(request, to: file, load: load) }
                     }
                     for await file in group {
                         if let file { rendered.insert(file) }
@@ -125,11 +133,11 @@
             }
         }
 
-        private static func render(_ request: Request, to file: URL) async -> URL? {
+        private static func render(_ request: Request, to file: URL, load: Loader) async -> URL? {
             guard !Task.isCancelled else { return nil }
             if FileManager.default.fileExists(atPath: file.path) { return file }
-            async let backdrop = TopShelfImages.download(request.backdrop, maxPixelSize: Int(canvas.width))
-            async let logo = TopShelfImages.download(request.logo, maxPixelSize: Int(logoBox.width))
+            async let backdrop = load(request.backdrop, Int(canvas.width))
+            async let logo = load(request.logo, Int(logoBox.width))
             guard let backdrop = await backdrop, let logo = await logo, !Task.isCancelled else { return nil }
             return autoreleasepool {
                 TopShelfImages.writeJPEG(draw(backdrop: backdrop, logo: logo), to: file)
