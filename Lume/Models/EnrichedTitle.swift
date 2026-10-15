@@ -80,12 +80,12 @@ nonisolated extension EnrichedTitle {
         similarTitleIds = details.similarIDs
         trailers = details.videos
         if (plot ?? "").isEmpty, let overview = details.overview {
-            recordTMDBFallback(.plot, previous: plot, applied: overview)
+            recordTMDBFallback(\.plot, previous: plot, applied: overview)
             plot = overview
         }
         if !details.genreNames.isEmpty {
             let value = details.genreNames.joined(separator: ", ")
-            recordTMDBFallback(.genre, previous: genre, applied: value)
+            recordTMDBFallback(\.genre, previous: genre, applied: value)
             genres = details.genres
         }
         tmdbArtworkEnrichedAt = details.proxyReceipt?.artworkAt ?? Date()

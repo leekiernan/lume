@@ -74,11 +74,11 @@ nonisolated func applyMovieArtwork(_ details: TMDBTitleDetails, to movie: Movie)
     guard movie.accepts(details) else { return }
     movie.applyCommonArtwork(details)
     if (movie.durationSecs ?? 0) == 0, let runtime = MediaRuntime(minutes: details.runtimeMinutes) {
-        movie.recordTMDBFallback(.runtime, previous: movie.durationSecs.map(String.init), applied: String(runtime.seconds))
+        movie.recordTMDBFallback(\.runtime, previous: movie.durationSecs, applied: runtime.seconds)
         movie.durationSecs = runtime.seconds
     }
     if movie.rating == 0, let score = RatingScore(details.voteAverage, scale: .ten), score.value > 0 {
-        movie.recordTMDBFallback(.rating, previous: String(movie.rating), applied: String(score.value))
+        movie.recordTMDBFallback(\.movieRating, previous: movie.rating, applied: score.value)
         movie.rating = score.value
     }
 
@@ -106,13 +106,13 @@ nonisolated func applySeriesArtwork(_ details: TMDBTitleDetails, to series: Seri
     series.applyCommonArtwork(details)
     if (series.cast ?? "").isEmpty, !details.cast.isEmpty {
         let value = details.cast.prefix(6).map(\.name).joined(separator: ", ")
-        series.recordTMDBFallback(.cast, previous: series.cast, applied: value)
+        series.recordTMDBFallback(\.cast, previous: series.cast, applied: value)
         series.cast = value
     }
     let currentRating = series.rating.flatMap(Double.init) ?? 0
     if currentRating == 0, let score = RatingScore(details.voteAverage, scale: .ten), score.value > 0 {
         let value = String(format: "%.1f", score.value)
-        series.recordTMDBFallback(.rating, previous: series.rating, applied: value)
+        series.recordTMDBFallback(\.seriesRating, previous: series.rating, applied: value)
         series.rating = value
     }
 }

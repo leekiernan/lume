@@ -5,6 +5,23 @@ import Testing
 
 @MainActor
 struct TMDBFallbackTests {
+    @Test func `legacy string provenance maps numeric storage once`() {
+        let movie = Movie(id: "legacy", streamId: 1, name: "Movie", rating: 8)
+        movie.durationSecs = 5400
+        movie.tmdbFallbackData = Data(#"{"rating":{"previous":"0.0","applied":"8.0"},"runtime":{"applied":"5400"}}"#.utf8)
+        movie.restoreTMDBFallbacks()
+        #expect(movie.rating == 0 && movie.durationSecs == nil)
+    }
+
+    @Test func `new numeric provenance is encoded as numbers not display text`() throws {
+        let movie = Movie(id: "typed", streamId: 1, name: "Movie")
+        movie.recordTMDBFallback(\.runtime, previous: nil, applied: 5400)
+        movie.recordTMDBFallback(\.movieRating, previous: 0, applied: 8)
+        let data = try #require(movie.tmdbFallbackData)
+        let values = try JSONDecoder().decode(TMDBFallbacks.self, from: data)
+        #expect(values.runtime?.applied == 5400 && values.movieRating?.applied == 8)
+    }
+
     @Test func `repeated TMDB writes restore original provider genre and absent synopsis`() throws {
         let movie = Movie(id: "movie", streamId: 1, name: "Movie")
         movie.genre = "Provider genre"
