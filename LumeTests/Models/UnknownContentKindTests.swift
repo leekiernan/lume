@@ -13,6 +13,8 @@ struct UnknownContentKindTests {
     }
 
     @Test func `reconcile and profile export preserve unsupported cloud records`() async throws {
+        let activeProfile = ActiveProfileStore.current
+        defer { ActiveProfileStore.current = activeProfile }
         let container = try makeProfileTestContainer()
         let context = container.mainContext
         let playlist = Playlist(name: "Test", serverURL: "https://example.test", username: "", password: "")
@@ -30,11 +32,11 @@ struct UnknownContentKindTests {
         defer { defaults.removePersistentDomain(forName: suite) }
         let engine = CloudSyncEngine(container: container, shadow: CloudSyncShadow(defaults: defaults))
         _ = await engine.reconcile()
-        try engine.exportCatalogState(toProfile: UserProfile.defaultProfileID, localValues: engine.fetchLocalContentValues())
+        #expect(movie.isFavorite)
+        try engine.switchProfile(from: UserProfile.defaultProfileID, to: UUID())
         #expect(mirror.kind == nil)
         #expect(mirror.kindRaw == "future-content")
         #expect(mirror.updatedAt == Date(timeIntervalSince1970: 0))
-        #expect(movie.isFavorite)
         #expect(try context.fetch(FetchDescriptor<UserContentState>()).count == 1)
     }
 }
