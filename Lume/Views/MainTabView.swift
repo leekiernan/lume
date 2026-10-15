@@ -39,6 +39,8 @@ struct MainTabView: View {
 
     /// A deep link `ContentView` caught, handled once the tabs are up.
     var pendingLink: Binding<URL?> = .constant(nil)
+    @State var linkDelivery = DeepLinkDeliveryMachine()
+    @State private var preparedAutoSyncTrigger: AutoSyncTrigger?
     /// Selected tab and the Movies/Series navigation stacks, shared so a
     /// deep link can switch tabs and push a detail screen.
     @State var router = DeepLinkRouter()
@@ -109,6 +111,19 @@ struct MainTabView: View {
             || showsDownloads
             || playlistSwitch?.isSwitching == true
             || profileManager?.isSwitching == true
+    }
+
+    private var linkReadiness: DeepLinkDeliveryMachine.Readiness {
+        var blocked = hasBlockingPresentation || linkedMedia != nil
+        #if os(tvOS)
+            blocked = blocked || router.isQuickSwitchPresented || router.isMultiViewPresented
+        #endif
+        return .init(
+            profileReady: profileManager?.isReady ?? true,
+            catalogReady: preparedAutoSyncTrigger == autoSyncTrigger && !isAutoSyncBusy
+                && backgroundSyncIDs.isEmpty && !playlists.contains { $0.syncStatus == .syncing },
+            presentationBlocked: blocked
+        )
     }
 
     /// Hides categories (and their content) from every browse, Home and Search
@@ -219,8 +234,14 @@ struct MainTabView: View {
         #endif
             .onChange(of: pendingLink.wrappedValue, initial: true) { _, url in
                 guard let url else { return }
-                pendingLink.wrappedValue = nil
-                handleDeepLink(url)
+                linkDelivery.receive(url)
+            }
+            .task(id: DeepLinkDeliveryMachine.Attempt(token: linkDelivery.pendingToken, readiness: linkReadiness)) {
+                // Let a dismissed sync/switch cover leave the presentation host.
+                await Task.yield()
+                guard !Task.isCancelled, let request = linkDelivery.begin(when: linkReadiness) else { return }
+                let outcome = handleDeepLink(request.url)
+                if linkDelivery.finish(request, outcome: outcome) { pendingLink.wrappedValue = nil }
             }
         #if !os(macOS)
             .fullScreenCover(item: $linkedMedia) { media in
@@ -233,6 +254,7 @@ struct MainTabView: View {
                 // was just added), and repair catalog phases the active profile
                 // enables but that playlist's most recent successful sync skipped.
                 enqueueDueSyncs(playlists)
+                preparedAutoSyncTrigger = autoSyncTrigger
                 // The guide is checked here too: a profile with Live TV off
                 // skips it, so switching to one with Live TV on — or turning it
                 // on — is when a stale guide needs refreshing.
