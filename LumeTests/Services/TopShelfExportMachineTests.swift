@@ -97,3 +97,29 @@ private final class Gate {
         pending.forEach { $0.resume() }
     }
 }
+
+/// What lets an export publish: the rows as laid out, not the titles they
+/// recorded since (`TopShelfRowPlan.sameLayout`, the refresher's check).
+struct TopShelfPublicationEligibilityTests {
+    private func row(_ section: HomeSection, _ title: String, recorded: [String] = []) -> TopShelfRowPlan {
+        TopShelfRowPlan(source: TopShelfSource(surface: .home, ref: .builtin(section)), title: title, recordedItems: recorded)
+    }
+
+    /// Feeds record titles as they load; that must not cost an export its
+    /// right to publish.
+    @Test func `recorded-title changes keep an export publishable`() {
+        let planned = [row(.trendingMovies, "Trending", recorded: ["movie-a"]), row(.favorites, "Favorites")]
+        let current = [row(.trendingMovies, "Trending", recorded: ["movie-b", "movie-c"]), row(.favorites, "Favorites", recorded: ["series-x"])]
+        #expect(TopShelfRowPlan.sameLayout(planned, current))
+    }
+
+    @Test func `removing, adding, reordering or renaming a row invalidates publication`() {
+        let trending = row(.trendingMovies, "Trending")
+        let favorites = row(.favorites, "Favorites")
+        let planned = [trending, favorites]
+        #expect(!TopShelfRowPlan.sameLayout(planned, [trending]))
+        #expect(!TopShelfRowPlan.sameLayout(planned, [trending, favorites, row(.recentlyAdded, "Recently Added")]))
+        #expect(!TopShelfRowPlan.sameLayout(planned, [favorites, trending]))
+        #expect(!TopShelfRowPlan.sameLayout(planned, [trending, row(.favorites, "Movies · Favorites")]))
+    }
+}

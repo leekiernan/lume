@@ -45,12 +45,9 @@ final class TopShelfRefresher {
                     && input.followed == TopShelfSettings.followedProfile()
                     && input.playlistID == (UserDefaults.standard.string(forKey: PlaylistSelectionStore.key) ?? "")
                     && input.configuration == TopShelfSettings.configuration()
-                    // The rows as laid out, not their recorded titles: feeds
-                    // record as they load, so comparing titles would discard
-                    // an export whenever a row finished loading mid-export —
-                    // and nothing asks again until the app is next left.
-                    // Newer titles go out with the next export.
-                    && input.rows.map(\.layoutIdentity) == WidgetSnapshotExporter.plan().map(\.layoutIdentity)
+                    // Newer recorded titles go out with the next export; see
+                    // `TopShelfRowPlan.sameLayout`.
+                    && TopShelfRowPlan.sameLayout(input.rows, WidgetSnapshotExporter.plan())
             }
             await BackgroundActivity.perform("Top Shelf snapshot") {
                 // userInitiated: a backgrounding export has the assertion's

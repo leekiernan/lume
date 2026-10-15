@@ -49,6 +49,14 @@ nonisolated struct TopShelfRowPlan: Equatable {
     var layoutIdentity: String {
         "\(source.token)|\(title)"
     }
+
+    /// Whether an export planned from `planned` may still publish against
+    /// `current`: the same rows, named the same, in the same order. Recorded
+    /// titles don't count — feeds record as they load, and comparing them
+    /// would discard an export whenever a row finished loading mid-export.
+    static func sameLayout(_ planned: [Self], _ current: [Self]) -> Bool {
+        planned.map(\.layoutIdentity) == current.map(\.layoutIdentity)
+    }
 }
 
 /// Capture settings once, rather than mixing the enqueue-time rows with
