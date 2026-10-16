@@ -45,7 +45,7 @@ nonisolated extension EnrichedTitle {
         tmdbFallbackData = nil
     }
 
-    private var tmdbFallbackChanges: TMDBFallbacks {
+    fileprivate var tmdbFallbackChanges: TMDBFallbacks {
         guard let tmdbFallbackData else { return TMDBFallbacks() }
         let decoder = JSONDecoder()
         let legacy = try? decoder.decode([String: LegacyTMDBReplacement].self, from: tmdbFallbackData)
@@ -65,6 +65,16 @@ nonisolated extension EnrichedTitle {
             }
         }
         return values
+    }
+}
+
+nonisolated extension Movie {
+    /// A title-level TMDB estimate is useful in the library, but cannot prove
+    /// that two files have the same cut. Provider edits supersede the recorded
+    /// fallback; an equal value stays conservative until provenance changes.
+    var streamRuntime: MediaRuntime? {
+        guard let runtime, tmdbFallbackChanges.runtime?.applied != runtime.seconds else { return nil }
+        return runtime
     }
 }
 

@@ -57,12 +57,12 @@ enum PlayerSourceSwitch {
     }
 
     private static func movieSources(_ movie: Movie, playlists: [Playlist], restriction: ContentRestriction, in context: ModelContext) -> PlayerSources? {
-        guard let runtime = movie.runtime else { return nil }
+        guard let runtime = movie.streamRuntime else { return nil }
         let sources = TitleSources.resolve(for: movie, restriction: restriction, in: context)
         guard let current = sources.first(where: { $0.id == movie.id }) else { return nil }
         let alternatives = sources.compactMap { source -> PlayerSourceOption? in
             guard source.id != movie.id, case let .movie(copy) = source.copy,
-                  let copyRuntime = copy.runtime, runtime.isSameCut(as: copyRuntime),
+                  let copyRuntime = copy.streamRuntime, runtime.isSameCut(as: copyRuntime),
                   let playlist = PlaylistOwner.playlist(forContentID: copy.id, in: playlists),
                   let media = PlayableMedia.from(movie: copy, playlist: playlist) else { return nil }
             return PlayerSourceOption(source: source, media: media)

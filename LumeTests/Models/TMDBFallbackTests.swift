@@ -9,6 +9,7 @@ struct TMDBFallbackTests {
         let movie = Movie(id: "legacy", streamId: 1, name: "Movie", rating: 8)
         movie.durationSecs = 5400
         movie.tmdbFallbackData = Data(#"{"rating":{"previous":"0.0","applied":"8.0"},"runtime":{"applied":"5400"}}"#.utf8)
+        #expect(movie.runtime?.seconds == 5400 && movie.streamRuntime == nil)
         movie.restoreTMDBFallbacks()
         #expect(movie.rating == 0 && movie.durationSecs == nil)
     }
@@ -58,6 +59,17 @@ struct TMDBFallbackTests {
         let reloaded = try #require(ModelContext(container).fetch(FetchDescriptor<Movie>()).first)
         reloaded.restoreTMDBFallbacks()
         #expect(reloaded.genre == "Provider genre")
+    }
+
+    @Test func `estimated runtime provenance survives a context reload`() throws {
+        let container = try makeTestContainer()
+        let movie = Movie(id: "estimated", streamId: 1, name: "Movie")
+        container.mainContext.insert(movie)
+        movie.durationSecs = 5400
+        movie.recordTMDBFallback(\.runtime, previous: nil, applied: 5400)
+        try container.mainContext.save()
+        let reloaded = try #require(ModelContext(container).fetch(FetchDescriptor<Movie>()).first)
+        #expect(reloaded.runtime?.seconds == 5400 && reloaded.streamRuntime == nil)
     }
 
     @Test func `legacy shared metadata without provenance is preserved`() {

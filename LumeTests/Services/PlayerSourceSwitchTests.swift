@@ -68,6 +68,26 @@ struct PlayerSourceSwitchTests {
         #expect(sources?.alternatives.map(\.source.id) ?? [] == (isChild ? [] : [locked.id]))
     }
 
+    @Test(arguments: [false, true])
+    func `TMDB estimates cannot establish the cut of either movie copy`(estimateCurrent: Bool) throws {
+        let container = try makeTestContainer()
+        let context = container.mainContext
+        let provider = playlist(context)
+        let current = movie(1, runtime: estimateCurrent ? nil : 7200, in: provider, context)
+        let copy = movie(2, runtime: estimateCurrent ? 7200 : nil, in: provider, context)
+        let estimated = estimateCurrent ? current : copy
+        let details = try TMDBTitleDetails(identity: .movie(#require(TMDBMovieID(42))), runtimeMinutes: 120)
+        applyMovieArtwork(details, to: estimated)
+        try context.save()
+
+        #expect(estimated.runtime?.seconds == 7200)
+        #expect(estimated.streamRuntime == nil)
+        #expect(try PlayerSourceSwitch.sources(for: playing(current, in: provider), restriction: ContentRestriction(), in: context) == nil)
+        // A provider-supplied duration replacing the estimate becomes evidence.
+        estimated.durationSecs = 7230
+        #expect(try PlayerSourceSwitch.sources(for: playing(current, in: provider), restriction: ContentRestriction(), in: context)?.alternatives.count == 1)
+    }
+
     @Test func `an episode switches to the same episode in another copy of the series`() throws {
         // Held: a context outlives its container only as a dangling reference.
         let container = try makeTestContainer()
