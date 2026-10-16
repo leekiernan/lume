@@ -110,7 +110,8 @@ extension FullScreenPlayerView {
             // A native menu can outlive a visibility or catalogue change.
             let allowed = PlayerSourceSwitch.sources(for: activeMedia, restriction: contentRestriction, in: modelContext)
             guard let fresh = allowed?.alternatives.first(where: { $0.id == option.id }) else { return }
-            switchMedia(to: fresh.media.resuming(at: activeMedia.enginePosition(clock.current)))
+            let media = fresh.media.resuming(at: activeMedia.enginePosition(clock.current))
+            mediaSwapper.source(media) { switchMedia(to: $0) }
         }
     }
 

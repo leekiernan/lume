@@ -46,6 +46,21 @@ final class PlayerMediaSwapper {
     static let cooldown: TimeInterval = 0.3
 
     private var lastSwapAt: Date?
+    private let now: () -> Date
+
+    init(now: @escaping () -> Date = Date.init) {
+        self.now = now
+    }
+
+    /// Another copy of the same title, not an explicit "next episode". Shares
+    /// the transport cooldown but must never mark the outgoing episode watched.
+    @discardableResult
+    func source(_ media: PlayableMedia, select: (PlayableMedia) -> Void) -> Bool {
+        guard accept() else { return false }
+        select(media)
+        AccessibilityNotification.Announcement(media.title).post()
+        return true
+    }
 
     /// Play the neighbour on `step`'s side, if there is one and the previous
     /// swap has settled. Reports whether the stream actually changed, so a
@@ -76,7 +91,8 @@ final class PlayerMediaSwapper {
 
     /// Whether a swap may start now. Recorded only for swaps that go through,
     /// so a press that resolves to nothing doesn't hold up the next one.
-    private func accept(at now: Date = Date()) -> Bool {
+    private func accept() -> Bool {
+        let now = now()
         if let lastSwapAt, now.timeIntervalSince(lastSwapAt) < Self.cooldown { return false }
         lastSwapAt = now
         return true
