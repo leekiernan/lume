@@ -209,12 +209,12 @@ extension FullScreenPlayerView {
     /// completion, leaving the episode unwatched and unscrobbled — the exact
     /// outcome this function exists to prevent.
     func completeActiveEpisode() {
-        guard case .episode = activeMedia.contentRef, let writer = progressWriter else { return }
+        guard case .episode = activeMedia.contentRef, let writer = progressWriter, writer.scope.isCurrent else { return }
         let ref = activeMedia.contentRef
         let total = clock.duration
         let recordedAt = Date.now
         completedRef = ref
-        RecentResumePoints.record(total, for: ref)
+        RecentResumePoints.record(total, for: ref, profileID: writer.scope.profileID)
         let previous = pendingProgressWrite
         pendingProgressWrite = Task { @MainActor in
             // Ordered, not raced: whatever was already in flight for this

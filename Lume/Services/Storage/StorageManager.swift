@@ -168,7 +168,10 @@ enum StorageManager {
     /// `#Predicate` filters keep only rows that actually carry watch state out of
     /// the fetch, so an untouched catalog isn't hydrated wholesale.
     static func clearWatchHistory(container: ModelContainer) async {
+        let scope = ProfileScope.current
+        RecentResumePoints.clear(profileID: scope.profileID)
         await Task.detached(priority: .userInitiated) {
+            guard scope.isCurrent else { return }
             let context = ModelContext(container)
             context.autosaveEnabled = false
             do {
@@ -176,6 +179,7 @@ enum StorageManager {
                     predicate: #Predicate { $0.watchProgress != 0 || $0.isWatched || $0.lastWatchedDate != nil }
                 ))
                 try mutateInBatches(movies, in: context) { movie in
+                    WatchHistoryClears.shared.record(movie.id, profileID: scope.profileID)
                     movie.watchProgress = 0
                     movie.isWatched = false
                     movie.lastWatchedDate = nil
@@ -185,6 +189,7 @@ enum StorageManager {
                     predicate: #Predicate { $0.watchProgress != 0 || $0.isWatched || $0.lastWatchedDate != nil }
                 ))
                 try mutateInBatches(episodes, in: context) { episode in
+                    WatchHistoryClears.shared.record(episode.id, profileID: scope.profileID)
                     episode.watchProgress = 0
                     episode.isWatched = false
                     episode.lastWatchedDate = nil

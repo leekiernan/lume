@@ -16,6 +16,7 @@ extension FullScreenPlayerView {
     /// — without reopening the view. Once per flip, at a playback boundary; a
     /// completion also syncs the trackers and counts toward the review prompt.
     func applyWatchedChange(_ change: WatchProgressWriter.WatchedChange) {
+        guard change.scope.isCurrent else { return }
         switch change.ref {
         case let .movie(id): PlayerContentLookup.movie(id, in: modelContext)?.isWatched = change.isWatched
         case let .episode(id): PlayerContentLookup.episode(id, in: modelContext)?.isWatched = change.isWatched

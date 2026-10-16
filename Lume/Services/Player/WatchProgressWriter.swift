@@ -34,6 +34,7 @@ nonisolated enum WatchCompletion {
 /// away from the render thread.
 actor WatchProgressWriter {
     private let container: ModelContainer
+    nonisolated let scope: ProfileScope
     /// Made on first use, on this actor. One made in `init` belonged to the
     /// thread that built the writer — the main thread, in the player — and
     /// SwiftData warned it was "unbinding from the main queue" on the first
@@ -59,10 +60,12 @@ actor WatchProgressWriter {
     struct WatchedChange {
         let ref: PlayableMedia.ContentRef
         let isWatched: Bool
+        var scope: ProfileScope = .current
     }
 
-    init(container: ModelContainer) {
+    init(container: ModelContainer, scope: ProfileScope = .current) {
         self.container = container
+        self.scope = scope
     }
 
     /// Write `progress` for `ref` and return a `WatchedChange` if the item just
@@ -75,7 +78,7 @@ actor WatchProgressWriter {
         holdLive: Bool = false,
         recordedAt: Date = .now
     ) -> WatchedChange? {
-        guard progress > 0 else { return nil }
+        guard scope.isCurrent, progress.isFinite, progress > 0 else { return nil }
 
         let completed = WatchCompletion.isComplete(progress: progress, duration: duration)
         let preserveWatched = PlaybackResumePolicy.discardsProgress(position: progress, duration: duration)
@@ -112,6 +115,7 @@ actor WatchProgressWriter {
     /// its place in Continue Watching and never reach Trakt.
     @discardableResult
     func markWatched(ref: PlayableMedia.ContentRef, duration: TimeInterval, recordedAt: Date = .now) -> WatchedChange? {
+        guard scope.isCurrent else { return nil }
         do {
             switch ref {
             case let .movie(id):
@@ -144,12 +148,12 @@ actor WatchProgressWriter {
         var change: WatchedChange?
         if completed, !movie.isWatched {
             movie.isWatched = true
-            change = WatchedChange(ref: ref, isWatched: true)
+            change = WatchedChange(ref: ref, isWatched: true, scope: scope)
         } else if movie.isWatched, WatchCompletion.reopensWatched(progress: progress, completed: completed) {
             // A rewatch: in progress again until it crosses the line, which
             // counts it — and scrobbles it — as a second play.
             movie.isWatched = false
-            change = WatchedChange(ref: ref, isWatched: false)
+            change = WatchedChange(ref: ref, isWatched: false, scope: scope)
         }
 
         try context.save()
@@ -175,11 +179,11 @@ actor WatchProgressWriter {
         var change: WatchedChange?
         if completed, !episode.isWatched {
             episode.isWatched = true
-            change = WatchedChange(ref: ref, isWatched: true)
+            change = WatchedChange(ref: ref, isWatched: true, scope: scope)
         } else if episode.isWatched, WatchCompletion.reopensWatched(progress: progress, completed: completed) {
             // A rewatch: in progress again until it crosses the line.
             episode.isWatched = false
-            change = WatchedChange(ref: ref, isWatched: false)
+            change = WatchedChange(ref: ref, isWatched: false, scope: scope)
         }
 
         try context.save()

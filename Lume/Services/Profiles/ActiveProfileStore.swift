@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// The id of the currently active profile, persisted in `UserDefaults`.
 ///
@@ -8,17 +9,32 @@ import Foundation
 /// `ProfileManager`, read by `CloudSyncEngine` to scope content reconciliation.
 nonisolated enum ActiveProfileStore {
     static let key = "profiles.activeProfileID.v1"
+    private static let generation = Mutex((id: UUID?.none, token: RequestToken()))
+
+    static var scope: ProfileScope {
+        generation.withLock { state in
+            let id = readID()
+            if state.id != id { state = (id, RequestToken()) }
+            return ProfileScope(profileID: id, generation: state.token)
+        }
+    }
+
+    private static func readID() -> UUID? {
+        UserDefaults.standard.string(forKey: key).flatMap(UUID.init(uuidString:))
+    }
 
     static var current: UUID? {
         get {
-            guard let raw = UserDefaults.standard.string(forKey: key) else { return nil }
-            return UUID(uuidString: raw)
+            readID()
         }
         set {
-            if let newValue {
-                UserDefaults.standard.set(newValue.uuidString, forKey: key)
-            } else {
-                UserDefaults.standard.removeObject(forKey: key)
+            generation.withLock { state in
+                if readID() != newValue { state = (newValue, RequestToken()) }
+                if let newValue {
+                    UserDefaults.standard.set(newValue.uuidString, forKey: key)
+                } else {
+                    UserDefaults.standard.removeObject(forKey: key)
+                }
             }
         }
     }

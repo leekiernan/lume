@@ -27,18 +27,27 @@ nonisolated enum RecentResumePoints {
         let savedAt: Date
     }
 
-    private static let saved = Mutex<[PlayableMedia.ContentRef: Saved]>([:])
+    private struct Key: Hashable {
+        let profileID: UUID?
+        let ref: PlayableMedia.ContentRef
+    }
+
+    private static let saved = Mutex<[Key: Saved]>([:])
 
     /// Live channels have no position to resume.
-    static func record(_ position: TimeInterval, for ref: PlayableMedia.ContentRef, at now: Date = Date()) {
+    static func record(_ position: TimeInterval, for ref: PlayableMedia.ContentRef, at now: Date = Date(), profileID: UUID? = ActiveProfileStore.current) {
         if case .live = ref { return }
-        saved.withLock { $0[ref] = Saved(position: position, savedAt: now) }
+        saved.withLock { $0[Key(profileID: profileID, ref: ref)] = Saved(position: position, savedAt: now) }
+    }
+
+    static func clear(profileID: UUID? = ActiveProfileStore.current) {
+        saved.withLock { $0 = $0.filter { $0.key.profileID != profileID } }
     }
 
     /// Where `ref` should resume: the position saved here if it's newer than
     /// the model's, otherwise the model's.
-    static func position(for ref: PlayableMedia.ContentRef, stored: TimeInterval, storedAt: Date?) -> TimeInterval {
-        guard let recent = saved.withLock({ $0[ref] }) else { return stored }
+    static func position(for ref: PlayableMedia.ContentRef, stored: TimeInterval, storedAt: Date?, profileID: UUID? = ActiveProfileStore.current) -> TimeInterval {
+        guard let recent = saved.withLock({ $0[Key(profileID: profileID, ref: ref)] }) else { return stored }
         if let storedAt, storedAt > recent.savedAt { return stored }
         return recent.position
     }

@@ -17,6 +17,17 @@ struct RecentResumePointsTests {
     private let episode = PlayableMedia.ContentRef.episode(UUID().uuidString)
     private let then = Date(timeIntervalSince1970: 1_700_000_000)
 
+    @Test func `profiles keep independent resume points and clears`() {
+        let first = UUID(), second = UUID()
+        RecentResumePoints.record(600, for: episode, at: then, profileID: first)
+        RecentResumePoints.record(120, for: episode, at: then, profileID: second)
+        #expect(RecentResumePoints.position(for: episode, stored: 0, storedAt: nil, profileID: first) == 600)
+        #expect(RecentResumePoints.position(for: episode, stored: 0, storedAt: nil, profileID: UUID()) == 0)
+        RecentResumePoints.clear(profileID: first)
+        #expect(RecentResumePoints.position(for: episode, stored: 0, storedAt: nil, profileID: first) == 0)
+        #expect(RecentResumePoints.position(for: episode, stored: 0, storedAt: nil, profileID: second) == 120)
+    }
+
     /// The reported sequence: saved at 5:51, reopened from a model still at 0.
     @Test func `a save newer than the model wins`() {
         RecentResumePoints.record(351.3, for: episode, at: then)

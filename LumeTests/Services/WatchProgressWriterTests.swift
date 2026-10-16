@@ -13,6 +13,19 @@ import Testing
 
 @MainActor
 struct WatchProgressWriterTests {
+    @Test func `a retired projection cannot save progress or completion`() async throws {
+        let container = try makeTestContainer()
+        let movie = Movie(id: UUID().uuidString, streamId: 1, name: "Movie")
+        container.mainContext.insert(movie)
+        try container.mainContext.save()
+        let retired = ProfileScope(profileID: ActiveProfileStore.current, generation: RequestToken())
+        let writer = WatchProgressWriter(container: container, scope: retired)
+        #expect(await writer.record(ref: .movie(movie.id), progress: 120, duration: 600) == nil)
+        #expect(await writer.markWatched(ref: .movie(movie.id), duration: 600) == nil)
+        let stored = try #require(ModelContext(container).fetch(FetchDescriptor<Movie>()).first)
+        #expect(stored.watchProgress == 0 && !stored.isWatched)
+    }
+
     private func movie(in container: ModelContainer, watched: Bool) throws -> Movie {
         let movie = Movie(id: UUID().uuidString, streamId: 1, name: "Film")
         movie.durationSecs = 6000

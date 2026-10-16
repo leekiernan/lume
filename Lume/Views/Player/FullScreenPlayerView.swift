@@ -534,7 +534,7 @@ struct FullScreenPlayerView: View {
     /// Captures the clock synchronously *before* awaiting, so a subsequent
     /// `clock.reset()` can't race the read.
     func persistProgressDetached(holdingLive: Bool = false) {
-        guard let writer = progressWriter else { return }
+        guard let writer = progressWriter, writer.scope.isCurrent else { return }
         let ref = activeMedia.contentRef
         // An explicit "next episode" already settled this stream at its full
         // duration. Recording the position it was skipped from would walk that
@@ -551,9 +551,9 @@ struct FullScreenPlayerView: View {
         // The screen reopening this title reads a model that may not have
         // caught up with the write below yet — see `RecentResumePoints`.
         if discardEarly {
-            RecentResumePoints.record(0, for: ref)
+            RecentResumePoints.record(0, for: ref, profileID: writer.scope.profileID)
         } else if now > 0 {
-            RecentResumePoints.record(now, for: ref)
+            RecentResumePoints.record(now, for: ref, profileID: writer.scope.profileID)
         }
         // Held so `endReviewSession` can await it: `writer` is an actor, so the
         // await below suspends, and without the handle the review policy would
@@ -562,6 +562,7 @@ struct FullScreenPlayerView: View {
         let previous = pendingProgressWrite
         pendingProgressWrite = Task { @MainActor in
             await previous?.value
+            guard writer.scope.isCurrent else { return }
             if discardEarly, MediaWatchState.discardEarlyProgress(ref: ref, position: now, duration: total, in: modelContext) {
                 Logger.player.info("early exit: resume progress cleared (below 1%)")
                 return
