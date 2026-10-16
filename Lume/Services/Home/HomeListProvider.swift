@@ -68,8 +68,24 @@ nonisolated protocol HomeListProvider: Sendable {
     /// The list at `url`, in the list's own order.
     func entries(for url: URL) async throws -> [HomeListEntry]
 
+    /// One remote page. Rails stop once they have enough local matches; the
+    /// full collection follows the continuation only when the viewer asks.
+    func page(for url: URL, number: Int) async throws -> HomeListPage
+
     /// A title to suggest when the user hasn't typed one, derived from the URL.
     func suggestedTitle(for url: URL) -> String?
+}
+
+nonisolated extension HomeListProvider {
+    /// Unpaged providers (MDBList) answer once, without invented continuations.
+    func page(for url: URL, number: Int) async throws -> HomeListPage {
+        guard number == 1 else { throw HomeListError.invalidURL }
+        do {
+            return try await HomeListPage(entries: entries(for: url), nextPage: nil)
+        } catch HomeListError.emptyList {
+            return HomeListPage(entries: [], nextPage: nil)
+        }
+    }
 }
 
 /// The providers Lume knows about, and the entry point Home and the section
@@ -96,6 +112,13 @@ nonisolated enum HomeListCatalog {
             throw HomeListError.unsupportedSource
         }
         return try await provider.entries(for: url)
+    }
+
+    static func page(for raw: String, number: Int = 1) async throws -> HomeListPage {
+        guard let url = normalizedInputURL(raw) else { throw HomeListError.invalidURL }
+        guard let provider = providers.first(where: { $0.canHandle(url) }) else { throw HomeListError.unsupportedSource }
+        try Task.checkCancellation()
+        return try await provider.page(for: url, number: number)
     }
 
     static func suggestedTitle(for raw: String) -> String? {

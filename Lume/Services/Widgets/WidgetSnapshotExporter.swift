@@ -46,8 +46,13 @@ nonisolated struct TopShelfRowPlan: Equatable {
     /// The row as the layout defines it — which row and what it's called —
     /// without the titles it last recorded, which change whenever a feed
     /// loads.
-    var layoutIdentity: String {
-        "\(source.token)|\(title)"
+    struct Layout: Hashable {
+        let source: TopShelfSource
+        let title: String
+    }
+
+    var layout: Layout {
+        Layout(source: source, title: title)
     }
 
     /// Whether an export planned from `planned` may still publish against
@@ -55,7 +60,7 @@ nonisolated struct TopShelfRowPlan: Equatable {
     /// titles don't count — feeds record as they load, and comparing them
     /// would discard an export whenever a row finished loading mid-export.
     static func sameLayout(_ planned: [Self], _ current: [Self]) -> Bool {
-        planned.map(\.layoutIdentity) == current.map(\.layoutIdentity)
+        planned.map(\.layout) == current.map(\.layout)
     }
 }
 

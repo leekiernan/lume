@@ -130,4 +130,8 @@ final class SectionFeedLoadGate {
         revision &+= 1
         current.removeAll()
     }
+
+    func cancel(_ source: SectionFeedSource) {
+        current[source] = nil
+    }
 }

@@ -132,15 +132,17 @@ struct LibraryAreaView<Kind: LibraryAreaKind>: View {
                     context: SectionFeed.Context(modelContext: modelContext, restriction: restriction,
                                                  playlistPrefix: playlistPrefix.isEmpty ? nil : playlistPrefix),
                     catalogKey: catalogKey, heroRef: heroRef, heroSelection: heroSectionRaw,
-                    customSections: visibleCustomSections, traktAccount: trakt.username,
+                    customSections: visibleCustomSections, orderedRows: visibleRows, traktAccount: trakt.username,
                     prepareCustomSections: seedDefaultHeroIfNeeded
                 )
             )
             .browseActivity()
             .onChange(of: feed.heroItems.first, initial: true) { _, hero in
+                feed.recordHeroReadiness()
                 rememberHeroWarmStart(hero?.imageURL)
             }
-            .task(id: genreKey) {
+            .task(id: genreRequest) {
+                guard genreRequest.isReady else { return }
                 await genreLoader.load(for: genreKey) {
                     await Kind.genres(in: modelContext.container, prefix: playlistPrefix, restriction: restriction)
                 }
@@ -154,6 +156,13 @@ struct LibraryAreaView<Kind: LibraryAreaKind>: View {
 
     private var genreKey: LibraryGenreLoadKey {
         .init(prefix: playlistPrefix, visibility: restriction.visibilityToken, profile: profiles?.activeProfileID ?? ActiveProfileStore.current, syncedAt: activePlaylist?.lastSyncDate)
+    }
+
+    private var genreRequest: LibraryGenreLoadRequest {
+        // Sidebar metadata must not compete with the cold hero. Opening the
+        // sidebar explicitly takes precedence over this deferred warm-up.
+        let ready = browse.isPresented || (feed.loadPlan != nil && (heroRef == nil || feed.heroState != .loading))
+        return LibraryGenreLoadRequest(scope: genreKey, isReady: ready)
     }
 
     private var resumeKey: SeriesResumeLoadKey? {
@@ -264,6 +273,11 @@ struct LibraryAreaView<Kind: LibraryAreaKind>: View {
             .custom($0.id) == heroRef
                 || HomeLayoutSettings.isEnabled(.custom($0.id), disabledRaw: disabledSectionsRaw)
         }
+    }
+
+    private var visibleRows: [HomeSectionRef] {
+        HomeLayoutSettings.resolve(orderRaw: sectionOrderRaw, custom: customSections, surface: Kind.surface)
+            .filter { HomeLayoutSettings.isEnabled($0, disabledRaw: disabledSectionsRaw) }
     }
 
     /// First-use configuration belongs with the page's loads, not the lazy

@@ -77,6 +77,16 @@ nonisolated struct TMDBListProvider: HomeListProvider {
         return mapped
     }
 
+    func page(for url: URL, number: Int) async throws -> HomeListPage {
+        guard client.isConfigured else { throw HomeListError.unsupportedSource }
+        guard let feed = Self.feed(for: url) else { throw HomeListError.invalidURL }
+        do {
+            return try await client.listPage(apiPath: feed.path, media: feed.media, number: number)
+        } catch let error as TMDBError {
+            throw Self.listError(from: error)
+        }
+    }
+
     func suggestedTitle(for url: URL) -> String? {
         guard let feed = Self.feed(for: url) else { return nil }
         // "movie/top_rated" → "Top Rated"; a user list has no name in its URL,

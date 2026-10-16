@@ -5,9 +5,22 @@ import SwiftUI
 struct RailHeading<Destination: Hashable>: View {
     let title: Text
     let destination: Destination?
+    var isRefreshing = false
     var onLeadingLeft: (() -> Void)?
 
     var body: some View {
+        HStack(spacing: 12) {
+            heading
+            ProgressView()
+                .controlSize(.small)
+                .opacity(isRefreshing ? 1 : 0)
+                .accessibilityHidden(true)
+        }
+        .accessibilityAddTraits(.isHeader)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var heading: some View {
         Group {
             if let destination {
                 NavigationLink(value: destination) {
@@ -28,8 +41,6 @@ struct RailHeading<Destination: Hashable>: View {
                 title.railHeadingStyle()
             }
         }
-        .accessibilityAddTraits(.isHeader)
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var iconSize: CGFloat {

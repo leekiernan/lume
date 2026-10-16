@@ -2,10 +2,7 @@
 //  TraktClient.swift
 //  Lume
 //
-//  Stateless networking client for the Trakt API. Covers the OAuth *device*
-//  flow (the only flow that works on tvOS, and uniform across every platform),
-//  token refresh/revoke, the connected user's profile, watched-history sync,
-//  and the watchlist.
+//  Stateless Trakt networking: device OAuth, profile, history and watchlists.
 //
 //  The client id/secret live in the git-ignored `.env` file and are injected
 //  into Info.plist at build time by Scripts/inject-env.sh — never committed.
@@ -230,6 +227,19 @@ nonisolated struct TraktClient {
     }
 
     // MARK: - Networking
+
+    /// One collection page with its server-reported continuation.
+    func collectionPage<T: Decodable>(
+        _ path: String, number: Int, limit: Int, accessToken: String?
+    ) async throws -> (items: [T], pageCount: Int) {
+        var request = try makeRequest(path: path, method: "GET", query: [
+            URLQueryItem(name: "page", value: String(number)), URLQueryItem(name: "limit", value: String(limit))
+        ], accessToken: accessToken)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        let (items, response): ([T], HTTPURLResponse) = try await send(request)
+        let count = response.value(forHTTPHeaderField: "X-Pagination-Page-Count").flatMap(Int.init) ?? 1
+        return (items, max(count, 1))
+    }
 
     private func get<T: Decodable>(_ path: String, accessToken: String? = nil) async throws -> T {
         var request = try makeRequest(path: path, method: "GET", accessToken: accessToken)

@@ -69,6 +69,17 @@ nonisolated struct TraktListProvider: HomeListProvider {
         return mapped
     }
 
+    func page(for url: URL, number: Int) async throws -> HomeListPage {
+        guard client.isConfigured else { throw HomeListError.unsupportedSource }
+        guard let list = Self.list(for: url) else { throw HomeListError.invalidURL }
+        let token = await accessToken()
+        do {
+            return try await client.listPage(apiPath: list.itemsPath, accessToken: token, number: number)
+        } catch let error as TraktError {
+            throw Self.listError(from: error, signedIn: token != nil)
+        }
+    }
+
     func suggestedTitle(for url: URL) -> String? {
         guard let list = Self.list(for: url) else { return nil }
         // "classic-rewatch" → "Classic Rewatch". A list addressed by its numeric

@@ -76,6 +76,9 @@ struct SectionFeedLoadMachine: Equatable {
         case rowsFailed([HomeSectionRef])
         /// Rows that resolved (or are no longer asked for) since failing.
         case rowsRecovered([HomeSectionRef])
+        case rowBegan(HomeSectionRef, hasCache: Bool)
+        case rowFinished(HomeSectionRef, Outcome)
+        case skipped(SectionFeedSource)
     }
 
     enum Effect: Equatable {
@@ -95,6 +98,11 @@ struct SectionFeedLoadMachine: Equatable {
     /// Per row rather than per source: one failed custom list must not make a
     /// successfully empty sibling look broken.
     private(set) var failedRows: Set<HomeSectionRef> = []
+    private var rows: [HomeSectionRef: HomeLoadState] = [:]
+
+    func state(of row: HomeSectionRef) -> HomeLoadState {
+        rows[row] ?? SectionFeedSource(row: row).map(state(of:)) ?? .loaded
+    }
 
     func state(of source: SectionFeedSource) -> HomeLoadState {
         slots[source]?.state ?? .idle
@@ -112,17 +120,7 @@ struct SectionFeedLoadMachine: Equatable {
     mutating func handle(_ event: Event) -> [Effect] {
         switch event {
         case let .contextChanged(identity):
-            let previous = contextIdentity
-            contextIdentity = identity
-            guard let previous, previous != identity else { return [] }
-            failedRows.removeAll()
-            var effects: [Effect] = [.discardCatalogModels]
-            for source in SectionFeedSource.allCases {
-                let key = slots[source]?.key
-                slots[source] = Slot(state: .idle, key: key)
-                if let key { effects.append(.reload(source, key: key)) }
-            }
-            return effects
+            return changeContext(to: identity)
 
         case let .began(source, key, cache):
             slots[source] = Slot(state: cache == .missing ? .loading : .cached, key: key)
@@ -140,7 +138,35 @@ struct SectionFeedLoadMachine: Equatable {
         case let .rowsRecovered(rows):
             failedRows.subtract(rows)
             return []
+
+        case let .rowBegan(row, hasCache):
+            rows[row] = hasCache ? .cached : .loading
+            return []
+
+        case let .rowFinished(row, outcome):
+            rows[row] = outcome == .loaded ? .loaded : .failed
+            if outcome == .failed { failedRows.insert(row) } else { failedRows.remove(row) }
+            return []
+
+        case let .skipped(source):
+            slots[source] = Slot(state: .loaded, key: nil)
+            return []
         }
+    }
+
+    private mutating func changeContext(to identity: String) -> [Effect] {
+        let previous = contextIdentity
+        contextIdentity = identity
+        guard let previous, previous != identity else { return [] }
+        failedRows.removeAll()
+        rows.removeAll()
+        var effects: [Effect] = [.discardCatalogModels]
+        for source in SectionFeedSource.allCases {
+            let key = slots[source]?.key
+            slots[source] = Slot(state: .idle, key: key)
+            if let key { effects.append(.reload(source, key: key)) }
+        }
+        return effects
     }
 
     /// What the promoted row can show. A hero with slides shows them; one whose
@@ -150,7 +176,7 @@ struct SectionFeedLoadMachine: Equatable {
     func heroState(for heroRef: HomeSectionRef?, hasSlides: Bool, rowHasItems: Bool) -> HeroLoadState {
         guard let heroRef else { return .disabled }
         if hasSlides { return .content }
-        switch SectionFeedSource(row: heroRef).map(state(of:)) ?? .loaded {
+        switch state(of: heroRef) {
         case .idle, .loading, .cached:
             return .loading
         case .failed:

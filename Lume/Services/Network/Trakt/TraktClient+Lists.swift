@@ -22,6 +22,21 @@ nonisolated struct TraktListEntry: Hashable {
 }
 
 nonisolated extension TraktClient {
+    /// Twenty source entries normally fill a rail in one request. Sparse or
+    /// mixed lists can continue, with the same 1,000-source-item ceiling.
+    func listPage(apiPath: String, accessToken: String?, number: Int) async throws -> HomeListPage {
+        let lastAllowedPage = 50
+        guard (1 ... lastAllowedPage).contains(number) else { throw TraktError.invalidResponse }
+        let page: (items: [TraktListItem], pageCount: Int) = try await collectionPage(
+            "/\(apiPath)", number: number, limit: 20, accessToken: accessToken
+        )
+        let entries = page.items.compactMap(\.entry).map {
+            HomeListEntry(tmdbId: $0.tmdbId, mediaType: $0.mediaType, title: $0.title)
+        }
+        let next = !page.items.isEmpty && number < min(page.pageCount, lastAllowedPage) ? number + 1 : nil
+        return HomeListPage(entries: entries, nextPage: next)
+    }
+
     /// How many pages of `TraktClient.pageSize` to walk: 1,000 titles. More than
     /// a sparse catalog needs to fill a row and its "Show All" grid, without a
     /// huge list stalling the row behind a long run of sequential requests.
