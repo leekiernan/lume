@@ -19,6 +19,12 @@ nonisolated enum StreamRedirect {
     /// Long enough for a slow provider, short enough that a failed resolve
     /// costs the start little: FFmpeg would pay the same round trip anyway.
     static let timeout: TimeInterval = 4
+    private static let session: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = timeout
+        config.timeoutIntervalForResource = timeout
+        return URLSession(configuration: config)
+    }()
 
     /// Movies and episodes over HTTP(S). Live streams open once and stay
     /// open, catch-up builds its own URLs, and streams with their own headers
@@ -30,11 +36,15 @@ nonisolated enum StreamRedirect {
 
     /// The URL `url` redirects to, or nil when it doesn't redirect or the
     /// request fails. Asks for a single byte so a direct stream costs nothing.
-    static func resolve(_ url: URL) async -> URL? {
+    static func resolve(_ url: URL, session: URLSession = session) async -> URL? {
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: timeout)
         request.setValue("bytes=0-0", forHTTPHeaderField: "Range")
         do {
-            let (_, response) = try await URLSession.shared.data(for: request, delegate: RefuseRedirects())
+            // Inspect headers, never collect the media body. Some providers
+            // ignore Range and answer 200 with an entire multi-gigabyte film.
+            let (bytes, response) = try await session.bytes(for: request, delegate: RefuseRedirects())
+            defer { bytes.task.cancel() }
+            try Task.checkCancellation()
             guard let http = response as? HTTPURLResponse else { return nil }
             return target(of: http, for: url)
         } catch {

@@ -4,6 +4,16 @@ import Testing
 
 @MainActor
 struct StreamRedirectTests {
+    @Test func `a server ignoring Range does not have to finish its body`() async {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [HeaderOnlyStreamProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        let start = ContinuousClock.now
+        #expect(await StreamRedirect.resolve(provider, session: session) == nil)
+        #expect(start.duration(to: .now) < .seconds(2))
+    }
+
     private let provider = URL(string: "https://provider.test/series/user/pass/42.mkv")!
 
     private func media(
@@ -65,4 +75,25 @@ struct StreamRedirectTests {
         await cache.prepare(live)
         #expect(cache.target(for: live.url) == live.url)
     }
+}
+
+private final nonisolated class HeaderOnlyStreamProtocol: URLProtocol {
+    // swiftlint:disable:next static_over_final_class
+    override class func canInit(with _: URLRequest) -> Bool {
+        true
+    }
+
+    // swiftlint:disable:next static_over_final_class
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        guard let url = request.url,
+              let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: ["Content-Length": "9000000000"]) else { return }
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        // Intentionally never deliver or finish the body.
+    }
+
+    override func stopLoading() {}
 }
