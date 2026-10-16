@@ -85,9 +85,9 @@ extension ContentSyncManager {
         {
             series.rating = rating
         }
-        if let tmdb = item.providerIds?["Tmdb"], series.tmdb != tmdb {
-            series.tmdb = tmdb
-        }
+        let suppliedTMDB = item.providerIds?["Tmdb"]
+        series.applyCatalogueTMDB(suppliedTMDB, previous: series.tmdb)
+        if series.tmdb != suppliedTMDB { series.tmdb = suppliedTMDB }
         if let imdb = item.providerIds?["Imdb"], series.imdbId != imdb {
             series.imdbId = imdb
         }

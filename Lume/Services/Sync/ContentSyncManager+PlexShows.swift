@@ -82,9 +82,9 @@ extension ContentSyncManager {
         if let rating = (item.rating ?? item.audienceRating).map({ String($0) }), series.rating != rating {
             series.rating = rating
         }
-        if let tmdb = item.providerId("tmdb"), series.tmdb != tmdb {
-            series.tmdb = tmdb
-        }
+        let suppliedTMDB = item.providerId("tmdb")
+        series.applyCatalogueTMDB(suppliedTMDB, previous: series.tmdb)
+        if series.tmdb != suppliedTMDB { series.tmdb = suppliedTMDB }
         if let imdb = item.providerId("imdb"), series.imdbId != imdb {
             series.imdbId = imdb
         }

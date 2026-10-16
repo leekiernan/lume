@@ -291,9 +291,9 @@ extension ContentSyncManager {
         {
             movie.containerExtension = container
         }
-        if let tmdb = item.providerIds?["Tmdb"], movie.tmdb != tmdb {
-            movie.tmdb = tmdb
-        }
+        let suppliedTMDB = item.providerIds?["Tmdb"]
+        movie.applyCatalogueTMDB(suppliedTMDB, previous: movie.tmdb)
+        if movie.tmdb != suppliedTMDB { movie.tmdb = suppliedTMDB }
         if let imdb = item.providerIds?["Imdb"], movie.imdbId != imdb {
             movie.imdbId = imdb
         }
