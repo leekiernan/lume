@@ -12,6 +12,21 @@ struct SectionFeedLoadConfiguration {
     let prepareCustomSections: () -> Void
 }
 
+/// What restarts a page's layout-ordered load: its catalogue, its custom
+/// lists (and hero choice), or the rows it shows.
+private struct FeedLoadID: Hashable {
+    let catalog: String
+    let customTask: String
+    let rows: [HomeSectionRef]
+}
+
+/// What restarts one watchlist's load: its account (in the cache key) or the
+/// rows the page shows.
+private struct WatchlistLoadID: Hashable {
+    let cacheKey: String
+    let rows: [HomeSectionRef]
+}
+
 private struct SectionFeedLoading: ViewModifier {
     let feed: SectionFeed
     let configuration: SectionFeedLoadConfiguration
@@ -22,14 +37,26 @@ private struct SectionFeedLoading: ViewModifier {
                                        heroSelection: configuration.heroSelection, traktAccount: configuration.traktAccount)
         let traktKey = keys.watchlist(.trakt, account: WatchlistProvider.trakt.account)
         let simklKey = keys.watchlist(.simkl, account: WatchlistProvider.simkl.account)
-        let identity = [keys.catalog, keys.customTask, traktKey, simklKey, plan.identity].joined(separator: "|")
-        content.task(id: identity) {
-            guard !Task.isCancelled else { return }
-            configuration.prepareCustomSections()
-            feed.heroRef = configuration.heroRef
-            feed.configure(plan: plan, context: configuration.context)
-            await feed.load(plan: plan, keys: keys, traktKey: traktKey, simklKey: simklKey)
-        }
+        content
+            .task(id: FeedLoadID(catalog: keys.catalog, customTask: keys.customTask, rows: plan.rows)) {
+                guard !Task.isCancelled else { return }
+                configuration.prepareCustomSections()
+                feed.heroRef = configuration.heroRef
+                feed.configure(plan: plan, context: configuration.context)
+                await feed.load(plan: plan, keys: keys)
+            }
+            // Keyed by account: Trakt connects a moment after launch, which
+            // must reload its watchlist, not the page's whole cold load.
+            .task(id: WatchlistLoadID(cacheKey: traktKey, rows: plan.rows)) {
+                // Either task may run first; a watchlist can be the hero.
+                feed.heroRef = configuration.heroRef
+                await feed.loadWatchlistIfPlanned(.trakt, cacheKey: traktKey, plan: plan, context: configuration.context)
+            }
+            .task(id: WatchlistLoadID(cacheKey: simklKey, rows: plan.rows)) {
+                // Either task may run first; a watchlist can be the hero.
+                feed.heroRef = configuration.heroRef
+                await feed.loadWatchlistIfPlanned(.simkl, cacheKey: simklKey, plan: plan, context: configuration.context)
+            }
     }
 }
 

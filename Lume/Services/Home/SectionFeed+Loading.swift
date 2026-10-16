@@ -4,8 +4,6 @@ extension SectionFeed {
     private struct LoadPass {
         let plan: SectionFeedLoadPlan
         let keys: SectionFeedLoadKeys
-        let traktKey: String
-        let simklKey: String
         let customRequest: SectionFeedLoadGate.Request?
         let started: ContinuousClock.Instant
     }
@@ -27,11 +25,20 @@ extension SectionFeed {
 
     /// Bounded, layout-ordered work: hero and the leading remote rail get the
     /// first two slots. No delay, viewport task or global readiness barrier.
-    func load(plan: SectionFeedLoadPlan, keys: SectionFeedLoadKeys, traktKey: String, simklKey: String) async {
+    ///
+    /// Watchlists aren't in this pass: each has its own task keyed by its
+    /// account (`loadWatchlistIfPlanned`). Trakt connects a moment after
+    /// launch, and with its key in this pass's identity that restarted the
+    /// whole cold load — hero and custom lists included.
+    func load(plan: SectionFeedLoadPlan, keys: SectionFeedLoadKeys) async {
         let customRequest = plan.requests(.custom) ? beginCustomLoad(cacheKey: keys.customCache, sections: plan.customSections) : nil
-        let pass = LoadPass(plan: plan, keys: keys, traktKey: traktKey, simklKey: simklKey, customRequest: customRequest, started: .now)
+        let pass = LoadPass(plan: plan, keys: keys, customRequest: customRequest, started: .now)
+        let jobs = plan.jobs.filter { row in
+            if case .watchlist = SectionFeedSource(row: row) { return false }
+            return true
+        }
         await withTaskGroup(of: Void.self) { group in
-            var remaining = plan.jobs.makeIterator()
+            var remaining = jobs.makeIterator()
             for _ in 0 ..< 2 {
                 if let row = remaining.next() {
                     group.addTask { await self.load(row: row, pass: pass) }
@@ -56,12 +63,20 @@ extension SectionFeed {
         case .trending:
             let rows = pass.plan.rows.filter { SectionFeedSource(row: $0) == .trending }.map(\.token).sorted().joined(separator: ",")
             await loadTrending(cacheKey: "\(pass.keys.catalog)-\(rows)")
-        case let .watchlist(provider): await loadWatchlist(provider, cacheKey: provider == .trakt ? pass.traktKey : pass.simklKey)
+        case .watchlist: break
         case .custom:
             if let request = pass.customRequest, let section = pass.plan.customSections.first(where: { .custom($0.id) == row }) {
                 await loadCustomSection(section, request: request, started: pass.started)
             }
         case nil: break
         }
+    }
+
+    /// A watchlist row the plan shows, loaded on its own task so a sign-in or
+    /// sign-out reloads that row alone.
+    func loadWatchlistIfPlanned(_ provider: WatchlistProvider, cacheKey: String, plan: SectionFeedLoadPlan, context: Context) async {
+        guard !Task.isCancelled, plan.requests(.watchlist(provider)) else { return }
+        update(context: context)
+        await loadWatchlist(provider, cacheKey: cacheKey)
     }
 }

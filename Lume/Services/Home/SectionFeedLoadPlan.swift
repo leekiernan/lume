@@ -35,10 +35,6 @@ struct SectionFeedLoadPlan {
         }
     }
 
-    var identity: String {
-        rows.map(\.token).joined(separator: ",")
-    }
-
     func requests(_ source: SectionFeedSource) -> Bool {
         rows.contains { SectionFeedSource(row: $0) == source }
     }
