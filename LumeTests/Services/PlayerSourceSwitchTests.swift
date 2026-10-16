@@ -34,7 +34,7 @@ struct PlayerSourceSwitchTests {
         let copy = movie(2, runtime: 7230, in: provider, context)
         try context.save()
 
-        let sources = try #require(PlayerSourceSwitch.sources(for: playing(current, in: provider), in: context))
+        let sources = try #require(PlayerSourceSwitch.sources(for: playing(current, in: provider), restriction: ContentRestriction(), in: context))
         #expect(sources.current.id == current.id)
         #expect(sources.alternatives.map(\.source.id) == [copy.id])
     }
@@ -49,7 +49,23 @@ struct PlayerSourceSwitchTests {
         _ = movie(3, runtime: nil, in: provider, context)
         try context.save()
 
-        #expect(try PlayerSourceSwitch.sources(for: playing(current, in: provider), in: context) == nil)
+        #expect(try PlayerSourceSwitch.sources(for: playing(current, in: provider), restriction: ContentRestriction(), in: context) == nil)
+    }
+
+    @Test(arguments: [false, true])
+    func `player alternatives apply hidden and parental categories`(isChild: Bool) throws {
+        let container = try makeTestContainer()
+        let context = container.mainContext
+        let provider = playlist(context)
+        let current = movie(1, runtime: 7200, in: provider, context)
+        let hidden = movie(2, runtime: 7200, in: provider, context)
+        let locked = movie(3, runtime: 7200, in: provider, context)
+        hidden.categoryId = "hidden"
+        locked.categoryId = "locked"
+        try context.save()
+        let restriction = ContentRestriction(isActive: isChild, restrictedCategoryIDs: ["locked"], hiddenCategoryIDs: ["hidden"])
+        let sources = try PlayerSourceSwitch.sources(for: playing(current, in: provider), restriction: restriction, in: context)
+        #expect(sources?.alternatives.map(\.source.id) ?? [] == (isChild ? [] : [locked.id]))
     }
 
     @Test func `an episode switches to the same episode in another copy of the series`() throws {
@@ -77,7 +93,7 @@ struct PlayerSourceSwitchTests {
         try context.save()
 
         let media = try #require(PlayableMedia.from(episode: watching, playlist: provider))
-        let sources = try #require(PlayerSourceSwitch.sources(for: media, in: context))
+        let sources = try #require(PlayerSourceSwitch.sources(for: media, restriction: ContentRestriction(), in: context))
         #expect(sources.alternatives.map(\.media.contentRef) == [.episode(match.id)])
     }
 }

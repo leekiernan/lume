@@ -42,23 +42,23 @@ struct PlayerSources: Equatable {
 enum PlayerSourceSwitch {
     /// The copies `media` can switch to, or nil when there are none: live
     /// channels, a title with one copy, or no copy of the same cut.
-    static func sources(for media: PlayableMedia, in context: ModelContext) -> PlayerSources? {
+    static func sources(for media: PlayableMedia, restriction: ContentRestriction, in context: ModelContext) -> PlayerSources? {
         let playlists = (try? context.fetch(FetchDescriptor<Playlist>())) ?? []
         switch media.contentRef {
         case let .movie(id):
             guard let movie = first(Movie.self, #Predicate { $0.id == id }, in: context) else { return nil }
-            return movieSources(movie, playlists: playlists, in: context)
+            return movieSources(movie, playlists: playlists, restriction: restriction, in: context)
         case let .episode(id):
             guard let episode = first(Episode.self, #Predicate { $0.id == id }, in: context) else { return nil }
-            return episodeSources(episode, playlists: playlists, in: context)
+            return episodeSources(episode, playlists: playlists, restriction: restriction, in: context)
         case .live:
             return nil
         }
     }
 
-    private static func movieSources(_ movie: Movie, playlists: [Playlist], in context: ModelContext) -> PlayerSources? {
+    private static func movieSources(_ movie: Movie, playlists: [Playlist], restriction: ContentRestriction, in context: ModelContext) -> PlayerSources? {
         guard let runtime = movie.runtime else { return nil }
-        let sources = TitleSources.resolve(for: movie, in: context)
+        let sources = TitleSources.resolve(for: movie, restriction: restriction, in: context)
         guard let current = sources.first(where: { $0.id == movie.id }) else { return nil }
         let alternatives = sources.compactMap { source -> PlayerSourceOption? in
             guard source.id != movie.id, case let .movie(copy) = source.copy,
@@ -73,9 +73,9 @@ enum PlayerSourceSwitch {
     /// The same season and episode in each other copy of the series. Only
     /// episodes this device has loaded are offered: fetching another copy's
     /// episodes from the player isn't worth a stall.
-    private static func episodeSources(_ episode: Episode, playlists: [Playlist], in context: ModelContext) -> PlayerSources? {
+    private static func episodeSources(_ episode: Episode, playlists: [Playlist], restriction: ContentRestriction, in context: ModelContext) -> PlayerSources? {
         guard let runtime = episode.runtime, let series = episode.series else { return nil }
-        let sources = TitleSources.resolve(for: series, in: context)
+        let sources = TitleSources.resolve(for: series, restriction: restriction, in: context)
         guard let current = sources.first(where: { $0.id == series.id }) else { return nil }
         let alternatives = sources.compactMap { source -> PlayerSourceOption? in
             guard source.id != series.id, case let .series(copy) = source.copy,

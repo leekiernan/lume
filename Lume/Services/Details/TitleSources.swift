@@ -46,7 +46,7 @@ enum TitleCopy: Hashable {
         }
     }
 
-    fileprivate var categoryID: String? {
+    var categoryID: String? {
         switch self {
         case let .movie(movie): movie.categoryId
         case let .series(series): series.categoryId
@@ -79,17 +79,17 @@ enum TitleSources {
     /// Every copy of `movie`'s title, `movie` included: its own playlist's
     /// first, then other playlists' by playlist name. Just `movie` when it has
     /// no TMDB id to match by.
-    static func resolve(for movie: Movie, in context: ModelContext) -> [TitleSource] {
-        guard let tmdbId = movie.tmdbId else { return sources([.movie(movie)], opened: movie.id, in: context) }
+    static func resolve(for movie: Movie, restriction: ContentRestriction, in context: ModelContext) -> [TitleSource] {
+        guard let tmdbId = movie.tmdbId else { return sources([.movie(movie)], opened: movie.id, restriction: restriction, in: context) }
         let matches = (try? context.fetch(FetchDescriptor<Movie>(predicate: #Predicate { $0.tmdbId == tmdbId }))) ?? []
-        return sources(matches.map(TitleCopy.movie), opened: movie.id, in: context)
+        return sources(matches.map(TitleCopy.movie), opened: movie.id, restriction: restriction, in: context)
     }
 
     /// Every copy of `series`'s title, `series` included — as for movies.
-    static func resolve(for series: Series, in context: ModelContext) -> [TitleSource] {
-        guard let tmdbId = series.tmdbId else { return sources([.series(series)], opened: series.id, in: context) }
+    static func resolve(for series: Series, restriction: ContentRestriction, in context: ModelContext) -> [TitleSource] {
+        guard let tmdbId = series.tmdbId else { return sources([.series(series)], opened: series.id, restriction: restriction, in: context) }
         let matches = (try? context.fetch(FetchDescriptor<Series>(predicate: #Predicate { $0.tmdbId == tmdbId }))) ?? []
-        return sources(matches.map(TitleCopy.series), opened: series.id, in: context)
+        return sources(matches.map(TitleCopy.series), opened: series.id, restriction: restriction, in: context)
     }
 
     /// The copy to show and resume: the one watched most recently, else the
@@ -103,13 +103,14 @@ enum TitleSources {
     /// Same-playlist copies first, then other playlists' sorted by name. A copy
     /// on a playlist that can't be resolved is dropped: without its playlist
     /// there are no credentials to play it with.
-    private static func sources(_ copies: [TitleCopy], opened: String, in context: ModelContext) -> [TitleSource] {
+    private static func sources(_ copies: [TitleCopy], opened: String, restriction: ContentRestriction, in context: ModelContext) -> [TitleSource] {
         let playlists = (try? context.fetch(FetchDescriptor<Playlist>())) ?? []
         let ownPlaylist = playlists.owner(ofContentID: opened)
         let categoryIDs = Set(copies.compactMap(\.categoryID))
         let categories = (try? context.fetch(FetchDescriptor<Category>(predicate: #Predicate { categoryIDs.contains($0.id) }))) ?? []
         let names = Dictionary(categories.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
         let resolved = copies.compactMap { copy -> (TitleSource, isOwn: Bool)? in
+            guard !restriction.hides(categoryID: copy.categoryID) else { return nil }
             let owner = playlists.owner(ofContentID: copy.id)
             guard owner != nil || ownPlaylist == nil else { return nil }
             let isOwn = owner == nil || owner?.id == ownPlaylist?.id

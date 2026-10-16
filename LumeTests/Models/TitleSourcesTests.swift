@@ -49,7 +49,7 @@ struct TitleSourcesTests {
         _ = makeMovie(id: "\(playlistB.id.uuidString)-movie-4", streamId: 4, tmdbId: 7, in: context)
         try context.save()
 
-        let sources = TitleSources.resolve(for: current, in: context)
+        let sources = TitleSources.resolve(for: current, restriction: ContentRestriction(), in: context)
         #expect(Set(sources.prefix(2).map(\.id)) == [current.id, uhd.id])
         #expect(sources.last?.id == otherList.id)
         #expect(sources.last?.playlistName == "Provider B")
@@ -65,7 +65,7 @@ struct TitleSourcesTests {
         let otherList = makeSeries(id: "\(playlistB.id.uuidString)-series-2", seriesId: 2, tmdbId: 314, in: context)
         try context.save()
 
-        let sources = TitleSources.resolve(for: current, in: context)
+        let sources = TitleSources.resolve(for: current, restriction: ContentRestriction(), in: context)
         #expect(sources.map(\.id) == [current.id, otherList.id])
         #expect(sources.map(\.playlistName) == [nil, "Provider B"])
     }
@@ -81,7 +81,7 @@ struct TitleSourcesTests {
         _ = makeMovie(id: "\(alpha.id.uuidString)-movie-3", streamId: 3, tmdbId: 42, in: context)
         try context.save()
 
-        let names = TitleSources.resolve(for: current, in: context).map(\.playlistName)
+        let names = TitleSources.resolve(for: current, restriction: ContentRestriction(), in: context).map(\.playlistName)
         #expect(names == [nil, "Alpha IPTV", "Zeta TV"])
     }
 
@@ -93,7 +93,7 @@ struct TitleSourcesTests {
         _ = makeMovie(id: "\(UUID().uuidString)-movie-2", streamId: 2, tmdbId: 42, in: context)
         try context.save()
 
-        #expect(TitleSources.resolve(for: current, in: context).map(\.id) == [current.id])
+        #expect(TitleSources.resolve(for: current, restriction: ContentRestriction(), in: context).map(\.id) == [current.id])
     }
 
     @Test func `without a tmdb id the opened copy is the only one`() throws {
@@ -105,7 +105,45 @@ struct TitleSourcesTests {
         _ = makeMovie(id: "\(playlistB.id.uuidString)-movie-2", streamId: 2, tmdbId: nil, in: context)
         try context.save()
 
-        #expect(TitleSources.resolve(for: current, in: context).map(\.id) == [current.id])
+        #expect(TitleSources.resolve(for: current, restriction: ContentRestriction(), in: context).map(\.id) == [current.id])
+    }
+
+    @Test(arguments: [false, true])
+    func `hidden copies never appear and restricted copies only appear for parents`(isChild: Bool) async throws {
+        let container = try makeTestContainer()
+        let context = container.mainContext
+        let playlist = makePlaylist(name: "Provider", in: context)
+        let opened = makeMovie(id: "\(playlist.id)-movie-1", streamId: 1, tmdbId: 42, in: context)
+        let hidden = makeMovie(id: "\(playlist.id)-movie-2", streamId: 2, tmdbId: 42, category: "hidden", in: context)
+        let locked = makeMovie(id: "\(playlist.id)-movie-3", streamId: 3, tmdbId: 42, category: "locked", in: context)
+        hidden.lastWatchedDate = .now.addingTimeInterval(1)
+        locked.lastWatchedDate = .now
+        let restriction = ContentRestriction(isActive: isChild, restrictedCategoryIDs: ["locked"], hiddenCategoryIDs: ["hidden"])
+        try context.save()
+
+        let sources = TitleSources.resolve(for: opened, restriction: restriction, in: context)
+        #expect(Set(sources.map(\.id)) == (isChild ? [opened.id] : [opened.id, locked.id]))
+        #expect(TitleSources.preferred(in: sources, opened: opened.id)?.id == (isChild ? opened.id : locked.id))
+        let hiddenSource = TitleSource(copy: .movie(hidden), categoryName: nil, playlistName: nil)
+        #expect(await TitleSourcePlayback.media(for: hiddenSource, restriction: restriction, in: context) == nil)
+    }
+
+    @Test func `a restricted series cannot be resolved or played from a stale menu`() async throws {
+        let container = try makeTestContainer()
+        let context = container.mainContext
+        let playlist = makePlaylist(name: "Provider", in: context)
+        let opened = makeSeries(id: "\(playlist.id)-series-1", seriesId: 1, tmdbId: 314, in: context)
+        let locked = makeSeries(id: "\(playlist.id)-series-2", seriesId: 2, tmdbId: 314, in: context)
+        locked.categoryId = "locked"
+        let restriction = ContentRestriction(isActive: true, restrictedCategoryIDs: ["locked"])
+        try context.save()
+
+        #expect(TitleSources.resolve(for: opened, restriction: restriction, in: context).map(\.id) == [opened.id])
+        let stale = TitleSource(copy: .series(locked), categoryName: nil, playlistName: nil)
+        #expect(await TitleSourcePlayback.media(for: stale, restriction: restriction, in: context) == nil)
+        opened.categoryId = "locked"
+        opened.tmdbId = nil
+        #expect(TitleSources.resolve(for: opened, restriction: restriction, in: context).isEmpty)
     }
 
     /// Each copy keeps its own progress; the page resumes the copy watched
@@ -118,11 +156,11 @@ struct TitleSourcesTests {
         let watched = makeMovie(id: "\(playlist.id.uuidString)-movie-2", streamId: 2, tmdbId: 42, in: context)
         try context.save()
 
-        var sources = TitleSources.resolve(for: opened, in: context)
+        var sources = TitleSources.resolve(for: opened, restriction: ContentRestriction(), in: context)
         #expect(TitleSources.preferred(in: sources, opened: opened.id)?.id == opened.id)
 
         watched.lastWatchedDate = .now
-        sources = TitleSources.resolve(for: opened, in: context)
+        sources = TitleSources.resolve(for: opened, restriction: ContentRestriction(), in: context)
         #expect(TitleSources.preferred(in: sources, opened: opened.id)?.id == watched.id)
     }
 
@@ -142,14 +180,14 @@ struct TitleSourcesTests {
         let opened = makeMovie(id: "\(playlist.id.uuidString)-movie-1", streamId: 1, tmdbId: 42, in: context)
         let other = makeMovie(id: "\(playlist.id.uuidString)-movie-2", streamId: 2, tmdbId: 42, in: context)
         try context.save()
-        let sources = TitleSources.resolve(for: opened, in: context)
+        let sources = TitleSources.resolve(for: opened, restriction: ContentRestriction(), in: context)
         let openedSource = try #require(sources.first { $0.id == opened.id })
         let otherSource = try #require(sources.first { $0.id == other.id })
         let selection = TitleSourceSelection(sources: sources, current: openedSource)
 
         selection.pick(otherSource)
         #expect(selection.current.id == opened.id && selection.picked?.id == other.id)
-        let media = await TitleSourcePlayback.media(for: otherSource, in: context)
+        let media = await TitleSourcePlayback.media(for: otherSource, restriction: ContentRestriction(), in: context)
         #expect(media?.id == PlayableMedia.from(movie: other, playlist: playlist)?.id)
 
         selection.showPicked()

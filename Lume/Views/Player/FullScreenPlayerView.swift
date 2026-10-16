@@ -157,7 +157,7 @@ struct FullScreenPlayerView: View {
 
     /// What the viewer may watch. Read in the host, not in each engine view:
     /// neighbours resolve once per stream.
-    @Environment(\.contentRestriction) private var contentRestriction
+    @Environment(\.contentRestriction) var contentRestriction
 
     init(media: PlayableMedia) {
         self.media = media
@@ -290,6 +290,7 @@ struct FullScreenPlayerView: View {
             beginReviewSession()
         }
         .onChange(of: activeMedia.id, initial: true) { publishSources(to: controlsBridge) }
+        .onChange(of: contentRestriction.visibilityToken) { publishSources(to: controlsBridge) }
         .onChange(of: engineMount, initial: true) { _, mount in
             guard let mount else { return }
             session.send(.starting(mount.engine, startCause))

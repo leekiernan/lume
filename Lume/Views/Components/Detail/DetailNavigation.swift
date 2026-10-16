@@ -49,6 +49,7 @@ extension View {
 }
 
 private struct DetailDestinations: ViewModifier {
+    @Environment(\.contentRestriction) private var restriction
     let path: Binding<NavigationPath>?
     let namespace: Namespace.ID?
 
@@ -57,19 +58,21 @@ private struct DetailDestinations: ViewModifier {
             // The page shows the copy watched most recently, with the others
             // on its Source button (`TitleSourceHost`).
             .pushedDestination(for: Movie.self) { movie in
-                TitleSourceHost(movie: movie) { copy in
+                TitleSourceHost(movie: movie, restriction: restriction) { copy in
                     if case let .movie(shown) = copy {
                         MovieDetailView(movie: shown, animationNamespace: namespace)
                     }
                 }
+                .id(restriction.visibilityToken)
                 .detailZoomTransition(sourceID: movie.id, namespace: namespace)
             }
             .pushedDestination(for: Series.self) { series in
-                TitleSourceHost(series: series) { copy in
+                TitleSourceHost(series: series, restriction: restriction) { copy in
                     if case let .series(shown) = copy {
                         SeriesDetailView(series: shown, animationNamespace: namespace)
                     }
                 }
+                .id(restriction.visibilityToken)
                 .detailZoomTransition(sourceID: series.id, namespace: namespace)
             }
             .pushedDestination(for: PersonRoute.self) { route in

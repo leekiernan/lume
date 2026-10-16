@@ -105,9 +105,12 @@ extension FullScreenPlayerView {
     /// the same moment (`PlayerSourceSwitch`), and how to switch: through
     /// `switchMedia`, resuming at the current position.
     func publishSources(to bridge: PlayerControlsBridge) {
-        bridge.sources = PlayerSourceSwitch.sources(for: activeMedia, in: modelContext)
+        bridge.sources = PlayerSourceSwitch.sources(for: activeMedia, restriction: contentRestriction, in: modelContext)
         bridge.selectSource = { option in
-            switchMedia(to: option.media.resuming(at: activeMedia.enginePosition(clock.current)))
+            // A native menu can outlive a visibility or catalogue change.
+            let allowed = PlayerSourceSwitch.sources(for: activeMedia, restriction: contentRestriction, in: modelContext)
+            guard let fresh = allowed?.alternatives.first(where: { $0.id == option.id }) else { return }
+            switchMedia(to: fresh.media.resuming(at: activeMedia.enginePosition(clock.current)))
         }
     }
 

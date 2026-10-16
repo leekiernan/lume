@@ -13,7 +13,8 @@ import Foundation
 import SwiftData
 
 enum TitleSourcePlayback {
-    static func media(for source: TitleSource, in context: ModelContext) async -> PlayableMedia? {
+    static func media(for source: TitleSource, restriction: ContentRestriction, in context: ModelContext) async -> PlayableMedia? {
+        guard !restriction.hides(categoryID: source.copy.categoryID) else { return nil }
         guard let playlists = try? context.fetch(FetchDescriptor<Playlist>()) else { return nil }
         switch source.copy {
         case let .movie(movie):

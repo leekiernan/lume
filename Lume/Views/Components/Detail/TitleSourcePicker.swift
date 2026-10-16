@@ -61,11 +61,12 @@ private struct PickedSourcePlayback: ViewModifier {
     let selection: TitleSourceSelection?
     let present: (PlayableMedia) -> Void
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.contentRestriction) private var restriction
 
     func body(content: Content) -> some View {
         content.task(id: selection?.picked?.id) {
             guard let selection, let source = selection.picked else { return }
-            let media = await TitleSourcePlayback.media(for: source, in: modelContext)
+            let media = await TitleSourcePlayback.media(for: source, restriction: restriction, in: modelContext)
             guard !Task.isCancelled else { return }
             if let media { present(media) } else { selection.abandonPick() }
         }
@@ -76,17 +77,20 @@ private struct PickedSourcePlayback: ViewModifier {
 /// copy's own context, so the page never shows one copy and then another.
 struct TitleSourceHost<Page: View>: View {
     @State private var selection: TitleSourceSelection
+    private let restriction: ContentRestriction
     private let page: (TitleCopy) -> Page
 
-    init(movie: Movie, @ViewBuilder page: @escaping (TitleCopy) -> Page) {
-        let sources = movie.modelContext.map { TitleSources.resolve(for: movie, in: $0) } ?? []
+    init(movie: Movie, restriction: ContentRestriction, @ViewBuilder page: @escaping (TitleCopy) -> Page) {
+        self.restriction = restriction
+        let sources = movie.modelContext.map { TitleSources.resolve(for: movie, restriction: restriction, in: $0) } ?? []
         let fallback = TitleSource(copy: .movie(movie), categoryName: nil, playlistName: nil)
         _selection = State(initialValue: Self.selection(sources, opened: movie.id, fallback: fallback))
         self.page = page
     }
 
-    init(series: Series, @ViewBuilder page: @escaping (TitleCopy) -> Page) {
-        let sources = series.modelContext.map { TitleSources.resolve(for: series, in: $0) } ?? []
+    init(series: Series, restriction: ContentRestriction, @ViewBuilder page: @escaping (TitleCopy) -> Page) {
+        self.restriction = restriction
+        let sources = series.modelContext.map { TitleSources.resolve(for: series, restriction: restriction, in: $0) } ?? []
         let fallback = TitleSource(copy: .series(series), categoryName: nil, playlistName: nil)
         _selection = State(initialValue: Self.selection(sources, opened: series.id, fallback: fallback))
         self.page = page
@@ -98,9 +102,11 @@ struct TitleSourceHost<Page: View>: View {
     }
 
     var body: some View {
-        page(selection.current.copy)
-            .id(selection.current.id)
-            .environment(selection)
+        if !restriction.hides(categoryID: selection.current.copy.categoryID) {
+            page(selection.current.copy)
+                .id(selection.current.id)
+                .environment(selection)
+        }
     }
 }
 
