@@ -24,6 +24,7 @@ struct HomeRow: View {
     /// Destination for remote rows whose retained source contains more than the
     /// 20-card preview. Local rows supply their own collection navigation.
     var showAll: SectionCollectionSelection?
+    var isRefreshing = false
     /// When set, each card gains a "Remove from Recently Watched" context menu.
     /// Only the Recently Watched row passes this; the others leave it nil.
     var onRemove: ((HomeMediaItem) -> Void)?
@@ -38,7 +39,7 @@ struct HomeRow: View {
     var animationNamespace: Namespace.ID?
 
     var body: some View {
-        PosterRail(title: title, showAll: showAll, onLeadingLeft: onLeadingLeft) {
+        PosterRail(title: title, showAll: showAll, isRefreshing: isRefreshing, onLeadingLeft: onLeadingLeft) {
             ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                 HomeItemCell(
                     item: item,

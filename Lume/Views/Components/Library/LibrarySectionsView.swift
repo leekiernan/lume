@@ -153,6 +153,7 @@ struct LibrarySectionsView<CollectionRow: View>: View {
                 showAll: feed.collection(for: section)?.hasMoreCandidates == true
                     ? SectionCollectionSelection(section: section, title: collectionTitle)
                     : nil,
+                isRefreshing: feed.isRefreshing(section),
                 onLeadingLeft: onRevealBrowse,
                 animationNamespace: animationNamespace
             )

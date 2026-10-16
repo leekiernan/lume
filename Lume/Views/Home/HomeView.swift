@@ -492,6 +492,9 @@ private extension HomeView {
                 seriesResume: seriesResume,
                 onPlayLive: playChannel,
                 showAll: collectionSelection(for: section, title: collectionTitle),
+                // A cached row shows at once; the spinner marks it checking for
+                // updates in the background.
+                isRefreshing: section.map(feed.isRefreshing) ?? false,
                 onRemove: onRemove,
                 onStartMultiView: startMultiView,
                 animationNamespace: animationNamespace
