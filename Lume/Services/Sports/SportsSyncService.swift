@@ -229,9 +229,9 @@ final class SportsSyncService {
     /// so a snapshot that is merely not loaded yet is judged by its own age. A
     /// league the catalogue doesn't know can never be fetched, so it is never
     /// counted stale.
-    private func staleLeagueIds(now: Date = Date()) -> [String] {
+    private func staleLeagueIds(now: Date = Date()) async -> [String] {
         let ids = leaguesToRefresh()
-        store.loadCached(leagueIds: ids)
+        await store.hydrate(leagueIds: ids)
         return ids.filter { id in
             guard SportsCatalog.league(id: id) != nil, !Self.isFresh(store.snapshot(for: id), now: now) else {
                 return false
@@ -320,7 +320,7 @@ final class SportsSyncService {
     /// the surface stayed open, then the days of the live or overdue fixtures of
     /// the rest — the full refresh already brought those leagues' days.
     private func pollTick() async {
-        let stale = staleLeagueIds()
+        let stale = await staleLeagueIds()
         await refresh(leagueIds: stale)
         let rest = leaguesToRefresh().filter { !stale.contains($0) }
         let days = Self.pollDays(fixtures: store.fixtures(inLeagues: rest), now: Date())

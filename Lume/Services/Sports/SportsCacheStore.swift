@@ -56,7 +56,6 @@ nonisolated struct SportsCacheStore {
             let base = fileManager.urls(for: .cachesDirectory, in: .userDomainMask)[0]
             self.directory = base.appendingPathComponent("Sports", isDirectory: true)
         }
-        try? fileManager.createDirectory(at: self.directory, withIntermediateDirectories: true)
     }
 
     func load(leagueId: String) -> SportsLeagueSnapshot? {
@@ -72,6 +71,7 @@ nonisolated struct SportsCacheStore {
 
     func save(_ snapshot: SportsLeagueSnapshot, for leagueId: String) {
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         try? data.write(to: fileURL(for: leagueId), options: .atomic)
     }
 
@@ -88,5 +88,25 @@ nonisolated struct SportsCacheStore {
             .replacingOccurrences(of: ":", with: "_")
             .replacingOccurrences(of: "/", with: "_")
         return directory.appendingPathComponent(safe).appendingPathExtension("json")
+    }
+}
+
+/// Serial disk access, kept off the UI executor. The synchronous adapter above
+/// remains useful for deterministic fixtures and has no work in its initializer.
+actor SportsCacheIO {
+    private let cache: SportsCacheStore
+
+    init(cache: SportsCacheStore) {
+        self.cache = cache
+    }
+
+    func load(_ leagueID: String) -> SportsLeagueSnapshot? {
+        cache.load(leagueId: leagueID)
+    }
+
+    func save(_ snapshots: [String: SportsLeagueSnapshot]) {
+        for (id, snapshot) in snapshots {
+            cache.save(snapshot, for: id)
+        }
     }
 }

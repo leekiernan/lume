@@ -129,7 +129,7 @@ final class SportsAlertCoordinator {
         guard !followedTeams.isEmpty else { return }
         let store = SportsStore.shared
         let leagueIds = Array(Set(followedTeams.compactMap(SportsTeam.leagueID(fromTeamID:))))
-        store.loadCached(leagueIds: leagueIds)
+        await store.hydrate(leagueIds: leagueIds)
         let candidates = Self.candidates(store.fixtures(inLeagues: leagueIds), followedTeams: followedTeams, now: now)
         guard !candidates.isEmpty else { return }
 

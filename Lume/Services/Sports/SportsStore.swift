@@ -32,10 +32,13 @@ final class SportsStore {
     /// re-read scores even when the fixture ids are unchanged.
     private(set) var liveScoreTick = 0
 
-    private let cache: SportsCacheStore
+    @ObservationIgnored private let cache: SportsCacheIO
+    @ObservationIgnored private var reads: [String: Task<SportsLeagueSnapshot?, Never>] = [:]
+    @ObservationIgnored private var pendingWrites: [String: SportsLeagueSnapshot] = [:]
+    @ObservationIgnored private var writeTask: Task<Void, Never>?
 
     init(cache: SportsCacheStore = SportsCacheStore()) {
-        self.cache = cache
+        self.cache = SportsCacheIO(cache: cache)
     }
 
     // MARK: - Loading
@@ -43,8 +46,18 @@ final class SportsStore {
     /// Warms `snapshots` from disk for the given leagues so the hub renders
     /// immediately (and offline) before the first network refresh returns.
     func loadCached(leagueIds: [String]) {
+        Task { await hydrate(leagueIds: leagueIds) }
+    }
+
+    /// Awaitable for refresh scheduling: judge freshness after the disk read,
+    /// without holding up SwiftUI rendering or overwriting a newer network value.
+    func hydrate(leagueIds: [String]) async {
         for leagueId in leagueIds where snapshots[leagueId] == nil {
-            if let snapshot = cache.load(leagueId: leagueId) {
+            let read = reads[leagueId] ?? Task { await cache.load(leagueId) }
+            reads[leagueId] = read
+            let snapshot = await read.value
+            reads[leagueId] = nil
+            if snapshots[leagueId] == nil, let snapshot {
                 snapshots[leagueId] = snapshot
             }
         }
@@ -56,7 +69,7 @@ final class SportsStore {
     /// fresh. Called on the main actor by the sync service with a finished value.
     func update(_ snapshot: SportsLeagueSnapshot, for leagueId: String) {
         snapshots[leagueId] = snapshot
-        cache.save(snapshot, for: leagueId)
+        persist(snapshot, for: leagueId)
         refreshError = false
     }
 
@@ -70,7 +83,26 @@ final class SportsStore {
         snapshot.teams = teams
         snapshot.teamsFetchedAt = Date()
         snapshots[leagueId] = snapshot
-        cache.save(snapshot, for: leagueId)
+        persist(snapshot, for: leagueId)
+    }
+
+    private func persist(_ snapshot: SportsLeagueSnapshot, for leagueID: String) {
+        pendingWrites[leagueID] = snapshot
+        guard writeTask == nil else { return }
+        writeTask = Task {
+            // Coalesce same-turn score/tint/roster updates before encoding JSON.
+            await Task.yield()
+            while !pendingWrites.isEmpty {
+                let batch = pendingWrites
+                pendingWrites.removeAll()
+                await cache.save(batch)
+            }
+            writeTask = nil
+        }
+    }
+
+    func flushCache() async {
+        await writeTask?.value
     }
 
     func noteLiveScoreUpdate() {
