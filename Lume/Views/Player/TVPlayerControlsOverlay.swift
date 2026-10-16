@@ -2,11 +2,10 @@
 //  TVPlayerControlsOverlay.swift
 //  Lume
 //
-//  The tvOS player overlay. A complete rework that follows the Apple TV "Touch"
-//  player template: a bottom scrim carrying a left caption + large title, a
-//  right-aligned technical caption, a full-width progress bar with elapsed /
-//  remaining times, and a control row of tab pills (left), transport buttons
-//  (centre) and audio / subtitle menus (right).
+//  The tvOS player overlay, following the Apple TV "Touch" player template: a
+//  bottom scrim with a left caption, large title and right-aligned technical
+//  caption, a progress bar with elapsed / remaining times, and a control row of
+//  tab pills, transport buttons and audio / subtitle / source menus (right).
 //
 //  The first tab ("Episodes", series only) raises a horizontal episode rail; the
 //  second ("Info", the only tab for movies and live) raises an information
@@ -34,6 +33,8 @@
         var onResetHideTimer: () -> Void
         var onSelectMedia: (PlayableMedia) -> Void
         var onPanelOpenChange: (Bool) -> Void
+        /// A native menu opened from the controls opened (true) or closed.
+        var onMenuOpenChange: (Bool) -> Void
         /// Surf to the next (`.up`) or previous (`.down`) live channel. Wired to
         /// the host so channel switching works identically whether the controls
         /// are showing or hidden.
@@ -162,6 +163,7 @@
             .onDisappear {
                 scrub.reset()
                 onPanelOpenChange(false)
+                onMenuOpenChange(false)
             }
             .task(id: media.playbackSessionID) { await resolveContent() }
             .task(id: media.playbackSessionID) { await resolveStreamInfo() }
@@ -171,9 +173,13 @@
                 // task cancelled with the overlay.
                 focus = landingFocus
             }
-            .onChange(of: focus) {
+            .onChange(of: focus) { _, newFocus in
+                // Every control is a `focus` target, so focus leaves them all
+                // only for a native menu one of them opened; it returns to that
+                // control when the menu closes.
+                onMenuOpenChange(newFocus == nil)
                 // Moving between controls counts as activity — keep them up.
-                onResetHideTimer()
+                if newFocus != nil { onResetHideTimer() }
             }
         }
 
@@ -396,6 +402,7 @@
             HStack(spacing: 16) {
                 audioTrackMenu
                 subtitleMenu
+                sourceMenu
                 favoriteButton
             }
         }
@@ -411,78 +418,6 @@
             .focused($focus, equals: .favorite)
             .accessibilityLabel(isFavorite ? "In Favorites" : "Favorite")
             .playerFavoriteDestinationsMenu(for: media.contentRef, in: modelContext, onChange: onResetHideTimer)
-        }
-
-        @ViewBuilder
-        private var audioTrackMenu: some View {
-            let tracks = coordinator.audioTrackOptions
-            if tracks.count > 1 {
-                Menu {
-                    ForEach(tracks) { track in
-                        Button {
-                            coordinator.selectAudioTrack(id: track.id)
-                            onResetHideTimer()
-                        } label: {
-                            if track.isSelected {
-                                Label(track.label, systemImage: "checkmark")
-                            } else {
-                                Text(track.label)
-                            }
-                        }
-                    }
-                } label: {
-                    Image(systemName: "waveform")
-                }
-                .menuIndicator(.hidden)
-                .buttonStyle(TVPlayerCircleButtonStyle())
-                .focused($focus, equals: .audio)
-                .trackMenuAccessibility("Audio Track", selected: tracks.first(where: \.isSelected)?.label, fallback: "Default")
-            }
-        }
-
-        @ViewBuilder
-        private var subtitleMenu: some View {
-            let tracks = coordinator.textTrackOptions
-            if !tracks.isEmpty || onSearchSubtitles != nil {
-                Menu {
-                    Button {
-                        coordinator.selectTextTrack(id: nil)
-                        onResetHideTimer()
-                    } label: {
-                        if !tracks.contains(where: \.isSelected) {
-                            Label("Off", systemImage: "checkmark")
-                        } else {
-                            Text("Off")
-                        }
-                    }
-                    ForEach(tracks) { track in
-                        Button {
-                            coordinator.selectTextTrack(id: track.id)
-                            onResetHideTimer()
-                        } label: {
-                            if track.isSelected {
-                                Label(track.label, systemImage: "checkmark")
-                            } else {
-                                Text(track.label)
-                            }
-                        }
-                    }
-                    if let onSearchSubtitles {
-                        Button {
-                            onSearchSubtitles()
-                            onResetHideTimer()
-                        } label: {
-                            Label("Search Online…", systemImage: "magnifyingglass")
-                        }
-                    }
-                } label: {
-                    Image(systemName: "captions.bubble")
-                }
-                .menuIndicator(.hidden)
-                .buttonStyle(TVPlayerCircleButtonStyle())
-                .focused($focus, equals: .subtitles)
-                .trackMenuAccessibility("Subtitles", selected: tracks.first(where: \.isSelected)?.label, fallback: "Off")
-            }
         }
 
         // MARK: - Info panel

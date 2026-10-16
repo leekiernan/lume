@@ -29,6 +29,8 @@ struct MovieDetailView: View {
     @Query private var playlists: [Playlist]
 
     @State private var playingMedia: PlayableMedia?
+    /// The title's copies, when opened through `TitleSourceHost`.
+    @Environment(TitleSourceSelection.self) private var sourceSelection: TitleSourceSelection?
     @State private var loader: MovieDetailLoadMachine
     private var isLoadingTMDB: Bool {
         loader.snapshot(for: movie).isLoadingTMDB
@@ -36,10 +38,6 @@ struct MovieDetailView: View {
 
     private var similar: [HomeMediaItem] {
         loader.snapshot(for: movie).similar
-    }
-
-    private var otherSources: [OtherSources.Source] {
-        loader.snapshot(for: movie).otherSources
     }
 
     private var collectionMovies: [HomeMediaItem] {
@@ -88,11 +86,14 @@ struct MovieDetailView: View {
                 }
                 .onChange(of: movie.similarTMDBIds) { loader.resolveSimilar(movie, in: modelContext) }
                 .onDisappear { loader.invalidate() }
+                .playsPickedSource(sourceSelection, present: present)
                 .animation(.easeInOut(duration: 0.3), value: isLoadingTMDB)
             #if os(iOS)
-                .fullScreenCover(item: $playingMedia) { media in
-                    FullScreenPlayerView(media: media)
-                }
+                .fullScreenCover(
+                    item: $playingMedia,
+                    onDismiss: { sourceSelection?.showPicked() },
+                    content: { media in FullScreenPlayerView(media: media) }
+                )
             #endif
         #endif
     }
@@ -183,12 +184,6 @@ struct MovieDetailView: View {
                             SimilarRow(items: collectionMovies, animationNamespace: animationNamespace)
                         }
                     }
-
-                    if !otherSources.isEmpty {
-                        section(title: "Other Sources") {
-                            OtherSourcesRow(sources: otherSources, animationNamespace: animationNamespace)
-                        }
-                    }
                 }
                 .frame(width: proxy.size.width, alignment: .leading)
                 .padding(.bottom, 32)
@@ -209,11 +204,16 @@ struct MovieDetailView: View {
     }
 
     private var actions: some View {
-        PrimaryPlayButton(
-            title: movie.watchProgress > 1 ? "Resume" : "Play",
-            isEnabled: moviePlaylist != nil,
-            action: startPlayback
-        )
+        HStack(spacing: 10) {
+            PrimaryPlayButton(
+                title: movie.watchProgress > 1 ? "Resume" : "Play",
+                isEnabled: moviePlaylist != nil,
+                action: startPlayback
+            )
+            if let sourceSelection, sourceSelection.offersChoice {
+                TitleSourceButton(selection: sourceSelection)
+            }
+        }
     }
 
     @ViewBuilder
@@ -285,9 +285,18 @@ struct MovieDetailView: View {
     private func startPlayback() {
         guard let playlist = moviePlaylist,
               let media = PlayableMedia.from(movie: movie, playlist: playlist) else { return }
-        if ExternalPlayback.open(media) { return }
+        present(media)
+    }
+
+    /// With no player of the app's own to close, a picked copy is shown at once.
+    private func present(_ media: PlayableMedia) {
+        if ExternalPlayback.open(media) {
+            sourceSelection?.showPicked()
+            return
+        }
         #if os(macOS)
             MacPlayerWindowRouter.shared.play(media, using: openWindow)
+            sourceSelection?.showPicked()
         #else
             playingMedia = media
         #endif

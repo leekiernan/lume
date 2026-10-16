@@ -58,6 +58,34 @@ nonisolated struct PlayerChromeMachineTests {
         #expect(!staleFire && machine.isVisible)
     }
 
+    @Test func `an open menu revokes the deadline and refuses new ones until it closes`() throws {
+        var machine = PlayerChromeMachine()
+        let begun = machine.schedule(.inactivity, mayHide: true)
+        let request = try #require(begun)
+        machine.menuOpened()
+        let staleFire = machine.fire(request, mayHide: true)
+        let heldRequest = machine.schedule(.inactivity, mayHide: true)
+        machine.cancelDeadline()
+        machine.show()
+        #expect(!staleFire && heldRequest == nil && machine.isMenuOpen && machine.isVisible)
+        machine.menuClosed()
+        let renewed = machine.schedule(.inactivity, mayHide: true)
+        let renewedRequest = try #require(renewed)
+        let fired = machine.fire(renewedRequest, mayHide: true)
+        #expect(fired && !machine.isVisible)
+    }
+
+    @Test func `a menu opens only over visible controls and hiding them ends it`() {
+        var machine = PlayerChromeMachine()
+        machine.hide()
+        machine.menuOpened()
+        #expect(!machine.isMenuOpen && !machine.isVisible)
+        machine.show()
+        machine.menuOpened()
+        machine.hide()
+        #expect(!machine.isMenuOpen && !machine.isVisible)
+    }
+
     @Test func `a recreated owner cannot consume the previous players deadline`() throws {
         var previous = PlayerChromeMachine()
         var current = PlayerChromeMachine()

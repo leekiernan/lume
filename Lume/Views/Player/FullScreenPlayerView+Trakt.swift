@@ -3,9 +3,8 @@
 //  Lume
 //
 //  Transient Trakt scrobble (start/pause/stop) triggered by playback state.
-//  The one-time durable "watched" sync lives in `syncWatchedServices(ref:)`
-//  (FullScreenPlayerView.swift) — it now syncs Simkl alongside Trakt, so both
-//  trackers share the one completion path instead of Trakt alone reaching it.
+//  The one-time durable "watched" sync, `syncWatchedServices(ref:)`, syncs
+//  Simkl alongside Trakt, so both trackers share the one completion path.
 //
 
 import Foundation
@@ -79,5 +78,24 @@ extension FullScreenPlayerView {
         let duration = clock.duration > 0 ? clock.duration : details.duration
         let progress = TraktPlaybackScrobbler.progress(elapsed: elapsed, duration: duration)
         traktScrobbler.playbackStopped(target: details.target, progress: progress)
+    }
+
+    /// One-time "watched" sync to every connected tracker. Runs at most once per
+    /// title (when it crosses 90%), so the main-context fetch here is off the
+    /// playback hot path. The services are `@MainActor`, hence this stays on the
+    /// main actor.
+    func syncWatchedServices(ref: PlayableMedia.ContentRef) {
+        switch ref {
+        case let .movie(id):
+            guard let movie = PlayerContentLookup.movie(id, in: modelContext) else { return }
+            TraktService.shared.syncWatched(movie: movie, watched: true)
+            SimklService.shared.syncWatched(movie: movie, watched: true)
+        case let .episode(id):
+            guard let episode = PlayerContentLookup.episode(id, in: modelContext) else { return }
+            TraktService.shared.syncWatched(episode: episode, watched: true)
+            SimklService.shared.syncWatched(episode: episode, watched: true)
+        case .live:
+            break
+        }
     }
 }

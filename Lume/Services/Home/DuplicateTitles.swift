@@ -13,7 +13,7 @@
 //
 //  Deliberately narrow. The full treatment — one tile per title everywhere, with
 //  a stream picker behind it — is bilipp/Lume#225, and it groups on the same
-//  identity as `OtherSources`: the TMDB id. Matching that here means the two
+//  identity as `TitleSources`: the TMDB id. Matching that here means the two
 //  agree about what "the same title" means when the larger change lands.
 //
 

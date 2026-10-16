@@ -22,16 +22,14 @@
 
         @State private var playingMedia: PlayableMedia?
         @State private var loader: MovieDetailLoadMachine
+        /// The title's copies, when opened through `TitleSourceHost`.
+        @Environment(TitleSourceSelection.self) private var sourceSelection: TitleSourceSelection?
         private var isLoadingTMDB: Bool {
             loader.snapshot(for: movie).isLoadingTMDB
         }
 
         private var similar: [HomeMediaItem] {
             loader.snapshot(for: movie).similar
-        }
-
-        private var otherSources: [OtherSources.Source] {
-            loader.snapshot(for: movie).otherSources
         }
 
         private var collectionMovies: [HomeMediaItem] {
@@ -54,9 +52,12 @@
             content
                 .background(Color.lumeNight)
                 .ignoresSafeArea()
-                .fullScreenCover(item: $playingMedia) { media in
-                    FullScreenPlayerView(media: media)
-                }
+                .fullScreenCover(
+                    item: $playingMedia,
+                    onDismiss: { sourceSelection?.showPicked() },
+                    content: { media in FullScreenPlayerView(media: media) }
+                )
+                .playsPickedSource(sourceSelection, present: present)
                 .alert("YouTube Unavailable", isPresented: $showYouTubeUnavailable) {
                     Button("OK", role: .cancel) {}
                 } message: {
@@ -109,15 +110,6 @@
                                 .mediaFavoriteMenu(item, in: modelContext)
                         }
                     }
-
-                    if !otherSources.isEmpty {
-                        TVRail(title: "Other Sources", items: otherSources) { source in
-                            // No favorite menu: an entry here is the same title on
-                            // a *different* playlist, so favoriting it would create a
-                            // favorite the playlist-scoped Favorites rail never shows.
-                            posterLink(for: source.item, badge: source.playlistName)
-                        }
-                    }
                 }
                 .padding(.bottom, 100)
             }
@@ -139,12 +131,18 @@
                 metaItems: heroMetaItems,
                 fallbackSymbol: "film"
             ) {
-                TVPlayButton(
-                    title: movie.watchProgress > 1 ? "Resume" : "Play",
-                    isEnabled: moviePlaylist != nil,
-                    action: startPlayback
-                )
-                .focused($focus, equals: .play)
+                HStack(spacing: 18) {
+                    TVPlayButton(
+                        title: movie.watchProgress > 1 ? "Resume" : "Play",
+                        isEnabled: moviePlaylist != nil,
+                        action: startPlayback
+                    )
+                    .focused($focus, equals: .play)
+
+                    if let sourceSelection, sourceSelection.offersChoice {
+                        TitleSourceButton(selection: sourceSelection)
+                    }
+                }
 
                 HStack(spacing: 18) {
                     MediaFavoriteButton(model: movie)
@@ -256,7 +254,15 @@
         private func startPlayback() {
             guard let playlist = moviePlaylist,
                   let media = PlayableMedia.from(movie: movie, playlist: playlist) else { return }
-            if ExternalPlayback.open(media) { return }
+            present(media)
+        }
+
+        /// With no player of the app's own to close, a picked copy is shown at once.
+        private func present(_ media: PlayableMedia) {
+            if ExternalPlayback.open(media) {
+                sourceSelection?.showPicked()
+                return
+            }
             playingMedia = media
         }
 

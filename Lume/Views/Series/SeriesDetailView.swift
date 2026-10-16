@@ -36,11 +36,9 @@ struct SeriesDetailView: View {
         loader.snapshot(for: series).similar
     }
 
-    private var otherSources: [OtherSources.Source] {
-        loader.snapshot(for: series).otherSources
-    }
-
     @State private var playingMedia: PlayableMedia?
+    /// The title's copies, when opened through `TitleSourceHost`.
+    @Environment(TitleSourceSelection.self) private var sourceSelection: TitleSourceSelection?
     private var selectedSeason: Int {
         get { loader.snapshot(for: series).selectedSeason }
         nonmutating set { loader.selectedSeason = newValue }
@@ -97,11 +95,14 @@ struct SeriesDetailView: View {
                 .onChange(of: series.episodes.count) { loader.recomputeSeasons(series) }
                 .onChange(of: series.similarTMDBIds) { loader.resolveSimilar(series, in: modelContext) }
                 .onDisappear { loader.invalidate() }
+                .playsPickedSource(sourceSelection, present: present)
                 .animation(.easeInOut(duration: 0.3), value: isLoadingTMDB)
             #if os(iOS)
-                .fullScreenCover(item: $playingMedia) { media in
-                    FullScreenPlayerView(media: media)
-                }
+                .fullScreenCover(
+                    item: $playingMedia,
+                    onDismiss: { sourceSelection?.showPicked() },
+                    content: { media in FullScreenPlayerView(media: media) }
+                )
             #endif
         #endif
     }
@@ -135,11 +136,16 @@ struct SeriesDetailView: View {
     }
 
     private var actions: some View {
-        PrimaryPlayButton(
-            title: playTitle,
-            isEnabled: nextEpisode != nil && seriesPlaylist != nil,
-            action: { if let episode = nextEpisode { playEpisode(episode) } }
-        )
+        HStack(spacing: 10) {
+            PrimaryPlayButton(
+                title: playTitle,
+                isEnabled: nextEpisode != nil && seriesPlaylist != nil,
+                action: { if let episode = nextEpisode { playEpisode(episode) } }
+            )
+            if let sourceSelection, sourceSelection.offersChoice {
+                TitleSourceButton(selection: sourceSelection)
+            }
+        }
     }
 
     private var seasonMenu: some View {
@@ -337,12 +343,6 @@ struct SeriesDetailView: View {
                                 SimilarRow(items: similar, animationNamespace: animationNamespace)
                             }
                         }
-
-                        if !otherSources.isEmpty {
-                            section(title: "Other Sources") {
-                                OtherSourcesRow(sources: otherSources, animationNamespace: animationNamespace)
-                            }
-                        }
                     }
                     .frame(width: proxy.size.width, alignment: .leading)
                     .padding(.bottom, 32)
@@ -393,9 +393,18 @@ private extension SeriesDetailView {
     func playEpisode(_ episode: Episode) {
         guard let playlist = seriesPlaylist,
               let media = PlayableMedia.from(episode: episode, playlist: playlist) else { return }
-        if ExternalPlayback.open(media) { return }
+        present(media)
+    }
+
+    /// With no player of the app's own to close, a picked copy is shown at once.
+    func present(_ media: PlayableMedia) {
+        if ExternalPlayback.open(media) {
+            sourceSelection?.showPicked()
+            return
+        }
         #if os(macOS)
             MacPlayerWindowRouter.shared.play(media, using: openWindow)
+            sourceSelection?.showPicked()
         #else
             playingMedia = media
         #endif

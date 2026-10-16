@@ -101,6 +101,16 @@ extension FullScreenPlayerView {
 // MARK: - Swapping the active stream
 
 extension FullScreenPlayerView {
+    /// Hands the controls the copies of what's playing they can switch to at
+    /// the same moment (`PlayerSourceSwitch`), and how to switch: through
+    /// `switchMedia`, resuming at the current position.
+    func publishSources(to bridge: PlayerControlsBridge) {
+        bridge.sources = PlayerSourceSwitch.sources(for: activeMedia, in: modelContext)
+        bridge.selectSource = { option in
+            switchMedia(to: option.media.resuming(at: activeMedia.enginePosition(clock.current)))
+        }
+    }
+
     /// Persist the outgoing stream's progress, then swap in a new one. Every
     /// in-player move — a picked episode, a channel step, auto-advance — goes
     /// through here: the engines rebuild off `activeMedia` changing, and

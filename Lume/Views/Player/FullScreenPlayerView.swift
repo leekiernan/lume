@@ -289,6 +289,7 @@ struct FullScreenPlayerView: View {
             installSessionEffects()
             beginReviewSession()
         }
+        .onChange(of: activeMedia.id, initial: true) { publishSources(to: controlsBridge) }
         .onChange(of: engineMount, initial: true) { _, mount in
             guard let mount else { return }
             session.send(.starting(mount.engine, startCause))
@@ -561,25 +562,6 @@ struct FullScreenPlayerView: View {
             if let change = await writer.record(ref: ref, progress: now, duration: total, holdLive: holdingLive, recordedAt: recordedAt) {
                 applyWatchedChange(change)
             }
-        }
-    }
-
-    /// One-time "watched" sync to every connected tracker. Runs at most once per
-    /// title (when it crosses 90%), so the main-context fetch here is off the
-    /// playback hot path. The services are `@MainActor`, hence this stays on the
-    /// main actor.
-    func syncWatchedServices(ref: PlayableMedia.ContentRef) {
-        switch ref {
-        case let .movie(id):
-            guard let movie = PlayerContentLookup.movie(id, in: modelContext) else { return }
-            TraktService.shared.syncWatched(movie: movie, watched: true)
-            SimklService.shared.syncWatched(movie: movie, watched: true)
-        case let .episode(id):
-            guard let episode = PlayerContentLookup.episode(id, in: modelContext) else { return }
-            TraktService.shared.syncWatched(episode: episode, watched: true)
-            SimklService.shared.syncWatched(episode: episode, watched: true)
-        case .live:
-            break
         }
     }
 }
