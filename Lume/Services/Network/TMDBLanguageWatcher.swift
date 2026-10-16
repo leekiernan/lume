@@ -29,15 +29,19 @@ enum TMDBLanguageWatcher {
         let previous = UserDefaults.standard.string(forKey: storedLanguageKey)
 
         guard previous != current else { return }
-        defer { UserDefaults.standard.set(current, forKey: storedLanguageKey) }
 
         // First launch: nothing has been enriched in another language yet, so
         // just record the language without forcing a needless re-fetch.
-        guard previous != nil else { return }
+        guard previous != nil else {
+            UserDefaults.standard.set(current, forKey: storedLanguageKey)
+            return
+        }
 
         logger.info("Preferred language changed (\(previous ?? "nil") → \(current)); invalidating TMDB enrichment")
         // Off the main context: hydrating every enriched title there stalled
         // launch on a large library.
-        await StorageManager.invalidateTMDBEnrichment(container: container)
+        if await StorageManager.invalidateTMDBEnrichment(container: container) {
+            UserDefaults.standard.set(current, forKey: storedLanguageKey)
+        }
     }
 }

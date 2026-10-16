@@ -69,10 +69,6 @@ enum StorageManager {
         }.value
     }
 
-    /// Rows mutated between intermediate saves during the clear operations, so
-    /// one clear doesn't build a single giant transaction in memory.
-    private nonisolated static let clearBatchSize = 1000
-
     /// Drops cached TMDB/MDBList enrichment (artwork paths, cast, trailers, ratings
     /// and collection info) from every enriched movie and series so it re-fetches
     /// lazily on the next detail-screen visit. Runs on a private background
@@ -82,62 +78,65 @@ enum StorageManager {
     /// views still reflect the cleared artwork as soon as they land.
     static func clearMetadataEnrichment(container: ModelContainer) async {
         await Task.detached(priority: .userInitiated) {
-            let context = ModelContext(container)
-            context.autosaveEnabled = false
             do {
-                // Filter in SQLite so only already-enriched rows are hydrated.
-                let movies = try context.fetch(FetchDescriptor<Movie>(
-                    predicate: #Predicate { $0.tmdbEnrichedAt != nil || $0.tmdbArtworkEnrichedAt != nil || $0.ratingsEnrichedAt != nil }
-                ))
-                try mutateInBatches(movies, in: context) { clearEnrichment(of: $0, in: context) }
-
-                let series = try context.fetch(FetchDescriptor<Series>(
-                    predicate: #Predicate { $0.tmdbEnrichedAt != nil || $0.tmdbArtworkEnrichedAt != nil || $0.ratingsEnrichedAt != nil }
-                ))
-                try mutateInBatches(series, in: context) { clearEnrichment(of: $0, in: context) }
+                try CatalogMaintenance.mutate(container: container, page: { cursor in
+                    FetchDescriptor<Movie>(
+                        predicate: #Predicate { $0.id > cursor && ($0.tmdbEnrichedAt != nil || $0.tmdbArtworkEnrichedAt != nil || $0.ratingsEnrichedAt != nil) },
+                        sortBy: [SortDescriptor(\.id, comparator: .lexical)]
+                    )
+                }, mutate: { rows, context in
+                    for row in rows {
+                        clearEnrichment(of: row, in: context)
+                    }
+                })
+                try CatalogMaintenance.mutate(container: container, page: { cursor in
+                    FetchDescriptor<Series>(
+                        predicate: #Predicate { $0.id > cursor && ($0.tmdbEnrichedAt != nil || $0.tmdbArtworkEnrichedAt != nil || $0.ratingsEnrichedAt != nil) },
+                        sortBy: [SortDescriptor(\.id, comparator: .lexical)]
+                    )
+                }, mutate: { rows, context in
+                    for row in rows {
+                        clearEnrichment(of: row, in: context)
+                    }
+                })
             } catch {
                 logger.error("Failed to clear metadata enrichment: \(error.localizedDescription)")
             }
         }.value
     }
 
-    /// Clears only `tmdbEnrichedAt` on every TMDB-enriched movie and series so
-    /// they re-enrich lazily; the cached artwork and text stay on screen until
-    /// that re-fetch replaces them. `TMDBLanguageWatcher` calls this at launch
-    /// when the preferred language changed. Same private background context
-    /// and batched saves as `clearMetadataEnrichment`, for the same reason: on
-    /// the main context this hydrated every enriched title during launch.
-    static func invalidateTMDBEnrichment(container: ModelContainer) async {
+    /// Re-arms detail enrichment without removing the visible cached metadata.
+    /// Returns false on failure so a language change is retried next launch.
+    @discardableResult
+    static func invalidateTMDBEnrichment(container: ModelContainer) async -> Bool {
         await Task.detached(priority: .utility) {
-            let context = ModelContext(container)
-            context.autosaveEnabled = false
             do {
-                // Filter in SQLite so only already-enriched rows are hydrated.
-                let movies = try context.fetch(FetchDescriptor<Movie>(
-                    predicate: #Predicate { $0.tmdbEnrichedAt != nil }
-                ))
-                try mutateInBatches(movies, in: context) { $0.tmdbEnrichedAt = nil }
-
-                let series = try context.fetch(FetchDescriptor<Series>(
-                    predicate: #Predicate { $0.tmdbEnrichedAt != nil }
-                ))
-                try mutateInBatches(series, in: context) { $0.tmdbEnrichedAt = nil }
+                try CatalogMaintenance.mutate(container: container, page: { cursor in
+                    FetchDescriptor<Movie>(
+                        predicate: #Predicate { $0.id > cursor && $0.tmdbEnrichedAt != nil },
+                        sortBy: [SortDescriptor(\.id, comparator: .lexical)]
+                    )
+                }, mutate: { rows, _ in
+                    for row in rows {
+                        row.tmdbEnrichedAt = nil
+                    }
+                })
+                try CatalogMaintenance.mutate(container: container, page: { cursor in
+                    FetchDescriptor<Series>(
+                        predicate: #Predicate { $0.id > cursor && $0.tmdbEnrichedAt != nil },
+                        sortBy: [SortDescriptor(\.id, comparator: .lexical)]
+                    )
+                }, mutate: { rows, _ in
+                    for row in rows {
+                        row.tmdbEnrichedAt = nil
+                    }
+                })
+                return true
             } catch {
                 logger.error("Failed to invalidate TMDB enrichment: \(error.localizedDescription)")
+                return false
             }
         }.value
-    }
-
-    /// Applies `mutate` to each row, saving every `clearBatchSize` rows and
-    /// once at the end, so a clear never builds one giant transaction.
-    private nonisolated static func mutateInBatches<Row>(
-        _ rows: [Row], in context: ModelContext, _ mutate: (Row) -> Void
-    ) throws {
-        for (index, row) in rows.enumerated() {
-            mutate(row)
-            if (index + 1).isMultiple(of: clearBatchSize) { try context.save() }
-        }
-        try context.save()
     }
 
     private nonisolated static func clearEnrichment(of movie: Movie, in context: ModelContext) {
@@ -171,47 +170,65 @@ enum StorageManager {
         let scope = ProfileScope.current
         RecentResumePoints.clear(profileID: scope.profileID)
         await Task.detached(priority: .userInitiated) {
-            guard scope.isCurrent else { return }
-            let context = ModelContext(container)
-            context.autosaveEnabled = false
             do {
-                let movies = try context.fetch(FetchDescriptor<Movie>(
-                    predicate: #Predicate { $0.watchProgress != 0 || $0.isWatched || $0.lastWatchedDate != nil }
-                ))
-                try mutateInBatches(movies, in: context) { movie in
-                    WatchHistoryClears.shared.record(movie.id, profileID: scope.profileID)
-                    movie.watchProgress = 0
-                    movie.isWatched = false
-                    movie.lastWatchedDate = nil
-                }
-
-                let episodes = try context.fetch(FetchDescriptor<Episode>(
-                    predicate: #Predicate { $0.watchProgress != 0 || $0.isWatched || $0.lastWatchedDate != nil }
-                ))
-                try mutateInBatches(episodes, in: context) { episode in
-                    WatchHistoryClears.shared.record(episode.id, profileID: scope.profileID)
-                    episode.watchProgress = 0
-                    episode.isWatched = false
-                    episode.lastWatchedDate = nil
-                }
-
-                let series = try context.fetch(FetchDescriptor<Series>(
-                    predicate: #Predicate { $0.lastWatchedDate != nil }
-                ))
-                for show in series {
-                    show.lastWatchedDate = nil
-                }
-
-                try context.save()
-                // The viewer's decision, for iCloud sync — see `ContentClearLedger`.
-                ContentClearLedger.shared.record(movies.map(\.id) + episodes.map(\.id) + series.map(\.id))
-
-                try LiveChannelHistory.clearRecents(in: context, batchSize: clearBatchSize)
+                try CatalogMaintenance.mutate(container: container, isCurrent: { scope.isCurrent }, page: { cursor in
+                    FetchDescriptor<Movie>(
+                        predicate: #Predicate { $0.id > cursor && ($0.watchProgress != 0 || $0.isWatched || $0.lastWatchedDate != nil) },
+                        sortBy: [SortDescriptor(\.id, comparator: .lexical)]
+                    )
+                }, mutate: { rows, _ in
+                    ContentClearLedger.shared.record(rows.map(\.id))
+                    for movie in rows {
+                        WatchHistoryClears.shared.record(movie.id, profileID: scope.profileID)
+                        movie.watchProgress = 0
+                        movie.isWatched = false
+                        movie.lastWatchedDate = nil
+                    }
+                })
+                try CatalogMaintenance.mutate(container: container, isCurrent: { scope.isCurrent }, page: { cursor in
+                    FetchDescriptor<Episode>(
+                        predicate: #Predicate { $0.id > cursor && ($0.watchProgress != 0 || $0.isWatched || $0.lastWatchedDate != nil) },
+                        sortBy: [SortDescriptor(\.id, comparator: .lexical)]
+                    )
+                }, mutate: { rows, _ in
+                    ContentClearLedger.shared.record(rows.map(\.id))
+                    for episode in rows {
+                        WatchHistoryClears.shared.record(episode.id, profileID: scope.profileID)
+                        episode.watchProgress = 0
+                        episode.isWatched = false
+                        episode.lastWatchedDate = nil
+                    }
+                })
+                try CatalogMaintenance.mutate(container: container, isCurrent: { scope.isCurrent }, page: { cursor in
+                    FetchDescriptor<Series>(
+                        predicate: #Predicate { $0.id > cursor && $0.lastWatchedDate != nil },
+                        sortBy: [SortDescriptor(\.id, comparator: .lexical)]
+                    )
+                }, mutate: { rows, _ in
+                    ContentClearLedger.shared.record(rows.map(\.id))
+                    for show in rows {
+                        show.lastWatchedDate = nil
+                    }
+                })
+                try clearLiveHistory(container: container, scope: scope)
             } catch {
                 logger.error("Failed to clear watch history: \(error.localizedDescription)")
             }
         }.value
-        LiveChannelHistory.clearRecall()
+        if scope.isCurrent { LiveChannelHistory.clearRecall(profileID: scope.profileID) }
+    }
+
+    private nonisolated static func clearLiveHistory(container: ModelContainer, scope: ProfileScope) throws {
+        try CatalogMaintenance.mutate(container: container, isCurrent: { scope.isCurrent }, page: { cursor in
+            FetchDescriptor<LiveStream>(
+                predicate: #Predicate { $0.id > cursor && $0.lastWatchedDate != nil },
+                sortBy: [SortDescriptor(\.id, comparator: .lexical)]
+            )
+        }, mutate: { rows, _ in
+            for channel in rows {
+                channel.lastWatchedDate = nil
+            }
+        })
     }
 
     /// Clears the active profile's Recently Watched *live channels* for a single
@@ -230,12 +247,17 @@ enum StorageManager {
     /// on the unique `id` index, so no other playlist's channels are hydrated.
     static func clearRecentlyWatchedChannels(playlistPrefix: String, container: ModelContainer) async {
         await Task.detached(priority: .userInitiated) {
-            let context = ModelContext(container)
-            context.autosaveEnabled = false
             do {
-                try LiveChannelHistory.clearRecents(
-                    in: context, playlistPrefix: playlistPrefix, batchSize: clearBatchSize
-                )
+                try CatalogMaintenance.mutate(container: container, page: { cursor in
+                    FetchDescriptor<LiveStream>(
+                        predicate: #Predicate { $0.id > cursor && $0.id.starts(with: playlistPrefix) && $0.lastWatchedDate != nil },
+                        sortBy: [SortDescriptor(\.id, comparator: .lexical)]
+                    )
+                }, mutate: { rows, _ in
+                    for channel in rows {
+                        channel.lastWatchedDate = nil
+                    }
+                })
             } catch {
                 logger.error("Failed to clear recently watched channels: \(error.localizedDescription)")
             }
@@ -251,30 +273,33 @@ enum StorageManager {
         static func clearIndex(container: ModelContainer) async {
             await clearMetadataEnrichment(container: container)
             await Task.detached(priority: .userInitiated) {
-                let context = ModelContext(container)
-                context.autosaveEnabled = false
                 do {
-                    let movies = try context.fetch(FetchDescriptor<Movie>(
-                        predicate: #Predicate { $0.indexedAt != nil || $0.embeddingData != nil || $0.tmdbId != nil }
-                    ))
-                    for movie in movies {
-                        movie.tmdbId = nil
-                        movie.tmdbAssignmentData = nil
-                        movie.embeddingData = nil
-                        movie.indexedAt = nil
-                    }
-
-                    let series = try context.fetch(FetchDescriptor<Series>(
-                        predicate: #Predicate { $0.indexedAt != nil || $0.embeddingData != nil || $0.tmdbId != nil }
-                    ))
-                    for show in series {
-                        show.tmdbId = nil
-                        show.tmdbAssignmentData = nil
-                        show.embeddingData = nil
-                        show.indexedAt = nil
-                    }
-
-                    try context.save()
+                    try CatalogMaintenance.mutate(container: container, page: { cursor in
+                        FetchDescriptor<Movie>(
+                            predicate: #Predicate { $0.id > cursor && ($0.indexedAt != nil || $0.embeddingData != nil || $0.tmdbId != nil) },
+                            sortBy: [SortDescriptor(\.id, comparator: .lexical)]
+                        )
+                    }, mutate: { rows, _ in
+                        for movie in rows {
+                            movie.tmdbId = nil
+                            movie.tmdbAssignmentData = nil
+                            movie.embeddingData = nil
+                            movie.indexedAt = nil
+                        }
+                    })
+                    try CatalogMaintenance.mutate(container: container, page: { cursor in
+                        FetchDescriptor<Series>(
+                            predicate: #Predicate { $0.id > cursor && ($0.indexedAt != nil || $0.embeddingData != nil || $0.tmdbId != nil) },
+                            sortBy: [SortDescriptor(\.id, comparator: .lexical)]
+                        )
+                    }, mutate: { rows, _ in
+                        for show in rows {
+                            show.tmdbId = nil
+                            show.tmdbAssignmentData = nil
+                            show.embeddingData = nil
+                            show.indexedAt = nil
+                        }
+                    })
                 } catch {
                     logger.error("Failed to clear index: \(error.localizedDescription)")
                 }
