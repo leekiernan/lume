@@ -60,13 +60,13 @@ struct RelatedTitlesResolverTests {
             subject.similarTitleIds = [30, 10, 20, 1, 40, 50]
             let ten = movie("\(own)-movie-10", tmdb: 10, in: context)
             series("\(own)-series-10", tmdb: 10, in: context) // loses to the movie
-            let twenty = series("\(own)-series-20", tmdb: 20, in: context) // series fallback
+            series("\(own)-series-20", tmdb: 20, in: context) // unrelated namespace
             let thirty = movie("\(own)-movie-30", tmdb: 30, in: context)
             movie("\(other)-movie-40", tmdb: 40, in: context) // another playlist
             try context.save()
 
             let resolved = RelatedTitlesResolver.similar(to: subject, restriction: ContentRestriction(), in: context)
-            #expect(resolved == [.movie(thirty), .movie(ten), .series(twenty)])
+            #expect(resolved == [.movie(thirty), .movie(ten)])
         }
     }
 

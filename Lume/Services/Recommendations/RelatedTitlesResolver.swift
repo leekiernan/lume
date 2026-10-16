@@ -1,127 +1,71 @@
-//
-//  RelatedTitlesResolver.swift
-//  Lume
-//
-//  Maps TMDB ids (a title's "similar" list, a movie collection's parts) back
-//  to catalog rows in the same playlist, for the detail screens' "You May Also
-//  Like" and collection rails on every platform.
-//
-//  One fetch per model type: `ids.contains(tmdbId) && id.starts(with: prefix)`
-//  scopes by playlist in SQL (a range seek on the unique `id` index) instead of
-//  fetching every playlist's copy of each id and filtering in Swift.
-//
-
 import Foundation
 import SwiftData
 
+/// Keep TMDB namespaces and viewer restrictions through every catalog lookup.
 enum RelatedTitlesResolver {
-    /// Rails cap "You May Also Like" at this many titles.
     static let similarLimit = 12
 
-    /// The `"<playlistUUID>-"` prefix every catalog id starts with. Empty — an
-    /// unscoped match — when `id` doesn't carry a playlist UUID.
     static func playlistPrefix(of id: String) -> String {
         let head = String(id.prefix(36))
         guard UUID(uuidString: head) != nil else { return "" }
         return head + "-"
     }
 
-    /// Titles similar to `movie`: a movie match for each TMDB id, else a series
-    /// with it, in TMDB's order.
     static func similar(to movie: Movie, restriction: ContentRestriction, in context: ModelContext) -> [HomeMediaItem] {
-        let items = resolve(
-            movie.similarTitleIds,
-            scope: Scope(prefix: playlistPrefix(of: movie.id), excluding: movie.id, restriction: restriction),
-            preferring: .movies,
-            in: context
-        )
-        return Array(items.prefix(similarLimit))
+        let references = movie.similarTitleIds.compactMap { TMDBMovieID($0).map(TMDBTitleReference.movie) }
+        return Array(resolve(references, scope: Scope(ownerID: movie.id, restriction: restriction), in: context).prefix(similarLimit))
     }
 
-    /// Titles similar to `series`: a series match for each TMDB id, else a
-    /// movie with it, in TMDB's order.
     static func similar(to series: Series, restriction: ContentRestriction, in context: ModelContext) -> [HomeMediaItem] {
-        let items = resolve(
-            series.similarTitleIds,
-            scope: Scope(prefix: playlistPrefix(of: series.id), excluding: series.id, restriction: restriction),
-            preferring: .series,
-            in: context
-        )
-        return Array(items.prefix(similarLimit))
+        let references = series.similarTitleIds.compactMap { TMDBSeriesID($0).map(TMDBTitleReference.series) }
+        return Array(resolve(references, scope: Scope(ownerID: series.id, restriction: restriction), in: context).prefix(similarLimit))
     }
 
-    /// The other parts of `movie`'s collection present in its playlist, in the
-    /// order of `partIDs`. Movies only.
     static func collectionParts(_ partIDs: [Int], of movie: Movie, restriction: ContentRestriction, in context: ModelContext) -> [HomeMediaItem] {
-        resolve(
-            partIDs,
-            scope: Scope(prefix: playlistPrefix(of: movie.id), excluding: movie.id, restriction: restriction),
-            preferring: .moviesOnly,
-            in: context
-        )
+        resolve(partIDs.compactMap { TMDBMovieID($0).map(TMDBTitleReference.movie) },
+                scope: Scope(ownerID: movie.id, restriction: restriction), in: context)
     }
 
     struct Scope {
-        let prefix: String
-        let excluding: String
+        let ownerID: String
         let restriction: ContentRestriction
     }
 
-    enum Preference {
-        case movies
-        case series
-        case moviesOnly
+    static func resolve(_ references: [TMDBTitleReference], scope: Scope, in context: ModelContext) -> [HomeMediaItem] {
+        let movieIDs = Set(references.filter { $0.kind == .movie }.map { Optional($0.rawValue) })
+        let seriesIDs = Set(references.filter { $0.kind == .series }.map { Optional($0.rawValue) })
+        let candidates = movies(movieIDs, scope: scope, in: context) + series(seriesIDs, scope: scope, in: context)
+        var items: [TMDBTitleReference: HomeMediaItem] = [:]
+        for item in candidates {
+            switch item {
+            case let .movie(row):
+                if let identity = row.metadataIdentity, items[identity] == nil { items[identity] = item }
+            case let .series(row):
+                if let identity = row.metadataIdentity, items[identity] == nil { items[identity] = item }
+            case .live: break
+            }
+        }
+        var seen = Set<TMDBTitleReference>()
+        return references.compactMap { seen.insert($0).inserted ? items[$0] : nil }
     }
 
-    /// Resolves each TMDB id to at most one item, preferring the kind named by
-    /// `preference`, in the order of `ids`. `excluding` drops the title the
-    /// screen is showing. Ties within a playlist (two rows with one TMDB id)
-    /// resolve to the lowest id, so the rail is stable across renders.
-    static func resolve(
-        _ ids: [Int],
-        scope: Scope,
-        preferring preference: Preference,
-        in context: ModelContext
-    ) -> [HomeMediaItem] {
+    private static func movies(_ ids: Set<Int?>, scope: Scope, in context: ModelContext) -> [HomeMediaItem] {
         guard !ids.isEmpty else { return [] }
-        let prefix = scope.prefix, ownID = scope.excluding
-        let restriction = scope.restriction
-        // `Set<Int?>`: `contains` over the optional column compiles to SQL `IN`;
-        // unwrapping (`$0.tmdbId ?? -1`) renders a ternary SQLite can't take.
-        let wanted = Set(ids.map(Int?.some))
+        let prefix = playlistPrefix(of: scope.ownerID)
+        let descriptor = FetchDescriptor<Movie>(predicate: #Predicate { ids.contains($0.tmdbId) && $0.id.starts(with: prefix) },
+                                                sortBy: [SortDescriptor(\.id, comparator: .lexical)])
+        return ((try? context.fetch(descriptor)) ?? []).filter {
+            $0.id != scope.ownerID && !scope.restriction.hides(categoryID: $0.categoryId)
+        }.map(HomeMediaItem.movie)
+    }
 
-        var movies: [Int: Movie] = [:]
-        let movieDescriptor = FetchDescriptor<Movie>(
-            predicate: #Predicate { wanted.contains($0.tmdbId) && $0.id.starts(with: prefix) },
-            sortBy: [SortDescriptor(\.id)]
-        )
-        let movieRows = (try? context.fetch(movieDescriptor)) ?? []
-        for movie in movieRows where movie.id != ownID && !restriction.hides(categoryID: movie.categoryId) {
-            if let tmdbId = movie.tmdbId, movies[tmdbId] == nil { movies[tmdbId] = movie }
-        }
-
-        var series: [Int: Series] = [:]
-        if preference != .moviesOnly {
-            let seriesDescriptor = FetchDescriptor<Series>(
-                predicate: #Predicate { wanted.contains($0.tmdbId) && $0.id.starts(with: prefix) },
-                sortBy: [SortDescriptor(\.id)]
-            )
-            let seriesRows = (try? context.fetch(seriesDescriptor)) ?? []
-            for show in seriesRows where show.id != ownID && !restriction.hides(categoryID: show.categoryId) {
-                if let tmdbId = show.tmdbId, series[tmdbId] == nil { series[tmdbId] = show }
-            }
-        }
-
-        var seen = Set<Int>()
-        return ids.compactMap { tmdbId in
-            guard seen.insert(tmdbId).inserted else { return nil }
-            let movie = movies[tmdbId].map(HomeMediaItem.movie)
-            let show = series[tmdbId].map(HomeMediaItem.series)
-            switch preference {
-            case .movies: return movie ?? show
-            case .series: return show ?? movie
-            case .moviesOnly: return movie
-            }
-        }
+    private static func series(_ ids: Set<Int?>, scope: Scope, in context: ModelContext) -> [HomeMediaItem] {
+        guard !ids.isEmpty else { return [] }
+        let prefix = playlistPrefix(of: scope.ownerID)
+        let descriptor = FetchDescriptor<Series>(predicate: #Predicate { ids.contains($0.tmdbId) && $0.id.starts(with: prefix) },
+                                                 sortBy: [SortDescriptor(\.id, comparator: .lexical)])
+        return ((try? context.fetch(descriptor)) ?? []).filter {
+            $0.id != scope.ownerID && !scope.restriction.hides(categoryID: $0.categoryId)
+        }.map(HomeMediaItem.series)
     }
 }
