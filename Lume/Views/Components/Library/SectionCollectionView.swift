@@ -20,74 +20,25 @@ struct SectionCollectionView: View {
     let feed: SectionFeed
     var animationNamespace: Namespace.ID?
 
-    @State private var entries: [HomeListEntry] = []
-    @State private var continuation: HomeListContinuation?
-    @State private var items: [HomeMediaItem] = []
-    @State private var pagination = PaginationMachine()
-
-    private let pageSize = 100
+    @State private var loader = SectionCollectionLoadMachine()
 
     var body: some View {
         CategoryPage(title: selection.title) {
             CollectionGridContent(
-                items: items,
-                isLoading: !pagination.isPrepared || pagination.isLoading,
-                isLoadingMore: pagination.isLoading,
+                items: loader.items,
+                isLoading: !loader.pagination.isPrepared || loader.pagination.isLoading,
+                isLoadingMore: loader.pagination.isLoading,
                 animationNamespace: animationNamespace,
-                onReachEnd: requestNextPage
+                onReachEnd: { loader.requestNextPage(fetch: fetch) }
             )
         }
         .task(id: selection.section.token) {
-            prepare()
+            loader.open(key: selection.section.token, snapshot: feed.collection(for: selection.section), fetch: fetch)
         }
+        .onDisappear { loader.cancel() }
     }
 
-    private func prepare() {
-        guard pagination.prepare(for: selection.section.token) else { return }
-        entries = []
-        continuation = nil
-        items = []
-        guard let snapshot = feed.collection(for: selection.section) else {
-            pagination.seed(nextOffset: 0, canLoadMore: false)
-            return
-        }
-        entries = snapshot.entries
-        continuation = snapshot.continuation
-        items = snapshot.preview
-        pagination.seed(nextOffset: snapshot.nextOffset, canLoadMore: snapshot.hasMoreCandidates)
-        if items.isEmpty, pagination.canLoadMore { requestNextPage() }
-    }
-
-    private func requestNextPage() {
-        guard pagination.canLoadMore, !pagination.isLoading else { return }
-        Task { await loadNextPage() }
-    }
-
-    private func loadNextPage() async {
-        guard let request = pagination.beginLoading() else { return }
-
-        let page: SectionCollectionPage
-        do {
-            page = try await feed.page(entries: entries, continuation: continuation, from: request.offset, limit: pageSize)
-        } catch {
-            pagination.abandon(request)
-            return
-        }
-        guard !Task.isCancelled else {
-            pagination.abandon(request)
-            return
-        }
-        guard pagination.finish(
-            request,
-            scanned: page.nextOffset - request.offset,
-            hasMore: page.hasMoreCandidates
-        ) else { return }
-
-        entries = page.sourceEntries ?? entries
-        continuation = page.continuation
-
-        var existing = Set(items.map(\.id))
-        items.append(contentsOf: page.items.filter { existing.insert($0.id).inserted })
-        if page.items.isEmpty, pagination.canLoadMore { requestNextPage() }
+    private func fetch(_ request: SectionCollectionPageRequest) async throws -> SectionCollectionPage {
+        try await feed.page(entries: request.entries, continuation: request.continuation, from: request.offset, limit: request.limit)
     }
 }

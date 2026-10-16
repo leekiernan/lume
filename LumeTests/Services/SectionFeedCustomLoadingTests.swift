@@ -187,6 +187,33 @@ struct SectionFeedCustomLoadingTests {
         #expect(feed.items(for: .custom(section.id)).isEmpty)
         #expect(await cache.record(for: HomeListCacheKey(source: section.sourceURL, account: nil)) == nil)
     }
+
+    @Test func `closing a collection stops remote pagination after its current shared request`() async throws {
+        let container = try container(ids: Array(1 ... 20))
+        let directory = URL.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let probe = ListPageProbe(pages: [:], blocked: true)
+        let feed = feed(container, cache: HomeListCache(directory: directory), probe: probe)
+        let context = try #require(feed.context)
+        var snapshot = await feed.makeCollection(entries: entries(1 ... 20), context: context)
+        snapshot.continuation = HomeListContinuation(key: HomeListCacheKey(source: "https://themoviedb.org/list/10", account: nil), page: 2)
+        let loader = SectionCollectionLoadMachine()
+        let fetch: SectionCollectionLoadMachine.Fetch = { request in
+            try await feed.page(entries: request.entries, continuation: request.continuation, from: request.offset, limit: request.limit)
+        }
+        loader.open(key: UUID().uuidString, snapshot: snapshot, fetch: fetch)
+        let task = try #require(loader.requestNextPage(fetch: fetch))
+        await probe.waitForRequest()
+        loader.cancel()
+        // The coalesced request may finish for another consumer, but this
+        // disappearing grid must not follow its continuation to page 3.
+        await probe.release(HomeListPage(entries: [], nextPage: 3))
+        await task.value
+        #expect(await probe.calls == [2])
+        #expect(loader.items.count == 20)
+        #expect(loader.pagination.nextOffset == 20)
+        #expect(!loader.pagination.isLoading)
+    }
 }
 
 private actor ListPageProbe {
