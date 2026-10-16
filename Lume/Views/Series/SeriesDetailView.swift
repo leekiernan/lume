@@ -20,6 +20,7 @@ struct SeriesDetailView: View {
     let series: Series
     var animationNamespace: Namespace.ID?
 
+    @Environment(\.contentRestriction) private var restriction
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     #if os(macOS)
@@ -87,7 +88,7 @@ struct SeriesDetailView: View {
             #endif
                 .toolbar { toolbarContent }
                 .task(id: series.id) {
-                    await loader.load(series, playlist: seriesPlaylist, in: modelContext)
+                    await loader.load(series, playlist: seriesPlaylist, restriction: restriction, in: modelContext)
                 }
                 .task(id: series.id) {
                     await loader.refreshEpisodesIfStale(series, playlist: seriesPlaylist, in: modelContext)

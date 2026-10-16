@@ -17,6 +17,7 @@ final class SeriesDetailLoadMachine {
     private(set) var contentID: String
     private var detail: DetailLoadState
     private var episodeLoad = DetailLoadState()
+    private var restriction = ContentRestriction()
     private(set) var similar: [HomeMediaItem] = []
     private(set) var availableSeasons: [Int] = []
     private(set) var episodesBySeason: [Int: [Episode]] = [:]
@@ -47,7 +48,8 @@ final class SeriesDetailLoadMachine {
         )
     }
 
-    func load(_ series: Series, playlist: Playlist?, in context: ModelContext) async {
+    func load(_ series: Series, playlist: Playlist?, restriction: ContentRestriction = ContentRestriction(), in context: ModelContext) async {
+        self.restriction = restriction
         prepare(series)
         let request = detail.begin()
         if series.episodes.isEmpty {
@@ -107,7 +109,7 @@ final class SeriesDetailLoadMachine {
 
     func resolveSimilar(_ series: Series, in context: ModelContext) {
         prepare(series)
-        similar = RelatedTitlesResolver.similar(to: series, in: context)
+        similar = RelatedTitlesResolver.similar(to: series, restriction: restriction, in: context)
     }
 
     func invalidate() {

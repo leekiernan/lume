@@ -28,11 +28,10 @@ enum RelatedTitlesResolver {
 
     /// Titles similar to `movie`: a movie match for each TMDB id, else a series
     /// with it, in TMDB's order.
-    static func similar(to movie: Movie, in context: ModelContext) -> [HomeMediaItem] {
+    static func similar(to movie: Movie, restriction: ContentRestriction, in context: ModelContext) -> [HomeMediaItem] {
         let items = resolve(
             movie.similarTitleIds,
-            prefix: playlistPrefix(of: movie.id),
-            excluding: movie.id,
+            scope: Scope(prefix: playlistPrefix(of: movie.id), excluding: movie.id, restriction: restriction),
             preferring: .movies,
             in: context
         )
@@ -41,11 +40,10 @@ enum RelatedTitlesResolver {
 
     /// Titles similar to `series`: a series match for each TMDB id, else a
     /// movie with it, in TMDB's order.
-    static func similar(to series: Series, in context: ModelContext) -> [HomeMediaItem] {
+    static func similar(to series: Series, restriction: ContentRestriction, in context: ModelContext) -> [HomeMediaItem] {
         let items = resolve(
             series.similarTitleIds,
-            prefix: playlistPrefix(of: series.id),
-            excluding: series.id,
+            scope: Scope(prefix: playlistPrefix(of: series.id), excluding: series.id, restriction: restriction),
             preferring: .series,
             in: context
         )
@@ -54,14 +52,19 @@ enum RelatedTitlesResolver {
 
     /// The other parts of `movie`'s collection present in its playlist, in the
     /// order of `partIDs`. Movies only.
-    static func collectionParts(_ partIDs: [Int], of movie: Movie, in context: ModelContext) -> [HomeMediaItem] {
+    static func collectionParts(_ partIDs: [Int], of movie: Movie, restriction: ContentRestriction, in context: ModelContext) -> [HomeMediaItem] {
         resolve(
             partIDs,
-            prefix: playlistPrefix(of: movie.id),
-            excluding: movie.id,
+            scope: Scope(prefix: playlistPrefix(of: movie.id), excluding: movie.id, restriction: restriction),
             preferring: .moviesOnly,
             in: context
         )
+    }
+
+    struct Scope {
+        let prefix: String
+        let excluding: String
+        let restriction: ContentRestriction
     }
 
     enum Preference {
@@ -76,12 +79,13 @@ enum RelatedTitlesResolver {
     /// resolve to the lowest id, so the rail is stable across renders.
     static func resolve(
         _ ids: [Int],
-        prefix: String,
-        excluding ownID: String,
+        scope: Scope,
         preferring preference: Preference,
         in context: ModelContext
     ) -> [HomeMediaItem] {
         guard !ids.isEmpty else { return [] }
+        let prefix = scope.prefix, ownID = scope.excluding
+        let restriction = scope.restriction
         // `Set<Int?>`: `contains` over the optional column compiles to SQL `IN`;
         // unwrapping (`$0.tmdbId ?? -1`) renders a ternary SQLite can't take.
         let wanted = Set(ids.map(Int?.some))
@@ -92,7 +96,7 @@ enum RelatedTitlesResolver {
             sortBy: [SortDescriptor(\.id)]
         )
         let movieRows = (try? context.fetch(movieDescriptor)) ?? []
-        for movie in movieRows where movie.id != ownID {
+        for movie in movieRows where movie.id != ownID && !restriction.hides(categoryID: movie.categoryId) {
             if let tmdbId = movie.tmdbId, movies[tmdbId] == nil { movies[tmdbId] = movie }
         }
 
@@ -103,7 +107,7 @@ enum RelatedTitlesResolver {
                 sortBy: [SortDescriptor(\.id)]
             )
             let seriesRows = (try? context.fetch(seriesDescriptor)) ?? []
-            for show in seriesRows where show.id != ownID {
+            for show in seriesRows where show.id != ownID && !restriction.hides(categoryID: show.categoryId) {
                 if let tmdbId = show.tmdbId, series[tmdbId] == nil { series[tmdbId] = show }
             }
         }

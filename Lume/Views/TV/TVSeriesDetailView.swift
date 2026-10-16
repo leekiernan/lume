@@ -16,6 +16,7 @@
     struct TVSeriesDetailView: View {
         let series: Series
 
+        @Environment(\.contentRestriction) private var restriction
         @Environment(\.modelContext) private var modelContext
         @Query private var playlists: [Playlist]
 
@@ -82,7 +83,7 @@
                     Text("Install the YouTube app on your Apple TV to watch trailers.")
                 }
                 .task(id: series.id) {
-                    await loader.load(series, playlist: seriesPlaylist, in: modelContext)
+                    await loader.load(series, playlist: seriesPlaylist, restriction: restriction, in: modelContext)
                 }
                 .task(id: series.id) {
                     await loader.refreshEpisodesIfStale(series, playlist: seriesPlaylist, in: modelContext)

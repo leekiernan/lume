@@ -17,6 +17,22 @@ struct RelatedTitlesResolverTests {
     private let own = "11111111-1111-1111-1111-111111111111"
     private let other = "22222222-2222-2222-2222-222222222222"
 
+    @Test func `related rails exclude restricted copies before selecting a representative`() throws {
+        try OnDiskCatalogStore.withContext { context in
+            let subject = movie("\(own)-movie-1", tmdb: 1, in: context)
+            subject.similarTitleIds = [2, 3]
+            let restricted = movie("\(own)-movie-2-a", tmdb: 2, in: context)
+            restricted.categoryId = "restricted"
+            let allowed = movie("\(own)-movie-2-b", tmdb: 2, in: context)
+            let hidden = movie("\(own)-movie-3", tmdb: 3, in: context)
+            hidden.categoryId = "hidden"
+            try context.save()
+            let restriction = ContentRestriction(isActive: true, restrictedCategoryIDs: ["restricted"], hiddenCategoryIDs: ["hidden"])
+            #expect(RelatedTitlesResolver.similar(to: subject, restriction: restriction, in: context) == [.movie(allowed)])
+            #expect(RelatedTitlesResolver.collectionParts([2, 3], of: subject, restriction: restriction, in: context) == [.movie(allowed)])
+        }
+    }
+
     @discardableResult
     private func movie(_ id: String, tmdb: Int, in context: ModelContext) -> Movie {
         let movie = Movie(id: id, streamId: tmdb, name: id)
@@ -49,7 +65,7 @@ struct RelatedTitlesResolverTests {
             movie("\(other)-movie-40", tmdb: 40, in: context) // another playlist
             try context.save()
 
-            let resolved = RelatedTitlesResolver.similar(to: subject, in: context)
+            let resolved = RelatedTitlesResolver.similar(to: subject, restriction: ContentRestriction(), in: context)
             #expect(resolved == [.movie(thirty), .movie(ten), .series(twenty)])
         }
     }
@@ -62,7 +78,7 @@ struct RelatedTitlesResolverTests {
             let preferred = series("\(own)-series-10", tmdb: 10, in: context)
             try context.save()
 
-            let resolved = RelatedTitlesResolver.similar(to: subject, in: context)
+            let resolved = RelatedTitlesResolver.similar(to: subject, restriction: ContentRestriction(), in: context)
             #expect(resolved == [.series(preferred)])
         }
     }
@@ -77,7 +93,7 @@ struct RelatedTitlesResolverTests {
             }
             try context.save()
 
-            let resolved = RelatedTitlesResolver.similar(to: subject, in: context)
+            let resolved = RelatedTitlesResolver.similar(to: subject, restriction: ContentRestriction(), in: context)
             #expect(resolved.count == RelatedTitlesResolver.similarLimit)
         }
     }
@@ -91,7 +107,7 @@ struct RelatedTitlesResolverTests {
             movie("\(other)-movie-5", tmdb: 5, in: context)
             try context.save()
 
-            let parts = RelatedTitlesResolver.collectionParts([1, 2, 3, 4, 5], of: subject, in: context)
+            let parts = RelatedTitlesResolver.collectionParts([1, 2, 3, 4, 5], of: subject, restriction: ContentRestriction(), in: context)
             #expect(parts == [.movie(first), .movie(third)])
         }
     }

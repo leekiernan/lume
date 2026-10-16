@@ -21,6 +21,7 @@ struct MovieDetailView: View {
     let movie: Movie
     var animationNamespace: Namespace.ID?
 
+    @Environment(\.contentRestriction) private var restriction
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     #if os(macOS)
@@ -79,10 +80,10 @@ struct MovieDetailView: View {
             #endif
                 .toolbar { toolbarContent }
                 .task(id: movie.id) {
-                    await loader.load(movie, in: modelContext)
+                    await loader.load(movie, restriction: restriction, in: modelContext)
                 }
                 .task(id: [movie.id, String(movie.collectionId ?? -1)]) {
-                    await loader.loadCollection(movie, in: modelContext)
+                    await loader.loadCollection(movie, restriction: restriction, in: modelContext)
                 }
                 .onChange(of: movie.similarTMDBIds) { loader.resolveSimilar(movie, in: modelContext) }
                 .onDisappear { loader.invalidate() }

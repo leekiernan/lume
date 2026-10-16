@@ -17,6 +17,7 @@
     struct TVMovieDetailView: View {
         let movie: Movie
 
+        @Environment(\.contentRestriction) private var restriction
         @Environment(\.modelContext) private var modelContext
         @Query private var playlists: [Playlist]
 
@@ -64,10 +65,10 @@
                     Text("Install the YouTube app on your Apple TV to watch trailers.")
                 }
                 .task(id: movie.id) {
-                    await loader.load(movie, in: modelContext)
+                    await loader.load(movie, restriction: restriction, in: modelContext)
                 }
                 .task(id: [movie.id, String(movie.collectionId ?? -1)]) {
-                    await loader.loadCollection(movie, in: modelContext)
+                    await loader.loadCollection(movie, restriction: restriction, in: modelContext)
                 }
                 .onChange(of: movie.similarTMDBIds) { loader.resolveSimilar(movie, in: modelContext) }
                 .onDisappear { loader.invalidate() }

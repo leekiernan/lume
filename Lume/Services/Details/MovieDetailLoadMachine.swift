@@ -14,6 +14,7 @@ final class MovieDetailLoadMachine {
     private(set) var contentID: String
     private var detail: DetailLoadState
     private var collection = DetailLoadState()
+    private var restriction = ContentRestriction()
     private(set) var collectionID: Int?
     private(set) var similar: [HomeMediaItem] = []
     private(set) var collectionMovies: [HomeMediaItem] = []
@@ -39,7 +40,8 @@ final class MovieDetailLoadMachine {
         )
     }
 
-    func load(_ movie: Movie, in context: ModelContext) async {
+    func load(_ movie: Movie, restriction: ContentRestriction = ContentRestriction(), in context: ModelContext) async {
+        self.restriction = restriction
         prepare(movie)
         let request = detail.begin()
         await enrichMovieDetailsIfNeeded(movie, context: context)
@@ -52,10 +54,11 @@ final class MovieDetailLoadMachine {
 
     func resolveSimilar(_ movie: Movie, in context: ModelContext) {
         prepare(movie)
-        similar = RelatedTitlesResolver.similar(to: movie, in: context)
+        similar = RelatedTitlesResolver.similar(to: movie, restriction: restriction, in: context)
     }
 
-    func loadCollection(_ movie: Movie, in context: ModelContext) async {
+    func loadCollection(_ movie: Movie, restriction: ContentRestriction = ContentRestriction(), in context: ModelContext) async {
+        self.restriction = restriction
         prepare(movie)
         let request = collection.begin()
         if collectionID != movie.collectionId { collectionMovies = [] }
@@ -69,7 +72,7 @@ final class MovieDetailLoadMachine {
         do {
             let ids = try await manager.fetchTMDBCollectionMovieIDs(collectionId: id)
             guard !Task.isCancelled, collection.owns(request), movie.collectionId == id else { return }
-            collectionMovies = RelatedTitlesResolver.collectionParts(ids, of: movie, in: context)
+            collectionMovies = RelatedTitlesResolver.collectionParts(ids, of: movie, restriction: restriction, in: context)
             collection.finish(request)
         } catch {
             guard !Task.isCancelled, collection.owns(request), movie.collectionId == id else { return }
