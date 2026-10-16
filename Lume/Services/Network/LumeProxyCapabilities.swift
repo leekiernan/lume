@@ -92,6 +92,21 @@ nonisolated struct LumeProxySource: Hashable {
         return Self(playlist: playlist)
     }
 
+    /// One read for a chunk, not one owner fetch per title (and per receipt).
+    static func snapshots(in context: ModelContext) throws -> [UUID: Self] {
+        var sources: [UUID: Self] = [:]
+        for playlist in try context.fetch(FetchDescriptor<Playlist>()) {
+            sources[playlist.id] = Self(playlist: playlist)
+        }
+        return sources
+    }
+
+    static func snapshot(contentID: String, from sources: [UUID: Self]) -> Self? {
+        let prefix = String(contentID.prefix(36))
+        guard contentID.count > 36, let id = UUID(uuidString: prefix), id.uuidString == prefix else { return nil }
+        return sources[id]
+    }
+
     func metadataURL(type: LumeMetadataKind, ids: [Int], language: String) -> URL? {
         guard var components = URLComponents(url: capabilitiesURL, resolvingAgainstBaseURL: false),
               components.percentEncodedPath.hasSuffix("/capabilities") else { return nil }

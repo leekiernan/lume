@@ -35,11 +35,16 @@ nonisolated extension EnrichedTitle {
     }
 
     func hasFreshTMDBArtwork(in context: ModelContext, language: String, now: Date = Date()) -> Bool {
+        hasFreshTMDBArtwork(source: LumeProxySource.snapshot(contentID: id, in: context), language: language, now: now)
+    }
+
+    /// Lazy for render-side callers; batch callers supply their already-read map.
+    func hasFreshTMDBArtwork(source: @autoclosure () -> LumeProxySource?, language: String, now: Date = Date()) -> Bool {
         guard LumeMetadataReceipt.isFresh(tmdbArtworkEnrichedAt ?? tmdbEnrichedAt, now: now) else { return false }
         guard let data = proxyMetadataData else { return true }
         guard let applied = try? JSONDecoder().decode(AppliedProxyMetadata.self, from: data) else { return false }
         guard let receipt = tmdbArtworkEnrichedAt != nil ? applied.artwork : applied.tmdb else { return true }
-        return receipt.matches(source: LumeProxySource.snapshot(contentID: id, in: context), tmdbID: tmdbId, language: language)
+        return receipt.matches(source: source(), tmdbID: tmdbId, language: language)
     }
 
     /// An unstamped provider write may replace some proxy-covered fields.

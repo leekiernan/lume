@@ -342,9 +342,20 @@ actor ContentIndexer {
         do {
             let context = ModelContext(modelContainer)
             context.autosaveEnabled = false
-            let hidden = (try? Self.hiddenCategoryIDs(in: context)) ?? []
+            let hidden = try Self.hiddenCategoryIDs(in: context)
+            let sources = try LumeProxySource.snapshots(in: context)
+            let movies = try CatalogUpsert.lookup(Movie.self, ids: resolved.filter { $0.item.kind == .movie }.map(\.item.id), context: context)
+            let series = try CatalogUpsert.lookup(Series.self, ids: resolved.filter { $0.item.kind == .series }.map(\.item.id), context: context)
             for result in resolved {
-                write(result, context: context, embedder: embedder, hiddenCategoryIDs: hidden)
+                let source = LumeProxySource.snapshot(contentID: result.item.id, from: sources)
+                switch result.item.kind {
+                case .movie:
+                    guard let row = movies[result.item.id], canApply(result, to: row, currentSource: source) else { continue }
+                    writeMovie(result, to: row, context: context, embedder: embedder, hiddenCategoryIDs: hidden)
+                case .series:
+                    guard let row = series[result.item.id], canApply(result, to: row, currentSource: source) else { continue }
+                    writeSeries(result, to: row, context: context, embedder: embedder, hiddenCategoryIDs: hidden)
+                }
             }
             try context.save()
             return priorFailure
@@ -364,6 +375,7 @@ actor ContentIndexer {
     private func fetchPending() throws -> [PendingItem] {
         let context = ModelContext(modelContainer)
         let hidden = try Self.hiddenCategoryIDs(in: context)
+        let sources = try LumeProxySource.snapshots(in: context)
 
         var movieDescriptor = FetchDescriptor<Movie>(predicate: Self.pendingMoviePredicate(excluding: hidden))
         movieDescriptor.fetchLimit = chunkSize
@@ -376,8 +388,8 @@ actor ContentIndexer {
                 title: query.title,
                 year: ContentIndexText.year(fromReleaseDate: movie.releaseDate) ?? query.year,
                 existingTMDBId: movie.tmdbId,
-                needsEnrichment: !movie.hasFreshTMDBArtwork(in: context, language: tmdbClient.language),
-                source: LumeProxySource.snapshot(contentID: movie.id, in: context)
+                needsEnrichment: !movie.hasFreshTMDBArtwork(source: LumeProxySource.snapshot(contentID: movie.id, from: sources), language: tmdbClient.language),
+                source: LumeProxySource.snapshot(contentID: movie.id, from: sources)
             )
         }
 
@@ -393,8 +405,8 @@ actor ContentIndexer {
                     title: query.title,
                     year: ContentIndexText.year(fromReleaseDate: item.releaseDate) ?? query.year,
                     existingTMDBId: item.tmdbId,
-                    needsEnrichment: !item.hasFreshTMDBArtwork(in: context, language: tmdbClient.language),
-                    source: LumeProxySource.snapshot(contentID: item.id, in: context)
+                    needsEnrichment: !item.hasFreshTMDBArtwork(source: LumeProxySource.snapshot(contentID: item.id, from: sources), language: tmdbClient.language),
+                    source: LumeProxySource.snapshot(contentID: item.id, from: sources)
                 )
             }
         }
@@ -408,31 +420,13 @@ actor ContentIndexer {
     /// vanished since Phase 1 (deleted by a sync) is silently skipped, as is
     /// one whose category was hidden in the meantime — it stays unindexed
     /// until unhidden.
-    private func write(
-        _ result: IndexResult,
-        context: ModelContext,
-        embedder: TextEmbedder,
-        hiddenCategoryIDs: Set<String>
-    ) {
-        switch result.item.kind {
-        case .movie:
-            writeMovie(result, context: context, embedder: embedder, hiddenCategoryIDs: hiddenCategoryIDs)
-        case .series:
-            writeSeries(result, context: context, embedder: embedder, hiddenCategoryIDs: hiddenCategoryIDs)
-        }
-    }
-
     private func writeMovie(
         _ result: IndexResult,
-        context: ModelContext,
+        to movie: Movie,
+        context _: ModelContext,
         embedder: TextEmbedder,
         hiddenCategoryIDs: Set<String>
     ) {
-        let id = result.item.id
-        var descriptor = FetchDescriptor<Movie>(predicate: #Predicate { $0.id == id })
-        descriptor.fetchLimit = 1
-        guard let movie = try? context.fetch(descriptor).first else { return }
-        guard canApply(result, to: movie, in: context) else { return }
         if let categoryId = movie.categoryId, hiddenCategoryIDs.contains(categoryId) {
             return
         }
@@ -462,15 +456,11 @@ actor ContentIndexer {
 
     private func writeSeries(
         _ result: IndexResult,
-        context: ModelContext,
+        to series: Series,
+        context _: ModelContext,
         embedder: TextEmbedder,
         hiddenCategoryIDs: Set<String>
     ) {
-        let id = result.item.id
-        var descriptor = FetchDescriptor<Series>(predicate: #Predicate { $0.id == id })
-        descriptor.fetchLimit = 1
-        guard let series = try? context.fetch(descriptor).first else { return }
-        guard canApply(result, to: series, in: context) else { return }
         if let categoryId = series.categoryId, hiddenCategoryIDs.contains(categoryId) {
             return
         }
