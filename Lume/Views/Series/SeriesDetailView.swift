@@ -95,16 +95,14 @@ struct SeriesDetailView: View {
                 .onChange(of: series.episodes.count) { loader.recomputeSeasons(series) }
                 .onChange(of: series.similarTMDBIds) { loader.resolveSimilar(series, in: modelContext) }
                 .onDisappear { loader.invalidate() }
+                .playsPickedSource(sourceSelection, present: present)
                 .animation(.easeInOut(duration: 0.3), value: isLoadingTMDB)
             #if os(iOS)
-                // A copy picked from the Source button plays once its next episode
-                // is known: a copy's episodes can load after its page opens.
-                .onChange(of: nextEpisode?.id, initial: true) {
-                    if let episode = nextEpisode, sourceSelection?.takePlayRequest() == true { playEpisode(episode) }
-                }
-                .fullScreenCover(item: $playingMedia) { media in
-                    FullScreenPlayerView(media: media)
-                }
+                .fullScreenCover(
+                    item: $playingMedia,
+                    onDismiss: { sourceSelection?.showPicked() },
+                    content: { media in FullScreenPlayerView(media: media) }
+                )
             #endif
         #endif
     }
@@ -395,9 +393,18 @@ private extension SeriesDetailView {
     func playEpisode(_ episode: Episode) {
         guard let playlist = seriesPlaylist,
               let media = PlayableMedia.from(episode: episode, playlist: playlist) else { return }
-        if ExternalPlayback.open(media) { return }
+        present(media)
+    }
+
+    /// With no player of the app's own to close, a picked copy is shown at once.
+    func present(_ media: PlayableMedia) {
+        if ExternalPlayback.open(media) {
+            sourceSelection?.showPicked()
+            return
+        }
         #if os(macOS)
             MacPlayerWindowRouter.shared.play(media, using: openWindow)
+            sourceSelection?.showPicked()
         #else
             playingMedia = media
         #endif

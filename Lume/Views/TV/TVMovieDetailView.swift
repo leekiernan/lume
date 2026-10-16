@@ -38,7 +38,7 @@
 
         @State private var showYouTubeUnavailable = false
 
-        private enum FocusTarget: Hashable { case play, source, favorite }
+        private enum FocusTarget: Hashable { case play, favorite }
         @FocusState private var focus: FocusTarget?
 
         init(movie: Movie) {
@@ -52,10 +52,12 @@
             content
                 .background(Color.lumeNight)
                 .ignoresSafeArea()
-                .fullScreenCover(item: $playingMedia) { media in
-                    FullScreenPlayerView(media: media)
-                }
-                .onChange(of: focus, initial: true) { playPickedCopy() }
+                .fullScreenCover(
+                    item: $playingMedia,
+                    onDismiss: { sourceSelection?.showPicked() },
+                    content: { media in FullScreenPlayerView(media: media) }
+                )
+                .playsPickedSource(sourceSelection, present: present)
                 .alert("YouTube Unavailable", isPresented: $showYouTubeUnavailable) {
                     Button("OK", role: .cancel) {}
                 } message: {
@@ -139,7 +141,6 @@
 
                     if let sourceSelection, sourceSelection.offersChoice {
                         TitleSourceButton(selection: sourceSelection)
-                            .focused($focus, equals: .source)
                     }
                 }
 
@@ -154,15 +155,6 @@
                     )
                 }
             }
-        }
-
-        /// A copy picked from the Source button plays once its page holds
-        /// focus. Presented sooner — while the menu is still closing over a page
-        /// just rebuilt for the copy — the player opens with nothing focused, and
-        /// Menu leaves the app instead of the player.
-        private func playPickedCopy() {
-            guard focus != nil, sourceSelection?.takePlayRequest() == true else { return }
-            startPlayback()
         }
 
         // MARK: - About / ratings / information
@@ -262,7 +254,15 @@
         private func startPlayback() {
             guard let playlist = moviePlaylist,
                   let media = PlayableMedia.from(movie: movie, playlist: playlist) else { return }
-            if ExternalPlayback.open(media) { return }
+            present(media)
+        }
+
+        /// With no player of the app's own to close, a picked copy is shown at once.
+        private func present(_ media: PlayableMedia) {
+            if ExternalPlayback.open(media) {
+                sourceSelection?.showPicked()
+                return
+            }
             playingMedia = media
         }
 

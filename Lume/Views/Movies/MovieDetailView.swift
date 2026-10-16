@@ -86,13 +86,14 @@ struct MovieDetailView: View {
                 }
                 .onChange(of: movie.similarTMDBIds) { loader.resolveSimilar(movie, in: modelContext) }
                 .onDisappear { loader.invalidate() }
-                // A copy picked from the Source button plays as its page opens.
-                .onAppear { if sourceSelection?.takePlayRequest() == true { startPlayback() } }
+                .playsPickedSource(sourceSelection, present: present)
                 .animation(.easeInOut(duration: 0.3), value: isLoadingTMDB)
             #if os(iOS)
-                .fullScreenCover(item: $playingMedia) { media in
-                    FullScreenPlayerView(media: media)
-                }
+                .fullScreenCover(
+                    item: $playingMedia,
+                    onDismiss: { sourceSelection?.showPicked() },
+                    content: { media in FullScreenPlayerView(media: media) }
+                )
             #endif
         #endif
     }
@@ -284,9 +285,18 @@ struct MovieDetailView: View {
     private func startPlayback() {
         guard let playlist = moviePlaylist,
               let media = PlayableMedia.from(movie: movie, playlist: playlist) else { return }
-        if ExternalPlayback.open(media) { return }
+        present(media)
+    }
+
+    /// With no player of the app's own to close, a picked copy is shown at once.
+    private func present(_ media: PlayableMedia) {
+        if ExternalPlayback.open(media) {
+            sourceSelection?.showPicked()
+            return
+        }
         #if os(macOS)
             MacPlayerWindowRouter.shared.play(media, using: openWindow)
+            sourceSelection?.showPicked()
         #else
             playingMedia = media
         #endif

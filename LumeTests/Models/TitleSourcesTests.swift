@@ -134,4 +134,32 @@ struct TitleSourcesTests {
         let episode = try #require(MediaRuntime(seconds: 1500))
         #expect(try !episode.isSameCut(as: #require(MediaRuntime(seconds: 1600))))
     }
+
+    @Test func `a picked copy plays from the page as it is, which becomes that copy once the player closes`() async throws {
+        let container = try makeTestContainer()
+        let context = container.mainContext
+        let playlist = makePlaylist(name: "Provider A", in: context)
+        let opened = makeMovie(id: "\(playlist.id.uuidString)-movie-1", streamId: 1, tmdbId: 42, in: context)
+        let other = makeMovie(id: "\(playlist.id.uuidString)-movie-2", streamId: 2, tmdbId: 42, in: context)
+        try context.save()
+        let sources = TitleSources.resolve(for: opened, in: context)
+        let openedSource = try #require(sources.first { $0.id == opened.id })
+        let otherSource = try #require(sources.first { $0.id == other.id })
+        let selection = TitleSourceSelection(sources: sources, current: openedSource)
+
+        selection.pick(otherSource)
+        #expect(selection.current.id == opened.id && selection.picked?.id == other.id)
+        let media = await TitleSourcePlayback.media(for: otherSource, in: context)
+        #expect(media?.id == PlayableMedia.from(movie: other, playlist: playlist)?.id)
+
+        selection.showPicked()
+        #expect(selection.current.id == other.id && selection.picked == nil)
+        // A player closing with no pick (plain Play) changes nothing.
+        selection.showPicked()
+        #expect(selection.current.id == other.id)
+
+        selection.pick(openedSource)
+        selection.abandonPick()
+        #expect(selection.current.id == other.id && selection.picked == nil)
+    }
 }

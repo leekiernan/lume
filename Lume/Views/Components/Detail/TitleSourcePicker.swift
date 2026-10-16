@@ -4,21 +4,21 @@
 //
 //  A title's copies on its detail page (`TitleSources`). The page shows one
 //  copy — the one watched most recently, so Play resumes where you left off —
-//  and the Source button beside Play lists them all. Picking one switches the
-//  page to that copy and plays it; having watched it, it's the copy the page
-//  opens on next time.
+//  and the Source button beside Play lists them all. Picking one plays it from
+//  the page as it stands (`TitleSourcePlayback`); the page becomes that copy
+//  once the player closes, and having watched it, opens on it next time.
 //
 
 import SwiftData
 import SwiftUI
 
-/// Which copy a detail page shows, and the request to play a copy picked from
-/// the Source button.
+/// Which copy a detail page shows, and the copy picked from the Source button
+/// while it plays.
 @Observable
 final class TitleSourceSelection {
     let sources: [TitleSource]
     private(set) var current: TitleSource
-    private var playRequested = false
+    private(set) var picked: TitleSource?
 
     init(sources: [TitleSource], current: TitleSource) {
         self.sources = sources
@@ -31,16 +31,44 @@ final class TitleSourceSelection {
     }
 
     func pick(_ source: TitleSource) {
-        current = source
-        playRequested = true
+        picked = source
     }
 
-    /// True once after a pick: the page plays the picked copy as soon as it
-    /// can: a series once its next episode is known, and on tvOS once the
-    /// rebuilt page holds focus.
-    func takePlayRequest() -> Bool {
-        defer { playRequested = false }
-        return playRequested
+    /// The picked copy's player has closed: the page becomes that copy, so
+    /// Resume is the one just watched. Not sooner — rebuilding the page as the
+    /// menu closes and the player opens leaves the player without focus on
+    /// tvOS, and the page is about to be covered anyway.
+    func showPicked() {
+        if let picked { current = picked }
+        picked = nil
+    }
+
+    /// Nothing could be played for the pick; the page stays as it is.
+    func abandonPick() {
+        picked = nil
+    }
+}
+
+extension View {
+    /// Plays a copy picked from the Source button through the page's own
+    /// `present`. The page calls `showPicked()` once that player has closed.
+    func playsPickedSource(_ selection: TitleSourceSelection?, present: @escaping (PlayableMedia) -> Void) -> some View {
+        modifier(PickedSourcePlayback(selection: selection, present: present))
+    }
+}
+
+private struct PickedSourcePlayback: ViewModifier {
+    let selection: TitleSourceSelection?
+    let present: (PlayableMedia) -> Void
+    @Environment(\.modelContext) private var modelContext
+
+    func body(content: Content) -> some View {
+        content.task(id: selection?.picked?.id) {
+            guard let selection, let source = selection.picked else { return }
+            let media = await TitleSourcePlayback.media(for: source, in: modelContext)
+            guard !Task.isCancelled else { return }
+            if let media { present(media) } else { selection.abandonPick() }
+        }
     }
 }
 
