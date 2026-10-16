@@ -22,6 +22,14 @@ struct RailHeadingTests {
         #expect(linked.height == max(plain.height, 32))
     }
 
+    @Test(arguments: [String?.none, "collection"])
+    func `refresh decoration does not resize the heading`(_ destination: String?) throws {
+        let title = Text(verbatim: "Favorites")
+        let idle = try size(of: RailHeading(title: title, destination: destination).fixedSize())
+        let refreshing = try size(of: RailHeading(title: title, destination: destination, isRefreshing: true).fixedSize())
+        #expect(refreshing == idle)
+    }
+
     @Test(arguments: [CGFloat(320), 768, 1200])
     func `headings fit the same row width with or without navigation`(_ width: CGFloat) throws {
         for destination in [String?.none, "collection"] {

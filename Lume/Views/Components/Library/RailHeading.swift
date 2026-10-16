@@ -9,15 +9,20 @@ struct RailHeading<Destination: Hashable>: View {
     var onLeadingLeft: (() -> Void)?
 
     var body: some View {
-        HStack(spacing: 12) {
-            heading
-            ProgressView()
-                .controlSize(.small)
-                .opacity(isRefreshing ? 1 : 0)
-                .accessibilityHidden(true)
-        }
-        .accessibilityAddTraits(.isHeader)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        heading
+            // The indicator is decoration, not part of the title's size or
+            // focus target. Refreshing cannot move the title or its neighbours.
+            .overlay(alignment: .trailing) {
+                if isRefreshing {
+                    ProgressView()
+                        .controlSize(.small)
+                        .alignmentGuide(.trailing) { $0[.leading] - 12 }
+                        .accessibilityHidden(true)
+                        .allowsHitTesting(false)
+                }
+            }
+            .accessibilityAddTraits(.isHeader)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var heading: some View {
