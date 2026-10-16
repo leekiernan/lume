@@ -54,13 +54,23 @@ private struct DetailDestinations: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            // The page shows the copy watched most recently, with the others
+            // on its Source button (`TitleSourceHost`).
             .pushedDestination(for: Movie.self) { movie in
-                MovieDetailView(movie: movie, animationNamespace: namespace)
-                    .detailZoomTransition(sourceID: movie.id, namespace: namespace)
+                TitleSourceHost(movie: movie) { copy in
+                    if case let .movie(shown) = copy {
+                        MovieDetailView(movie: shown, animationNamespace: namespace)
+                    }
+                }
+                .detailZoomTransition(sourceID: movie.id, namespace: namespace)
             }
             .pushedDestination(for: Series.self) { series in
-                SeriesDetailView(series: series, animationNamespace: namespace)
-                    .detailZoomTransition(sourceID: series.id, namespace: namespace)
+                TitleSourceHost(series: series) { copy in
+                    if case let .series(shown) = copy {
+                        SeriesDetailView(series: shown, animationNamespace: namespace)
+                    }
+                }
+                .detailZoomTransition(sourceID: series.id, namespace: namespace)
             }
             .pushedDestination(for: PersonRoute.self) { route in
                 PersonFilmographyView(route: route, animationNamespace: namespace)

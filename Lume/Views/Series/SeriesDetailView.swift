@@ -36,11 +36,9 @@ struct SeriesDetailView: View {
         loader.snapshot(for: series).similar
     }
 
-    private var otherSources: [OtherSources.Source] {
-        loader.snapshot(for: series).otherSources
-    }
-
     @State private var playingMedia: PlayableMedia?
+    /// The title's copies, when opened through `TitleSourceHost`.
+    @Environment(TitleSourceSelection.self) private var sourceSelection: TitleSourceSelection?
     private var selectedSeason: Int {
         get { loader.snapshot(for: series).selectedSeason }
         nonmutating set { loader.selectedSeason = newValue }
@@ -99,6 +97,11 @@ struct SeriesDetailView: View {
                 .onDisappear { loader.invalidate() }
                 .animation(.easeInOut(duration: 0.3), value: isLoadingTMDB)
             #if os(iOS)
+                // A copy picked from the Source button plays once its next episode
+                // is known: a copy's episodes can load after its page opens.
+                .onChange(of: nextEpisode?.id, initial: true) {
+                    if let episode = nextEpisode, sourceSelection?.takePlayRequest() == true { playEpisode(episode) }
+                }
                 .fullScreenCover(item: $playingMedia) { media in
                     FullScreenPlayerView(media: media)
                 }
@@ -135,11 +138,16 @@ struct SeriesDetailView: View {
     }
 
     private var actions: some View {
-        PrimaryPlayButton(
-            title: playTitle,
-            isEnabled: nextEpisode != nil && seriesPlaylist != nil,
-            action: { if let episode = nextEpisode { playEpisode(episode) } }
-        )
+        HStack(spacing: 10) {
+            PrimaryPlayButton(
+                title: playTitle,
+                isEnabled: nextEpisode != nil && seriesPlaylist != nil,
+                action: { if let episode = nextEpisode { playEpisode(episode) } }
+            )
+            if let sourceSelection, sourceSelection.offersChoice {
+                TitleSourceButton(selection: sourceSelection)
+            }
+        }
     }
 
     private var seasonMenu: some View {
@@ -335,12 +343,6 @@ struct SeriesDetailView: View {
                         if !similar.isEmpty {
                             section(title: "You May Also Like") {
                                 SimilarRow(items: similar, animationNamespace: animationNamespace)
-                            }
-                        }
-
-                        if !otherSources.isEmpty {
-                            section(title: "Other Sources") {
-                                OtherSourcesRow(sources: otherSources, animationNamespace: animationNamespace)
                             }
                         }
                     }

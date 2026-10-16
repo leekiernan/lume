@@ -100,3 +100,34 @@ struct PosterTitleTile: View {
         palette[paletteIndex(for: title)]
     }
 }
+
+extension View {
+    /// Overlays a playlist-name capsule on a poster's top-leading corner,
+    /// sized for the 10-foot UI on tvOS. No-op when `badge` is nil.
+    func posterBadge(_ badge: String?) -> some View {
+        overlay(alignment: .topLeading) {
+            if let badge {
+                #if os(tvOS)
+                    Text(badge)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .frame(maxWidth: TVDetailMetrics.posterCardWidth - 40)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .padding(10)
+                #else
+                    Text(badge)
+                        .font(.caption2.weight(.semibold))
+                        .lineLimit(1)
+                        .frame(maxWidth: 108)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .padding(6)
+                #endif
+            }
+        }
+    }
+}

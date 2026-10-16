@@ -28,11 +28,9 @@
             loader.snapshot(for: series).similar
         }
 
-        private var otherSources: [OtherSources.Source] {
-            loader.snapshot(for: series).otherSources
-        }
-
         @State private var playingMedia: PlayableMedia?
+        /// The title's copies, when opened through `TitleSourceHost`.
+        @Environment(TitleSourceSelection.self) private var sourceSelection: TitleSourceSelection?
         private var selectedSeason: Int {
             get { loader.snapshot(for: series).selectedSeason }
             nonmutating set { loader.selectedSeason = newValue }
@@ -72,6 +70,11 @@
             content
                 .background(Color.lumeNight)
                 .ignoresSafeArea()
+                // A copy picked from the Source button plays once its next episode
+                // is known: a copy's episodes can load after its page opens.
+                .onChange(of: nextEpisode?.id, initial: true) {
+                    if let episode = nextEpisode, sourceSelection?.takePlayRequest() == true { playEpisode(episode) }
+                }
                 .fullScreenCover(item: $playingMedia) { media in
                     FullScreenPlayerView(media: media)
                 }
@@ -123,15 +126,6 @@
                                 .mediaFavoriteMenu(item, in: modelContext)
                         }
                     }
-
-                    if !otherSources.isEmpty {
-                        TVRail(title: "Other Sources", items: otherSources) { source in
-                            // No favorite menu: an entry here is the same title on
-                            // a *different* playlist, so favoriting it would create a
-                            // favorite the playlist-scoped Favorites rail never shows.
-                            posterLink(for: source.item, badge: source.playlistName)
-                        }
-                    }
                 }
                 .padding(.bottom, 100)
             }
@@ -154,12 +148,18 @@
                 metaItems: heroMetaItems,
                 fallbackSymbol: "tv"
             ) {
-                TVPlayButton(
-                    title: playTitle,
-                    isEnabled: nextEpisode != nil && seriesPlaylist != nil,
-                    action: { if let episode = nextEpisode { playEpisode(episode) } }
-                )
-                .focused($focus, equals: .play)
+                HStack(spacing: 18) {
+                    TVPlayButton(
+                        title: playTitle,
+                        isEnabled: nextEpisode != nil && seriesPlaylist != nil,
+                        action: { if let episode = nextEpisode { playEpisode(episode) } }
+                    )
+                    .focused($focus, equals: .play)
+
+                    if let sourceSelection, sourceSelection.offersChoice {
+                        TitleSourceButton(selection: sourceSelection)
+                    }
+                }
 
                 HStack(spacing: 18) {
                     MediaFavoriteButton(model: series)

@@ -29,6 +29,8 @@ struct MovieDetailView: View {
     @Query private var playlists: [Playlist]
 
     @State private var playingMedia: PlayableMedia?
+    /// The title's copies, when opened through `TitleSourceHost`.
+    @Environment(TitleSourceSelection.self) private var sourceSelection: TitleSourceSelection?
     @State private var loader: MovieDetailLoadMachine
     private var isLoadingTMDB: Bool {
         loader.snapshot(for: movie).isLoadingTMDB
@@ -36,10 +38,6 @@ struct MovieDetailView: View {
 
     private var similar: [HomeMediaItem] {
         loader.snapshot(for: movie).similar
-    }
-
-    private var otherSources: [OtherSources.Source] {
-        loader.snapshot(for: movie).otherSources
     }
 
     private var collectionMovies: [HomeMediaItem] {
@@ -88,6 +86,8 @@ struct MovieDetailView: View {
                 }
                 .onChange(of: movie.similarTMDBIds) { loader.resolveSimilar(movie, in: modelContext) }
                 .onDisappear { loader.invalidate() }
+                // A copy picked from the Source button plays as its page opens.
+                .onAppear { if sourceSelection?.takePlayRequest() == true { startPlayback() } }
                 .animation(.easeInOut(duration: 0.3), value: isLoadingTMDB)
             #if os(iOS)
                 .fullScreenCover(item: $playingMedia) { media in
@@ -183,12 +183,6 @@ struct MovieDetailView: View {
                             SimilarRow(items: collectionMovies, animationNamespace: animationNamespace)
                         }
                     }
-
-                    if !otherSources.isEmpty {
-                        section(title: "Other Sources") {
-                            OtherSourcesRow(sources: otherSources, animationNamespace: animationNamespace)
-                        }
-                    }
                 }
                 .frame(width: proxy.size.width, alignment: .leading)
                 .padding(.bottom, 32)
@@ -209,11 +203,16 @@ struct MovieDetailView: View {
     }
 
     private var actions: some View {
-        PrimaryPlayButton(
-            title: movie.watchProgress > 1 ? "Resume" : "Play",
-            isEnabled: moviePlaylist != nil,
-            action: startPlayback
-        )
+        HStack(spacing: 10) {
+            PrimaryPlayButton(
+                title: movie.watchProgress > 1 ? "Resume" : "Play",
+                isEnabled: moviePlaylist != nil,
+                action: startPlayback
+            )
+            if let sourceSelection, sourceSelection.offersChoice {
+                TitleSourceButton(selection: sourceSelection)
+            }
+        }
     }
 
     @ViewBuilder

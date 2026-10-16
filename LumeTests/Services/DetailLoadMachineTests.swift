@@ -95,7 +95,6 @@ struct DetailLoadMachineTests {
         #expect(snapshot.availableSeasons.isEmpty)
         #expect(snapshot.episodesBySeason.isEmpty)
         #expect(snapshot.similar.isEmpty)
-        #expect(snapshot.otherSources.isEmpty)
         #expect(snapshot.selectedSeason == 1)
         #expect(!snapshot.isLoadingEpisodes)
         #expect(snapshot.isLoadingTMDB == detailNeedsTMDBFetch(tmdbId: replacement.tmdbId, enrichedAt: replacement.tmdbEnrichedAt))
@@ -115,7 +114,6 @@ struct DetailLoadMachineTests {
         #expect(snapshot.isLoadingTMDB == detailNeedsTMDBFetch(tmdbId: replacement.tmdbId, enrichedAt: nil))
         #expect(snapshot.collectionMovies.isEmpty)
         #expect(snapshot.similar.isEmpty)
-        #expect(snapshot.otherSources.isEmpty)
         #expect(machine.contentID == original.id)
     }
 }

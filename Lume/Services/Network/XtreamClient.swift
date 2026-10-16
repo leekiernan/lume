@@ -245,6 +245,15 @@ final nonisolated class XtreamClient: Sendable {
         return try await request(url, action: "get_series_info")
     }
 
+    /// A movie's details, for its technical block (`StreamDetails`).
+    func getVODInfo(playlist: Playlist, vodId: Int) async throws -> XtreamVODInfoResponse {
+        let parameters = [URLQueryItem(name: "vod_id", value: String(vodId))]
+        guard let url = Self.playerAPIURL(for: playlist, action: "get_vod_info", parameters: parameters) else {
+            throw XtreamError.invalidURL
+        }
+        return try await request(url, action: "get_vod_info")
+    }
+
     // MARK: - Stream URL Building
 
     /// Builds a playback URL for a movie

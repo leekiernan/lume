@@ -9,7 +9,6 @@ final class SeriesDetailLoadMachine {
         var isLoadingTMDB: Bool
         var isLoadingEpisodes = false
         var similar: [HomeMediaItem] = []
-        var otherSources: [OtherSources.Source] = []
         var availableSeasons: [Int] = []
         var episodesBySeason: [Int: [Episode]] = [:]
         var selectedSeason = 1
@@ -19,7 +18,6 @@ final class SeriesDetailLoadMachine {
     private var detail: DetailLoadState
     private var episodeLoad = DetailLoadState()
     private(set) var similar: [HomeMediaItem] = []
-    private(set) var otherSources: [OtherSources.Source] = []
     private(set) var availableSeasons: [Int] = []
     private(set) var episodesBySeason: [Int: [Episode]] = [:]
     var selectedSeason = 1
@@ -44,7 +42,7 @@ final class SeriesDetailLoadMachine {
         }
         return Snapshot(
             isLoadingTMDB: isLoadingTMDB, isLoadingEpisodes: isLoadingEpisodes,
-            similar: similar, otherSources: otherSources, availableSeasons: availableSeasons,
+            similar: similar, availableSeasons: availableSeasons,
             episodesBySeason: episodesBySeason, selectedSeason: selectedSeason
         )
     }
@@ -63,7 +61,6 @@ final class SeriesDetailLoadMachine {
         await enrichSeriesRatingsIfNeeded(series, context: context)
         guard !Task.isCancelled, detail.owns(request) else { return }
         resolveSimilar(series, in: context)
-        otherSources = OtherSources.resolve(for: series, in: context)
         detail.finish(request)
     }
 
@@ -123,7 +120,6 @@ final class SeriesDetailLoadMachine {
         invalidate()
         contentID = series.id
         similar = []
-        otherSources = []
         availableSeasons = []
         episodesBySeason = [:]
         selectedSeason = 1

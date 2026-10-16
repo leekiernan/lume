@@ -9,7 +9,6 @@ final class MovieDetailLoadMachine {
         var isLoadingTMDB: Bool
         var similar: [HomeMediaItem] = []
         var collectionMovies: [HomeMediaItem] = []
-        var otherSources: [OtherSources.Source] = []
     }
 
     private(set) var contentID: String
@@ -18,7 +17,6 @@ final class MovieDetailLoadMachine {
     private(set) var collectionID: Int?
     private(set) var similar: [HomeMediaItem] = []
     private(set) var collectionMovies: [HomeMediaItem] = []
-    private(set) var otherSources: [OtherSources.Source] = []
 
     var isLoadingTMDB: Bool {
         detail.isBlocking
@@ -37,8 +35,7 @@ final class MovieDetailLoadMachine {
         }
         return Snapshot(
             isLoadingTMDB: isLoadingTMDB, similar: similar,
-            collectionMovies: collectionID == movie.collectionId ? collectionMovies : [],
-            otherSources: otherSources
+            collectionMovies: collectionID == movie.collectionId ? collectionMovies : []
         )
     }
 
@@ -50,7 +47,6 @@ final class MovieDetailLoadMachine {
         await enrichMovieRatingsIfNeeded(movie, context: context)
         guard !Task.isCancelled, detail.owns(request) else { return }
         resolveSimilar(movie, in: context)
-        otherSources = OtherSources.resolve(for: movie, in: context)
         detail.finish(request)
     }
 
@@ -94,7 +90,6 @@ final class MovieDetailLoadMachine {
         similar = []
         collectionMovies = []
         collectionID = nil
-        otherSources = []
         detail = Self.initialDetail(for: movie)
     }
 
