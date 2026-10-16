@@ -46,6 +46,8 @@ final class DownloadManager: NSObject {
     private var idToTask: [String: URLSessionDownloadTask] = [:]
     private var idToFilename: [String: String] = [:]
     private var pendingQueue: [PendingDownload] = []
+    private nonisolated let lifecycle = OSAllocatedUnfairLock(initialState: DownloadLifecycle())
+    private var statusWrite: Task<Void, Never>?
 
     /// Handed over by `UIApplicationDelegate` when the app is relaunched to
     /// receive background session events. Must be called once the session has
@@ -94,8 +96,20 @@ final class DownloadManager: NSObject {
     /// still holds the tasks while every map here is empty. Each task carries
     /// its own `DownloadTaskInfo`, which is enough to rebuild them.
     func restoreBackgroundSession() async {
+        let tasks = Task { await session.allTasks }
+        // Reserve the persistence lane before awaiting URLSession. New enqueues
+        // and completion callbacks must land after recovery, not race against it.
+        if let container = modelContainer {
+            let previous = statusWrite
+            let directory = downloadsDirectory
+            statusWrite = Task.detached {
+                await previous?.value
+                let liveIDs = await Set(tasks.value.compactMap { DownloadTaskInfo(taskDescription: $0.taskDescription)?.id })
+                await Self.recoverInterruptedDownloads(liveIDs: liveIDs, directory: directory, container: container)
+            }
+        }
         var liveIDs: Set<String> = []
-        for task in await session.allTasks {
+        for task in await tasks.value {
             guard let download = task as? URLSessionDownloadTask,
                   let info = DownloadTaskInfo(taskDescription: task.taskDescription)
             else {
@@ -105,6 +119,7 @@ final class DownloadManager: NSObject {
                 task.cancel()
                 continue
             }
+            guard lifecycle.withLock({ $0.restore(info.id, task: task.taskIdentifier) }) else { continue }
             liveIDs.insert(info.id)
             taskMap[task.taskIdentifier] = info.id
             idToTask[info.id] = download
@@ -119,17 +134,6 @@ final class DownloadManager: NSObject {
             activeDownloads[info.id] = active
         }
         Logger.downloads.info("Adopted \(liveIDs.count) in-flight background download(s)")
-
-        guard let container = modelContainer else { return }
-        let capturedIDs = liveIDs
-        let directory = downloadsDirectory
-        Task.detached {
-            await DownloadManager.recoverInterruptedDownloads(
-                liveIDs: capturedIDs,
-                directory: directory,
-                container: container
-            )
-        }
     }
 
     /// Stores the completion handler the system hands over when it relaunches
@@ -200,12 +204,18 @@ final class DownloadManager: NSObject {
     }
 
     func cancelDownload(id: String) {
+        lifecycle.withLock { $0.cancel(id) }
+        if let task = idToTask[id] {
+            taskMap.removeValue(forKey: task.taskIdentifier)
+            _ = progressPublishGate.withLock { $0.removeValue(forKey: task.taskIdentifier) }
+        }
         idToTask[id]?.cancel()
         idToTask.removeValue(forKey: id)
         activeDownloads.removeValue(forKey: id)
         pendingIDs.remove(id)
         pendingQueue.removeAll { $0.id == id }
         scheduleModelUpdate(id: id, status: nil, localURL: nil)
+        promoteIfNeeded()
     }
 
     func deleteLocalFile(id: String) {
@@ -216,7 +226,7 @@ final class DownloadManager: NSObject {
         } else {
             let sanitizedID = Self.sanitize(id)
             let all = (try? FileManager.default.contentsOfDirectory(at: downloadsDirectory, includingPropertiesForKeys: nil)) ?? []
-            for file in all where file.deletingPathExtension().lastPathComponent == sanitizedID {
+            for file in all where Self.isDownloadFile(file, for: sanitizedID) {
                 try? FileManager.default.removeItem(at: file)
             }
         }
@@ -292,6 +302,7 @@ final class DownloadManager: NSObject {
     }
 
     private func enqueue(_ item: PendingDownload) {
+        lifecycle.withLock { $0.enqueue(item.id) }
         DownloadCompletionNotifications.shared.prepareForDownload()
         pendingQueue.append(item)
         pendingIDs.insert(item.id)
@@ -310,8 +321,15 @@ final class DownloadManager: NSObject {
 
     private func startTask(_ item: PendingDownload) {
         let task = session.downloadTask(with: item.url)
+        guard lifecycle.withLock({ $0.start(item.id, task: task.taskIdentifier) }) else { task.cancel(); return }
+        // Each attempt owns a different file. An old completion that was
+        // already moving cannot overwrite a replacement's successfully saved file.
+        let base = (item.filename as NSString).deletingPathExtension
+        let ext = (item.filename as NSString).pathExtension
+        let filename = "\(base).\(UUID().uuidString).\(ext)"
+        idToFilename[item.id] = filename
         task.taskDescription = DownloadTaskInfo(
-            id: item.id, title: item.title, filename: item.filename
+            id: item.id, title: item.title, filename: filename
         ).taskDescription
         taskMap[task.taskIdentifier] = item.id
         idToTask[item.id] = task
@@ -325,44 +343,15 @@ final class DownloadManager: NSObject {
         let capturedID = id
         let capturedStatus = status
         let capturedURL = localURL
-        Task.detached {
+        let previous = statusWrite
+        statusWrite = Task.detached {
+            await previous?.value
             await DownloadManager.persistStatus(
                 id: capturedID,
                 status: capturedStatus,
                 localURL: capturedURL,
                 container: container
             )
-        }
-    }
-
-    private nonisolated static func persistStatus(
-        id: String,
-        status: DownloadStatus?,
-        localURL: String?,
-        container: ModelContainer
-    ) async {
-        let context = ModelContext(container)
-        context.autosaveEnabled = false
-        do {
-            var movieDesc = FetchDescriptor<Movie>(predicate: #Predicate { $0.id == id })
-            movieDesc.fetchLimit = 1
-            if let movie = try context.fetch(movieDesc).first {
-                movie.downloadStatus = status
-                movie.localFileURL = localURL
-                movie.downloadedAt = status == .completed ? Date() : nil
-                try context.save()
-                return
-            }
-            var epDesc = FetchDescriptor<Episode>(predicate: #Predicate { $0.id == id })
-            epDesc.fetchLimit = 1
-            if let episode = try context.fetch(epDesc).first {
-                episode.downloadStatus = status
-                episode.localFileURL = localURL
-                episode.downloadedAt = status == .completed ? Date() : nil
-                try context.save()
-            }
-        } catch {
-            Logger.downloads.error("Failed to persist download status for \(id): \(error)")
         }
     }
 
@@ -431,6 +420,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
             )
             return
         }
+        guard lifecycle.withLock({ $0.beginCompletion(info.id, task: taskID) }) else { return }
 
         // URLSession deletes `location` the moment this delegate returns, and the
         // process may be suspended before any hop to the main actor runs — so the
@@ -451,7 +441,11 @@ extension DownloadManager: URLSessionDownloadDelegate {
         completionDeliveryGroup.enter()
         Task { @MainActor in
             defer { self.completionDeliveryGroup.leave() }
-            self.finalizeDownload(taskID: taskID, info: info)
+            guard self.finalizeDownload(taskID: taskID, info: info) else {
+                try? FileManager.default.removeItem(at: destination)
+                return
+            }
+            await self.statusWrite?.value
             await DownloadCompletionNotifications.shared.notifyCompleted(info, taskID: taskID)
         }
     }
@@ -524,10 +518,14 @@ extension DownloadManager: URLSessionDownloadDelegate {
             }
             Logger.downloads.info("Download complete: \(id)")
             let info = DownloadTaskInfo(id: id, title: self.activeDownloads[id]?.title ?? id, filename: filename)
-            self.finalizeDownload(
+            guard self.finalizeDownload(
                 taskID: taskID,
                 info: info
-            )
+            ) else {
+                try? FileManager.default.removeItem(at: destination)
+                return
+            }
+            await self.statusWrite?.value
             await DownloadCompletionNotifications.shared.notifyCompleted(info, taskID: taskID)
         }
     }
@@ -535,7 +533,8 @@ extension DownloadManager: URLSessionDownloadDelegate {
     /// Main-actor bookkeeping once the file is already in place: clear the live
     /// maps and persist the completed status.
     @MainActor
-    private func finalizeDownload(taskID: Int, info: DownloadTaskInfo) {
+    private func finalizeDownload(taskID: Int, info: DownloadTaskInfo) -> Bool {
+        guard lifecycle.withLock({ $0.finish(info.id, task: taskID) }) else { return false }
         _ = progressPublishGate.withLock { $0.removeValue(forKey: taskID) }
         idToFilename[info.id] = info.filename
         activeDownloads.removeValue(forKey: info.id)
@@ -545,6 +544,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
         // update (see `DownloadStorage.file(forStored:)`).
         scheduleModelUpdate(id: info.id, status: .completed, localURL: info.filename)
         promoteIfNeeded()
+        return true
     }
 
     nonisolated func urlSession(
@@ -587,6 +587,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
 
     @MainActor
     private func handleFailure(taskID: Int, id: String) {
+        guard lifecycle.withLock({ $0.fail(id, task: taskID) }) else { return }
         _ = progressPublishGate.withLock { $0.removeValue(forKey: taskID) }
         activeDownloads.removeValue(forKey: id)
         taskMap.removeValue(forKey: taskID)

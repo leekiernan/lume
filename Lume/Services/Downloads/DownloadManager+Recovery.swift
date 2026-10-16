@@ -3,6 +3,42 @@ import OSLog
 import SwiftData
 
 extension DownloadManager {
+    nonisolated static func persistStatus(
+        id: String,
+        status: DownloadStatus?,
+        localURL: String?,
+        container: ModelContainer
+    ) async {
+        let context = ModelContext(container)
+        context.autosaveEnabled = false
+        do {
+            var movieDesc = FetchDescriptor<Movie>(predicate: #Predicate { $0.id == id })
+            movieDesc.fetchLimit = 1
+            if let movie = try context.fetch(movieDesc).first {
+                movie.downloadStatus = status
+                movie.localFileURL = localURL
+                movie.downloadedAt = status == .completed ? Date() : nil
+                try context.save()
+                return
+            }
+            var epDesc = FetchDescriptor<Episode>(predicate: #Predicate { $0.id == id })
+            epDesc.fetchLimit = 1
+            if let episode = try context.fetch(epDesc).first {
+                episode.downloadStatus = status
+                episode.localFileURL = localURL
+                episode.downloadedAt = status == .completed ? Date() : nil
+                try context.save()
+            }
+        } catch {
+            Logger.downloads.error("Failed to persist download status for \(id): \(error)")
+        }
+    }
+
+    nonisolated static func isDownloadFile(_ url: URL, for sanitizedID: String) -> Bool {
+        let base = url.deletingPathExtension().lastPathComponent
+        return base == sanitizedID || base.hasPrefix(sanitizedID + ".")
+    }
+
     /// Settles catalog items still marked `pending`/`downloading` that the
     /// restored session knows nothing about.
     ///
@@ -26,8 +62,7 @@ extension DownloadManager {
         func downloadedFile(for id: String) -> URL? {
             let sanitized = sanitize(id)
             return files.first {
-                $0.deletingPathExtension().lastPathComponent == sanitized
-                    && DownloadValidator.isUsableFile(at: $0)
+                isDownloadFile($0, for: sanitized) && DownloadValidator.isUsableFile(at: $0)
             }
         }
 
