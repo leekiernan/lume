@@ -73,6 +73,13 @@ extension Episode {
     /// `lastWatchedDate` consistent: a watched episode reads as fully played and
     /// clears any resume point, an unwatched one resets progress to the start.
     func setWatched(_ watched: Bool) {
+        applyWatched(watched)
+        refreshSeriesRecency()
+    }
+
+    /// The per-episode mutation, without rescanning the series relationship.
+    /// Bulk actions do this for every changed episode, then derive recency once.
+    private func applyWatched(_ watched: Bool) {
         isWatched = watched
         if watched {
             watchProgress = Double(durationSecs ?? 0)
@@ -85,6 +92,9 @@ extension Episode {
             WatchHistoryClears.shared.record(id)
         }
         RecentResumePoints.record(watchProgress, for: .episode(id))
+    }
+
+    private func refreshSeriesRecency() {
         if let series {
             series.refreshWatchRecency()
             if series.lastWatchedDate == nil { ContentClearLedger.shared.record(series.id) }
@@ -117,8 +127,9 @@ extension Episode {
         for other in series.episodes
             where (other.seasonNum, other.episodeNum) < (seasonNum, episodeNum) && !other.isWatched
         {
-            other.setWatched(true)
+            other.applyWatched(true)
         }
+        refreshSeriesRecency()
     }
 
     /// Marks every episode in the series ordered after this one as unwatched,
@@ -129,7 +140,8 @@ extension Episode {
             where (other.seasonNum, other.episodeNum) > (seasonNum, episodeNum)
             && (other.isWatched || other.watchProgress > 0)
         {
-            other.setWatched(false)
+            other.applyWatched(false)
         }
+        refreshSeriesRecency()
     }
 }
