@@ -7,9 +7,9 @@
 //  read-client house pattern) so refreshes run off the main actor — the hub must
 //  never await ESPN on `MainActor`.
 //
-//  Resilience is the contract: a non-2xx response or a decode failure degrades to
-//  an empty result ([] / nil) plus a `Logger.network` warning, never a thrown
-//  error, so one bad league can't abort a multi-league refresh. Scoreboards are
+//  Schedule, roster and standings reads throw on failure: an authoritative empty
+//  response must be distinguishable from an outage. Optional detail reads still
+//  degrade to nil. The sync service contains failures within each league. Scoreboards are
 //  fetched with `?dates=YYYYMM` (a whole month) or `?dates=YYYYMMDD` (one day);
 //  ESPN date *ranges* return zero events, so they are never used.
 //
@@ -41,35 +41,35 @@ nonisolated struct ESPNClient: SportsDataProvider {
     // MARK: - SportsDataProvider
 
     func fixtures(league: SportsLeague, month: DateComponents) async throws -> [SportsFixture] {
-        guard let year = month.year, let monthValue = month.month else { return [] }
+        guard let year = month.year, let monthValue = month.month else { throw FetchError.invalidWindow }
         let dates = String(format: "%04d%02d", year, monthValue)
-        return await scoreboardFixtures(league: league, dates: dates)
+        return try await scoreboardFixtures(league: league, dates: dates)
     }
 
     func fixtures(league: SportsLeague, day: Date) async throws -> [SportsFixture] {
         let dates = Self.dayFormatter.string(from: day)
-        return await scoreboardFixtures(league: league, dates: dates)
+        return try await scoreboardFixtures(league: league, dates: dates)
     }
 
     func teams(league: SportsLeague) async throws -> [SportsTeam] {
         if league.isTennis {
-            return await rankings(league: league).map(\.team)
+            return try await rankings(league: league).map(\.team)
         }
         let url = Self.siteAPIBase
             .appending(path: "\(league.sport)/\(league.slug)/teams")
             .appending(queryItems: [URLQueryItem(name: "limit", value: "1000")])
-        guard let response: ESPNTeamsResponse = await fetch(url) else { return [] }
+        let response: ESPNTeamsResponse = try await fetchRequired(url)
         let wrappers = response.sports?.first?.leagues?.first?.teams ?? []
         return wrappers.compactMap { Self.mapTeam($0.team, leagueId: league.id) }
     }
 
     func standings(league: SportsLeague) async throws -> [SportsStandingRow] {
         if league.isTennis {
-            return await rankings(league: league).map(\.row)
+            return try await rankings(league: league).map(\.row)
         }
         let url = Self.webAPIBase
             .appending(path: "\(league.sport)/\(league.slug)/standings")
-        guard let response: ESPNStandingsResponse = await fetch(url) else { return [] }
+        let response: ESPNStandingsResponse = try await fetchRequired(url)
         return Self.mapStandings(response)
     }
 
@@ -85,59 +85,60 @@ nonisolated struct ESPNClient: SportsDataProvider {
 
     // MARK: - Scoreboard fetch + map
 
-    private func scoreboardFixtures(league: SportsLeague, dates: String) async -> [SportsFixture] {
+    private func scoreboardFixtures(league: SportsLeague, dates: String) async throws -> [SportsFixture] {
         let url = Self.siteAPIBase
             .appending(path: "\(league.sport)/\(league.slug)/scoreboard")
             .appending(queryItems: [URLQueryItem(name: "dates", value: dates)])
-        guard let response: ESPNScoreboard = await fetch(url) else { return [] }
+        let response: ESPNScoreboard = try await fetchRequired(url)
         return Self.mapScoreboard(response, league: league)
     }
 
     /// A tennis tour has no teams and no table: its players come from the world
     /// ranking, which doubles as the standings.
-    private func rankings(league: SportsLeague) async -> [(team: SportsTeam, row: SportsStandingRow)] {
+    private func rankings(league: SportsLeague) async throws -> [(team: SportsTeam, row: SportsStandingRow)] {
         let url = Self.siteAPIBase.appending(path: "\(league.sport)/\(league.slug)/rankings")
-        guard let response: ESPNRankingsResponse = await fetch(url) else { return [] }
+        let response: ESPNRankingsResponse = try await fetchRequired(url)
         return Self.mapRankings(response, leagueId: league.id)
     }
 
     // MARK: - Networking
 
-    /// Fetches and decodes `T`, returning `nil` (and logging) on any failure so
-    /// callers can degrade to an empty result. Retries once on a transient error.
+    enum FetchError: Error {
+        case invalidWindow
+        case nonHTTP
+        case http(Int)
+    }
+
+    /// Optional detail surfaces can still degrade gracefully. Schedule callers
+    /// use the throwing path so an outage cannot erase cached fixtures.
     func fetch<T: Decodable>(_ url: URL) async -> T? {
+        try? await fetchRequired(url)
+    }
+
+    func fetchRequired<T: Decodable>(_ url: URL) async throws -> T {
         var request = URLRequest(url: url)
         request.timeoutInterval = requestTimeout
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-
         for attempt in 0 ..< 2 {
             do {
                 let (data, response) = try await session.data(for: request)
-                guard let http = response as? HTTPURLResponse else {
-                    Logger.network.warning("ESPN: non-HTTP response for \(url.absoluteString, privacy: .public)")
-                    return nil
-                }
-                guard (200 ... 299).contains(http.statusCode) else {
-                    let code = http.statusCode
-                    if (500 ... 599).contains(code), attempt == 0 { continue }
-                    Logger.network.warning("ESPN: HTTP \(code, privacy: .public) for \(url.absoluteString, privacy: .public)")
-                    return nil
-                }
-                do {
-                    return try JSONDecoder().decode(T.self, from: data)
-                } catch {
-                    let message = error.localizedDescription
-                    Logger.network.warning("ESPN: decode failed for \(url.absoluteString, privacy: .public): \(message, privacy: .public)")
-                    return nil
-                }
+                guard let http = response as? HTTPURLResponse else { throw FetchError.nonHTTP }
+                guard (200 ... 299).contains(http.statusCode) else { throw FetchError.http(http.statusCode) }
+                return try JSONDecoder().decode(T.self, from: data)
             } catch {
-                if attempt == 0 { continue }
-                let message = error.localizedDescription
-                Logger.network.warning("ESPN: request failed for \(url.absoluteString, privacy: .public): \(message, privacy: .public)")
-                return nil
+                try Task.checkCancellation()
+                if attempt == 0, Self.shouldRetry(error) { continue }
+                Logger.network.warning("ESPN: request failed for \(url.absoluteString, privacy: .public): \(error.localizedDescription)")
+                throw error
             }
         }
-        return nil
+        throw FetchError.nonHTTP
+    }
+
+    private static func shouldRetry(_ error: Error) -> Bool {
+        if let error = error as? URLError { return error.code != .cancelled }
+        if case let FetchError.http(code) = error { return (500 ... 599).contains(code) }
+        return false
     }
 
     // MARK: - Formatters

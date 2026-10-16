@@ -42,29 +42,33 @@ private final nonisolated class RequestCounter: @unchecked Sendable {
     }
 }
 
-/// A provider that returns whatever it is seeded with. `empty` models a total
-/// ESPN failure (everything degrades to `[]`).
+/// An authoritative empty schedule and a failed fetch are different outcomes.
 private nonisolated struct StubProvider: SportsDataProvider {
     var monthFixtures: [SportsFixture] = []
     var teamList: [SportsTeam] = []
     var standingRows: [SportsStandingRow] = []
     var monthCalls: RequestCounter?
+    var fails = false
 
     func fixtures(league _: SportsLeague, month _: DateComponents) async throws -> [SportsFixture] {
         monthCalls?.increment()
+        if fails { throw URLError(.notConnectedToInternet) }
         return monthFixtures
     }
 
     func fixtures(league _: SportsLeague, day _: Date) async throws -> [SportsFixture] {
-        []
+        if fails { throw URLError(.notConnectedToInternet) }
+        return []
     }
 
     func teams(league _: SportsLeague) async throws -> [SportsTeam] {
-        teamList
+        if fails { throw URLError(.notConnectedToInternet) }
+        return teamList
     }
 
     func standings(league _: SportsLeague) async throws -> [SportsStandingRow] {
-        standingRows
+        if fails { throw URLError(.notConnectedToInternet) }
+        return standingRows
     }
 
     func eventDetail(league _: SportsLeague, fixture _: SportsFixture) async throws -> SportsEventDetail? {
@@ -271,7 +275,7 @@ struct SportsSyncRefreshTests {
         #expect(store.snapshot(for: leagueId)?.fixtures.count == 1)
     }
 
-    @Test func `an all-empty refresh leaves the previous snapshot in place and flags an error`() async {
+    @Test func `a failed refresh leaves the previous snapshot in place and flags an error`() async {
         let leagueId = "espn:soccer/ger.1"
         let store = tempStore()
         // A snapshot from this morning — nothing followed is current any more.
@@ -287,8 +291,7 @@ struct SportsSyncRefreshTests {
             followSource: StubFollowSource(leagues: [leagueId]),
             defaults: isolatedDefaults()
         )
-        // ESPN unreachable: everything degrades to empty.
-        service.configure(provider: StubProvider())
+        service.configure(provider: StubProvider(fails: true))
         await service.refreshAll()
 
         #expect(store.snapshot(for: leagueId)?.fixtures.count == 1)
@@ -313,7 +316,7 @@ struct SportsSyncRefreshTests {
         // Only the off-season league is stale, and it answers nothing.
         await service.refreshStale()
 
-        #expect(store.snapshot(for: offSeason) == nil)
+        #expect(store.snapshot(for: offSeason)?.fixtures.isEmpty == true)
         #expect(store.refreshError == false)
     }
 }
@@ -502,7 +505,7 @@ struct SportsSyncStaleRefreshTests {
         let counter = RequestCounter()
         let sync = service(store: store)
         // First pass: ESPN unreachable, everything degrades to empty.
-        sync.configure(provider: StubProvider(monthCalls: counter))
+        sync.configure(provider: StubProvider(monthCalls: counter, fails: true))
         await sync.refreshStale()
         let firstPass = counter.count
         #expect(store.snapshot(for: leagueId) == nil)

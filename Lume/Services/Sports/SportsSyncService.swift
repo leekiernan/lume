@@ -383,46 +383,38 @@ final class SportsSyncService {
         let existing = store.snapshot(for: league.id)
         let teamsCacheFresh = Self.teamsCacheIsFresh(existing)
 
-        async let fetchedMonths = Self.fetchFixtures(provider: provider, league: league, months: months)
-        async let fetchedTeams = teamsCacheFresh ? [] : ((try? provider.teams(league: league)) ?? [])
-        async let fetchedStandings = (try? provider.standings(league: league)) ?? []
+        async let fetchedMonths = SportsFetch.fixtures(provider: provider, league: league, windows: months.map(SportsFixtureWindow.month))
+        async let fetchedTeams = SportsFetch.capture {
+            if teamsCacheFresh { return existing?.teams ?? [] }
+            return try await provider.teams(league: league)
+        }
+        async let fetchedStandings = SportsFetch.capture { try await provider.standings(league: league) }
 
-        let (monthFixtures, gotFixtures) = await fetchedMonths
+        let monthResults = await fetchedMonths
         let teamsResult = await fetchedTeams
         let standingsResult = await fetchedStandings
-
-        var fixturesById: [String: SportsFixture] = [:]
-        if let existing {
-            for fixture in existing.fixtures {
-                fixturesById[fixture.id] = fixture
-            }
-        }
-        for fixture in monthFixtures {
-            fixturesById[fixture.id] = fixture
-        }
-
+        let gotFixtures = monthResults.contains(where: \.succeeded)
+        let fixtures = SportsFixtureWindowResult.merging(monthResults, into: existing?.fixtures ?? [])
         let teams: [SportsTeam]
         let teamsFetchedAt: Date?
-        var gotTeams = false
-        if teamsCacheFresh {
+        switch teamsResult {
+        case let .success(fetched):
+            teams = fetched
+            teamsFetchedAt = teamsCacheFresh ? existing?.teamsFetchedAt : Date()
+        case .failure:
             teams = existing?.teams ?? []
             teamsFetchedAt = existing?.teamsFetchedAt
-        } else if teamsResult.isEmpty {
-            teams = existing?.teams ?? []
-            teamsFetchedAt = existing?.teamsFetchedAt
-        } else {
-            teams = teamsResult
-            teamsFetchedAt = Date()
-            gotTeams = true
         }
-
-        let standings = standingsResult.isEmpty ? (existing?.standings ?? []) : standingsResult
-
-        guard !Task.isCancelled, Self.isEnabled, gotFixtures || gotTeams || !standingsResult.isEmpty else { return false }
+        let standings: [SportsStandingRow] = switch standingsResult {
+        case let .success(fetched): fetched
+        case .failure: existing?.standings ?? []
+        }
+        let gotTeams = !teamsCacheFresh && teamsResult.isSuccess
+        guard !Task.isCancelled, Self.isEnabled, gotFixtures || gotTeams || standingsResult.isSuccess else { return false }
 
         let snapshot = SportsLeagueSnapshot(
             fetchedAt: Date(),
-            fixtures: Self.retainedFixtures(Array(fixturesById.values)),
+            fixtures: Self.retainedFixtures(fixtures),
             standings: standings,
             teams: teams,
             teamsFetchedAt: teamsFetchedAt
@@ -449,60 +441,33 @@ final class SportsSyncService {
 
     /// Whether the cached roster is present and still within its week-long life.
     private nonisolated static func teamsCacheIsFresh(_ existing: SportsLeagueSnapshot?) -> Bool {
-        guard let existing, !existing.teams.isEmpty, let fetchedAt = existing.teamsFetchedAt else {
+        guard let existing, let fetchedAt = existing.teamsFetchedAt else {
             return false
         }
         return Date().timeIntervalSince(fetchedAt) < teamCacheLifetime
     }
 
-    /// Fetches a league's months concurrently and merges them in month order, so
-    /// per-league latency is the slowest month rather than their sum.
-    private nonisolated static func fetchFixtures(
-        provider: any SportsDataProvider,
-        league: SportsLeague,
-        months: [DateComponents]
-    ) async -> (fixtures: [SportsFixture], gotAny: Bool) {
-        await withTaskGroup(of: (Int, [SportsFixture]).self) { group in
-            for (index, month) in months.enumerated() {
-                group.addTask {
-                    await (index, (try? provider.fixtures(league: league, month: month)) ?? [])
-                }
-            }
-            var byIndex: [Int: [SportsFixture]] = [:]
-            for await (index, fetched) in group {
-                byIndex[index] = fetched
-            }
-            var all: [SportsFixture] = []
-            var gotAny = false
-            for index in months.indices {
-                let fetched = byIndex[index] ?? []
-                if !fetched.isEmpty { gotAny = true }
-                all.append(contentsOf: fetched)
-            }
-            return (all, gotAny)
-        }
-    }
-
     /// Re-fetches the given days by day for every league and merges the fresh
     /// fixtures into each league's snapshot, leaving the rest of the month intact.
-    /// A league whose every day came back empty is left untouched (that is what a
-    /// failed request looks like). `fetchedAt` is left alone: it dates the last
+    /// Successful empty windows remove withdrawn fixtures; failed windows keep
+    /// their previous data. `fetchedAt` is left alone: it dates the last
     /// full refresh, and a live game polled all afternoon must not keep the rest
     /// of its league's schedule from ever counting as stale.
     private func refreshDays(leagueIds: [String], days: [Date]) async {
         guard !Task.isCancelled, Self.isEnabled, let provider, !days.isEmpty else { return }
         let leagues = leagueIds.compactMap { SportsCatalog.league(id: $0) }
-        let fetchedByLeague = await withTaskGroup(of: (String, [SportsFixture]).self) { group in
-            for league in leagues {
-                for day in days {
-                    group.addTask {
-                        await (league.id, (try? provider.fixtures(league: league, day: day)) ?? [])
-                    }
-                }
+        let fetchedByLeague = await withTaskGroup(of: (String, [SportsFixtureWindowResult]).self) { group in
+            var iterator = leagues.makeIterator()
+            for _ in 0 ..< Self.maxConcurrentLeagueRefreshes {
+                guard let league = iterator.next() else { break }
+                group.addTask { await (league.id, SportsFetch.fixtures(provider: provider, league: league, windows: days.map(SportsFixtureWindow.day))) }
             }
-            var out: [String: [SportsFixture]] = [:]
-            for await (leagueId, fixtures) in group {
-                out[leagueId, default: []].append(contentsOf: fixtures)
+            var out: [String: [SportsFixtureWindowResult]] = [:]
+            while let (leagueID, results) = await group.next() {
+                out[leagueID] = results
+                if !Task.isCancelled, let league = iterator.next() {
+                    group.addTask { await (league.id, SportsFetch.fixtures(provider: provider, league: league, windows: days.map(SportsFixtureWindow.day))) }
+                }
             }
             return out
         }
@@ -511,13 +476,9 @@ final class SportsSyncService {
         guard !Task.isCancelled, Self.isEnabled else { return }
         for (leagueId, fetched) in fetchedByLeague {
             guard !Task.isCancelled, Self.isEnabled else { return }
-            guard !fetched.isEmpty else { continue }
+            guard fetched.contains(where: \.succeeded) else { continue }
             var snapshot = store.snapshot(for: leagueId) ?? SportsLeagueSnapshot(fetchedAt: .distantPast)
-            var byId = Dictionary(snapshot.fixtures.map { ($0.id, $0) }, uniquingKeysWith: { _, new in new })
-            for fixture in fetched {
-                byId[fixture.id] = fixture
-            }
-            snapshot.fixtures = Array(byId.values)
+            snapshot.fixtures = Self.retainedFixtures(SportsFixtureWindowResult.merging(fetched, into: snapshot.fixtures))
             await publish(snapshot, for: leagueId)
             updated = true
         }

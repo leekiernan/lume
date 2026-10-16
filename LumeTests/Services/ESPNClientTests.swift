@@ -311,12 +311,13 @@ struct ESPNClientTests {
 
     // MARK: - Degrade to empty
 
-    @Test func `garbage scoreboard JSON yields an empty list, not a throw`() async throws {
+    @Test func `garbage scoreboard JSON fails rather than claiming an empty schedule`() async throws {
         StubURLProtocol.register(host: siteHost, query: (name: "dates", value: "209912"), response: .init(body: "not json {{"))
         let client = ESPNClient(session: StubURLProtocol.makeSession())
 
-        let fixtures = try await client.fixtures(league: soccerLeague(), month: DateComponents(year: 2099, month: 12))
-        #expect(fixtures.isEmpty)
+        await #expect(throws: (any Error).self) {
+            try await client.fixtures(league: soccerLeague(), month: DateComponents(year: 2099, month: 12))
+        }
     }
 
     @Test func `garbage summary JSON yields nil, not a throw`() async throws {
@@ -327,7 +328,7 @@ struct ESPNClientTests {
         #expect(detail == nil)
     }
 
-    @Test func `non-2xx status yields an empty list`() async throws {
+    @Test func `non-2xx standings fail rather than clearing the table`() async throws {
         StubURLProtocol.register(
             host: webHost,
             pathSuffix: "/soccer/esp.1/standings",
@@ -337,8 +338,7 @@ struct ESPNClientTests {
         let league = SportsLeague(sport: "soccer", slug: "esp.1", name: "LaLiga", abbreviation: "LAL", region: .spain)
         let client = ESPNClient(session: StubURLProtocol.makeSession())
 
-        let rows = try await client.standings(league: league)
-        #expect(rows.isEmpty)
+        await #expect(throws: ESPNClient.FetchError.self) { try await client.standings(league: league) }
     }
 
     // MARK: - Cricket
