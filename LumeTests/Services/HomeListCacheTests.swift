@@ -16,9 +16,11 @@ struct HomeListCacheTests {
         #expect(restored?.entries.map(\.mediaType) == [.movie, .series])
         #expect(restored?.entries.map(\.title) == ["", ""])
         #expect(restored?.nextPage == 2)
-        let bytes = try Data(contentsOf: directory.appendingPathComponent("membership-v1.json"))
+        let bytes = try Data(contentsOf: directory.appendingPathComponent("membership-v2.json"))
         let json = try #require(String(data: bytes, encoding: .utf8))
         #expect(!json.contains("Do not store me"))
+        // Filed by digest: the list's URL isn't in the file either.
+        #expect(!json.contains("themoviedb.org"))
     }
 
     @Test func `private lists isolate connected and disconnected accounts and languages`() {
@@ -27,8 +29,8 @@ struct HomeListCacheTests {
         #expect(key != HomeListCacheKey(source: source, account: "b", language: "en-GB"))
         #expect(key != HomeListCacheKey(source: source, account: nil, language: "en-GB"))
         #expect(key != HomeListCacheKey(source: source, account: "a", language: "de-DE"))
-        #expect(key.digest.count == 64)
-        #expect(!key.digest.contains("private"))
+        #expect(key.digest.rawValue.count == 64)
+        #expect(!key.digest.rawValue.contains("private"))
     }
 
     @Test func `empty successful response replaces membership and old records expire`() async {

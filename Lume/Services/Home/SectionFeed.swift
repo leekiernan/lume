@@ -237,8 +237,11 @@ final class SectionFeed {
     private func trendingTitles(using client: TMDBClient) async throws -> ([TrendingTitle], [TrendingTitle]) {
         // A scoped surface only ever renders one medium, so don't pay for the
         // other feed there.
-        async let movieTitles = surface.mediaType == .series || !requestsRow(.builtin(.trendingMovies)) ? [] : client.trending(.movie)
-        async let tvTitles = surface.mediaType == .movie || !requestsRow(.builtin(.trendingSeries)) ? [] : client.trending(.tvShow)
+        // Decided here: `async let` runs its expression off the main actor.
+        let wantsMovies = surface.mediaType != .series && requestsRow(.builtin(.trendingMovies))
+        let wantsSeries = surface.mediaType != .movie && requestsRow(.builtin(.trendingSeries))
+        async let movieTitles = wantsMovies ? client.trending(.movie) : []
+        async let tvTitles = wantsSeries ? client.trending(.tvShow) : []
         return try await (movieTitles, tvTitles)
     }
 
@@ -447,7 +450,7 @@ extension SectionFeed {
     func publishCollection(_ collection: SectionCollectionSnapshot, for ref: HomeSectionRef) {
         if let previous = collections[ref],
            previous.preview.map(\.id) == collection.preview.map(\.id),
-           previous.entries.map(HomeListIdentity.init) == collection.entries.map(HomeListIdentity.init),
+           previous.entries.map(\.reference) == collection.entries.map(\.reference),
            previous.continuation == collection.continuation { return }
         collections[ref] = collection
     }
