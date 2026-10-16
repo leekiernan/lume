@@ -107,6 +107,15 @@ struct HeroWarmStartTests {
 
         #expect(feed.heroState == .empty)
         #expect(!feed.heroState.reservesSpace)
+        #expect(feed.loads.state(of: SectionFeedSource.custom) == .loaded)
+    }
+
+    @Test @MainActor func `nonempty hero source still needs a catalogue context`() async {
+        let feed = SectionFeed(surface: .home)
+        feed.heroRef = .custom(Self.alpha.id)
+        await feed.loadCustomSections(cacheKey: UUID().uuidString, sections: [Self.alpha])
+        #expect(feed.heroState == .failed)
+        #expect(!feed.heroState.reservesSpace)
     }
 
     @Test func `malformed hero warm start is ignored`() {

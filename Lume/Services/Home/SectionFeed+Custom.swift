@@ -6,6 +6,10 @@ extension SectionFeed {
     /// puts the hero and top rails first; lower rows refresh two at a time.
     func loadCustomSections(cacheKey: String, sections: [CustomHomeSection]) async {
         let request = beginCustomLoad(cacheKey: cacheKey, sections: sections)
+        guard !sections.isEmpty else {
+            finishCustomLoad(cacheKey: cacheKey, sections: sections, request: request)
+            return
+        }
         guard context != nil else {
             transition(.finished(.custom, .failed))
             return
