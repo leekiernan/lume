@@ -43,6 +43,8 @@ final class FakeTracker {
     var pollResponses: [TrackerPollOutcome<FakeTokens>] = []
     var refreshResponse: TrackerRefreshOutcome<FakeTokens> = .unavailable
     var refreshCalls = 0
+    var refreshGate: (() async -> TrackerRefreshOutcome<FakeTokens>)?
+    var identityGate: (() async -> FakeIdentity?)?
     var revoked: [String] = []
     var credentialChanges = 0
     var disconnectRecorded = false
@@ -81,6 +83,7 @@ struct FakeBackend: TrackerAccountBackend {
 
     func refresh(_: String) async -> TrackerRefreshOutcome<FakeTokens> {
         tracker.refreshCalls += 1
+        if let gate = tracker.refreshGate { return await gate() }
         return tracker.refreshResponse
     }
 
@@ -89,7 +92,8 @@ struct FakeBackend: TrackerAccountBackend {
     }
 
     func fetchIdentity(accessToken _: String) async -> FakeIdentity? {
-        tracker.identityResponses.isEmpty ? nil : tracker.identityResponses.removeFirst()
+        if let gate = tracker.identityGate { return await gate() }
+        return tracker.identityResponses.isEmpty ? nil : tracker.identityResponses.removeFirst()
     }
 
     func deliver(_ mutation: TrackerMutation, accessToken _: String) async throws -> Bool {

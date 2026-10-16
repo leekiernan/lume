@@ -47,6 +47,7 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
     @ObservationIgnored private var pollingTask: Task<Void, Never>?
     @ObservationIgnored private var identityTask: Task<Void, Never>?
     @ObservationIgnored private var refreshTask: Task<String?, Never>?
+    @ObservationIgnored private var generation = RequestToken()
     /// A refresh token the service rejected. Another device may have consumed
     /// it and be exporting the replacement through iCloud, so don't retry it
     /// until a different pair arrives.
@@ -98,6 +99,7 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
     func restore() async -> TrackerRestoreOutcome {
         guard isConfigured else { return .signedOut }
         guard let stored = backend.loadTokens() else {
+            invalidateSessionWork()
             tokens = nil
             refreshFailedForToken = nil
             backend.clearIdentity()
@@ -105,6 +107,7 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
             send(.tokensGone)
             return .signedOut
         }
+        if tokens != stored { invalidateSessionWork() }
         tokens = stored
         if refreshFailedForToken != stored.refreshToken {
             refreshFailedForToken = nil
@@ -113,11 +116,13 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
         setIdentity(remembered, confirmed: false)
         send(.tokensHeld(account: remembered?.username))
 
-        guard let accessToken = await validAccessToken() else { return .waiting }
+        let request = generation
+        guard let accessToken = await validAccessToken(), generation == request, isConnected else { return .waiting }
         if let fresh = await backend.fetchIdentity(accessToken: accessToken) {
+            guard generation == request, isConnected, !Task.isCancelled else { return .signedOut }
             adopt(fresh)
         }
-        return .ready
+        return generation == request && isConnected ? .ready : .signedOut
     }
 
     func connect() {
@@ -132,18 +137,26 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
     /// Revokes the token server-side (best effort) and clears the session,
     /// recording the user's decision so iCloud signs every device out.
     func disconnect() async {
+        let revokedToken = tokens?.accessToken
+        invalidateSessionWork()
         send(.disconnected)
-        identityTask?.cancel()
-        identityTask = nil
-        if let accessToken = tokens?.accessToken {
-            await backend.revoke(accessToken: accessToken)
-        }
         if backend.clearTokensForUserDisconnect() {
             backend.credentialsDidChange()
         }
         backend.clearIdentity()
         tokens = nil
         setIdentity(nil, confirmed: false)
+        // Local intent is durable before the network suspension. A new sign-in
+        // during revocation must not be cleared by this old operation.
+        if let revokedToken { await backend.revoke(accessToken: revokedToken) }
+    }
+
+    private func invalidateSessionWork() {
+        generation = RequestToken()
+        refreshTask?.cancel()
+        refreshTask = nil
+        identityTask?.cancel()
+        identityTask = nil
     }
 
     // MARK: - Tokens
@@ -156,29 +169,36 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
             return current.accessToken
         }
         guard refreshFailedForToken != current.refreshToken else { return nil }
+        let request = generation
         if let refreshTask {
-            return await refreshTask.value
+            let result = await refreshTask.value
+            return generation == request && !Task.isCancelled ? result : nil
         }
 
         let task = Task { [weak self] () -> String? in
             guard let self else { return nil }
-            switch await backend.refresh(current.refreshToken) {
-            case let .refreshed(newTokens):
-                apply(newTokens)
-                return tokens?.accessToken
-            case .rejected:
-                if tokens?.refreshToken == current.refreshToken {
-                    refreshFailedForToken = current.refreshToken
-                }
-                return nil
-            case .unavailable:
-                return nil
-            }
+            return await refresh(current, request: request)
         }
         refreshTask = task
         let result = await task.value
+        guard generation == request else { return nil }
         refreshTask = nil
-        return result
+        return Task.isCancelled ? nil : result
+    }
+
+    private func refresh(_ current: Backend.Tokens, request: RequestToken) async -> String? {
+        let result = await backend.refresh(current.refreshToken)
+        guard generation == request, tokens?.refreshToken == current.refreshToken, !Task.isCancelled else { return nil }
+        switch result {
+        case let .refreshed(newTokens):
+            apply(newTokens)
+            return tokens?.accessToken
+        case .rejected:
+            refreshFailedForToken = current.refreshToken
+            return nil
+        case .unavailable:
+            return nil
+        }
     }
 
     private func apply(_ newTokens: Backend.Tokens) {
@@ -212,13 +232,14 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
     /// attempts, until it is known or the session no longer needs it.
     private func resolveIdentity() {
         guard identityTask == nil else { return }
+        let request = generation
         identityTask = Task { [weak self] in
             var delay = self?.identityRetryDelay ?? .seconds(15)
             while !Task.isCancelled {
-                guard let self, machine.isConnected, machine.account == nil else { break }
+                guard let self, generation == request, machine.isConnected, machine.account == nil else { break }
                 if let accessToken = await validAccessToken(),
                    let fresh = await backend.fetchIdentity(accessToken: accessToken),
-                   machine.isConnected, machine.account == nil
+                   generation == request, !Task.isCancelled, machine.isConnected, machine.account == nil
                 {
                     adopt(fresh)
                     break
@@ -226,7 +247,7 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
                 try? await Task.sleep(for: delay)
                 delay = min(delay * 2, .seconds(600))
             }
-            self?.identityTask = nil
+            if self?.generation == request { self?.identityTask = nil }
         }
     }
 
@@ -235,6 +256,7 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
     private func runDeviceFlow() async {
         do {
             let code = try await backend.requestDeviceCode()
+            try Task.checkCancellation()
             send(.codeIssued(code))
 
             let deadline = Date().addingTimeInterval(TimeInterval(code.expiresIn))
@@ -245,9 +267,9 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
             // a user who says no.
             while !Task.isCancelled, Date() < deadline {
                 try await Task.sleep(for: .seconds(interval))
-                if Task.isCancelled { return }
-
-                switch await backend.poll(code) {
+                let outcome = await backend.poll(code)
+                try Task.checkCancellation()
+                switch outcome {
                 case .pending:
                     continue
                 case .slowDown:
@@ -258,7 +280,7 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
                     await finishConnect(with: newTokens)
                     return
                 case let .failed(failure):
-                    if !Task.isCancelled { send(.connectFailed(failure)) }
+                    send(.connectFailed(failure))
                     return
                 }
             }
@@ -268,13 +290,17 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
         } catch is CancellationError {
             // Cancelled via cancelConnect() or a disconnect.
         } catch {
-            send(.connectFailed(.unreachable))
+            if !Task.isCancelled { send(.connectFailed(.unreachable)) }
         }
     }
 
     private func finishConnect(with newTokens: Backend.Tokens) async {
+        guard !Task.isCancelled, isConnecting else { return }
+        invalidateSessionWork()
+        let request = generation
         apply(newTokens)
         let fresh = await backend.fetchIdentity(accessToken: newTokens.accessToken)
+        guard !Task.isCancelled, generation == request, isConnecting else { return }
         if let fresh {
             // Just fetched with the new token, so work queued for the account
             // can go out.

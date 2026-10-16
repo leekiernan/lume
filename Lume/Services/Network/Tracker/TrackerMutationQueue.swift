@@ -159,10 +159,12 @@ final class TrackerMutationQueue<Backend: TrackerAccountBackend> {
 
         while !Task.isCancelled, self.account == account, let mutation = outbox.firstMutation(account: account) {
             guard let accessToken = await session.validAccessToken() else {
+                guard !Task.isCancelled, drainID == id, self.account == account else { break }
                 outbox.recordFailure(id: mutation.id, account: account)
                 syncError = "Couldn't sync changes to \(Backend.name). Please try again."
                 break
             }
+            guard !Task.isCancelled, drainID == id, self.account == account else { break }
             do {
                 guard try await session.backend.deliver(mutation, accessToken: accessToken) else {
                     Logger.network.error(

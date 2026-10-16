@@ -23,6 +23,39 @@ let alice = FakeIdentity(username: "alice", scope: "fake:1")
 
 @MainActor
 struct TrackerAccountSessionTests {
+    @Test func `late refresh cannot resurrect a disconnected session`() async throws {
+        let tracker = FakeTracker()
+        tracker.storedTokens = FakeTokens(accessToken: "old", refreshToken: "r", issuedAt: 1, needsRefresh: true)
+        tracker.storedIdentity = alice
+        var completion: CheckedContinuation<TrackerRefreshOutcome<FakeTokens>, Never>?
+        tracker.refreshGate = { await withCheckedContinuation { completion = $0 } }
+        let session = makeSession(tracker)
+        let restore = Task { await session.restore() }
+        try await waitUntil { completion != nil }
+        await session.disconnect()
+        completion?.resume(returning: .refreshed(FakeTokens(accessToken: "late", refreshToken: "late-r", issuedAt: 2)))
+        _ = await restore.value
+        #expect(tracker.storedTokens == nil && tracker.storedIdentity == nil)
+        #expect(!session.isConnected)
+        #expect(await session.validAccessToken() == nil)
+    }
+
+    @Test func `late identity cannot restore an account after disconnect`() async throws {
+        let tracker = FakeTracker()
+        tracker.storedTokens = FakeTokens(accessToken: "a", refreshToken: "r", issuedAt: 1)
+        tracker.storedIdentity = alice
+        var completion: CheckedContinuation<FakeIdentity?, Never>?
+        tracker.identityGate = { await withCheckedContinuation { completion = $0 } }
+        let session = makeSession(tracker)
+        let restore = Task { await session.restore() }
+        try await waitUntil { completion != nil }
+        await session.disconnect()
+        completion?.resume(returning: alice)
+        _ = await restore.value
+        #expect(tracker.storedIdentity == nil && session.identity == nil)
+        #expect(!session.isConnected)
+    }
+
     private func makeSession(_ tracker: FakeTracker) -> TrackerAccountSession<FakeBackend> {
         TrackerAccountSession(backend: FakeBackend(tracker: tracker), identityRetryDelay: .milliseconds(20))
     }
