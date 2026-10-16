@@ -59,20 +59,32 @@ extension SectionFeed {
     ) async {
         let ref = HomeSectionRef.custom(section.id)
         let key = HomeListCacheKey(source: section.sourceURL, account: TraktService.shared.username)
+        var step = ContinuousClock.now
+        logHeroStep(ref, "lane started", since: started)
         let record = await listCache.record(for: key)
+        logHeroStep(ref, "saved list read (\(record.map { "\($0.titles.count) titles" } ?? "none"))", since: step)
         guard customRequestIsCurrent(request, key: key) else { return }
+        step = .now
         await restoreMembership(record, for: ref, key: key, request: request, started: started)
+        logHeroStep(ref, "saved list matched and published", since: step)
         guard customRequestIsCurrent(request, key: key) else { return }
         transition(.rowBegan(ref, hasCache: collection(for: ref) != nil))
-        if heroRef == ref { await refreshHeroArtwork() }
+        if heroRef == ref {
+            step = .now
+            await refreshHeroArtwork()
+            logHeroStep(ref, "hero artwork refreshed", since: step)
+        }
         guard customRequestIsCurrent(request, key: key) else { return }
         let fresh = record.map { Date.now.timeIntervalSince($0.fetchedAt) < HomeListCache.lifetime } ?? false
         if fresh, canUseMembership(record, for: ref) {
+            logHeroStep(ref, "saved list fresh; no network", since: started)
             transition(.rowFinished(ref, .loaded))
             return
         }
+        step = .now
         do {
             try await refreshMembership(for: ref, key: key, cached: fresh ? record : nil, request: request, started: started)
+            logHeroStep(ref, "network refresh finished", since: step)
         } catch {
             await finishMembershipFailure(error, for: ref, key: key, request: request)
         }
@@ -91,7 +103,9 @@ extension SectionFeed {
                                    request: SectionFeedLoadGate.Request, started: ContinuousClock.Instant) async
     {
         guard let record, collection(for: ref) == nil, let context else { return }
+        let matching = ContinuousClock.now
         var snapshot = await makeCollection(entries: record.entries, context: context)
+        logHeroStep(ref, "catalogue match", since: matching)
         guard customRequestIsCurrent(request, key: key) else { return }
         snapshot.continuation = record.nextPage.map { HomeListContinuation(key: key, page: $0) }
         publishCollection(snapshot, for: ref)
@@ -148,6 +162,13 @@ extension SectionFeed {
 
     func listAccountIsCurrent(_ key: HomeListCacheKey) -> Bool {
         key == HomeListCacheKey(source: key.source, account: TraktService.shared.username)
+    }
+
+    /// Diagnostic timing for the hero's lane only, so a cold launch shows
+    /// which step holds the first screen back.
+    private func logHeroStep(_ ref: HomeSectionRef, _ step: String, since start: ContinuousClock.Instant) {
+        guard heroRef == ref else { return }
+        Logger.home.info("\(surface.rawValue) hero lane: \(step, privacy: .public) — \(String(describing: start.duration(to: .now)), privacy: .public)")
     }
 
     private func logCustomReadiness(_ ref: HomeSectionRef, started: ContinuousClock.Instant) {
