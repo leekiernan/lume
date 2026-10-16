@@ -101,18 +101,30 @@ extension FullScreenPlayerView {
 // MARK: - Swapping the active stream
 
 extension FullScreenPlayerView {
-    /// Hands the controls the copies of what's playing they can switch to at
-    /// the same moment (`PlayerSourceSwitch`), and how to switch: through
-    /// `switchMedia`, resuming at the current position.
+    /// Identity determines the choices. Known file-duration mismatches require
+    /// confirmation, rather than removing choices from the controls.
     func publishSources(to bridge: PlayerControlsBridge) {
+        pendingSourceSwitch = nil
         bridge.sources = PlayerSourceSwitch.sources(for: activeMedia, restriction: contentRestriction, in: modelContext)
         bridge.selectSource = { option in
-            // A native menu can outlive a visibility or catalogue change.
-            let allowed = PlayerSourceSwitch.sources(for: activeMedia, restriction: contentRestriction, in: modelContext)
-            guard let fresh = allowed?.alternatives.first(where: { $0.id == option.id }) else { return }
-            let media = fresh.media.resuming(at: activeMedia.enginePosition(clock.current))
-            mediaSwapper.source(media) { switchMedia(to: $0) }
+            switchSource(.init(originID: activeMedia.id, targetID: option.id), start: .currentPosition)
         }
+    }
+
+    func switchSource(_ request: PlayerSourceSwitch.Request, start: PlayerSourceSwitch.Start) {
+        // Both menu and alert actions can outlive a stream, category or catalogue.
+        guard request.originID == activeMedia.id,
+              let sources = PlayerSourceSwitch.sources(for: activeMedia, restriction: contentRestriction, in: modelContext),
+              let option = request.target(in: sources, playingID: activeMedia.id) else { return }
+        if start == .currentPosition, PlayerSourceSwitch.requiresRestart(
+            current: sources.currentRuntime, alternative: option.runtime, measuredDuration: clock.duration
+        ) {
+            pendingSourceSwitch = request
+            return
+        }
+        let position = activeMedia.enginePosition(clock.elapsed(fallback: activeMedia.startTime))
+        let media = PlayerSourceSwitch.media(for: option, start: start, position: position)
+        mediaSwapper.source(media) { switchMedia(to: $0) }
     }
 
     /// Persist the outgoing stream's progress, then swap in a new one. Every

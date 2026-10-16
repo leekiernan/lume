@@ -62,6 +62,7 @@ nonisolated struct StreamDetails: Equatable {
     }
 
     var resolution: Resolution?
+    var runtime: MediaRuntime?
     var isHDR = false
     /// Frames per second, e.g. 23.976.
     var frameRate: Double?
@@ -78,6 +79,7 @@ nonisolated struct StreamDetails: Equatable {
     func merging(_ measured: StreamDetails) -> StreamDetails {
         var merged = self
         merged.resolution = measured.resolution ?? resolution
+        merged.runtime = measured.runtime ?? runtime
         merged.isHDR = measured.isHDR || isHDR
         merged.frameRate = measured.frameRate ?? frameRate
         merged.videoCodec = measured.videoCodec ?? videoCodec
@@ -112,6 +114,7 @@ nonisolated struct StreamDetails: Equatable {
 
 nonisolated extension StreamDetails {
     init(_ info: XtreamVODTechnicalInfo) {
+        runtime = MediaRuntime(seconds: info.durationSecs)
         resolution = Resolution(width: info.video?.width, height: info.video?.height)
         // PQ (smpte2084) or HLG (arib-std-b67) transfer is HDR.
         isHDR = ["smpte2084", "arib-std-b67"].contains(info.video?.colorTransfer?.lowercased() ?? "")
@@ -174,13 +177,22 @@ nonisolated extension StreamDetails {
 final class StreamDetailsLoader {
     private(set) var details: [String: StreamDetails] = [:]
     private static var measured: [String: StreamDetails] = [:]
+    @ObservationIgnored private let client: XtreamClient
+
+    init(client: XtreamClient = XtreamClient()) {
+        self.client = client
+    }
+
+    /// Already-fetched provider detail, never a title-level TMDB estimate.
+    static func measuredRuntime(for id: String) -> MediaRuntime? {
+        measured[id]?.runtime
+    }
 
     func load(_ sources: [TitleSource], in context: ModelContext) async {
         for source in sources {
             details[source.id] = Self.nameDetails(source).merging(Self.measured[source.id] ?? StreamDetails())
         }
         let playlists = (try? context.fetch(FetchDescriptor<Playlist>())) ?? []
-        let client = XtreamClient()
         for source in sources where Self.measured[source.id] == nil {
             guard case let .movie(movie) = source.copy,
                   let playlist = PlaylistOwner.playlist(forContentID: movie.id, in: playlists),

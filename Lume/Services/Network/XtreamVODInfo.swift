@@ -28,9 +28,11 @@ nonisolated struct XtreamVODTechnicalInfo: Decodable {
     let audio: XtreamAudioStream?
     /// Kilobits per second.
     let bitrate: Int?
+    let durationSecs: Int?
 
     enum CodingKeys: String, CodingKey {
         case video, audio, bitrate
+        case durationSecs = "duration_secs"
     }
 
     init(from decoder: Decoder) throws {
@@ -39,6 +41,7 @@ nonisolated struct XtreamVODTechnicalInfo: Decodable {
         video = try? container.decodeIfPresent(XtreamVideoStream.self, forKey: .video)
         audio = try? container.decodeIfPresent(XtreamAudioStream.self, forKey: .audio)
         bitrate = container.lenientInt(forKey: .bitrate)
+        durationSecs = container.lenientInt(forKey: .durationSecs)
     }
 }
 

@@ -3,7 +3,7 @@
 //  Lume
 //
 //  The controls' Source menu: the copy playing, ticked, and the copies the
-//  player can switch to at the same moment (`PlayerSourceSwitch`). A native
+//  player can switch to (`PlayerSourceSwitch`). A native
 //  menu like the audio, subtitle and favourite ones beside it, with the same
 //  items as the detail page's (`TitleSourceMenuItems`); each overlay supplies
 //  its own button.

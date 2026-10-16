@@ -5,8 +5,8 @@
 //  Every copy the catalogue holds of one title, matched by TMDB id: the same
 //  film or show in different categories of a playlist (a 4K folder, another
 //  language) or on other playlists. The detail page plays one copy and offers
-//  the rest from its Source button; the player offers a switch to another copy
-//  only when it can resume at the same moment (`MediaRuntime.isSameCut`).
+//  the rest from its Source button; the player offers the same playable copies,
+//  warning when known file durations make a transferred playhead unsuitable.
 //
 //  Each copy keeps its own progress, so the copy watched most recently is the
 //  one to resume (`preferred`). That is the remembered choice: no separate

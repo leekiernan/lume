@@ -15,7 +15,7 @@ struct StreamDetailsTests {
 
     @Test func `the provider's measurements become typed details`() throws {
         let json = Data("""
-        {"info": {"bitrate": "12400",
+        {"info": {"bitrate": "12400", "duration_secs": "7200",
                   "video": {"codec_name": "hevc", "width": 3840, "height": 1608,
                             "avg_frame_rate": "24000/1001", "color_transfer": "smpte2084"},
                   "audio": {"codec_name": "eac3", "channels": "6"}}}
@@ -30,6 +30,7 @@ struct StreamDetailsTests {
         #expect(details.audioCodec == "Dolby Digital+")
         #expect(details.audioLayout?.label == "5.1")
         #expect(details.bitrate == 12400)
+        #expect(details.runtime?.seconds == 7200)
     }
 
     @Test func `an absent stream arrives as an empty array and is skipped`() throws {
@@ -45,5 +46,13 @@ struct StreamDetailsTests {
         let merged = StreamDetails(name: "Film 4K Atmos").merging(measured)
         #expect(merged.resolution == .fullHD)
         #expect(merged.tags == ["Atmos"])
+    }
+
+    @Test func `missing and invalid file runtimes remain unknown`() throws {
+        for value in ["null", "0", "-1", "\"invalid\""] {
+            let json = Data("{\"info\": {\"duration_secs\": \(value)}}".utf8)
+            let info = try #require(try JSONDecoder().decode(XtreamVODInfoResponse.self, from: json).info)
+            #expect(StreamDetails(info).runtime == nil)
+        }
     }
 }

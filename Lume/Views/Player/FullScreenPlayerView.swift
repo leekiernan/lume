@@ -155,6 +155,7 @@ struct FullScreenPlayerView: View {
     /// press start one apiece inside the same 0.3 s. Not static either: iPadOS
     /// can run several player scenes, which are genuinely independent.
     @State var mediaSwapper = PlayerMediaSwapper()
+    @State var pendingSourceSwitch: PlayerSourceSwitch.Request?
 
     /// What the viewer may watch. Read in the host, not in each engine view:
     /// neighbours resolve once per stream.
@@ -277,6 +278,7 @@ struct FullScreenPlayerView: View {
         .playerSportsAlerts(activeMedia: activeMedia, bridge: controlsBridge, position: { clock.current },
                             switchMedia: { switchMedia(to: $0) })
         .environment(controlsBridge)
+        .sourceSwitchConfirmation(request: $pendingSourceSwitch) { switchSource($0, start: .beginning) }
         .persistentSystemOverlays(.hidden)
         .preferredColorScheme(.dark)
         .inAppToasts()

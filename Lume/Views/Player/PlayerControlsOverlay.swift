@@ -354,7 +354,7 @@ struct PlayerControlsActions {
             .trackMenuAccessibility("Audio Track", selected: tracks.first(where: \.isSelected)?.label, fallback: "Default")
         }
 
-        /// Another copy at the same moment, when the host found one.
+        /// Another playable copy, when the host found one.
         @ViewBuilder
         private var sourceMenu: some View {
             if let bridge, let sources = bridge.sources {

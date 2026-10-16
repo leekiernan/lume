@@ -15876,6 +15876,59 @@
         }
       }
     },
+    "Different source duration" : {
+      "comment" : "Confirmation title when switching to a copy with a different file duration.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abweichende Spieldauer"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Duración de la fuente diferente"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Durée de la source différente"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Durata della sorgente diversa"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ソースの再生時間が異なります"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "소스 재생 시간이 다름"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Duração da fonte diferente"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来源时长不同"
+          }
+        }
+      }
+    },
     "Director" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -66156,6 +66209,59 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "该 URL 并未指向 m3u 播放列表。"
+          }
+        }
+      }
+    },
+    "These copies have different durations. Restart the selected copy from the beginning?" : {
+      "comment" : "Ask before transferring playback to a copy whose known file duration differs significantly.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Versionen haben unterschiedliche Spieldauern. Die ausgewählte Version von Anfang an starten?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estas versiones tienen duraciones diferentes. ¿Reproducir la versión seleccionada desde el principio?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ces versions ont des durées différentes. Reprendre la version sélectionnée depuis le début ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Queste versioni hanno durate diverse. Avviare la versione selezionata dall’inizio?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "これらのバージョンは再生時間が異なります。選択したバージョンを最初から再生しますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 버전들은 재생 시간이 다릅니다. 선택한 버전을 처음부터 재생할까요?"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estas versões têm durações diferentes. Reproduzir a versão selecionada desde o início?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这些版本的时长不同。要从头播放所选版本吗？"
           }
         }
       }

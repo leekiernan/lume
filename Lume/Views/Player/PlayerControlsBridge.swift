@@ -40,8 +40,8 @@ final class PlayerControlsBridge {
     @ObservationIgnored var playPauseClaim: (() -> Bool)?
     /// Asked before Back would close the player; `true` takes the press.
     @ObservationIgnored var backClaim: (() -> Bool)?
-    /// Other copies of the stream the host can switch to at the same moment
-    /// (`PlayerSourceSwitch`); nil hides the controls' Source menu.
+    /// Other playable copies (`PlayerSourceSwitch`); nil hides the menu only
+    /// when no alternative exists, never because duration evidence is missing.
     var sources: PlayerSources?
     /// Switches to one of `sources`' alternatives at the current position.
     @ObservationIgnored var selectSource: ((PlayerSourceOption) -> Void)?
