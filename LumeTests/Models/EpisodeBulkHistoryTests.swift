@@ -29,7 +29,7 @@ struct EpisodeBulkHistoryTests {
         episodes[0].markLaterEpisodesUnwatched()
         #expect(episodes.dropFirst().allSatisfy { !$0.isWatched && $0.watchProgress == 0 && $0.lastWatchedDate == nil })
         #expect(show.lastWatchedDate == episodes[0].lastWatchedDate)
-        #expect(RecentResumePoints.position(for: .episode(episodes[3].id), stored: 99) == 0)
+        #expect(RecentResumePoints.position(for: .episode(episodes[3].id), stored: 99, storedAt: nil) == 0)
         episodes[0].setWatched(false)
         #expect(show.lastWatchedDate == nil)
     }
