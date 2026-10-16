@@ -69,7 +69,7 @@ extension SectionFeed {
         logHeroStep(ref, "saved list read (\(record.map { "\($0.titles.count) titles" } ?? "none"))", since: step)
         guard customRequestIsCurrent(request, key: key) else { return }
         step = .now
-        await restoreMembership(record, for: ref, key: key, request: request, started: started)
+        let restored = await restoreMembership(record, for: ref, key: key, request: request, started: started)
         logHeroStep(ref, "saved list matched and published", since: step)
         guard customRequestIsCurrent(request, key: key) else { return }
         transition(.rowBegan(ref, hasCache: collection(for: ref) != nil))
@@ -80,7 +80,7 @@ extension SectionFeed {
         }
         guard customRequestIsCurrent(request, key: key) else { return }
         let fresh = record.map { Date.now.timeIntervalSince($0.fetchedAt) < HomeListCache.lifetime } ?? false
-        if fresh, canUseMembership(record, for: ref) {
+        if fresh, canUseMembership(restored) {
             logHeroStep(ref, "saved list fresh; no network", since: started)
             transition(.rowFinished(ref, .loaded))
             return
@@ -98,22 +98,30 @@ extension SectionFeed {
         loadGate.isCurrent(request, for: .custom) && listAccountIsCurrent(key)
     }
 
-    private func canUseMembership(_ record: HomeListCacheRecord?, for ref: HomeSectionRef) -> Bool {
-        guard let snapshot = collection(for: ref) else { return false }
-        return snapshot.preview.count >= Self.itemLimit || record?.nextPage == nil
+    private func canUseMembership(_ snapshot: SectionCollectionSnapshot?) -> Bool {
+        guard let snapshot else { return false }
+        return snapshot.preview.count >= Self.itemLimit || snapshot.continuation == nil
     }
 
     private func restoreMembership(_ record: HomeListCacheRecord?, for ref: HomeSectionRef, key: HomeListCacheKey,
-                                   request: SectionFeedLoadGate.Request, started: ContinuousClock.Instant) async
+                                   request: SectionFeedLoadGate.Request, started: ContinuousClock.Instant) async -> SectionCollectionSnapshot?
     {
-        guard let record, collection(for: ref) == nil, let context else { return }
+        guard let record, let context else { return nil }
+        let entries = SectionCollectionResolver.normalizedEntries(record.entries, mediaType: surface.mediaType)
+        let continuation = record.nextPage.map { HomeListContinuation(key: key, page: $0) }
+        if let snapshot = collection(for: ref), snapshot.entries.map(\.reference) == entries.map(\.reference),
+           snapshot.continuation == continuation { return snapshot }
         let matching = ContinuousClock.now
-        var snapshot = await makeCollection(entries: record.entries, context: context)
+        var snapshot = await makeCollection(entries: entries, context: context)
         logHeroStep(ref, "catalogue match", since: matching)
-        guard customRequestIsCurrent(request, key: key) else { return }
-        snapshot.continuation = record.nextPage.map { HomeListContinuation(key: key, page: $0) }
-        publishCollection(snapshot, for: ref)
-        logCustomReadiness(ref, started: started)
+        guard customRequestIsCurrent(request, key: key) else { return nil }
+        snapshot.continuation = continuation
+        if canPublishMembership(snapshot, for: ref), publishCollection(snapshot, for: ref) {
+            logCustomReadiness(ref, started: started)
+        }
+        // Freshness belongs to the saved membership, not the older rail that
+        // may still be drawn while this partial source continues fetching.
+        return snapshot
     }
 
     private func refreshMembership(for ref: HomeSectionRef, key: HomeListCacheKey, cached: HomeListCacheRecord?,
@@ -144,11 +152,15 @@ extension SectionFeed {
         // rail already showing (a saved list's 20 titles, say) to its own
         // few, only for the next page to fill it back. An empty page is the
         // same case with nothing shown yet.
-        let shown = collection(for: ref)?.preview.count ?? 0
-        guard snapshot.continuation == nil || snapshot.preview.count >= max(shown, 1) else { return }
+        guard canPublishMembership(snapshot, for: ref) else { return }
         guard publishCollection(snapshot, for: ref) else { return }
         logCustomReadiness(ref, started: started)
         if heroRef == ref { await refreshHeroArtwork() }
+    }
+
+    private func canPublishMembership(_ snapshot: SectionCollectionSnapshot, for ref: HomeSectionRef) -> Bool {
+        let shown = collection(for: ref)?.preview.count ?? 0
+        return snapshot.continuation == nil || snapshot.preview.count >= max(shown, 1)
     }
 
     private func finishMembershipFailure(_ error: Error, for ref: HomeSectionRef, key: HomeListCacheKey, request: SectionFeedLoadGate.Request) async {

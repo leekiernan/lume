@@ -129,6 +129,48 @@ struct SectionFeedCustomLoadingTests {
         #expect(empty.items(for: .custom(section.id)).isEmpty)
     }
 
+    @Test(arguments: [false, true])
+    func `newer complete saved membership replaces an older session rail without fetching`(_ emptied: Bool) async throws {
+        let container = try container(ids: Array(1 ... 40))
+        let directory = URL.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = HomeListCache(directory: directory)
+        let probe = ListPageProbe(pages: [:])
+        let feed = feed(container, cache: cache, probe: probe)
+        let section = CustomHomeSection(title: "Shared", sourceURL: "https://themoviedb.org/list/8")
+        let cacheKey = UUID().uuidString
+        let context = try #require(feed.context)
+        let previous = await feed.makeCollection(entries: entries(1 ... 20), context: context)
+        let updated = emptied ? [] : entries(21 ... 40)
+        await cache.store(HomeListPage(entries: updated, nextPage: nil), for: HomeListCacheKey(source: section.sourceURL, account: nil))
+        // Seed immediately before loading: another parallel test must not
+        // overwrite the single session-cache slot and hide this regression.
+        SectionFeedCache.shared.storeCustom(.movies, key: feed.scoped(cacheKey), collections: [section.id: previous])
+        await feed.loadCustomSections(cacheKey: cacheKey, sections: [section])
+        let expected = emptied ? [] : (21 ... 40).map { "Local \($0)" }
+        #expect(feed.items(for: .custom(section.id)).map(\.title) == expected)
+        #expect(await probe.calls.isEmpty)
+    }
+
+    @Test func `newer partial saved membership continues fetching rather than trusting the old full rail`() async throws {
+        let container = try container(ids: Array(1 ... 40))
+        let directory = URL.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = HomeListCache(directory: directory)
+        let probe = ListPageProbe(pages: [:])
+        let feed = feed(container, cache: cache, probe: probe)
+        let section = CustomHomeSection(title: "Partial shared", sourceURL: "https://themoviedb.org/list/9")
+        let cacheKey = UUID().uuidString
+        let context = try #require(feed.context)
+        let previous = await feed.makeCollection(entries: entries(1 ... 20), context: context)
+        await cache.store(HomeListPage(entries: entries(21 ... 30), nextPage: 2), for: HomeListCacheKey(source: section.sourceURL, account: nil))
+        SectionFeedCache.shared.storeCustom(.movies, key: feed.scoped(cacheKey), collections: [section.id: previous])
+        await feed.loadCustomSections(cacheKey: cacheKey, sections: [section])
+        #expect(await probe.calls == [2])
+        // Page 2 failed, so the partial saved page mustn't shrink the rail.
+        #expect(feed.items(for: .custom(section.id)).map(\.title) == (1 ... 20).map { "Local \($0)" })
+    }
+
     @Test func `cancelled refresh cannot publish or persist its late response`() async throws {
         let container = try container(ids: [1])
         let directory = URL.temporaryDirectory.appendingPathComponent(UUID().uuidString)
