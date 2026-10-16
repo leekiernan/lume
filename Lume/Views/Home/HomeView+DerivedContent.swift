@@ -11,6 +11,15 @@ import Foundation
 import SwiftData
 
 extension HomeView {
+    var visibleFeedRows: [HomeSectionRef] {
+        HomeLayoutSettings.resolve(orderRaw: sectionOrderRaw, custom: customSections, surface: .home).filter { ref in
+            switch ref {
+            case let .builtin(section): isSectionEnabled(section)
+            case .custom: vodAvailable && HomeLayoutSettings.isEnabled(ref, disabledRaw: disabledSectionsRaw)
+            }
+        }
+    }
+
     // MARK: - Derived content
 
     /// The channels Home may show: none when this profile has Live TV switched

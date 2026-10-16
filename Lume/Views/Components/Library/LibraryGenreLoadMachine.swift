@@ -15,6 +15,11 @@ struct LibraryGenreLoadKey: Hashable {
     }
 }
 
+struct LibraryGenreLoadRequest: Hashable {
+    let scope: LibraryGenreLoadKey
+    let isReady: Bool
+}
+
 /// The sidebar's derived genre list has its own publication owner. It is not
 /// a paged grid and never takes over a provider import or SectionFeed task.
 @Observable

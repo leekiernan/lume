@@ -66,7 +66,7 @@ struct HomeView: View {
     @AppStorage(RecommendationSettings.enabledKey) var recommendationsEnabled = RecommendationSettings.enabledDefault
     /// The user's chosen Home row order (Settings › Layout › Home). Falls back to
     /// the surface's default order until they reorder.
-    @AppStorage(HomeLayoutSettings.sectionOrderKey(.home)) private var sectionOrderRaw = ""
+    @AppStorage(HomeLayoutSettings.sectionOrderKey(.home)) var sectionOrderRaw = ""
     /// Sections the user switched off (Settings › Layout › Home). "For You" is
     /// gated by `recommendationsEnabled` instead — see `HomeLayoutSettings`.
     @AppStorage(HomeLayoutSettings.disabledSectionsKey(.home)) var disabledSectionsRaw = ""
@@ -224,7 +224,7 @@ struct HomeView: View {
             .sectionFeedLoads(
                 feed: feed, configuration: .init(context: feedContext, catalogKey: trendingKey,
                                                  heroRef: heroRef, heroSelection: heroSectionRaw, customSections: visibleCustomSections,
-                                                 traktAccount: trakt.username, prepareCustomSections: seedDefaultHeroIfNeeded)
+                                                 orderedRows: visibleFeedRows, traktAccount: trakt.username, prepareCustomSections: seedDefaultHeroIfNeeded)
             )
             .task(id: recommendationsKey) {
                 await loadRecommendations()
@@ -233,6 +233,7 @@ struct HomeView: View {
                 await loadSeriesResume()
             }
             .onChange(of: feed.heroItems.first, initial: true) { _, hero in
+                feed.recordHeroReadiness()
                 rememberHeroWarmStart(hero?.imageURL)
             }
             // A local row as the hero: hand its titles to the feed, which only
