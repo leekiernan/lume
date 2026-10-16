@@ -296,6 +296,7 @@ struct KSPlayerEngineView: View {
                         onResetHideTimer: { scheduleHide() },
                         onSelectMedia: { selectMedia($0) },
                         onPanelOpenChange: { setPanelOpen($0) },
+                        onMenuOpenChange: { chrome.menuChanged(isOpen: $0, mayHide: { canAutoHideControls }) },
                         onSwitchChannel: { switchLiveChannel($0) },
                         mediaSwapper: mediaSwapper, onCompleteCurrentItem: { onCompleteCurrentItem?() },
                         onSearchSubtitles: subtitleSearchAction

@@ -57,6 +57,18 @@ final class PlayerChromeController {
         if isOpen { suspend() } else { schedule(mayHide: mayHide) }
     }
 
+    /// A native menu in the controls opened or closed. Nothing hides them
+    /// while it's up; closing it starts a full deadline.
+    func menuChanged(isOpen: Bool, mayHide: @escaping () -> Bool) {
+        if isOpen {
+            suspend()
+            machine.menuOpened()
+        } else {
+            machine.menuClosed()
+            schedule(mayHide: mayHide)
+        }
+    }
+
     func openBrowser(isLive: Bool, isPresented: Binding<Bool>) {
         guard isLive, !isPresented.wrappedValue else { return }
         suspend()

@@ -2,7 +2,8 @@ import Foundation
 
 /// Requested chrome only, not playback readiness, buffering or retry state.
 /// One deadline owns hiding: pointer exit replaces inactivity, and later
-/// activity invalidates either. Eligibility belongs to the engine host.
+/// activity invalidates either. Eligibility belongs to the engine host; an
+/// open menu belongs here, since it is the chrome's own.
 nonisolated struct PlayerChromeMachine {
     enum Deadline: Equatable {
         case inactivity, pointerExit
@@ -22,6 +23,11 @@ nonisolated struct PlayerChromeMachine {
 
     private enum State {
         case hidden, visible, waiting(Request)
+        /// Up under a native menu one of the controls opened (audio,
+        /// subtitles, source, the favourite's long press). The menu takes
+        /// focus, and with it the activity that would renew a deadline, so
+        /// none runs until it closes.
+        case menuOpen
     }
 
     private var state: State = .visible
@@ -31,8 +37,14 @@ nonisolated struct PlayerChromeMachine {
         return true
     }
 
+    var isMenuOpen: Bool {
+        if case .menuOpen = state { return true }
+        return false
+    }
+
+    /// Already up under an open menu, the controls stay held.
     mutating func show() {
-        state = .visible
+        if !isMenuOpen { state = .visible }
     }
 
     mutating func hide() {
@@ -40,12 +52,22 @@ nonisolated struct PlayerChromeMachine {
     }
 
     mutating func cancelDeadline() {
-        if isVisible { state = .visible }
+        if isVisible, !isMenuOpen { state = .visible }
+    }
+
+    /// Revokes any pending deadline; none can be scheduled until it closes.
+    mutating func menuOpened() {
+        if isVisible { state = .menuOpen }
+    }
+
+    /// Back to plain visible: the host schedules a fresh deadline.
+    mutating func menuClosed() {
+        if isMenuOpen { state = .visible }
     }
 
     mutating func schedule(_ deadline: Deadline, mayHide: Bool) -> Request? {
         cancelDeadline()
-        guard isVisible, mayHide else { return nil }
+        guard isVisible, !isMenuOpen, mayHide else { return nil }
         let request = Request(deadline: deadline)
         state = .waiting(request)
         return request
