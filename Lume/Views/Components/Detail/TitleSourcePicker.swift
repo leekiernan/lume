@@ -36,7 +36,8 @@ final class TitleSourceSelection {
     }
 
     /// True once after a pick: the page plays the picked copy as soon as it
-    /// can (a series once its next episode is known).
+    /// can: a series once its next episode is known, and on tvOS once the
+    /// rebuilt page holds focus.
     func takePlayRequest() -> Bool {
         defer { playRequested = false }
         return playRequested

@@ -52,6 +52,7 @@
 
         private enum FocusTarget: Hashable {
             case play
+            case source
             case favorite
             case season(Int)
             case episode(String)
@@ -70,11 +71,8 @@
             content
                 .background(Color.lumeNight)
                 .ignoresSafeArea()
-                // A copy picked from the Source button plays once its next episode
-                // is known: a copy's episodes can load after its page opens.
-                .onChange(of: nextEpisode?.id, initial: true) {
-                    if let episode = nextEpisode, sourceSelection?.takePlayRequest() == true { playEpisode(episode) }
-                }
+                .onChange(of: nextEpisode?.id, initial: true) { playPickedCopy() }
+                .onChange(of: focus) { playPickedCopy() }
                 .fullScreenCover(item: $playingMedia) { media in
                     FullScreenPlayerView(media: media)
                 }
@@ -158,6 +156,7 @@
 
                     if let sourceSelection, sourceSelection.offersChoice {
                         TitleSourceButton(selection: sourceSelection)
+                            .focused($focus, equals: .source)
                     }
                 }
 
@@ -375,6 +374,16 @@
     // MARK: - Actions & related titles
 
     private extension TVSeriesDetailView {
+        /// A copy picked from the Source button plays once its next episode is
+        /// known — a copy's episodes can load after its page opens — and the
+        /// page holds focus. Presented sooner, while the menu is still closing
+        /// over a page just rebuilt for the copy, the player opens with nothing
+        /// focused and Menu leaves the app instead of the player.
+        func playPickedCopy() {
+            guard focus != nil, let episode = nextEpisode, sourceSelection?.takePlayRequest() == true else { return }
+            playEpisode(episode)
+        }
+
         func playEpisode(_ episode: Episode) {
             guard let playlist = seriesPlaylist,
                   let media = PlayableMedia.from(episode: episode, playlist: playlist) else { return }

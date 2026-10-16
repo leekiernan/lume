@@ -38,7 +38,7 @@
 
         @State private var showYouTubeUnavailable = false
 
-        private enum FocusTarget: Hashable { case play, favorite }
+        private enum FocusTarget: Hashable { case play, source, favorite }
         @FocusState private var focus: FocusTarget?
 
         init(movie: Movie) {
@@ -55,8 +55,7 @@
                 .fullScreenCover(item: $playingMedia) { media in
                     FullScreenPlayerView(media: media)
                 }
-                // A copy picked from the Source button plays as its page opens.
-                .onAppear { if sourceSelection?.takePlayRequest() == true { startPlayback() } }
+                .onChange(of: focus, initial: true) { playPickedCopy() }
                 .alert("YouTube Unavailable", isPresented: $showYouTubeUnavailable) {
                     Button("OK", role: .cancel) {}
                 } message: {
@@ -140,6 +139,7 @@
 
                     if let sourceSelection, sourceSelection.offersChoice {
                         TitleSourceButton(selection: sourceSelection)
+                            .focused($focus, equals: .source)
                     }
                 }
 
@@ -154,6 +154,15 @@
                     )
                 }
             }
+        }
+
+        /// A copy picked from the Source button plays once its page holds
+        /// focus. Presented sooner — while the menu is still closing over a page
+        /// just rebuilt for the copy — the player opens with nothing focused, and
+        /// Menu leaves the app instead of the player.
+        private func playPickedCopy() {
+            guard focus != nil, sourceSelection?.takePlayRequest() == true else { return }
+            startPlayback()
         }
 
         // MARK: - About / ratings / information
