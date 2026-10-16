@@ -447,12 +447,15 @@ extension SectionFeed {
         }
     }
 
-    func publishCollection(_ collection: SectionCollectionSnapshot, for ref: HomeSectionRef) {
+    /// Returns whether the row changed: an identical snapshot is ignored.
+    @discardableResult
+    func publishCollection(_ collection: SectionCollectionSnapshot, for ref: HomeSectionRef) -> Bool {
         if let previous = collections[ref],
            previous.preview.map(\.id) == collection.preview.map(\.id),
            previous.entries.map(\.reference) == collection.entries.map(\.reference),
-           previous.continuation == collection.continuation { return }
+           previous.continuation == collection.continuation { return false }
         collections[ref] = collection
+        return true
     }
 
     func removeCollection(for ref: HomeSectionRef) {

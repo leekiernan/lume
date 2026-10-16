@@ -136,9 +136,13 @@ extension SectionFeed {
     }
 
     private func publishMembership(_ snapshot: SectionCollectionSnapshot, for ref: HomeSectionRef, started: ContinuousClock.Instant) async {
-        // An empty intermediate page is not authoritative: keep the stale rail.
-        guard !snapshot.preview.isEmpty || snapshot.continuation == nil else { return }
-        publishCollection(snapshot, for: ref)
+        // A page with more to come is not authoritative: it mustn't shrink the
+        // rail already showing (a saved list's 20 titles, say) to its own
+        // few, only for the next page to fill it back. An empty page is the
+        // same case with nothing shown yet.
+        let shown = collection(for: ref)?.preview.count ?? 0
+        guard snapshot.continuation == nil || snapshot.preview.count >= max(shown, 1) else { return }
+        guard publishCollection(snapshot, for: ref) else { return }
         logCustomReadiness(ref, started: started)
         if heroRef == ref { await refreshHeroArtwork() }
     }

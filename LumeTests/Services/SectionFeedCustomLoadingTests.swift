@@ -82,6 +82,23 @@ struct SectionFeedCustomLoadingTests {
         #expect(feed.loads.state(of: .custom(section.id)) == .loaded)
     }
 
+    /// A refreshed page with more to come mustn't shrink the saved rail to its
+    /// own few titles: here page 2 then fails, and the 20 saved titles stay.
+    @Test func `a partial refresh page does not shrink the saved rail`() async throws {
+        let container = try container(ids: Array(1 ... 40))
+        let directory = URL.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = HomeListCache(directory: directory)
+        let section = CustomHomeSection(title: "Partial", sourceURL: "https://themoviedb.org/list/7")
+        await cache.store(HomeListPage(entries: entries(1 ... 20), nextPage: nil),
+                          for: HomeListCacheKey(source: section.sourceURL, account: nil), now: .now.addingTimeInterval(-901))
+        let probe = ListPageProbe(pages: [1: HomeListPage(entries: entries(21 ... 30), nextPage: 2)])
+        let feed = feed(container, cache: HomeListCache(directory: directory), probe: probe)
+        await feed.loadCustomSections(cacheKey: UUID().uuidString, sections: [section])
+        #expect(await probe.calls == [1, 2])
+        #expect(feed.items(for: .custom(section.id)).map(\.title) == (1 ... 20).map { "Local \($0)" })
+    }
+
     @Test func `fresh disk membership needs no remote request after process cache recreation`() async throws {
         let container = try container(ids: Array(1 ... 20))
         let directory = URL.temporaryDirectory.appendingPathComponent(UUID().uuidString)
