@@ -18,12 +18,20 @@ struct SectionCollectionSnapshot {
     let preview: [HomeMediaItem]
     /// The first source entry the next catalog page should inspect.
     let nextOffset: Int
+    var continuation: HomeListContinuation?
 
     var hasMoreCandidates: Bool {
-        nextOffset < entries.count
+        nextOffset < entries.count || continuation != nil
     }
 
     static let empty = SectionCollectionSnapshot(entries: [], preview: [], nextOffset: 0)
+}
+
+/// Captured alongside a grid's source order. Account changes must not let an
+/// old private-list continuation fetch or publish as the newly signed-in user.
+nonisolated struct HomeListContinuation: Equatable {
+    let key: HomeListCacheKey
+    let page: Int
 }
 
 /// A resolved window returned to a section preview or, later, a full collection
@@ -34,6 +42,8 @@ struct SectionCollectionPage {
     let items: [HomeMediaItem]
     let nextOffset: Int
     let hasMoreCandidates: Bool
+    var sourceEntries: [HomeListEntry]?
+    var continuation: HomeListContinuation?
 }
 
 /// A catalog match safe to carry from a background `ModelContext` back to the

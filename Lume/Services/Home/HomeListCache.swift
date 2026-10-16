@@ -56,6 +56,7 @@ actor HomeListCache {
     private let url: URL
     private let maximumSources: Int
     private var records: [String: HomeListCacheRecord]?
+    private var requests: [String: Task<HomeListPage, Error>] = [:]
 
     init(directory: URL = URL.cachesDirectory.appendingPathComponent("LumeListMembership", isDirectory: true), maximumSources: Int = 64) {
         url = directory.appendingPathComponent("membership-v1.json")
@@ -84,6 +85,26 @@ actor HomeListCache {
             records = Dictionary(uniqueKeysWithValues: values.sorted { $0.value.fetchedAt > $1.value.fetchedAt }.prefix(maximumSources))
         }
         persist()
+    }
+
+    func remove(_ key: HomeListCacheKey) {
+        loadIfNeeded()
+        records?[key.digest] = nil
+        persist()
+    }
+
+    /// Home and Movies can ask for the same page together. Share that request;
+    /// one disappearing screen must not cancel another screen's refresh.
+    func page(for key: HomeListCacheKey, number: Int,
+              fetch: @escaping @Sendable (String, Int) async throws -> HomeListPage) async throws -> HomeListPage
+    {
+        try Task.checkCancellation()
+        let identity = "\(key.digest)|\(number)"
+        if let task = requests[identity] { return try await task.value }
+        let task = Task.detached(priority: .userInitiated) { try await fetch(key.source, number) }
+        requests[identity] = task
+        defer { requests[identity] = nil }
+        return try await task.value
     }
 
     private func loadIfNeeded() {

@@ -71,17 +71,31 @@ final class SectionFeed {
     /// see `SectionFeedLoadMachine`. Only `transition(_:)` advances it.
     private(set) var loads = SectionFeedLoadMachine()
     /// The custom sections last asked for, so a scope change can reload them.
-    private var requestedCustomSections: [CustomHomeSection] = []
+    var requestedCustomSections: [CustomHomeSection] = []
+    let listCache: HomeListCache
+    let fetchListPage: @Sendable (String, Int) async throws -> HomeListPage
     let loadGate = SectionFeedLoadGate()
     var context: Context?
+    var loadPlan: SectionFeedLoadPlan?
+    var heroLoadStarted: ContinuousClock.Instant?
+
+    func recordHeroReadiness() {
+        guard !heroItems.isEmpty, let started = heroLoadStarted else { return }
+        heroLoadStarted = nil
+        Logger.home.info("\(surface.rawValue) hero data ready after \(String(describing: started.duration(to: .now)), privacy: .public); source=\(heroRef?.token ?? "none", privacy: .public)")
+    }
 
     /// How many matched titles a remote-backed row shows.
     static let itemLimit = 20
     /// How many hero candidates the Home carousel pages through.
     static let heroLimit = 8
 
-    init(surface: SectionSurface) {
+    init(surface: SectionSurface, listCache: HomeListCache = .shared,
+         fetchListPage: @escaping @Sendable (String, Int) async throws -> HomeListPage = { try await HomeListCatalog.page(for: $0, number: $1) })
+    {
         self.surface = surface
+        self.listCache = listCache
+        self.fetchListPage = fetchListPage
     }
 
     func items(for section: HomeSectionRef) -> [HomeMediaItem] {
@@ -106,6 +120,11 @@ final class SectionFeed {
 
     func collection(for section: HomeSectionRef) -> SectionCollectionSnapshot? {
         collections[section]
+    }
+
+    func isRefreshing(_ section: HomeSectionRef) -> Bool {
+        let state = loads.state(of: section)
+        return state == .loading || state == .cached
     }
 
     /// The promoted row's titles, as hero slides. Titles whose backdrop hasn't
@@ -201,8 +220,8 @@ final class SectionFeed {
             context: context
         )
         guard loadGate.isCurrent(request, for: .trending) else { return }
-        collections[.builtin(.trendingMovies)] = movieCollection
-        collections[.builtin(.trendingSeries)] = seriesCollection
+        collections[.builtin(.trendingMovies)] = requestsRow(.builtin(.trendingMovies)) ? movieCollection : .empty
+        collections[.builtin(.trendingSeries)] = requestsRow(.builtin(.trendingSeries)) ? seriesCollection : .empty
         logMatch("trending movies", movieCollection)
         logMatch("trending series", seriesCollection)
         SectionFeedCache.shared.storeTrending(surface, key: scoped(cacheKey), entry: .init(
@@ -218,15 +237,15 @@ final class SectionFeed {
     private func trendingTitles(using client: TMDBClient) async throws -> ([TrendingTitle], [TrendingTitle]) {
         // A scoped surface only ever renders one medium, so don't pay for the
         // other feed there.
-        async let movieTitles = surface.mediaType == .series ? [] : client.trending(.movie)
-        async let tvTitles = surface.mediaType == .movie ? [] : client.trending(.tvShow)
+        async let movieTitles = surface.mediaType == .series || !requestsRow(.builtin(.trendingMovies)) ? [] : client.trending(.movie)
+        async let tvTitles = surface.mediaType == .movie || !requestsRow(.builtin(.trendingSeries)) ? [] : client.trending(.tvShow)
         return try await (movieTitles, tvTitles)
     }
 
     private func restoreTrending(cacheKey: String) -> CacheRestore {
         guard let cached = SectionFeedCache.shared.trendingEntry(surface, for: scoped(cacheKey)) else { return .missing }
-        collections[.builtin(.trendingMovies)] = cached.value.movies
-        collections[.builtin(.trendingSeries)] = cached.value.series
+        collections[.builtin(.trendingMovies)] = requestsRow(.builtin(.trendingMovies)) ? cached.value.movies : .empty
+        collections[.builtin(.trendingSeries)] = requestsRow(.builtin(.trendingSeries)) ? cached.value.series : .empty
         return cached.isFresh ? .fresh : .stale
     }
 
@@ -310,172 +329,6 @@ extension SectionFeed {
             transition(.finished(.watchlist(provider), .failed))
         }
     }
-
-    // MARK: - Custom sections
-
-    /// Fetches every visible custom list concurrently and publishes each
-    /// 20-card preview as soon as that source resolves. The full lightweight
-    /// source remains in the snapshot for later pages.
-    func loadCustomSections(cacheKey: String, sections: [CustomHomeSection]) async {
-        let request = loadGate.begin(.custom)
-        requestedCustomSections = sections
-        guard !sections.isEmpty else {
-            transition(.began(.custom, key: cacheKey, cache: .missing))
-            replaceCustomCollections(with: [:])
-            transition(.rowsRecovered(Array(loads.failedRows.filter { SectionFeedSource(row: $0) == .custom })))
-            transition(.finished(.custom, .loaded))
-            return
-        }
-        let cached = restoreCustom(cacheKey: cacheKey)
-        transition(.began(.custom, key: cacheKey, cache: cached.state))
-        if cached.state == .fresh {
-            // A recreated surface has a new transient presentation map even
-            // though the session memo can restore its collection models. Run
-            // enrichment before returning so a hero selected in Settings does
-            // not remain empty until those models are rebuilt on app launch.
-            await refreshHeroArtwork()
-            guard loadGate.isCurrent(request, for: .custom) else { return }
-            for section in sections {
-                transition(.rowsRecovered([.custom(section.id)]))
-            }
-            transition(.finished(.custom, .loaded))
-            return
-        }
-        guard let context else {
-            finishCustomFailure(sections: sections, cached: cached.collections)
-            return
-        }
-
-        let interval = Perf.begin(.homeCustomSections)
-        defer { Perf.end(interval) }
-
-        guard let result = await resolveCustomListsProgressively(
-            sections,
-            fallback: cached.collections,
-            context: context,
-            request: request
-        ) else { return }
-        await refreshHeroArtwork()
-
-        // Only memo a complete pass. Caching a row that failed to load (offline
-        // at launch, provider down) would leave it empty for the whole session,
-        // since the cache key doesn't change until the catalog or the sections do.
-        guard loadGate.isCurrent(request, for: .custom) else { return }
-        updateCustomFailures(sections: sections, lists: result.lists, fallback: cached.collections)
-        transition(.finished(.custom, .loaded))
-        guard sections.allSatisfy({ (result.lists[$0.id] ?? nil) != nil }) else { return }
-        SectionFeedCache.shared.storeCustom(surface, key: scoped(cacheKey), collections: result.collections)
-    }
-
-    private func resolveCustomListsProgressively(
-        _ sections: [CustomHomeSection],
-        fallback: [UUID: SectionCollectionSnapshot],
-        context: Context,
-        request: SectionFeedLoadGate.Request
-    ) async -> (lists: [UUID: [HomeListEntry]?], collections: [UUID: SectionCollectionSnapshot])? {
-        let sectionsByID = Dictionary(uniqueKeysWithValues: sections.map { ($0.id, $0) })
-        let visibleIDs = Set(sectionsByID.keys)
-        var resolved = fallback.filter { visibleIDs.contains($0.key) }
-        replaceCustomCollections(with: resolved)
-
-        return await withTaskGroup(of: (UUID, [HomeListEntry]?, String?).self) { group in
-            for section in sections {
-                group.addTask {
-                    do {
-                        return try await (section.id, HomeListCatalog.entries(for: section.sourceURL), nil)
-                    } catch {
-                        // A failed fetch is nil, not an empty list — a stale
-                        // snapshot remains usable when the provider is offline.
-                        return (section.id, nil, error.localizedDescription)
-                    }
-                }
-            }
-            var lists: [UUID: [HomeListEntry]?] = [:]
-            for await (id, entries, failure) in group {
-                guard loadGate.isCurrent(request, for: .custom) else {
-                    group.cancelAll()
-                    return nil
-                }
-                lists[id] = entries
-
-                guard let entries else {
-                    if resolved[id] == nil {
-                        resolved[id] = .empty
-                        collections[.custom(id)] = .empty
-                    }
-                    logCustomSectionFailure(failure, section: sectionsByID[id])
-                    continue
-                }
-
-                let collection = await makeCollection(entries: entries, context: context)
-                guard loadGate.isCurrent(request, for: .custom) else {
-                    group.cancelAll()
-                    return nil
-                }
-                resolved[id] = collection
-                collections[.custom(id)] = collection
-                logMatch("custom list", collection)
-                transition(.rowsRecovered([.custom(id)]))
-
-                // A custom hero should not wait for an unrelated slow list.
-                // Finish its bounded artwork pass as soon as its own source is
-                // available; other rails have already been fetching in parallel.
-                if heroRef == .custom(id) {
-                    await refreshHeroArtwork()
-                    guard loadGate.isCurrent(request, for: .custom) else {
-                        group.cancelAll()
-                        return nil
-                    }
-                }
-            }
-            return (lists, resolved)
-        }
-    }
-
-    private func logCustomSectionFailure(_ failure: String?, section: CustomHomeSection?) {
-        guard let failure, let section else { return }
-        Logger.network.warning(
-            "Custom section \(section.title, privacy: .private) failed: \(failure, privacy: .public)"
-        )
-    }
-
-    private func restoreCustom(
-        cacheKey: String
-    ) -> (state: CacheRestore, collections: [UUID: SectionCollectionSnapshot]) {
-        guard let cached = SectionFeedCache.shared.customEntry(surface, for: scoped(cacheKey)) else {
-            return (.missing, [:])
-        }
-        replaceCustomCollections(with: cached.value)
-        return (cached.isFresh ? .fresh : .stale, cached.value)
-    }
-
-    private func finishCustomFailure(
-        sections: [CustomHomeSection],
-        cached: [UUID: SectionCollectionSnapshot]
-    ) {
-        for section in sections where cached[section.id]?.preview.isEmpty != false {
-            transition(.rowsFailed([.custom(section.id)]))
-        }
-        let usable = cached.values.contains(where: { !$0.preview.isEmpty })
-        transition(.finished(.custom, usable ? .loaded : .failed))
-    }
-
-    private func updateCustomFailures(
-        sections: [CustomHomeSection],
-        lists: [UUID: [HomeListEntry]?],
-        fallback: [UUID: SectionCollectionSnapshot]
-    ) {
-        for section in sections {
-            let ref = HomeSectionRef.custom(section.id)
-            let failedWithoutCache = (lists[section.id] ?? nil) == nil
-                && fallback[section.id]?.preview.isEmpty != false
-            if failedWithoutCache {
-                transition(.rowsFailed([ref]))
-            } else {
-                transition(.rowsRecovered([ref]))
-            }
-        }
-    }
 }
 
 // MARK: - Context plumbing
@@ -496,7 +349,7 @@ extension SectionFeed {
     /// A session-cache key scoped to the catalog it was matched against. The
     /// cached collections hold models from that scope, so a key the view
     /// happens to reuse after a scope change must not find them.
-    private func scoped(_ cacheKey: String) -> String {
+    func scoped(_ cacheKey: String) -> String {
         "\(loads.contextIdentity ?? "*")|\(cacheKey)"
     }
 
@@ -504,7 +357,7 @@ extension SectionFeed {
     /// the list arrived but none of it matched — a catalog without TMDB ids, or
     /// the wrong playlist scope — which is otherwise indistinguishable on screen
     /// from a list that never loaded.
-    private func logMatch(_ label: String, _ collection: SectionCollectionSnapshot) {
+    func logMatch(_ label: String, _ collection: SectionCollectionSnapshot) {
         Logger.home.info(
             "\(surface.rawValue) \(label): \(collection.preview.count) shown, \(collection.nextOffset) of \(collection.entries.count) checked"
         )
@@ -512,10 +365,10 @@ extension SectionFeed {
 
     /// The one way load state changes: applies `event`, journals the
     /// transition, and performs what the machine asks for.
-    private func transition(_ event: SectionFeedLoadMachine.Event) {
+    func transition(_ event: SectionFeedLoadMachine.Event) {
         let source: SectionFeedSource? = switch event {
         case let .began(source, _, _), let .finished(source, _): source
-        case .contextChanged, .rowsFailed, .rowsRecovered: nil
+        case .contextChanged, .rowsFailed, .rowsRecovered, .rowBegan, .rowFinished, .skipped: nil
         }
         let before = source.map(loads.state(of:))
         guard source.map({ SectionFeedLoadMachine.isValid(event, in: loads.state(of: $0)) }) ?? true else {
@@ -552,6 +405,7 @@ extension SectionFeed {
             heroEnrichmentIDs.removeAll()
             heroArtworkRevision &+= 1
         case let .reload(source, key):
+            guard loadPlan == nil else { return }
             // Usually the view's own tasks re-run for the new scope and begin
             // these loads themselves; give them a moment, then load whatever is
             // still idle so no source is left empty because its task didn't.
@@ -568,7 +422,7 @@ extension SectionFeed {
         }
     }
 
-    private func makeCollection(
+    func makeCollection(
         entries: [HomeListEntry],
         context: Context
     ) async -> SectionCollectionSnapshot {
@@ -580,7 +434,7 @@ extension SectionFeed {
         )
     }
 
-    private func replaceCustomCollections(with custom: [UUID: SectionCollectionSnapshot]) {
+    func replaceCustomCollections(with custom: [UUID: SectionCollectionSnapshot]) {
         collections = collections.filter { key, _ in
             if case .custom = key { return false }
             return true
@@ -588,5 +442,21 @@ extension SectionFeed {
         for (id, collection) in custom {
             collections[.custom(id)] = collection
         }
+    }
+
+    func publishCollection(_ collection: SectionCollectionSnapshot, for ref: HomeSectionRef) {
+        if let previous = collections[ref],
+           previous.preview.map(\.id) == collection.preview.map(\.id),
+           previous.entries.map(HomeListIdentity.init) == collection.entries.map(HomeListIdentity.init),
+           previous.continuation == collection.continuation { return }
+        collections[ref] = collection
+    }
+
+    func removeCollection(for ref: HomeSectionRef) {
+        collections[ref] = nil
+    }
+
+    private func requestsRow(_ ref: HomeSectionRef) -> Bool {
+        loadPlan?.rows.contains(ref) ?? true
     }
 }

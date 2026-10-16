@@ -1,0 +1,158 @@
+import Foundation
+import OSLog
+
+extension SectionFeed {
+    /// Restore membership before asking any remote service. The ordered input
+    /// puts the hero and top rails first; lower rows refresh two at a time.
+    func loadCustomSections(cacheKey: String, sections: [CustomHomeSection]) async {
+        let request = beginCustomLoad(cacheKey: cacheKey, sections: sections)
+        guard context != nil else {
+            transition(.finished(.custom, .failed))
+            return
+        }
+        let started = ContinuousClock.now
+        // The first row/hero reaches usable content before off-screen matching
+        // or network work starts. Other sources have independent tasks.
+        if let first = sections.first {
+            await loadCustomSection(first, request: request, started: started)
+        }
+        await withTaskGroup(of: Void.self) { group in
+            var remaining = sections.dropFirst().makeIterator()
+            for _ in 0 ..< 2 {
+                if let section = remaining.next() {
+                    group.addTask { await self.loadCustomSection(section, request: request, started: started) }
+                }
+            }
+            for await _ in group {
+                guard loadGate.isCurrent(request, for: .custom) else {
+                    group.cancelAll()
+                    break
+                }
+                if let section = remaining.next() {
+                    group.addTask { await self.loadCustomSection(section, request: request, started: started) }
+                }
+            }
+        }
+        finishCustomLoad(cacheKey: cacheKey, sections: sections, request: request)
+    }
+
+    func beginCustomLoad(cacheKey: String, sections: [CustomHomeSection]) -> SectionFeedLoadGate.Request {
+        let request = loadGate.begin(.custom)
+        requestedCustomSections = sections
+        let cached = SectionFeedCache.shared.customEntry(surface, for: scoped(cacheKey))
+        transition(.began(.custom, key: cacheKey, cache: cached == nil ? .missing : .stale))
+        replaceCustomCollections(with: (cached?.value ?? [:]).filter { id, _ in sections.contains { $0.id == id } })
+        return request
+    }
+
+    func finishCustomLoad(cacheKey: String, sections: [CustomHomeSection], request: SectionFeedLoadGate.Request) {
+        guard loadGate.isCurrent(request, for: .custom) else { return }
+        transition(.finished(.custom, .loaded))
+        let snapshots = Dictionary(uniqueKeysWithValues: sections.compactMap { section in
+            collection(for: .custom(section.id)).map { (section.id, $0) }
+        })
+        SectionFeedCache.shared.storeCustom(surface, key: scoped(cacheKey), collections: snapshots)
+    }
+
+    func loadCustomSection(
+        _ section: CustomHomeSection, request: SectionFeedLoadGate.Request, started: ContinuousClock.Instant
+    ) async {
+        let ref = HomeSectionRef.custom(section.id)
+        let key = HomeListCacheKey(source: section.sourceURL, account: TraktService.shared.username)
+        let record = await listCache.record(for: key)
+        guard customRequestIsCurrent(request, key: key) else { return }
+        await restoreMembership(record, for: ref, key: key, request: request, started: started)
+        guard customRequestIsCurrent(request, key: key) else { return }
+        transition(.rowBegan(ref, hasCache: collection(for: ref) != nil))
+        if heroRef == ref { await refreshHeroArtwork() }
+        guard customRequestIsCurrent(request, key: key) else { return }
+        let fresh = record.map { Date.now.timeIntervalSince($0.fetchedAt) < HomeListCache.lifetime } ?? false
+        if fresh, canUseMembership(record, for: ref) {
+            transition(.rowFinished(ref, .loaded))
+            return
+        }
+        do {
+            try await refreshMembership(for: ref, key: key, cached: fresh ? record : nil, request: request, started: started)
+        } catch {
+            await finishMembershipFailure(error, for: ref, key: key, request: request)
+        }
+    }
+
+    private func customRequestIsCurrent(_ request: SectionFeedLoadGate.Request, key: HomeListCacheKey) -> Bool {
+        loadGate.isCurrent(request, for: .custom) && listAccountIsCurrent(key)
+    }
+
+    private func canUseMembership(_ record: HomeListCacheRecord?, for ref: HomeSectionRef) -> Bool {
+        guard let snapshot = collection(for: ref) else { return false }
+        return snapshot.preview.count >= Self.itemLimit || record?.nextPage == nil
+    }
+
+    private func restoreMembership(_ record: HomeListCacheRecord?, for ref: HomeSectionRef, key: HomeListCacheKey,
+                                   request: SectionFeedLoadGate.Request, started: ContinuousClock.Instant) async
+    {
+        guard let record, collection(for: ref) == nil, let context else { return }
+        var snapshot = await makeCollection(entries: record.entries, context: context)
+        guard customRequestIsCurrent(request, key: key) else { return }
+        snapshot.continuation = record.nextPage.map { HomeListContinuation(key: key, page: $0) }
+        publishCollection(snapshot, for: ref)
+        logCustomReadiness(ref, started: started)
+    }
+
+    private func refreshMembership(for ref: HomeSectionRef, key: HomeListCacheKey, cached: HomeListCacheRecord?,
+                                   request: SectionFeedLoadGate.Request, started: ContinuousClock.Instant) async throws
+    {
+        guard let context else { return }
+        var entries = cached?.entries ?? []
+        var nextPage = cached == nil ? 1 : cached?.nextPage
+        while let number = nextPage {
+            let page = try await listCache.page(for: key, number: number, fetch: fetchListPage)
+            guard customRequestIsCurrent(request, key: key) else { return }
+            entries.append(contentsOf: page.entries)
+            nextPage = page.nextPage
+            guard nextPage.map({ $0 > number && $0 <= 50 }) ?? true else { throw HomeListError.invalidURL }
+            var snapshot = await makeCollection(entries: entries, context: context)
+            guard customRequestIsCurrent(request, key: key) else { return }
+            snapshot.continuation = nextPage.map { HomeListContinuation(key: key, page: $0) }
+            await publishMembership(snapshot, for: ref, started: started)
+            if snapshot.preview.count >= Self.itemLimit { break }
+        }
+        guard customRequestIsCurrent(request, key: key) else { return }
+        await listCache.store(HomeListPage(entries: entries, nextPage: nextPage), for: key)
+        transition(.rowFinished(ref, .loaded))
+    }
+
+    private func publishMembership(_ snapshot: SectionCollectionSnapshot, for ref: HomeSectionRef, started: ContinuousClock.Instant) async {
+        // An empty intermediate page is not authoritative: keep the stale rail.
+        guard !snapshot.preview.isEmpty || snapshot.continuation == nil else { return }
+        publishCollection(snapshot, for: ref)
+        logCustomReadiness(ref, started: started)
+        if heroRef == ref { await refreshHeroArtwork() }
+    }
+
+    private func finishMembershipFailure(_ error: Error, for ref: HomeSectionRef, key: HomeListCacheKey, request: SectionFeedLoadGate.Request) async {
+        guard customRequestIsCurrent(request, key: key) else { return }
+        if let failure = error as? HomeListError,
+           failure == .privateList || failure == .listNotShared || failure == .listNotFound
+        {
+            await listCache.remove(key)
+            guard customRequestIsCurrent(request, key: key) else { return }
+            publishCollection(.empty, for: ref)
+            transition(.rowFinished(ref, .failed))
+            return
+        }
+        let hasCache = collection(for: ref) != nil
+        if !hasCache { publishCollection(.empty, for: ref) }
+        transition(.rowFinished(ref, hasCache ? .loaded : .failed))
+        Logger.network.warning("Custom list refresh failed; cached membership retained: \(error.localizedDescription, privacy: .private)")
+    }
+
+    func listAccountIsCurrent(_ key: HomeListCacheKey) -> Bool {
+        key == HomeListCacheKey(source: key.source, account: TraktService.shared.username)
+    }
+
+    private func logCustomReadiness(_ ref: HomeSectionRef, started: ContinuousClock.Instant) {
+        guard let snapshot = collection(for: ref) else { return }
+        logMatch("custom list", snapshot)
+        Logger.home.info("\(surface.rawValue) row \(ref.token, privacy: .public) ready after \(String(describing: started.duration(to: .now)), privacy: .public); hero=\(heroRef == ref)")
+    }
+}

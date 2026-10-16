@@ -80,7 +80,11 @@ nonisolated extension HomeListProvider {
     /// Unpaged providers (MDBList) answer once, without invented continuations.
     func page(for url: URL, number: Int) async throws -> HomeListPage {
         guard number == 1 else { throw HomeListError.invalidURL }
-        return try await HomeListPage(entries: entries(for: url), nextPage: nil)
+        do {
+            return try await HomeListPage(entries: entries(for: url), nextPage: nil)
+        } catch HomeListError.emptyList {
+            return HomeListPage(entries: [], nextPage: nil)
+        }
     }
 }
 

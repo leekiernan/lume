@@ -21,6 +21,7 @@ struct SectionCollectionView: View {
     var animationNamespace: Namespace.ID?
 
     @State private var entries: [HomeListEntry] = []
+    @State private var continuation: HomeListContinuation?
     @State private var items: [HomeMediaItem] = []
     @State private var pagination = PaginationMachine()
 
@@ -44,12 +45,14 @@ struct SectionCollectionView: View {
     private func prepare() {
         guard pagination.prepare(for: selection.section.token) else { return }
         entries = []
+        continuation = nil
         items = []
         guard let snapshot = feed.collection(for: selection.section) else {
             pagination.seed(nextOffset: 0, canLoadMore: false)
             return
         }
         entries = snapshot.entries
+        continuation = snapshot.continuation
         items = snapshot.preview
         pagination.seed(nextOffset: snapshot.nextOffset, canLoadMore: snapshot.hasMoreCandidates)
         if items.isEmpty, pagination.canLoadMore { requestNextPage() }
@@ -63,7 +66,13 @@ struct SectionCollectionView: View {
     private func loadNextPage() async {
         guard let request = pagination.beginLoading() else { return }
 
-        let page = await feed.page(entries: entries, from: request.offset, limit: pageSize)
+        let page: SectionCollectionPage
+        do {
+            page = try await feed.page(entries: entries, continuation: continuation, from: request.offset, limit: pageSize)
+        } catch {
+            pagination.abandon(request)
+            return
+        }
         guard !Task.isCancelled else {
             pagination.abandon(request)
             return
@@ -73,6 +82,9 @@ struct SectionCollectionView: View {
             scanned: page.nextOffset - request.offset,
             hasMore: page.hasMoreCandidates
         ) else { return }
+
+        entries = page.sourceEntries ?? entries
+        continuation = page.continuation
 
         var existing = Set(items.map(\.id))
         items.append(contentsOf: page.items.filter { existing.insert($0.id).inserted })
