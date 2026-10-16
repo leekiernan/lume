@@ -126,6 +126,22 @@ struct DownloadRecoveryTests {
         #expect(movie.downloadedAt == nil)
     }
 
+    @Test func `recovery recognises attempt-scoped filenames`() async throws {
+        let container = try makeContainer()
+        let directory = try makeDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let filename = "landed.\(UUID().uuidString).mp4"
+        try Data("video".utf8).write(to: directory.appendingPathComponent(filename))
+        let context = ModelContext(container)
+        context.insert(makeMovie(id: "landed", status: .downloading))
+        try context.save()
+        await DownloadManager.recoverInterruptedDownloads(liveIDs: [], directory: directory, container: container)
+        let movie = try #require(try ModelContext(container).fetch(FetchDescriptor<Movie>()).first)
+        #expect(movie.downloadStatus == .completed)
+        #expect(movie.localFileURL == filename)
+        #expect(!DownloadManager.isDownloadFile(directory.appendingPathComponent("landed-other.mp4"), for: "landed"))
+    }
+
     @Test
     func `downloads the restored session is still running are left alone`() async throws {
         let container = try makeContainer()
