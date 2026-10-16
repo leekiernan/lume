@@ -12,43 +12,6 @@
 import SwiftData
 import SwiftUI
 
-/// Which copy a detail page shows, and the copy picked from the Source button
-/// while it plays.
-@Observable
-final class TitleSourceSelection {
-    let sources: [TitleSource]
-    private(set) var current: TitleSource
-    private(set) var picked: TitleSource?
-
-    init(sources: [TitleSource], current: TitleSource) {
-        self.sources = sources
-        self.current = current
-    }
-
-    /// Only a title with more than one copy offers a choice.
-    var offersChoice: Bool {
-        sources.count > 1
-    }
-
-    func pick(_ source: TitleSource) {
-        picked = source
-    }
-
-    /// The picked copy's player has closed: the page becomes that copy, so
-    /// Resume is the one just watched. Not sooner — rebuilding the page as the
-    /// menu closes and the player opens leaves the player without focus on
-    /// tvOS, and the page is about to be covered anyway.
-    func showPicked() {
-        if let picked { current = picked }
-        picked = nil
-    }
-
-    /// Nothing could be played for the pick; the page stays as it is.
-    func abandonPick() {
-        picked = nil
-    }
-}
-
 extension View {
     /// Plays a copy picked from the Source button through the page's own
     /// `present`. The page calls `showPicked()` once that player has closed.
@@ -64,12 +27,19 @@ private struct PickedSourcePlayback: ViewModifier {
     @Environment(\.contentRestriction) private var restriction
 
     func body(content: Content) -> some View {
-        content.task(id: selection?.picked?.id) {
-            guard let selection, let source = selection.picked else { return }
-            let media = await TitleSourcePlayback.media(for: source, restriction: restriction, in: modelContext)
-            guard !Task.isCancelled else { return }
-            if let media { present(media) } else { selection.abandonPick() }
-        }
+        content
+            .task(id: selection?.request?.id) {
+                guard let selection, let request = selection.request else { return }
+                defer { selection.abandonPick(request) }
+                let media = await TitleSourcePlayback.media(for: request.source, restriction: restriction, in: modelContext)
+                guard !Task.isCancelled, let media, selection.beginPlayback(request) else { return }
+                present(media)
+            }
+            .onDisappear {
+                // Revoke ownership synchronously even if a provider ignores
+                // cancellation. A returning page must not restart that pick.
+                if let request = selection?.request { selection?.abandonPick(request) }
+            }
     }
 }
 

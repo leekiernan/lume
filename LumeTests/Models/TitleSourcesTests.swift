@@ -186,18 +186,20 @@ struct TitleSourcesTests {
         let selection = TitleSourceSelection(sources: sources, current: openedSource)
 
         selection.pick(otherSource)
-        #expect(selection.current.id == opened.id && selection.picked?.id == other.id)
+        let request = try #require(selection.request)
+        #expect(selection.current.id == opened.id && request.source.id == other.id)
         let media = await TitleSourcePlayback.media(for: otherSource, restriction: ContentRestriction(), in: context)
         #expect(media?.id == PlayableMedia.from(movie: other, playlist: playlist)?.id)
+        #expect(selection.beginPlayback(request))
 
         selection.showPicked()
-        #expect(selection.current.id == other.id && selection.picked == nil)
+        #expect(selection.current.id == other.id && selection.request == nil)
         // A player closing with no pick (plain Play) changes nothing.
         selection.showPicked()
         #expect(selection.current.id == other.id)
 
         selection.pick(openedSource)
-        selection.abandonPick()
-        #expect(selection.current.id == other.id && selection.picked == nil)
+        try selection.abandonPick(#require(selection.request))
+        #expect(selection.current.id == other.id && selection.request == nil)
     }
 }

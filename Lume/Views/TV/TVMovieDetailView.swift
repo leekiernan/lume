@@ -259,6 +259,7 @@
 
         /// With no player of the app's own to close, a picked copy is shown at once.
         private func present(_ media: PlayableMedia) {
+            sourceSelection?.recordPlayback(media.contentRef, in: modelContext)
             if ExternalPlayback.open(media) {
                 sourceSelection?.showPicked()
                 return

@@ -15,6 +15,7 @@
 //  the running player through `pendingMedia`.
 //
 
+import SwiftData
 import SwiftUI
 
 #if os(macOS)
@@ -40,11 +41,14 @@ import SwiftUI
         /// `NSApp.keyWindow` is the library window whenever the player is not
         /// frontmost, which is exactly when a retitle would rename the wrong one.
         private weak var window: NSWindow?
+        @ObservationIgnored private weak var sourceSelection: TitleSourceSelection?
 
         private init() {}
 
         /// Play `media` in the player window, creating it only if there is none.
-        func play(_ media: PlayableMedia, using openWindow: OpenWindowAction) {
+        func play(_ media: PlayableMedia, using openWindow: OpenWindowAction, sourceSelection: TitleSourceSelection? = nil) {
+            if self.sourceSelection !== sourceSelection { self.sourceSelection?.showPicked() }
+            self.sourceSelection = sourceSelection
             guard let launchMedia else {
                 openWindow(id: "player", value: media)
                 return
@@ -59,14 +63,17 @@ import SwiftUI
         }
 
         func playerDidClose() {
+            sourceSelection?.showPicked()
+            sourceSelection = nil
             launchMedia = nil
             activeMediaID = nil
             pendingMedia = nil
             window = nil
         }
 
-        func noteActiveMedia(_ media: PlayableMedia) {
+        func noteActiveMedia(_ media: PlayableMedia, in context: ModelContext) {
             activeMediaID = media.id
+            sourceSelection?.recordPlayback(media.contentRef, in: context)
             // Only ever the player's own window: until one has positively
             // identified itself this is a no-op, rather than retitling
             // whatever window happened to be frontmost.
@@ -135,6 +142,7 @@ import SwiftUI
         let onRetarget: (PlayableMedia) -> Void
 
         @State private var router = MacPlayerWindowRouter.shared
+        @Environment(\.modelContext) private var modelContext
 
         func body(content: Content) -> some View {
             content
@@ -150,7 +158,7 @@ import SwiftUI
                 })
                 .onAppear { router.playerDidOpen(with: launchMedia) }
                 .onDisappear { router.playerDidClose() }
-                .onChange(of: activeMedia) { _, media in router.noteActiveMedia(media) }
+                .onChange(of: activeMedia, initial: true) { _, media in router.noteActiveMedia(media, in: modelContext) }
                 .onChange(of: router.pendingMedia) { _, media in
                     guard let media else { return }
                     router.pendingMedia = nil

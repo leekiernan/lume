@@ -18,6 +18,7 @@ struct FullScreenPlayerView: View {
     @Environment(\.scenePhase) private var scenePhase
     /// Optional so previews (which don't inject it) don't crash.
     @Environment(ProfileManager.self) private var profileManager: ProfileManager?
+    @Environment(TitleSourceSelection.self) private var sourceSelection: TitleSourceSelection?
     /// This player's own playback-health bracket. Per view, not per tracker:
     /// macOS opens the player in its own window and iPadOS can run several
     /// scenes, so two sessions can be in flight at once.
@@ -289,7 +290,10 @@ struct FullScreenPlayerView: View {
             installSessionEffects()
             beginReviewSession()
         }
-        .onChange(of: activeMedia.id, initial: true) { publishSources(to: controlsBridge) }
+        .onChange(of: activeMedia.id, initial: true) {
+            publishSources(to: controlsBridge)
+            sourceSelection?.recordPlayback(activeMedia.contentRef, in: modelContext)
+        }
         .onChange(of: contentRestriction.visibilityToken) { publishSources(to: controlsBridge) }
         .onChange(of: engineMount, initial: true) { _, mount in
             guard let mount else { return }
