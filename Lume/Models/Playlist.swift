@@ -285,10 +285,7 @@ extension Playlist {
     /// userinfo credentials are stripped, so a URL that carries them cannot be
     /// shown, screenshotted or read aloud.
     var displayURL: String {
-        guard var components = URLComponents(string: serverURL) else { return serverURL }
-        components.user = nil
-        components.password = nil
-        return components.string ?? serverURL
+        DisplayAddress.origin(of: serverURL)
     }
 
     /// Whether the stream container can be chosen for this playlist. Written as
