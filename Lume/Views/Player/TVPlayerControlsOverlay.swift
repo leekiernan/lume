@@ -2,11 +2,10 @@
 //  TVPlayerControlsOverlay.swift
 //  Lume
 //
-//  The tvOS player overlay. A complete rework that follows the Apple TV "Touch"
-//  player template: a bottom scrim carrying a left caption + large title, a
-//  right-aligned technical caption, a full-width progress bar with elapsed /
-//  remaining times, and a control row of tab pills (left), transport buttons
-//  (centre) and audio / subtitle menus (right).
+//  The tvOS player overlay, following the Apple TV "Touch" player template: a
+//  bottom scrim with a left caption, large title and right-aligned technical
+//  caption, a progress bar with elapsed / remaining times, and a control row of
+//  tab pills, transport buttons and audio / subtitle / source menus (right).
 //
 //  The first tab ("Episodes", series only) raises a horizontal episode rail; the
 //  second ("Info", the only tab for movies and live) raises an information
@@ -396,6 +395,7 @@
             HStack(spacing: 16) {
                 audioTrackMenu
                 subtitleMenu
+                sourceMenu
                 favoriteButton
             }
         }

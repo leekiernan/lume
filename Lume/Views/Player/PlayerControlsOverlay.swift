@@ -53,6 +53,7 @@ struct PlayerControlsActions {
         var itemNeighbours = PlayerItemNavigation.Neighbours.none
 
         @Environment(\.modelContext) private var modelContext
+        @Environment(PlayerControlsBridge.self) private var bridge: PlayerControlsBridge?
         private var isFavorite: Bool {
             PlayerFavorites.isFavorite(for: media.contentRef, in: modelContext)
         }
@@ -275,6 +276,7 @@ struct PlayerControlsActions {
                     playbackRateMenu
                 }
                 if presentation.isAspectFill != nil { contentModeButton }
+                sourceMenu
                 favoriteButton
             }
             .padding(.horizontal, 4)
@@ -350,6 +352,16 @@ struct PlayerControlsActions {
             }
             .menuIndicator(.hidden)
             .trackMenuAccessibility("Audio Track", selected: tracks.first(where: \.isSelected)?.label, fallback: "Default")
+        }
+
+        /// Another copy at the same moment, when the host found one.
+        @ViewBuilder
+        private var sourceMenu: some View {
+            if let bridge, let sources = bridge.sources {
+                PlayerSourceMenu(sources: sources, bridge: bridge, onChoose: actions.resetHideTimer) {
+                    pillGlyph("square.stack")
+                }
+            }
         }
 
         private var playbackRateMenu: some View {
