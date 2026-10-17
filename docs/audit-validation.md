@@ -220,22 +220,13 @@ Deliberately left as they are:
 - **EPG observation churn.** It happens only on rare owe and queue events.
 - **WebDAV's strict redirect origin.** See the redirect section.
 
-Follow-ups worth scheduling, none blocking:
+The five scheduled follow-ups have implementations on this branch; see
+**Audit follow-up implementation** below. The original typed-connection finding
+was partly stale: playback already used `PlaylistConnection`; the remaining
+provider API/sync operations did not. Simkl's scrobble API is currently a no-op,
+so the queued-scrobble finding concerns Trakt, not a second Simkl playback queue.
 
-- **Plex/Jellyfin artwork tokens.** Sync stores image URLs with the account
-  token: plaintext in `default.store`, every artwork row rewritten on rotation,
-  and no caller passes `accountScope`. Store token-free URLs and attach
-  credentials in `ImagePipeline` from the owning playlist.
-- **Scrobbles across an iCloud token rotation.** A rotation pushed from another
-  device retires a queued stop scrobble. Fence scrobbles by account identity,
-  as the mutation queue does, not by session generation.
-- **`ProfileProjectionGate` during tracker imports.** The gate is held for the
-  whole apply, including saves. Page it like `CatalogMaintenance`.
-- **`PlaylistConnection` is unused in production.** There are 54 raw
-  credential reads across 10 files. Move clients onto it one at a time.
-- **`PlaybackStartupSupervisor` duplication.** About 75 lines of
-  started/failed/QoE glue are duplicated across the three engines. Move
-  `hasStarted` and the QoE calls into the supervisor.
+Remaining non-blocking follow-ups:
 - **Smaller items:**
   - The episode-menu boundary checks are O(n²) per season list.
   - Top Shelf has no image cache.
@@ -489,3 +480,97 @@ Validated on 17 October 2026 at `fe55f5a5`, after merging
   package clone.
 - **Formatting and lint:** SwiftFormat and strict SwiftLint passed on every
   changed file, through the pre-commit hook.
+
+### Audit follow-up implementation
+
+Implemented on `fix/audit-validation`, 18 October 2026, in separate conventional
+commits. No catalogue IDs, SwiftData schema, viewing-profile ownership, proxy
+fallback rules, `_NOTES` or secrets are changed.
+
+- **Source-owned artwork.** `ProviderArtworkAccount` snapshots the typed source
+  connection. A small observed playlist table supplies current credentials;
+  images never query SwiftData individually or guess an account from a hostname.
+  Cards, detail heroes, episode stills, Continue Watching, hero prefetch, Downloads,
+  favourites, player information and Now Playing carry the catalogue owner.
+  Cached warm-start heroes carry their existing playlist owner before a matched
+  item exists, through the shared `HeroFeedPage` surface on every platform.
+  Plex/Jellyfin/Emby sync stores token-free routes. The image request attaches
+  auth only to the source origin; Jellyfin retains modern canonical `ApiKey`
+  transport support. Successful caches use an account-qualified identity;
+  in-flight and failure keys additionally distinguish credentials, so a rotated
+  token can retry without dropping successful artwork. Public CDN images retain
+  their existing cache identities and work without media-server credentials.
+- **Artwork cleanup and exports.** A resumable, once-per-device pass strips the
+  old URL credentials in 250-row pages, changing only the three provider-artwork
+  columns. It does not rebuild stores or touch history/favourites. Top Shelf
+  materialises private artwork in the app and exports files, not authenticated
+  URLs. For manually pasted Plex tokens without a known account ID, isolation
+  remains conservative: changing that token changes its private cache scope.
+  Username-backed Plex and user-ID-backed Jellyfin/Emby scopes survive rotation.
+- **Queued scrobbles.** Credential/import lifetime and transient delivery lifetime
+  are separate. Same-account cloud rotations retain delivery permits; explicit
+  disconnect/reconnect and account replacement retire them. The new credential's
+  account is confirmed before delivery. Rotation during a local refresh or
+  identity lookup retries against the replacement pair, with bounded churn.
+  Imports retain their stricter generation fence. Trakt remains globally
+  connected; this is not a change to profile/account ownership.
+- **Paged tracker imports.** Shared `TrackerImportPages` holds the profile gate
+  for one transaction, then releases it and yields. Every page has a fresh context
+  and rechecks profile/account lifetime before writing. Movies use groups of 100
+  remote title IDs; shows and pauses use 10. Duplicate records for one title stay
+  together, preserving last-record/newest-pause semantics. Completed history still
+  precedes pauses. Earlier committed pages remain valid if a later page is
+  refused; the result reports failure rather than claiming a complete import.
+  This bounds the history-sized critical section, not wall-clock lock latency:
+  one unusually large series can still take a substantial transaction, and
+  parked-state serialization remains per changed page. Unchanged parked history
+  does not rewrite its file; deterministic file-mtime tests cover both trackers.
+- **Typed provider operations.** Xtream API/guide/capability URL assembly,
+  Plex and Jellyfin/Emby login/sync, WebDAV walking, m3u acquisition and Stalker
+  configuration consume `PlaylistConnection`. Unknown or mismatched source types
+  cannot borrow unrelated credential columns. Existing provider paths, duplicate
+  query items and credential encoding are retained. Empty endpoints now fail
+  validation instead of producing unusable relative URLs containing credentials.
+  Raw fields remain where they
+  belong: the validated snapshot initializer, settings editing, storage export
+  and credential persistence.
+- **Startup accounting.** `PlaybackStartupSupervisor` accepts first-frame proof,
+  owns the terminal latch/deadline, and centralises QoE session/first-frame/failure/
+  teardown reporting. QoE calls are owner-qualified, so a retired engine cannot
+  claim the replacement's first frame. Mount-time proof is retained; a new load
+  cannot borrow a previous stream's proof. Engines keep their decoder-specific
+  proof inputs, reconnect behavior, and published UI projections. No KSPlayer
+  dependency patch or player policy change is needed.
+
+### Audit follow-up verification
+
+Validated on 18 October 2026 at source/test commit `5c92d236`:
+
+- **LumeTests:** all 3,636 tests passed (4,119 parameterized executions), zero
+  failures or skips, on an isolated iPhone 17 Pro simulator running iOS 27.0.
+  The final full run took 448 s with test parallelization disabled. No rotating
+  timing failure reproduced in either full sweep; this does not resolve the
+  separate suite-starvation investigation described above.
+- **Builds:** iOS build-for-testing, native tvOS and native arm64 macOS all
+  succeeded, using private DerivedData and the shared package clone. The iOS
+  build retains two existing actor-isolation warnings at
+  `WidgetSnapshotTests.swift:83`; tvOS and macOS reported no warnings.
+- **Regression coverage:** source/account isolation, credential rotation and
+  foreign origins; token-free sync and 251-row cleanup/idempotence; cached-hero
+  ownership; tracker rotation during refresh and account replacement; paged
+  import cancellation/context boundaries and unchanged parked-file timestamps;
+  validated endpoint assembly; startup proof and QoE ownership.
+- **Formatting and lint:** every Swift commit passed SwiftFormat and strict
+  SwiftLint through the pre-commit hook; `git diff --check` passed.
+
+The first full sweep exposed two assertions pinning the intentionally replaced
+contracts (persisted artwork tokens and credential-bearing relative URLs for an
+empty endpoint). Those tests now assert the new storage/authentication boundary
+and early endpoint rejection; the final sweep above includes both corrections.
+
+Evidence: `/tmp/lume-audit-followups-final-tests.xcresult` and
+`/tmp/lume-audit-followups-final2-build-{ios,tvos,macos}.xcresult`.
+No UI automation or physical-device testing was run. Board smoke checks should
+cover Plex/Jellyfin artwork before and after token rotation (including cold-start
+heroes and Top Shelf), progress saves during history import, and open/swap/retry
+playback. The branch is ready for review, not yet merged.
