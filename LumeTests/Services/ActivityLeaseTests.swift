@@ -10,10 +10,13 @@ struct ActivityLeaseTests {
         leases.acquire(first)
         leases.acquire(first)
         leases.acquire(second)
-        #expect(leases.release(first))
-        #expect(!leases.release(first))
+        let transition1 = leases.release(first)
+        #expect(transition1)
+        let transition2 = leases.release(first)
+        #expect(!transition2)
         #expect(leases.isActive)
-        #expect(leases.release(second))
+        let transition3 = leases.release(second)
+        #expect(transition3)
         #expect(!leases.isActive)
     }
 
