@@ -84,17 +84,21 @@ final class ProviderArtworkAccounts {
     }
 
     nonisolated static func request(for url: URL, ownerID: String? = nil) -> ArtworkRequest? {
+        snapshots.withLock { request(for: url, ownerID: ownerID, accounts: $0) }
+    }
+
+    /// Pure resolution also covers playlist-only owners: a cached hero can
+    /// render before its catalogue item has been matched on a cold launch.
+    nonisolated static func request(for url: URL, ownerID: String?, accounts: [UUID: ProviderArtworkAccount]) -> ArtworkRequest? {
         let id = ownerID.map { MediaItemKey($0)?.id ?? $0 }
         let playlistID = id.flatMap { UUID(uuidString: String($0.prefix(36))) }
-        return snapshots.withLock { accounts in
-            if let playlistID, let account = accounts[playlistID] { return account.request(for: url) }
-            // An unowned prefetch cannot guess which account supplies private
-            // server artwork. Public CDN art continues through the usual path.
-            if accounts.values.contains(where: { $0.ownsOrigin(url) }) { return nil }
-            // A removed source's legacy credential must not remain usable.
-            if let id, ["-plex-", "-jellyfin-", "-emby-"].contains(where: { id.dropFirst(36).hasPrefix($0) }) { return nil }
-            return ArtworkRequest(url: url)
-        }
+        if let playlistID, let account = accounts[playlistID] { return account.request(for: url) }
+        // An unowned prefetch cannot guess which account supplies private
+        // server artwork. Public CDN art continues through the usual path.
+        if accounts.values.contains(where: { $0.ownsOrigin(url) }) { return nil }
+        // A removed source's legacy credential must not remain usable.
+        if let id, ["-plex-", "-jellyfin-", "-emby-"].contains(where: { id.dropFirst(36).hasPrefix($0) }) { return nil }
+        return ArtworkRequest(url: url)
     }
 
     nonisolated static func requiresPrivateRendering(_ url: URL) -> Bool {

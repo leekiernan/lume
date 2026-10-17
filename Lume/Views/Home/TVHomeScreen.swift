@@ -86,6 +86,7 @@
         let belowFold: Bool
         let warmStartBackdropURL: URL?
         @Environment(\.displayScale) private var displayScale
+        @Environment(\.artworkOwnerID) private var inheritedOwnerID
 
         private var backdropURL: URL? {
             model.currentHero?.imageURL ?? warmStartBackdropURL
@@ -99,7 +100,7 @@
 
                 if let backdropURL {
                     HeroArtworkImage(url: backdropURL)
-                        .artworkOwner(model.currentHero?.id)
+                        .artworkOwner(model.currentHero?.id ?? inheritedOwnerID)
                         // Keyed by slide so a page change swaps views, and the
                         // opacity transition (driven by the model's animated index
                         // change) reads as a crossfade.

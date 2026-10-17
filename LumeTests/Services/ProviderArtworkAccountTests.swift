@@ -80,4 +80,17 @@ struct ProviderArtworkAccountTests {
         #expect(request.cacheIdentity == publicImage.absoluteString)
         #expect(request.transportIdentity == request.cacheIdentity)
     }
+
+    @Test func `a warm start playlist owner resolves the same account as a matched hero`() throws {
+        let playlist = Playlist(name: "Plex", plexURL: "https://server.test", username: "alice", accessToken: "current")
+        let account = try #require(ProviderArtworkAccount(playlist: playlist))
+        let accounts = [playlist.id: account]
+        let warm = try #require(ProviderArtworkAccounts.request(for: url, ownerID: playlist.id.uuidString, accounts: accounts))
+        let itemID = MediaItemKey.movie(CatalogID.prefix(playlist.id, infix: "plex") + "1").description
+        let matched = try #require(ProviderArtworkAccounts.request(for: url, ownerID: itemID, accounts: accounts))
+        #expect(warm == matched)
+        #expect(warm.headers["X-Plex-Token"] == "current")
+        #expect(ProviderArtworkAccounts.request(for: url, ownerID: nil, accounts: accounts) == nil)
+        #expect(ProviderArtworkAccounts.request(for: url, ownerID: UUID().uuidString, accounts: accounts) == nil)
+    }
 }
