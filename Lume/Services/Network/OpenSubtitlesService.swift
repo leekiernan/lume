@@ -71,13 +71,13 @@ final class OpenSubtitlesService {
 
     init(
         client: any OpenSubtitlesProviding = OpenSubtitlesClient.shared,
-        persistence: OpenSubtitlesPersistence = .live,
-        cache: OpenSubtitlesCache = .live,
+        persistence: OpenSubtitlesPersistence? = nil,
+        cache: OpenSubtitlesCache? = nil,
         defaults: UserDefaults = .standard
     ) {
         self.client = client
-        self.persistence = persistence
-        self.cache = cache
+        self.persistence = persistence ?? .live
+        self.cache = cache ?? .live
         self.defaults = defaults
         let stored = defaults.stringArray(forKey: Self.languagesKey)
         preferredLanguages = stored ?? Self.defaultLanguages()
