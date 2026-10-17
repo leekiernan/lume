@@ -187,13 +187,13 @@ struct LumeApp: App {
         }
     }
 
-    /// True when this process only hosts `LumeTests`. The app launches as
-    /// normal around the tests, but on in-memory stores holding just the
-    /// `ExampleProvider` playlist. On the real stores — on macOS the viewer's
-    /// own library — its auto-sync reached the real provider, and anything it
-    /// wrote to the user-data store would export to iCloud on the next real
-    /// launch. UI tests pass `-ui-testing` and keep their own launch and stub
-    /// playlist (`ContentView`).
+    /// True when this process only hosts `LumeTests`. The stores are in-memory,
+    /// holding just the `ExampleProvider` playlist: on the real stores — on
+    /// macOS the viewer's own library — the app's auto-sync reached the real
+    /// provider, and anything it wrote to the user-data store would export to
+    /// iCloud on the next real launch. The window is blank and the launch
+    /// sequence never runs (see `body`). UI tests pass `-ui-testing` and keep
+    /// their own launch and stub playlist (`ContentView`).
     static let isUnitTestHost: Bool = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         && !CommandLine.arguments.contains("-ui-testing")
 
@@ -262,182 +262,191 @@ struct LumeApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .lumeProgressViews()
-            #if !os(tvOS)
-                // The foundations' tint: selected tabs, primary buttons, links and
-                // toggles. tvOS keeps the system's focus colours.
-                .tint(.lumeAccent)
-            #endif
-                .inAppToasts(priority: 0)
-                .environment(TraktService.shared)
-                .environment(PremiumManager.shared)
-                .environment(cloudSync)
-                .environment(profileManager)
-                .environment(playlistSwitch)
-                .environment(parentalControls)
-                .environment(\.topShelfRefresher, topShelf)
-                .task {
-                    // Subscribe to MetricKit before anything else: payloads for a
-                    // previous run are delivered shortly after launch, and one
-                    // missed registration loses a day of field data. Compiles out
-                    // on tvOS, where MetricKit doesn't exist.
-                    #if canImport(MetricKit) && !os(tvOS)
-                        AppPerformanceMetrics.shared.start()
-                    #endif
+            if Self.isUnitTestHost {
+                // Unit tests drive the services they need themselves. A live app
+                // around them reacted to their shared state — every test store's
+                // saves, profile and preference writes — with reconciles, syncs
+                // and re-renders on the main thread the tests also share, which a
+                // full parallel run measured as seconds of starved threads.
+                Color.clear
+            } else {
+                ContentView()
+                    .lumeProgressViews()
+                #if !os(tvOS)
+                    // The foundations' tint: selected tabs, primary buttons, links and
+                    // toggles. tvOS keeps the system's focus colours.
+                    .tint(.lumeAccent)
+                #endif
+                    .inAppToasts(priority: 0)
+                    .environment(TraktService.shared)
+                    .environment(PremiumManager.shared)
+                    .environment(cloudSync)
+                    .environment(profileManager)
+                    .environment(playlistSwitch)
+                    .environment(parentalControls)
+                    .environment(\.topShelfRefresher, topShelf)
+                    .task {
+                        // Subscribe to MetricKit before anything else: payloads for a
+                        // previous run are delivered shortly after launch, and one
+                        // missed registration loses a day of field data. Compiles out
+                        // on tvOS, where MetricKit doesn't exist.
+                        #if canImport(MetricKit) && !os(tvOS)
+                            AppPerformanceMetrics.shared.start()
+                        #endif
 
-                    // Count this launch for the review policy's second route
-                    // (launches + days since install) — the only route a Live TV
-                    // only user can ever satisfy, since the >=90% completion
-                    // crossing is VOD-only. A cheap synchronous `UserDefaults`
-                    // write, and idempotent per process on the callee's side.
-                    AppStoreReviewPrompt.shared.noteAppLaunched()
+                        // Count this launch for the review policy's second route
+                        // (launches + days since install) — the only route a Live TV
+                        // only user can ever satisfy, since the >=90% completion
+                        // crossing is VOD-only. A cheap synchronous `UserDefaults`
+                        // write, and idempotent per process on the callee's side.
+                        AppStoreReviewPrompt.shared.noteAppLaunched()
 
-                    // Core Audio's one-off component registration, off the main
-                    // thread, so pressing Play doesn't pay it (see the type).
-                    if !Self.isUnitTestHost { AudioEngineWarmUp.schedule() }
+                        // Core Audio's one-off component registration, off the main
+                        // thread, so pressing Play doesn't pay it (see the type).
+                        if !Self.isUnitTestHost { AudioEngineWarmUp.schedule() }
 
-                    // Give DownloadManager access to the model container so it
-                    // can persist download state from its delegate callbacks.
-                    #if !os(tvOS)
-                        DownloadManager.shared.configure(container: catalogContainer)
-                        // Re-adopt transfers the background session kept running
-                        // while the app was away, and settle any the system
-                        // dropped, before the Downloads UI reads their status.
-                        await DownloadManager.shared.restoreBackgroundSession()
-                    #endif
+                        // Give DownloadManager access to the model container so it
+                        // can persist download state from its delegate callbacks.
+                        #if !os(tvOS)
+                            DownloadManager.shared.configure(container: catalogContainer)
+                            // Re-adopt transfers the background session kept running
+                            // while the app was away, and settle any the system
+                            // dropped, before the Downloads UI reads their status.
+                            await DownloadManager.shared.restoreBackgroundSession()
+                        #endif
 
-                    // If the preferred language changed since last launch (e.g.
-                    // via the per-app language override in iOS Settings), drop
-                    // cached TMDB enrichment so detail views re-fetch text,
-                    // videos and artwork in the new language.
-                    await TMDBLanguageWatcher.invalidateEnrichmentIfLanguageChanged(
-                        container: catalogContainer
-                    )
+                        // If the preferred language changed since last launch (e.g.
+                        // via the per-app language override in iOS Settings), drop
+                        // cached TMDB enrichment so detail views re-fetch text,
+                        // videos and artwork in the new language.
+                        await TMDBLanguageWatcher.invalidateEnrichmentIfLanguageChanged(
+                            container: catalogContainer
+                        )
 
-                    // Resolve the active profile and claim any pre-profiles
-                    // content state before the first sync, so the catalog the
-                    // reconciler reads is already scoped to a profile.
-                    await profileManager.bootstrap()
+                        // Resolve the active profile and claim any pre-profiles
+                        // content state before the first sync, so the catalog the
+                        // reconciler reads is already scoped to a profile.
+                        await profileManager.bootstrap()
 
-                    // Wire the Sports Hub as soon as the profile is known, ahead
-                    // of the tracker restores and iCloud below: those are network
-                    // calls that can take a stalled minute apiece, and everything
-                    // after them waits. Sports is the one launch step whose delay
-                    // is visible as an empty Home row, and none of this blocks —
-                    // `configure` warms the store from disk and the two triggers
-                    // hand off to their own utility Tasks.
-                    SportsFollowService.shared.configure(container: cloudContainer, profileManager: profileManager)
-                    SportsSyncService.shared.configure(followSource: SportsFollowService.shared)
-                    // Re-fetches every followed league whose snapshot is missing
-                    // or stale, so the Home rail has current data on first render
-                    // even after the system purged Caches/. Hits ESPN, not the
-                    // provider host, so it never competes with a playlist sync for
-                    // the account's one connection. `HomeView.warmSports` asks
-                    // again whenever the entitlement or the followed set changes.
-                    SportsSyncService.shared.refreshIfStale()
+                        // Wire the Sports Hub as soon as the profile is known, ahead
+                        // of the tracker restores and iCloud below: those are network
+                        // calls that can take a stalled minute apiece, and everything
+                        // after them waits. Sports is the one launch step whose delay
+                        // is visible as an empty Home row, and none of this blocks —
+                        // `configure` warms the store from disk and the two triggers
+                        // hand off to their own utility Tasks.
+                        SportsFollowService.shared.configure(container: cloudContainer, profileManager: profileManager)
+                        SportsSyncService.shared.configure(followSource: SportsFollowService.shared)
+                        // Re-fetches every followed league whose snapshot is missing
+                        // or stale, so the Home rail has current data on first render
+                        // even after the system purged Caches/. Hits ESPN, not the
+                        // provider host, so it never competes with a playlist sync for
+                        // the account's one connection. `HomeView.warmSports` asks
+                        // again whenever the entitlement or the followed set changes.
+                        SportsSyncService.shared.refreshIfStale()
 
-                    // Restore a previously connected Trakt session (refreshing
-                    // the token if stale) so watched-sync and the watchlist work
-                    // from launch. Fired rather than awaited, like Simkl below:
-                    // each is up to two network round trips with no timeout of
-                    // its own, and nothing further down this chain depends on
-                    // either, so awaiting them held back iCloud, indexing and
-                    // the guide refresh behind the network.
-                    // Import finished history and paused playback after restore,
-                    // not just authorization: other devices' progress must reach
-                    // Continue Watching without a trip to Settings.
-                    Task {
-                        let profileID = profileManager.activeProfileID
-                        await TraktService.shared.restore()
-                        guard !profileManager.isSwitching, profileManager.activeProfileID == profileID else { return }
-                        await TraktService.shared.importWatched(into: catalogContainer.mainContext)
-                    }
-
-                    // Same for Simkl (a second tracker integration, AUTH V2
-                    // device flow): refresh stale tokens, restore the username.
-                    Task { await SimklService.shared.restore() }
-
-                    // Restore the OpenSubtitles session (a keychain read, no
-                    // network) so the in-player subtitle search can download
-                    // without sending the viewer to Settings first.
-                    OpenSubtitlesService.shared.restore()
-
-                    // Kick off iCloud sync: check account reachability, then run
-                    // a first reconcile between the local catalog and the cloud
-                    // mirrors. Runs after progress reconciliation so a fresh
-                    // device's user state lands on a settled local store.
-                    await cloudSync.start()
-
-                    // Resume background content indexing for anything still
-                    // unindexed (the pass waits on its own while a playlist
-                    // sync is running).
-                    ContentIndexingService.shared.configure(container: catalogContainer)
-                    ContentIndexingService.shared.kick()
-
-                    // Refresh the TV guide on its own schedule. No-ops when no
-                    // guide is due yet, and stands aside while a playlist sync
-                    // is queued or running — the deferred refresh runs once
-                    // nothing is pending (see `EPGRefreshGate`).
-                    EPGSyncService.shared.configure(container: catalogContainer)
-                    EPGSyncService.shared.syncIfDue(reason: "launch")
-                    EPGSyncService.shared.startPeriodicChecks()
-
-                    // Seed the Top Shelf snapshot once services are up (after
-                    // profile bootstrap, so the catalog is profile-scoped).
-                    topShelf.refresh()
-                }
-                // A switch ending, to the profile the Top Shelf follows or
-                // away from it, changes what it should show.
-                .onChange(of: profileManager.isSwitching) { _, switching in
-                    if switching { topShelf.invalidate() } else { topShelf.refresh() }
-                }
-                // The launch refresh is dropped until bootstrap has resolved
-                // the active profile.
-                .onChange(of: profileManager.isReady) { _, ready in
-                    if ready { topShelf.refresh() }
-                }
-                .onChange(of: profileManager.profiles.map(\.id)) { _, ids in
-                    topShelf.rosterChanged(ids)
-                }
-                .onChange(of: cloudSync.status.lastReconcile) {
-                    // A reconcile may have pulled a PIN this device didn't have
-                    // (or cleared one turned off elsewhere). `ParentalControls`
-                    // caches that as `isPINSet`, so it has to be told to re-read
-                    // or the gates stay wrong until the next launch.
-                    parentalControls.refreshFromStore()
-                    // A reconcile may have pulled or deduped this profile's sports
-                    // follows; re-read them so the hub reflects the merged set.
-                    SportsFollowService.shared.reload()
-                }
-                .onChange(of: scenePhase) { _, phase in
-                    DiagnosticSession.scenePhaseChanged(to: phase)
-                    cloudSync.handleScenePhaseChange(to: phase)
-                    EPGSyncService.shared.isForeground = phase == .active
-                    if phase == .active {
-                        // Durable Trakt history changes survive termination and
-                        // retry whenever the app returns to the foreground.
-                        TraktService.shared.retryPendingMutations()
-                    }
-                    #if !os(macOS)
-                        // Shrink the resident footprint before the system suspends
-                        // the app: a 256 MB decoded-image cache makes it a prime
-                        // jetsam target after a long background (the symptom that
-                        // reads as "slow after a while in the background"). The disk
-                        // cache keeps the bytes, so re-decoding on return is cheap.
-                        // macOS has ample RAM and no jetsam, so it keeps its cache.
-                        if phase == .background {
-                            ImageMemoryCache.shared.purge(reason: "app backgrounded")
+                        // Restore a previously connected Trakt session (refreshing
+                        // the token if stale) so watched-sync and the watchlist work
+                        // from launch. Fired rather than awaited, like Simkl below:
+                        // each is up to two network round trips with no timeout of
+                        // its own, and nothing further down this chain depends on
+                        // either, so awaiting them held back iCloud, indexing and
+                        // the guide refresh behind the network.
+                        // Import finished history and paused playback after restore,
+                        // not just authorization: other devices' progress must reach
+                        // Continue Watching without a trip to Settings.
+                        Task {
+                            let profileID = profileManager.activeProfileID
+                            await TraktService.shared.restore()
+                            guard !profileManager.isSwitching, profileManager.activeProfileID == profileID else { return }
+                            await TraktService.shared.importWatched(into: catalogContainer.mainContext)
                         }
-                    #endif
-                    // The Top Shelf shows while Lume isn't in front, so leaving
-                    // the foreground is when it needs this session's progress,
-                    // favourites and profile.
-                    if phase == .background {
-                        topShelf.refresh(immediately: true)
+
+                        // Same for Simkl (a second tracker integration, AUTH V2
+                        // device flow): refresh stale tokens, restore the username.
+                        Task { await SimklService.shared.restore() }
+
+                        // Restore the OpenSubtitles session (a keychain read, no
+                        // network) so the in-player subtitle search can download
+                        // without sending the viewer to Settings first.
+                        OpenSubtitlesService.shared.restore()
+
+                        // Kick off iCloud sync: check account reachability, then run
+                        // a first reconcile between the local catalog and the cloud
+                        // mirrors. Runs after progress reconciliation so a fresh
+                        // device's user state lands on a settled local store.
+                        await cloudSync.start()
+
+                        // Resume background content indexing for anything still
+                        // unindexed (the pass waits on its own while a playlist
+                        // sync is running).
+                        ContentIndexingService.shared.configure(container: catalogContainer)
+                        ContentIndexingService.shared.kick()
+
+                        // Refresh the TV guide on its own schedule. No-ops when no
+                        // guide is due yet, and stands aside while a playlist sync
+                        // is queued or running — the deferred refresh runs once
+                        // nothing is pending (see `EPGRefreshGate`).
+                        EPGSyncService.shared.configure(container: catalogContainer)
+                        EPGSyncService.shared.syncIfDue(reason: "launch")
+                        EPGSyncService.shared.startPeriodicChecks()
+
+                        // Seed the Top Shelf snapshot once services are up (after
+                        // profile bootstrap, so the catalog is profile-scoped).
+                        topShelf.refresh()
                     }
-                }
-                .appAppearance(AppAppearance.resolve(appearanceRaw))
+                    // A switch ending, to the profile the Top Shelf follows or
+                    // away from it, changes what it should show.
+                    .onChange(of: profileManager.isSwitching) { _, switching in
+                        if switching { topShelf.invalidate() } else { topShelf.refresh() }
+                    }
+                    // The launch refresh is dropped until bootstrap has resolved
+                    // the active profile.
+                    .onChange(of: profileManager.isReady) { _, ready in
+                        if ready { topShelf.refresh() }
+                    }
+                    .onChange(of: profileManager.profiles.map(\.id)) { _, ids in
+                        topShelf.rosterChanged(ids)
+                    }
+                    .onChange(of: cloudSync.status.lastReconcile) {
+                        // A reconcile may have pulled a PIN this device didn't have
+                        // (or cleared one turned off elsewhere). `ParentalControls`
+                        // caches that as `isPINSet`, so it has to be told to re-read
+                        // or the gates stay wrong until the next launch.
+                        parentalControls.refreshFromStore()
+                        // A reconcile may have pulled or deduped this profile's sports
+                        // follows; re-read them so the hub reflects the merged set.
+                        SportsFollowService.shared.reload()
+                    }
+                    .onChange(of: scenePhase) { _, phase in
+                        DiagnosticSession.scenePhaseChanged(to: phase)
+                        cloudSync.handleScenePhaseChange(to: phase)
+                        EPGSyncService.shared.isForeground = phase == .active
+                        if phase == .active {
+                            // Durable Trakt history changes survive termination and
+                            // retry whenever the app returns to the foreground.
+                            TraktService.shared.retryPendingMutations()
+                        }
+                        #if !os(macOS)
+                            // Shrink the resident footprint before the system suspends
+                            // the app: a 256 MB decoded-image cache makes it a prime
+                            // jetsam target after a long background (the symptom that
+                            // reads as "slow after a while in the background"). The disk
+                            // cache keeps the bytes, so re-decoding on return is cheap.
+                            // macOS has ample RAM and no jetsam, so it keeps its cache.
+                            if phase == .background {
+                                ImageMemoryCache.shared.purge(reason: "app backgrounded")
+                            }
+                        #endif
+                        // The Top Shelf shows while Lume isn't in front, so leaving
+                        // the foreground is when it needs this session's progress,
+                        // favourites and profile.
+                        if phase == .background {
+                            topShelf.refresh(immediately: true)
+                        }
+                    }
+                    .appAppearance(AppAppearance.resolve(appearanceRaw))
+            }
         }
         .modelContainer(catalogContainer)
 
