@@ -14,6 +14,14 @@ struct StreamRedirectTests {
         #expect(start.duration(to: .now) < .seconds(2))
     }
 
+    @Test func `a cancelled probe does not wait for its timeout`() async {
+        let start = ContinuousClock.now
+        let task = Task { await StreamRedirect.resolve(provider) }
+        task.cancel()
+        #expect(await task.value == nil)
+        #expect(start.duration(to: .now) < .seconds(2))
+    }
+
     private let provider = URL(string: "https://provider.test/series/user/pass/42.mkv")!
 
     private func media(
@@ -90,7 +98,11 @@ private final nonisolated class HeaderOnlyStreamProtocol: URLProtocol {
 
     override func startLoading() {
         guard let url = request.url,
-              let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: ["Content-Length": "9000000000"]) else { return }
+              let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: [
+                  "Content-Length": "9000000000", "Content-Type": "application/octet-stream"
+              ]) else { return }
+        // Without a MIME type Foundation waits for bytes to sniff, before it
+        // delivers the response to either AsyncBytes or a response delegate.
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         // Intentionally never deliver or finish the body.
     }
