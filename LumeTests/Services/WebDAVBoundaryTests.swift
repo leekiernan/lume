@@ -25,8 +25,8 @@ struct WebDAVBoundaryTests {
         let root = try #require(URL(string: "https://NAS.test/Movies/"))
         let child = try #require(URL(string: "https://nas.test:443/Movies/Sub/Film.mkv"))
         #expect(WebDAVPathIdentity.contains(child, in: root))
-        #expect(WebDAVRedirectPolicy.allows(from: root, to: child))
-        #expect(try !WebDAVRedirectPolicy.allows(from: root, to: #require(URL(string: "http://nas.test/Movies/"))))
+        #expect(SameOriginRedirectPolicy.allows(from: root, to: child))
+        #expect(try !SameOriginRedirectPolicy.allows(from: root, to: #require(URL(string: "http://nas.test/Movies/"))))
         #expect(HTTPOrigin(URL(fileURLWithPath: "/Movies")) == nil)
     }
 }
