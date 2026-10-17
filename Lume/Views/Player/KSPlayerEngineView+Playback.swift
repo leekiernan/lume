@@ -518,7 +518,7 @@ extension KSPlayerEngineView {
                 if active {
                     resumeIfPipStartPaused()
                 } else {
-                    PlayerBackgrounding.pictureInPictureDidStop { closePlayer() }
+                    PlayerBackgrounding.pictureInPictureDidStop(owner: coordinator) { closePlayer() }
                 }
             }
         }

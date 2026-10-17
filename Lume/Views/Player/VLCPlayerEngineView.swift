@@ -195,7 +195,7 @@ struct VLCPlayerEngineView: View {
             coordinator.onPlaybackFailure = { reportFailure() }
             #if os(iOS)
                 coordinator.onPictureInPictureStop = {
-                    PlayerBackgrounding.pictureInPictureDidStop { closePlayer() }
+                    PlayerBackgrounding.pictureInPictureDidStop(owner: coordinator) { closePlayer() }
                 }
             #endif
             coordinator.startupTimeout = PlaybackPolicy.startupTimeout(quick: usesQuickStartupTimeout)

@@ -50,7 +50,7 @@ final class NowPlayingService {
 
     private var clock: PlaybackClock?
     private var artwork: MPMediaItemArtwork?
-    private var artworkOwner = RequestToken()
+    private var ownership = NowPlayingSessionOwnership()
     private var channelName: String?
     private var channelEPG: ChannelEPG?
 
@@ -84,48 +84,55 @@ final class NowPlayingService {
     /// episode). Registers remote commands, publishes metadata + artwork,
     /// and keeps live-TV EPG now/next fresh across programme boundaries.
     func runSession(
-        media: PlayableMedia, clock: PlaybackClock, container: ModelContainer
+        media: PlayableMedia, clock: PlaybackClock, container: ModelContainer, owner: ActivityLease
     ) async {
+        guard !Task.isCancelled else { return }
+        let request = ownership.claim(owner)
         currentMedia = media
         self.clock = clock
         channelName = nil
         channelEPG = nil
         artwork = nil
-        artworkOwner = RequestToken()
-        let artworkRequest = artworkOwner
         let artworkProfile = ActiveProfileStore.current
         registerCommands(for: media)
         publish()
 
         await withTaskGroup(of: Void.self) { group in
             group.addTask {
-                await self.loadArtwork(for: media, container: container, profile: artworkProfile, owner: artworkRequest)
+                await self.loadArtwork(for: media, container: container, profile: artworkProfile, owner: request)
             }
             if media.isLive {
-                group.addTask { await self.refreshEPGLoop(media: media, container: container) }
+                group.addTask { await self.refreshEPGLoop(media: media, container: container, request: request) }
             }
-            group.addTask { await self.samplerLoop() }
+            group.addTask { await self.samplerLoop(request: request) }
         }
     }
 
     /// A catch-up seek swapped in another segment of the programme already
     /// published. The session — metadata, commands and artwork — carries on
     /// (the host keys it on `playbackSessionID`).
-    func continueSession(with media: PlayableMedia) {
-        guard let current = currentMedia, current.playbackSessionID == media.playbackSessionID else { return }
+    func continueSession(with media: PlayableMedia, owner: ActivityLease) {
+        guard ownership.owner == owner, let current = currentMedia, current.playbackSessionID == media.playbackSessionID else { return }
         currentMedia = media
     }
 
     /// Tear the whole session down when the player is dismissed.
-    func endSession() {
+    func endSession(owner: ActivityLease) {
+        guard ownership.release(owner) else { return }
         currentMedia = nil
         clock = nil
         artwork = nil
-        artworkOwner = RequestToken()
         channelEPG = nil
         channelName = nil
         removeCommands()
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+    }
+
+    /// PiP can end before the host disappears. Only the attached engine may
+    /// tear down that host's session; a late old-engine callback is harmless.
+    func endSession(transportOwner: AnyObject) {
+        guard self.transportOwner == ObjectIdentifier(transportOwner), let owner = ownership.owner else { return }
+        endSession(owner: owner)
     }
 
     // MARK: - Remote commands
@@ -315,10 +322,10 @@ final class NowPlayingService {
                 posterURL = portrait
             }
         }
-        guard !Task.isCancelled, artworkOwner == owner, profile == ActiveProfileStore.current else { return }
+        guard !Task.isCancelled, ownership.accepts(owner), profile == ActiveProfileStore.current else { return }
         guard let posterURL else { return }
         guard let image = try? await ImagePipeline.shared.image(for: posterURL, maxPixelSize: 600) else { return }
-        guard !Task.isCancelled, artworkOwner == owner, profile == ActiveProfileStore.current else { return }
+        guard !Task.isCancelled, ownership.accepts(owner), profile == ActiveProfileStore.current else { return }
         artwork = Self.makeArtwork(image)
         publish()
     }
@@ -346,13 +353,13 @@ final class NowPlayingService {
 
     /// Keeps the published programme fresh: resolves now/next for the channel,
     /// then sleeps until the programme boundary and resolves again.
-    private func refreshEPGLoop(media: PlayableMedia, container: ModelContainer) async {
+    private func refreshEPGLoop(media: PlayableMedia, container: ModelContainer, request: RequestToken) async {
         guard case let .live(streamID) = media.contentRef else { return }
-        while !Task.isCancelled {
+        while !Task.isCancelled, ownership.accepts(request) {
             let resolved = await Task.detached {
                 Self.resolveChannelEPG(streamID: streamID, container: container)
             }.value
-            guard !Task.isCancelled, currentMedia?.id == media.id else { return }
+            guard !Task.isCancelled, ownership.accepts(request) else { return }
             channelName = resolved?.channelName
             channelEPG = resolved?.epg
             publish()
@@ -382,14 +389,15 @@ final class NowPlayingService {
     /// changes that don't flow through the remote commands — in-app play/pause,
     /// scrubber seeks, engine restarts, and KSPlayer wiping the info center on
     /// an engine rebuild — without touching SwiftData or the render loop.
-    private func samplerLoop() async {
+    private func samplerLoop(request: RequestToken) async {
+        guard ownership.accepts(request) else { return }
         var lastElapsed = clock?.current ?? 0
         var lastDuration = clock?.duration ?? 0
         var lastPlaying = transport?.isPlaying() ?? true
         var lastWall = Date.now
-        while !Task.isCancelled {
+        while !Task.isCancelled, ownership.accepts(request) {
             try? await Task.sleep(for: .seconds(1))
-            guard !Task.isCancelled, let clock else { return }
+            guard !Task.isCancelled, ownership.accepts(request), let clock else { return }
             let playing = transport?.isPlaying() ?? lastPlaying
             let wallDelta = Date.now.timeIntervalSince(lastWall)
             let expected = lastElapsed + (lastPlaying ? wallDelta : 0)

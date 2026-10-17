@@ -31,11 +31,11 @@ enum PlayerBackgrounding {
         /// user has stopped watching, so `closePlayer` ends the session rather
         /// than leaving the stream mounted behind the Home screen with a paused
         /// lock-screen player.
-        static func pictureInPictureDidStop(closePlayer: () -> Void) {
+        static func pictureInPictureDidStop(owner: AnyObject, closePlayer: () -> Void) {
             guard UIApplication.shared.applicationState == .background else { return }
             // The app can be suspended before the dismissal reaches the host's
             // `onDisappear`, so take the lock-screen player down right away.
-            NowPlayingService.shared.endSession()
+            NowPlayingService.shared.endSession(transportOwner: owner)
             closePlayer()
         }
     #endif

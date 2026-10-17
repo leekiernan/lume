@@ -26,7 +26,7 @@ struct FullScreenPlayerView: View {
     /// Stable for this presented player. The process-wide audio session uses it
     /// to reject a stale `onDisappear` after another player has already opened.
     @State var audioSessionOwner = UUID()
-    @State private var playbackLease = ActivityLease()
+    @State var playbackLease = ActivityLease()
     /// The engine mounts once the session is active, so KSPlayer's own
     /// synchronous main-thread activation finds it already done, and once a
     /// KSPlayer stream's provider redirect is resolved (`StreamRedirect`).
@@ -330,7 +330,7 @@ struct FullScreenPlayerView: View {
             // channel surf / next episode republishes; cancelled on swap. A
             // catch-up seek keeps the session (`playbackSessionID`).
             await NowPlayingService.shared.runSession(
-                media: activeMedia, clock: clock, container: modelContext.container
+                media: activeMedia, clock: clock, container: modelContext.container, owner: playbackLease
             )
         }
         .task(id: activeMedia.playbackSessionID) {
@@ -404,7 +404,7 @@ struct FullScreenPlayerView: View {
             cancelPendingCatchupSeek()
             // Stops the scrobble and saves progress while the clock is intact.
             session.send(.leave(.dismiss))
-            NowPlayingService.shared.endSession()
+            NowPlayingService.shared.endSession(owner: playbackLease)
             releaseAudioSession()
             StreamRedirectCache.shared.clear()
             ContentIndexingService.shared.endPlayback(owner: playbackLease)
