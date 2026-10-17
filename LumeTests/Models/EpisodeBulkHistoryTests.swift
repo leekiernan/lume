@@ -4,6 +4,7 @@ import SwiftData
 import Testing
 
 @MainActor
+@Suite(.globalState)
 struct EpisodeBulkHistoryTests {
     @Test func `bulk actions retain ordering progress and series recency`() throws {
         let container = try makeTestContainer()

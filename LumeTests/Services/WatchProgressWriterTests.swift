@@ -12,6 +12,7 @@ import SwiftData
 import Testing
 
 @MainActor
+@Suite(.readsGlobalState)
 struct WatchProgressWriterTests {
     @Test func `a retired projection cannot save progress or completion`() async throws {
         let container = try makeTestContainer()

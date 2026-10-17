@@ -4,6 +4,7 @@ import SwiftData
 import Testing
 
 @MainActor
+@Suite(.globalState)
 struct StorageManagerTests {
     @Test func `gatherStats counts every catalog type`() async throws {
         let container = try makeTestContainer()
