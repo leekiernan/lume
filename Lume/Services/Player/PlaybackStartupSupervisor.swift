@@ -53,8 +53,8 @@ final class PlaybackStartupSupervisor {
     private let qoe: PlaybackQoE
     private weak var owner: AnyObject?
 
-    init(qoe: PlaybackQoE = .shared) {
-        self.qoe = qoe
+    init(qoe: PlaybackQoE? = nil) {
+        self.qoe = qoe ?? .shared
     }
 
     /// One accounting owner, shared by all engines. Mount-time callbacks may
