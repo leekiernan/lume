@@ -104,7 +104,9 @@ private final nonisolated class BoundedResponseReader: NSObject, URLSessionDataD
             // make this reserve more.
             if disposition == .collect, declared > 0 { $0.body.reserveCapacity(Int(declared)) }
         }
-        completionHandler(disposition == .collect ? .allow : .cancel)
+        // A bodyless response completes on its own; cancelling it would only
+        // close a connection the session could reuse.
+        completionHandler(disposition == .collect || bodyless ? .allow : .cancel)
     }
 
     func urlSession(_: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
