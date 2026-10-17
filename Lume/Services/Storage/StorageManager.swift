@@ -246,9 +246,10 @@ enum StorageManager {
     /// prefix in the predicate itself: `starts(with:)` compiles to a range seek
     /// on the unique `id` index, so no other playlist's channels are hydrated.
     static func clearRecentlyWatchedChannels(playlistPrefix: String, container: ModelContainer) async {
+        let scope = ProfileScope.current
         await Task.detached(priority: .userInitiated) {
             do {
-                try CatalogMaintenance.mutate(container: container, page: { cursor in
+                try CatalogMaintenance.mutate(container: container, isCurrent: { scope.isCurrent }, page: { cursor in
                     FetchDescriptor<LiveStream>(
                         predicate: #Predicate { $0.id > cursor && $0.id.starts(with: playlistPrefix) && $0.lastWatchedDate != nil },
                         sortBy: [SortDescriptor(\.id, comparator: .lexical)]
