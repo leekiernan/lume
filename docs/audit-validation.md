@@ -131,12 +131,31 @@ Two adjacent areas merit dedicated validation rather than an unmeasured rewrite:
    answers 401. An ordinary challenge with no redirect is fine, so WebDAV on
    VLC is unaffected; a redirect to a challenging host can still crash the
    VLC engine, and needs a VLCKit fix or a pre-resolved redirect.
-2. **Response-size enforcement before allocation.** Some readers reject oversized
-   responses only after `data(for:)` has collected them; the accepted-size limit
-   is not a peak-memory limit. A bounded streaming transport should be measured
-   in Release for CPU, memory, cancellation and connection reuse before adoption,
-   particularly for repeated metadata batches and artwork. The existing header-
-   only stream redirect probe is already streaming and is not a full-body read.
+2. **Response-size enforcement before allocation — measured and adopted.**
+   `BoundedResponse` reads a body on the caller's own session through a
+   per-task data delegate: a declared `Content-Length` over the limit is
+   refused before any body is read, and an undeclared body is cancelled at
+   the chunk that passes it. `NetworkReadBenchmarks` (Benchmark configuration,
+   iPhone 17 Pro simulator, iOS 27, one test per process, bodies served out
+   of process) compared it with `data(for:)`-then-check and a per-byte
+   `bytes(for:)` read:
+
+   | Case | Reader | Peak memory | CPU | Clock |
+   |---|---|---|---|---|
+   | 64 MB undeclared, 8 MB limit | `data(for:)` | 252 MB | 0.082 s | 0.047 s |
+   | | `BoundedResponse` | 121 MB | 0.026 s | 0.015 s |
+   | Five 8 MB batches | `data(for:)` | 133 MB | 0.075 s | 0.045 s |
+   | | `BoundedResponse` | 127 MB | 0.077 s | 0.036 s |
+
+   Repeat runs agreed within about 1% on peak memory. The per-byte read cost
+   1.85 s of CPU for the five batches and was rejected. A second bounded read
+   reuses the first's keep-alive connection, and cancelling the caller
+   cancels the request.
+
+   The metadata and sports batch readers (8 MB) and capability negotiation
+   (64 KB) now enforce their limits this way, with the same outcomes as
+   before for an oversized body. Artwork has no accepted-size limit to
+   enforce; choosing one is a separate decision.
 
 ## Verification
 

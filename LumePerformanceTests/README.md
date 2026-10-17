@@ -40,6 +40,7 @@ Release would change what ships. Debug, Release and Sideload are untouched.
 | End-to-end import | `M3UColdImportBenchmarks` | The whole production cold import, phase by phase |
 | Attribution harnesses | `M3UEpisodeRelationshipBenchmarks`, `M3UExistingRowFetchBenchmarks` | Which part of an import loop the time is actually in |
 | Signpost metrics | `SignpostBenchmarks` | A named production phase getting slower |
+| Bounded network reads | `NetworkReadBenchmarks` | A size-limited read collecting the whole body before checking it (compare peak memory one test per run; `TEST_RUNNER_LUME_PERF_HTTP` serves bodies out of process) |
 | Field telemetry | `AppPerformanceMetrics` (MetricKit) in the app | What users actually experience |
 | Player QoE | `PlaybackQoE` in the app | Join time, rebuffering, startup failures |
 

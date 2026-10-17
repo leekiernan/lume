@@ -24,6 +24,8 @@ actor LumeSportsClient {
         let task: Task<Payload, Never>
     }
 
+    /// A batch past this is refused as it arrives (`BoundedResponse`).
+    private static let maximumBytes = 8 * 1024 * 1024
     private let session: URLSession
     private let capabilities: LumeProxyCapabilityStore
     private var cache: [URL: Cached] = [:]
@@ -99,10 +101,13 @@ actor LumeSportsClient {
             flight = Flight(task: Task {
                 do {
                     let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 3)
-                    let (data, response) = try await session.data(for: request)
+                    let (data, response) = try await BoundedResponse.data(for: request, session: session, limit: Self.maximumBytes)
                     let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-                    guard status == 200, data.count <= 8 * 1024 * 1024 else { return Payload(hostDown: status >= 500) }
+                    guard status == 200 else { return Payload(hostDown: status >= 500) }
                     return Payload(batch: LumeSportsBatch.decode(data), byteCount: data.count)
+                } catch is BoundedResponse.TooLarge {
+                    // A host that answers, too much: not down.
+                    return Payload(hostDown: false)
                 } catch { return Payload(hostDown: true) }
             })
             inFlight[url] = flight
