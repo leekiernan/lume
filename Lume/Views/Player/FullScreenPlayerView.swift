@@ -26,6 +26,7 @@ struct FullScreenPlayerView: View {
     /// Stable for this presented player. The process-wide audio session uses it
     /// to reject a stale `onDisappear` after another player has already opened.
     @State var audioSessionOwner = UUID()
+    @State private var playbackLease = ActivityLease()
     /// The engine mounts once the session is active, so KSPlayer's own
     /// synchronous main-thread activation finds it already done, and once a
     /// KSPlayer stream's provider redirect is resolved (`StreamRedirect`).
@@ -307,13 +308,14 @@ struct FullScreenPlayerView: View {
             LiveChannelHistory.record(activeMedia)
             // Pause background indexing — its periodic saves merge into the
             // main context and hitch KSPlayer's render loop.
-            ContentIndexingService.shared.isPlaybackActive = true
+            ContentIndexingService.shared.beginPlayback(owner: playbackLease)
             // Resolved alongside the activation: the round trip is one FFmpeg
             // would otherwise make on every read of the opening file.
             let opening = engine == .ksPlayer ? activeMedia : nil
             async let redirect: Void = { if let opening { await StreamRedirectCache.shared.prepare(opening) } }()
             await configureAudioSessionForPlayback()
             await redirect
+            guard !Task.isCancelled else { return }
             isReadyToMount = true
         }
         .task(id: activeMedia.id) {
@@ -405,7 +407,7 @@ struct FullScreenPlayerView: View {
             NowPlayingService.shared.endSession()
             releaseAudioSession()
             StreamRedirectCache.shared.clear()
-            ContentIndexingService.shared.isPlaybackActive = false
+            ContentIndexingService.shared.endPlayback(owner: playbackLease)
             endReviewSession(isChildWatching: profileManager?.activeProfileIsChild ?? false)
         }
     }

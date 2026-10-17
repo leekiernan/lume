@@ -76,6 +76,7 @@ struct MultiViewScreen: View {
     /// The process-wide audio session is leased so dismissing this grid cannot
     /// deactivate a full-screen player that was opened immediately afterwards.
     @State private var audioSessionOwner = UUID()
+    @State private var playbackLease = ActivityLease()
     /// The tile whose channel picker is open.
     @State private var pickingSlot: MultiViewPickerTarget?
     /// Which tile holds focus. Hoisted out of the tiles so the screen can hand
@@ -210,7 +211,7 @@ struct MultiViewScreen: View {
             .task {
                 // The tiles' QoE reports would be nonsense against a summary that
                 // models one stream at a time.
-                PlaybackQoE.shared.isSuspended = true
+                PlaybackQoE.shared.suspend(owner: playbackLease)
                 // Reported from here rather than the presentation sites: on macOS
                 // the grid is its own window with the browse root still visible,
                 // so an armed rating sheet would otherwise animate in over four
@@ -218,8 +219,9 @@ struct MultiViewScreen: View {
                 AppStoreReviewPrompt.shared.notePlayerAppeared()
                 // Background indexing merges periodic saves into the main context,
                 // which hitches every running decoder — more so with four of them.
-                ContentIndexingService.shared.isPlaybackActive = true
+                ContentIndexingService.shared.beginPlayback(owner: playbackLease)
                 await PlaybackAudioSession.shared.activate(owner: audioSessionOwner, configuration: .multiView)
+                guard !Task.isCancelled else { return }
                 adoptQueuedChannels()
                 landInitialFocus()
                 scheduleChromeHide()
@@ -274,8 +276,8 @@ struct MultiViewScreen: View {
                     chromeHideTask?.cancel()
                 #endif
                 releaseAudioSession()
-                ContentIndexingService.shared.isPlaybackActive = false
-                PlaybackQoE.shared.isSuspended = false
+                ContentIndexingService.shared.endPlayback(owner: playbackLease)
+                PlaybackQoE.shared.resume(owner: playbackLease)
                 AppStoreReviewPrompt.shared.notePlayerDisappeared()
             }
         #if os(tvOS)

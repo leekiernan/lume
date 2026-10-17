@@ -109,7 +109,18 @@ final class PlaybackQoE {
     /// so Multi-View, which runs up to four streams concurrently through the
     /// same coordinators, would fill it with meaningless numbers. Held for the
     /// lifetime of `MultiViewScreen` rather than checked at each call site.
-    var isSuspended = false
+    private var suspensionLeases = ActivityLeases()
+    var isSuspended: Bool {
+        suspensionLeases.isActive
+    }
+
+    func suspend(owner: ActivityLease) {
+        suspensionLeases.acquire(owner)
+    }
+
+    func resume(owner: ActivityLease) {
+        suspensionLeases.release(owner)
+    }
 
     // MARK: - Session lifecycle
 
