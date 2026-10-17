@@ -50,6 +50,21 @@ here because they are the same measurement programme: the tests tell you whether
 a phase regressed on your machine, MetricKit and QoE tell you whether it matters
 in the field.
 
+### Isolated network-reader measurements
+
+Start `python3 Scripts/network-read-fixture.py` in another terminal. It prints
+an ephemeral loopback URL and serves the same accepted 8 MiB and undeclared
+64 MiB bodies as `NetworkReadBenchmarks`, without allocating them in the test
+process. Set `TEST_RUNNER_LUME_PERF_HTTP` to that URL when invoking xcodebuild
+or `Scripts/run-performance-tests.sh NetworkReadBenchmarks/<test>`.
+
+Run each case in its own process, under Benchmark, with nothing else building.
+External mode must leave `server` nil: until the follow-up review it constructed
+72 MiB of unused fixtures before checking the environment. Earlier peaks were
+therefore not reader-only memory measurements and must not be corrected by
+arithmetic subtraction. Local mode remains useful for correctness/connection
+reuse, not for isolating reader memory. Stop the external server with Ctrl-C.
+
 ## The browse path has two halves
 
 Import is not the only thing users wait on. A 284k-row catalog made every browse

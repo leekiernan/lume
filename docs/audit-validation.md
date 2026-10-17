@@ -118,39 +118,51 @@ Two adjacent areas merit dedicated validation rather than an unmeasured rewrite:
    dropped `Authorization` but sent `X-Plex-Token`. FFmpeg also applies its
    `headers` option to every other URL it opens.
 
-   `PlaybackCredentials` now binds a credential to the URL it was issued for,
-   which a redirect's `Location` replaces: media-server tokens as query items,
-   WebDAV Basic as userinfo (FFmpeg told `auth_type=basic`, so it is sent on
-   the first request). AVFoundation alone keeps the `Authorization` header it
-   was measured to drop; no engine is given `X-Plex-Token` as a header. Every
-   engine now reaches the origin authenticated and sends nothing to the
-   redirect target. Jellyfin and Plex sync single-file direct-play URLs, so no
-   HLS segment depends on a header.
+   Query-only handoff prevented that leak but broke authenticated relative
+   redirects: a new path dropped the token. The follow-up adds shared
+   `PlaybackResourceResolver` preparation for protected HTTP streams. It follows
+   at most eight source-origin hops, with a four-second total deadline, using
+   Range GETs whose bodies are cancelled at the headers. Same-origin hops retain
+   authentication; the first foreign target is handed off without source headers
+   and is not probed. Non-HTTP targets, redirect userinfo and HTTPS downgrades
+   fail closed. Unprotected streams keep their existing path.
 
-   libvlc aborts (a bad free in `vlc_http_auth_Deinit`) when a redirect target
-   answers 401. An ordinary challenge with no redirect is fine, so WebDAV on
-   VLC is unaffected; a redirect to a challenging host can still crash the
-   VLC engine, and needs a VLCKit fix or a pre-resolved redirect.
+   `PlaybackCredentials` builds transient native inputs from the prepared
+   resource: tokens as query items, WebDAV Basic as userinfo (FFmpeg told
+   `auth_type=basic`). AVFoundation alone keeps `Authorization`; no engine gets
+   `X-Plex-Token` as a header. Jellyfin uses canonical `ApiKey`, with `api_key`
+   retained for Emby's documented contract. These URLs never replace the stored
+   media identity. Engine-owned preparation is cancelled and retired on
+   replacement/teardown; authenticated retries start from the original source.
+
+   API calls have a stricter, separate policy: Plex, Jellyfin and WebDAV reject
+   foreign-origin redirects entirely, including credential-bearing login POSTs.
+   Playback may legitimately use a CDN; account APIs may not forward credentials
+   or request bodies to one.
+
+   This covers the initial direct-file redirect chain, not every dynamic request
+   a native demuxer might make. Jellyfin/Plex currently use single-file direct
+   play. Arbitrary authenticated HLS and redirects that change on later seeks
+   need their own contracts. libvlc's measured redirect-plus-401 bad free is a
+   library defect; pre-resolution avoids that initial path but is not a general
+   VLCKit crash fix.
 2. **Response-size enforcement before allocation — measured and adopted.**
    `BoundedResponse` reads a body on the caller's own session through a
    per-task data delegate: a declared `Content-Length` over the limit is
    refused before any body is read, and an undeclared body is cancelled at
-   the chunk that passes it. `NetworkReadBenchmarks` (Benchmark configuration,
-   iPhone 17 Pro simulator, iOS 27, one test per process, bodies served out
-   of process) compared it with `data(for:)`-then-check and a per-byte
-   `bytes(for:)` read:
+   the chunk that passes it. The bound is on the application's retained body,
+   not Foundation's queues, decompression, cache, allocator capacity or concurrent
+   reads. The decoded body is checked too. HEAD/304 representation lengths are
+   not body budgets. Proxy clients discard non-success bodies at the headers,
+   preserving 404 unsupported and 5xx host-outage semantics without collecting
+   their error pages. Caller cancellation still cancels the request.
 
-   | Case | Reader | Peak memory | CPU | Clock |
-   |---|---|---|---|---|
-   | 64 MB undeclared, 8 MB limit | `data(for:)` | 252 MB | 0.082 s | 0.047 s |
-   | | `BoundedResponse` | 121 MB | 0.026 s | 0.015 s |
-   | Five 8 MB batches | `data(for:)` | 133 MB | 0.075 s | 0.045 s |
-   | | `BoundedResponse` | 127 MB | 0.077 s | 0.036 s |
-
-   Repeat runs agreed within about 1% on peak memory. The per-byte read cost
-   1.85 s of CPU for the five batches and was rejected. A second bounded read
-   reuses the first's keep-alive connection, and cancelling the caller
-   cancels the request.
+   The earlier peak-memory table is withdrawn: external-server mode still
+   allocated 8 MiB + 64 MiB of unused local fixtures before checking its URL.
+   Those figures were not reader-only measurements. The corrected harness
+   constructs local bodies only in local mode. `Scripts/network-read-fixture.py`
+   supplies a reproducible out-of-process server; compare one Benchmark test per
+   process, never subtract 72 MiB from the old peaks to invent new measurements.
 
    The metadata and sports batch readers (8 MB) and capability negotiation
    (64 KB) now enforce their limits this way, with the same outcomes as
@@ -209,8 +221,8 @@ running iOS 27.0:
   13 of 13 each run.
 - **Builds:** tvOS and macOS builds passed with private DerivedData and the
   shared package clone.
-- **Benchmarks:** `NetworkReadBenchmarks` in the Benchmark configuration, one
-  test per process, bodies served out of process; figures above.
+- **Benchmarks:** the original external-mode runs included unused in-process
+  fixtures. Their peak-memory attribution is withdrawn; see the correction above.
 - **Formatting and lint:** SwiftFormat and strict SwiftLint passed on every
   changed file.
 
