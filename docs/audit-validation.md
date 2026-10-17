@@ -215,3 +215,25 @@ this deletion-only cleanup and callback annotation. Follow-up evidence is in
 `/tmp/lume-audit-cleanup-tests.xcresult` and the three
 `/tmp/lume-audit-cleanup-<platform>-final-build.xcresult` bundles. Only regenerable
 task build caches are removed; these results and the shared package clone stay.
+
+### Stateful ownership verification
+
+Validated on 17 October 2026, with the final source changes at `299e8ee9`:
+
+- **The full LumeTests suite passed:** 3,573 tests, zero failures or skips.
+  Parameterized cases account for 3,992 individual executions. This is 33 more
+  test methods than the earlier full-suite baseline, not a targeted-only run.
+  The iPhone 17 Pro simulator ran iOS 27.0; Xcode reported 359.5 seconds for the
+  test action including runner startup, not a performance benchmark.
+- **iOS build-for-testing, native tvOS build and macOS build passed.** The final
+  native builds reported zero warnings. The iOS test build retains existing
+  test-source warnings; none originate in the new ownership/machine files.
+- All Swift commits passed SwiftFormat and strict SwiftLint hooks. The final
+  diff passes `git diff --check`. No `_NOTES`, project-file, localization,
+  credentials, provider contract or persisted schema changes were included.
+
+Evidence is `/tmp/lume-state-ownership-tests.xcresult` and
+`/tmp/lume-state-ownership-<platform>-verified-build.xcresult`. Task-owned
+DerivedData is removed after verification; the result bundles and shared package
+clone are retained. Physical-device/UI automation checks were not run. The
+branch remains unmerged for review.
