@@ -78,11 +78,9 @@ actor ImagePipeline {
     private let maxRememberedFailures = 512
 
     init() {
-        let config = URLSessionConfiguration.default
+        let config = ArtworkTransport.configuration()
         config.timeoutIntervalForRequest = 30
         config.timeoutIntervalForResource = 90
-        config.urlCache = nil
-        config.requestCachePolicy = .reloadIgnoringLocalCacheData
         session = URLSession(configuration: config, delegate: ArtworkRedirectPolicy.shared, delegateQueue: nil)
     }
 

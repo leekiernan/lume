@@ -15,7 +15,7 @@
     import UIKit
 
     nonisolated enum TopShelfImages {
-        private static let session = URLSession(configuration: .default, delegate: ArtworkRedirectPolicy.shared, delegateQueue: nil)
+        private static let session = URLSession(configuration: ArtworkTransport.configuration(), delegate: ArtworkRedirectPolicy.shared, delegateQueue: nil)
         /// Roll a small number of workers forward instead of decoding every
         /// channel logo at once in the memory-constrained extension.
         static func boundedMap<Input: Sendable, Output: Sendable>(
@@ -61,7 +61,8 @@
             // Downloads run in parallel and the Top Shelf waits for all of them,
             // so this bounds how long one slow host can hold it up.
             request.timeoutInterval = 4
-            guard let (data, _) = try? await session.data(for: request),
+            guard let (data, response) = try? await session.data(for: request),
+                  let http = response as? HTTPURLResponse, (200 ... 299).contains(http.statusCode),
                   let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary)
             else { return nil }
             let options = [

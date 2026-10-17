@@ -3,6 +3,15 @@ import Foundation
 import Testing
 
 struct ArtworkRequestTests {
+    @Test func `artwork transport has no ambient account state or URL-only cache`() {
+        let configuration = ArtworkTransport.configuration()
+        #expect(configuration.urlCache == nil)
+        #expect(configuration.requestCachePolicy == .reloadIgnoringLocalCacheData)
+        #expect(configuration.httpCookieStorage == nil)
+        #expect(!configuration.httpShouldSetCookies)
+        #expect(configuration.urlCredentialStorage == nil)
+    }
+
     @Test func `public artwork retains the existing disk and memory cache identity`() throws {
         let url = try #require(URL(string: "https://image.tmdb.org/t/p/w500/poster.jpg"))
         #expect(ArtworkRequest(url: url)?.cacheIdentity == url.absoluteString)
