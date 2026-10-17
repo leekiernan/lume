@@ -469,3 +469,23 @@ Final build evidence is in
 UI automation and physical-device playback were not run. Physical WebDAV,
 Jellyfin and Plex checks remain the board's responsibility; arbitrary authenticated
 HLS is outside the verified direct-file contract.
+
+### Branch review verification
+
+Validated on 17 October 2026 at `fe55f5a5`, after merging
+`fix/redirects-and-bounded-reads`, on the iPhone 17 Pro simulator running iOS 27.0:
+
+- **LumeTests:** 3,615 tests; 3,613 passed. The two failures were load-sensitive
+  tests unrelated to these changes: in one, a `DispatchQueue.global()` block
+  didn't start within 10 s (`ProfileProjectionGateTests`); the other was a
+  coalescing count (`LumeMetadataDeliveryTests`). Both suites then passed alone
+  three times, 36 of 36 each run.
+- **Rotating timing failures.** Across five full parallel runs, a different
+  timing test failed each time. The two that recurred (`StreamRedirectTests`
+  and the gate test) are fixed. The root cause is still open: something in a
+  full run starves the GCD and cooperative pools for seconds. Finding it,
+  likely tests that block pool threads, is a follow-up.
+- **Builds:** tvOS and macOS passed, with private DerivedData and the shared
+  package clone.
+- **Formatting and lint:** SwiftFormat and strict SwiftLint passed on every
+  changed file, through the pre-commit hook.
