@@ -8,12 +8,15 @@ struct NowPlayingSessionOwnershipTests {
         let second = ActivityLease()
         let oldRequest = ownership.claim(first)
         let currentRequest = ownership.claim(second)
-        #expect(!ownership.release(first))
+        let releasedOld = ownership.release(first)
+        #expect(!releasedOld)
         #expect(!ownership.accepts(oldRequest))
         #expect(ownership.accepts(currentRequest))
-        #expect(ownership.release(second))
+        let releasedCurrent = ownership.release(second)
+        #expect(releasedCurrent)
         #expect(!ownership.accepts(currentRequest))
-        #expect(!ownership.release(second))
+        let releasedAgain = ownership.release(second)
+        #expect(!releasedAgain)
     }
 
     @Test func `same host stream swaps also revoke old asynchronous work`() {
