@@ -46,10 +46,10 @@ final class ProfilePreferencesSynchronizer {
         self.canSynchronize = canSynchronize
         self.canSeedCloud = canSeedCloud
         self.save = save ?? { try context.save() }
-        observer = NotificationCenter.default.addObserver(
-            forName: UserDefaults.didChangeNotification, object: defaults, queue: .main
+        observer = NotificationCenter.default.addMainActorObserver(
+            forName: UserDefaults.didChangeNotification, object: defaults
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.preferencesDidChange() }
+            self?.preferencesDidChange()
         }
     }
 
