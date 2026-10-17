@@ -84,8 +84,14 @@ struct TrackerAccountPermitTests {
         let restoring = Task { await session.restore() }
         try await waitUntil { completion != nil }
         let oldRefresh = try #require(completion)
-        let event = Task { await permit.accessToken(using: session.operationAccessToken) }
-        await Task.yield()
+        var eventFetching = false
+        let event = Task {
+            await permit.accessToken {
+                eventFetching = true
+                return await session.operationAccessToken()
+            }
+        }
+        try await waitUntil { eventFetching }
         tracker.storedTokens = FakeTokens(accessToken: "cloud", refreshToken: "cloud-r", issuedAt: 3)
         _ = await session.restore()
         oldRefresh.resume(returning: .unavailable)
