@@ -82,10 +82,11 @@ struct MovieDetailView: View {
                 .task(id: movie.id) {
                     await loader.load(movie, restriction: restriction, in: modelContext)
                 }
-                .task(id: [movie.id, String(movie.collectionId ?? -1)]) {
+                .task(id: [movie.id, String(movie.collectionId ?? -1), restriction.visibilityToken]) {
                     await loader.loadCollection(movie, restriction: restriction, in: modelContext)
                 }
                 .onChange(of: movie.similarTMDBIds) { loader.resolveSimilar(movie, in: modelContext) }
+                .onChange(of: restriction.visibilityToken) { loader.restrict(restriction, movie: movie, in: modelContext) }
                 .onDisappear { loader.invalidate() }
                 .playsPickedSource(sourceSelection, present: present)
                 .animation(.easeInOut(duration: 0.3), value: isLoadingTMDB)
@@ -331,7 +332,7 @@ struct MovieDetailView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 10) {
-                        if let playlist = moviePlaylist, playlist.supportsDownloads {
+                        if let playlist = moviePlaylist, DownloadManager.canDownload(movie, from: playlist) {
                             DownloadGlassButton(
                                 id: movie.id,
                                 downloadStatus: movie.downloadStatus,
@@ -381,7 +382,7 @@ struct MovieDetailView: View {
                     Image(systemName: "arrow.down.circle.fill")
                 }
                 .help("Remove download")
-            } else if let playlist = moviePlaylist, playlist.supportsDownloads {
+            } else if let playlist = moviePlaylist, DownloadManager.canDownload(movie, from: playlist) {
                 Button { startDownloadGated(playlist: playlist) } label: {
                     Image(systemName: movie.downloadStatus == .failed ? "exclamationmark.circle" : "arrow.down.circle")
                 }

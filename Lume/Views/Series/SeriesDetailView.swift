@@ -95,6 +95,7 @@ struct SeriesDetailView: View {
                 }
                 .onChange(of: series.episodes.count) { loader.recomputeSeasons(series) }
                 .onChange(of: series.similarTMDBIds) { loader.resolveSimilar(series, in: modelContext) }
+                .onChange(of: restriction.visibilityToken) { loader.restrict(restriction, series: series, in: modelContext) }
                 .onDisappear { loader.invalidate() }
                 .playsPickedSource(sourceSelection, present: present)
                 .animation(.easeInOut(duration: 0.3), value: isLoadingTMDB)

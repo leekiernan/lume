@@ -90,6 +90,7 @@
                 }
                 .onChange(of: series.episodes.count) { loader.recomputeSeasons(series) }
                 .onChange(of: series.similarTMDBIds) { loader.resolveSimilar(series, in: modelContext) }
+                .onChange(of: restriction.visibilityToken) { loader.restrict(restriction, series: series, in: modelContext) }
                 .onDisappear { loader.invalidate() }
                 .animation(.easeInOut(duration: 0.3), value: isLoadingTMDB)
         }
