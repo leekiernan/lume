@@ -21,22 +21,23 @@ import XCTest
 
 final class NetworkReadBenchmarks: XCTestCase {
     private static let limit = 8 * 1024 * 1024
-    private var server: KeepAliveServer!
+    private var server: KeepAliveServer?
     private var base: URL!
     private var session: URLSession!
 
     override func setUp() async throws {
         try await super.setUp()
-        server = try KeepAliveServer(bodies: [
-            "/accepted": (Data(repeating: 0x61, count: Self.limit), declared: true),
-            "/oversized": (Data(repeating: 0x61, count: 64 * 1024 * 1024), declared: false)
-        ])
         // `LUME_PERF_HTTP` (via `TEST_RUNNER_LUME_PERF_HTTP`) points at an
         // out-of-process server with the same paths, so peak memory is the
         // reader's alone rather than the reader's plus the server's.
         if let external = ProcessInfo.processInfo.environment["LUME_PERF_HTTP"].flatMap(URL.init(string:)) {
             base = external
         } else {
+            let server = try KeepAliveServer(bodies: [
+                "/accepted": (Data(repeating: 0x61, count: Self.limit), declared: true),
+                "/oversized": (Data(repeating: 0x61, count: 64 * 1024 * 1024), declared: false)
+            ])
+            self.server = server
             base = try await server.start()
         }
         session = URLSession(configuration: .ephemeral)
@@ -44,7 +45,7 @@ final class NetworkReadBenchmarks: XCTestCase {
 
     override func tearDown() async throws {
         session.invalidateAndCancel()
-        server.stop()
+        server?.stop()
         try await super.tearDown()
     }
 
