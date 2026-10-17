@@ -209,6 +209,7 @@ struct MultiViewScreen: View {
             .persistentSystemOverlays(.hidden)
             .preferredColorScheme(.dark)
             .task {
+                guard !Task.isCancelled else { return }
                 // The tiles' QoE reports would be nonsense against a summary that
                 // models one stream at a time.
                 PlaybackQoE.shared.suspend(owner: playbackLease)

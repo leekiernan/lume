@@ -304,6 +304,7 @@ struct FullScreenPlayerView: View {
             session.send(.starting(mount.engine, startCause))
         }
         .task {
+            guard !Task.isCancelled else { return }
             // Seed the recall pair with the channel we opened on, so the very
             // first in-player recall has somewhere to jump back to.
             LiveChannelHistory.record(activeMedia)
