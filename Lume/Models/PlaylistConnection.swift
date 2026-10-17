@@ -76,8 +76,9 @@ nonisolated enum PlaylistConnection: Hashable {
         let parts = Array(path.prefix(1)) + [credentials.username, credentials.password] + Array(path.dropFirst())
         let encoded = parts.compactMap { $0.addingPercentEncoding(withAllowedCharacters: allowed) }
         guard encoded.count == parts.count else { return nil }
-        components.percentEncodedPath = components.percentEncodedPath.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        components.percentEncodedPath = "/" + ([components.percentEncodedPath].filter { !$0.isEmpty } + encoded).joined(separator: "/")
+        // Preserve the provider base path byte-for-byte, including its historical
+        // trailing-slash behaviour. Only newly appended components are encoded.
+        components.percentEncodedPath += "/" + encoded.joined(separator: "/")
         return components.url
     }
 }

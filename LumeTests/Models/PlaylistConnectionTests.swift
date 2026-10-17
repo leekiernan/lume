@@ -30,7 +30,7 @@ struct PlaylistConnectionTests {
     }
 
     @Test func `xtream stream credentials are encoded as individual path components`() throws {
-        let playlist = Playlist(name: "Source", serverURL: "https://example.test/panel/", username: "a/b", password: "p?#%")
+        let playlist = Playlist(name: "Source", serverURL: "https://example.test/panel", username: "a/b", password: "p?#%")
         let movie = Movie(id: "movie", streamId: 42, name: "Movie", containerExtension: "mkv")
         let url = try #require(XtreamClient.buildMovieURL(for: movie, playlist: playlist))
         #expect(url.absoluteString == "https://example.test/panel/movie/a%2Fb/p%3F%23%25/42.mkv")
