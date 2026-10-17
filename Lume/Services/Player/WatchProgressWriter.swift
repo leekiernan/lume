@@ -34,6 +34,7 @@ nonisolated enum WatchCompletion {
 /// away from the render thread.
 actor WatchProgressWriter {
     private let container: ModelContainer
+    private let save: @Sendable (ModelContext) throws -> Void
     nonisolated let scope: ProfileScope
     /// Made on first use, on this actor. One made in `init` belonged to the
     /// thread that built the writer — the main thread, in the player — and
@@ -63,9 +64,10 @@ actor WatchProgressWriter {
         var scope: ProfileScope = .current
     }
 
-    init(container: ModelContainer, scope: ProfileScope = .current) {
+    init(container: ModelContainer, scope: ProfileScope = .current, save: @escaping @Sendable (ModelContext) throws -> Void = { try $0.save() }) {
         self.container = container
         self.scope = scope
+        self.save = save
     }
 
     /// Write `progress` for `ref` and return a `WatchedChange` if the item just
@@ -109,6 +111,7 @@ actor WatchProgressWriter {
                 return nil
             }
         } catch {
+            context.rollback()
             // A dropped progress write is recoverable at the next boundary;
             // never crash playback over it.
             return nil
@@ -143,6 +146,7 @@ actor WatchProgressWriter {
                 return nil
             }
         } catch {
+            context.rollback()
             return nil
         }
     }
@@ -171,7 +175,7 @@ actor WatchProgressWriter {
             change = WatchedChange(ref: ref, isWatched: false, scope: scope)
         }
 
-        try context.save()
+        try save(context)
         return change
     }
 
@@ -201,21 +205,22 @@ actor WatchProgressWriter {
             change = WatchedChange(ref: ref, isWatched: false, scope: scope)
         }
 
-        try context.save()
+        try save(context)
         return change
     }
 
     /// Stamps `id` and every held channel, in one save.
     private func touchLive(id: String) throws {
         var touches = heldLiveTouches
-        heldLiveTouches = [:]
         touches[id] = Date()
+        heldLiveTouches = touches
         let ids = Array(touches.keys)
         let streams = try context.fetch(FetchDescriptor<LiveStream>(predicate: #Predicate { ids.contains($0.id) }))
-        guard !streams.isEmpty else { return }
+        guard !streams.isEmpty else { heldLiveTouches = [:]; return }
         for stream in streams {
             stream.lastWatchedDate = touches[stream.id]
         }
-        try context.save()
+        try save(context)
+        heldLiveTouches = [:]
     }
 }
