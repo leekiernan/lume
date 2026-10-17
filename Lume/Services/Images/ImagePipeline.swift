@@ -89,10 +89,11 @@ actor ImagePipeline {
     /// Builds the memory-cache key. Disk is keyed by URL alone (original bytes);
     /// memory is keyed by URL + size (decoded result depends on the target size).
     nonisolated static func memoryKey(_ url: URL, maxPixelSize: CGFloat?) -> String {
+        let identity = ArtworkRequest(url: url)?.cacheIdentity ?? url.absoluteString
         if let maxPixelSize {
-            "\(url.absoluteString)|\(Int(maxPixelSize))"
+            return "\(identity)|\(Int(maxPixelSize))"
         } else {
-            "\(url.absoluteString)|full"
+            return "\(identity)|full"
         }
     }
 
@@ -301,7 +302,8 @@ actor ImagePipeline {
 
     private nonisolated static func load(url: URL, maxPixelSize: CGFloat?, key: String, retries: Int) async throws -> PlatformImage {
         // Disk holds the original bytes keyed by URL; reuse across target sizes.
-        let diskKey = url.absoluteString
+        guard let request = ArtworkRequest(url: url) else { throw URLError(.badURL) }
+        let diskKey = request.cacheIdentity
         if let data = ImageDiskCache.shared.data(for: diskKey) {
             if let image = ImageDecoder.decode(data, maxPixelSize: maxPixelSize) {
                 ImageMemoryCache.shared.insert(image, for: key)
@@ -330,11 +332,12 @@ actor ImagePipeline {
     }
 
     private nonisolated static func fetch(url: URL, retries: Int) async throws -> Data {
+        guard let request = ArtworkRequest(url: url) else { throw URLError(.badURL) }
         var attempt = 0
         while true {
             try Task.checkCancellation()
             do {
-                let (data, response) = try await ImagePipeline.shared.session.data(from: url)
+                let (data, response) = try await ImagePipeline.shared.session.data(for: request.request)
                 if let http = response as? HTTPURLResponse {
                     if (200 ... 299).contains(http.statusCode) {
                         return data

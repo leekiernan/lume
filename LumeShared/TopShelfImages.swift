@@ -55,8 +55,8 @@
         static func download(_ url: URL, maxPixelSize: Int) async -> CGImage? {
             // Logo URLs are the provider's: only fetch over the network, never
             // a `file:` URL that would read a local file into a tile.
-            guard let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http" else { return nil }
-            var request = URLRequest(url: url)
+            guard let artwork = ArtworkRequest(url: url) else { return nil }
+            var request = artwork.request
             // Downloads run in parallel and the Top Shelf waits for all of them,
             // so this bounds how long one slow host can hold it up.
             request.timeoutInterval = 4
