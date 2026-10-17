@@ -33,11 +33,29 @@ struct NowPlayingTransportRegistryTests {
         var registry = NowPlayingTransportRegistry()
         registry.attach(transport(playing: false), owner: oldEngine, host: host)
         registry.attach(transport(playing: true), owner: replacement, host: host)
+        #expect(!registry.isAttached(owner: oldEngine, host: host))
+        #expect(registry.isAttached(owner: replacement, host: host))
         registry.detach(owner: oldEngine, host: host)
         _ = ownership.claim(host)
         #expect(registry.transport(for: ownership.owner)?.isPlaying() == true)
         registry.detach(owner: replacement, host: host)
         #expect(registry.transport(for: ownership.owner) == nil)
+    }
+
+    @Test func `closing an old host's PiP does not release the selected host`() {
+        let old = ActivityLease()
+        let current = ActivityLease()
+        let oldEngine = NSObject()
+        var ownership = NowPlayingSessionOwnership()
+        var registry = NowPlayingTransportRegistry()
+        registry.attach(transport(playing: true), owner: oldEngine, host: old)
+        _ = ownership.claim(current)
+        #expect(registry.isAttached(owner: oldEngine, host: old))
+        registry.remove(host: old)
+        let released = ownership.release(old)
+        #expect(!released)
+        #expect(ownership.owner == current)
+        #expect(!registry.isAttached(owner: oldEngine, host: old))
     }
 
     private func transport(playing: Bool) -> NowPlayingService.Transport {

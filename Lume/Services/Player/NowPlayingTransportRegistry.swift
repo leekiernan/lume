@@ -21,8 +21,12 @@ struct NowPlayingTransportRegistry {
     }
 
     mutating func detach(owner: AnyObject, host: ActivityLease) {
-        guard entries[host]?.owner == ObjectIdentifier(owner) else { return }
+        guard isAttached(owner: owner, host: host) else { return }
         entries[host] = nil
+    }
+
+    func isAttached(owner: AnyObject, host: ActivityLease) -> Bool {
+        entries[host]?.owner == ObjectIdentifier(owner)
     }
 
     mutating func remove(host: ActivityLease) {

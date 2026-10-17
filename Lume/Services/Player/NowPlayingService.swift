@@ -128,6 +128,15 @@ final class NowPlayingService {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
     }
 
+    /// PiP may close before host disappearance. Preserve both ownership levels:
+    /// another host's card survives, and an old engine cannot close a replacement
+    /// engine in the same host. Return whether that host should be dismissed.
+    func endSession(owner: ActivityLease, engineOwner: AnyObject) -> Bool {
+        guard transports.isAttached(owner: engineOwner, host: owner) else { return false }
+        endSession(owner: owner)
+        return true
+    }
+
     // MARK: - Remote commands
 
     private var commandTargets: [(MPRemoteCommand, Any)] = []
