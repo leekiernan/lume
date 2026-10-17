@@ -154,6 +154,94 @@ mounting adapter, method interception or log suppression to work around them:
   HLS probe warns for legacy `application/x-mpegurl` or `audio/x-mpegurl` MIME
   types and then accepts the input; that warning is not a rejected stream.
 
+## Branch review
+
+A later external sweep listed thirteen findings against this branch. Each was
+traced to current code, and none holds: every one describes code that commits
+already on `main` had replaced. The cited lines no longer exist. For example,
+`RelatedTitlesResolver.swift` is 71 lines, and `StreamRedirect` already reads
+headers only.
+
+| Finding | Status | Where it was fixed |
+|---|---|---|
+| Resume points shared between profiles | Already fixed | Keyed by profile and title (`RecentResumePoints.Key`); cleared by `StorageManager.clearWatchHistory` |
+| Late token refresh undoes a disconnect | Already fixed | Refresh re-checks generation and refresh token on the main actor before `apply` |
+| Related rails ignore restrictions | Already fixed | `RelatedTitlesResolver` requires `ContentRestriction` and filters before choosing a copy |
+| Movie/series TMDB fallback | Already fixed | Separate namespaces; the test asserts no cross-kind match |
+| Media-server TMDB bypasses policy | Already fixed | All four adapters call `applyCatalogueTMDB` |
+| Download queue and persistence order | Already fixed | `DownloadLifecycle`, `promoteIfNeeded`, serial status writes |
+| `displayURL` shows credentials | Already fixed | `DisplayAddress.origin` keeps scheme, host and port only |
+| Redirect probe downloads the body | Already fixed | `bytes(for:)`, cancelled at headers |
+| Maintenance holds the whole catalogue | Already fixed | `CatalogMaintenance.mutate` pages by key with a fresh context |
+| Indexer owner queries per title | Already fixed | Per-chunk source map, batched writeback lookup |
+| Quadratic episode bulk actions | Already fixed | Changes applied together; recency recomputed once |
+| Sports cache I/O on main | Already fixed | `SportsCacheIO` actor with coalesced writes |
+| Sports empty and failed look the same | Already fixed | `SportsFixtureWindowResult` per requested window |
+
+The same review traced every commit on this branch for regressions and found
+none in playback fallback, Picture in Picture, remote commands, reconnect,
+profile switching, imports or downloads. It did find the following, now fixed:
+
+- **A WebDAV sync could empty the catalogue.** A listing whose hrefs name
+  another authority, such as a TLS proxy answering `https://nas:5006` with
+  `http://nas:5005/…`, had every entry rejected by the share boundary. The walk
+  then completed with nothing and pruned every row. A listing with entries but
+  none inside the share now aborts as a bad response.
+- **A history clear from another device didn't reach this device's resume
+  cache.** It lands as progress 0 with no date, and a record from this run beats
+  a model with no date. Cloud applies and orphan resets now drop that title's
+  record (`RecentResumePoints.forget`).
+- **A refresh that landed after a disconnect left a valid token pair** on the
+  server until it expired. That pair is now revoked.
+- **A failed OpenSubtitles sign-in cancelled the current account's download.**
+  The attempt now carries its own token, and only a successful sign-in revokes
+  the account's permits.
+- **A failed preference save waited for the next edit.** A relaunch before then
+  let the cloud copy win. Failures now retry on their own: three tries, backing
+  off from 2 s to 60 s.
+- **Related and collection rails kept a title after its category was hidden**
+  while the detail page stayed open. They now re-resolve when visibility changes.
+- **Schemeless credentials survived log redaction:** `?api_key=` and similar
+  query items, `X-MediaBrowser-Token`, and Xtream `/live|movie|series|timeshift/
+  user/pass/` paths.
+- **An m3u title with a non-HTTP stream offered a Download button that did
+  nothing.** The button is now gated per title on the same URL check.
+- **Player activity leases** are taken in `onAppear`, the pair of `onDisappear`,
+  instead of in a task.
+- **Two flaky test groups.** The `StreamRedirectTests` timing cases ran on the
+  main actor, so a full parallel run counted 8–11 s of waiting for the main
+  thread. They now run off it. `ProfileProjectionGateTests` gave its success
+  waits more time on a busy global queue.
+
+Deliberately left as they are:
+
+- **The EPG `finish` guard.** When it fails, a newer job owns `task`, so
+  clearing `task` there would orphan the live job.
+- **EPG observation churn.** It happens only on rare owe and queue events.
+- **WebDAV's strict redirect origin.** See the redirect section.
+
+Follow-ups worth scheduling, none blocking:
+
+- **Plex/Jellyfin artwork tokens.** Sync stores image URLs with the account
+  token: plaintext in `default.store`, every artwork row rewritten on rotation,
+  and no caller passes `accountScope`. Store token-free URLs and attach
+  credentials in `ImagePipeline` from the owning playlist.
+- **Scrobbles across an iCloud token rotation.** A rotation pushed from another
+  device retires a queued stop scrobble. Fence scrobbles by account identity,
+  as the mutation queue does, not by session generation.
+- **`ProfileProjectionGate` during tracker imports.** The gate is held for the
+  whole apply, including saves. Page it like `CatalogMaintenance`.
+- **`PlaylistConnection` is unused in production.** There are 54 raw
+  credential reads across 10 files. Move clients onto it one at a time.
+- **`PlaybackStartupSupervisor` duplication.** About 75 lines of
+  started/failed/QoE glue are duplicated across the three engines. Move
+  `hasStarted` and the QoE calls into the supervisor.
+- **Smaller items:**
+  - The episode-menu boundary checks are O(n²) per season list.
+  - Top Shelf has no image cache.
+  - A case-insensitive server (IIS) may echo its own folder as a child.
+  - Now Playing has no handback between macOS player windows.
+
 ## Deliberate boundaries and next measurements
 
 The enhanced proxy remains optional. This pass does not alter provider catalogue
