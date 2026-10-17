@@ -77,6 +77,56 @@ struct PlaybackRedirectContractTests {
         #expect(!origins.targetRequests.isEmpty, "the engine followed the redirect")
         #expect(forwarded == (engine == .ffmpeg || credential == .plexToken))
     }
+
+    @Test(arguments: [Engine.ffmpeg, .ksAVFoundation, .avFoundation], Credential.allCases)
+    func `a different port is a different credential origin`(engine: Engine, credential: Credential) async throws {
+        let origins = try await RedirectOrigins.start(secret: credential.secret, targetHost: "127.0.0.1")
+        defer { origins.stop() }
+        await engine.open(origins.redirecting, headers: credential.headers)
+        #expect(origins.originRequests.contains { $0.contains(credential.secret) })
+        #expect(!origins.targetRequests.isEmpty)
+        #expect(!origins.targetRequests.contains { $0.contains(credential.secret) })
+    }
+
+    @Test(arguments: [Engine.ffmpeg, .ksAVFoundation, .avFoundation, .vlc], Credential.allCases)
+    func `same origin redirects retain authentication in the native engine`(engine: Engine, credential: Credential) async throws {
+        let log = RequestLog()
+        let server = try GuideHTTPServer { request in
+            log.append(request)
+            if request.contains("/Videos/") { return .init(status: 302, headers: ["Location": "/media/film.mkv"], body: "") }
+            return request.contains(credential.secret) ? .init(status: 404, body: "")
+                : .init(status: 401, headers: ["WWW-Authenticate": "Basic realm=\"media\""], body: "")
+        }
+        let base = try await server.start()
+        defer { server.stop() }
+        let url = base.deletingLastPathComponent().appending(path: "Videos/film.mkv")
+        let resource = try await PlaybackResourceResolver.resolve(.init(url: url, headers: credential.headers))
+        let count = log.requests.count
+        // Exclude the authenticated preparation requests: only the native
+        // engine's final request proves the handoff actually works.
+        await engine.openPrepared(resource)
+        let target = log.requests.dropFirst(count).filter { $0.contains("/media/") }
+        #expect(!target.isEmpty)
+        #expect(target.contains { $0.contains(credential.secret) })
+    }
+
+    @Test(arguments: [Engine.ffmpeg, .ksAVFoundation, .avFoundation, .vlc])
+    func `modern Jellyfin authentication reaches the native engine`(engine: Engine) async throws {
+        let log = RequestLog()
+        let token = "s3cret-modern-jellyfin"
+        let server = try GuideHTTPServer { request in
+            log.append(request)
+            // ApiKey and MediaBrowser remain supported when legacy
+            // authorization is disabled; api_key alone does not.
+            let authorized = request.contains("ApiKey=\(token)") || request.contains("Token=\"\(token)\"")
+            return .init(status: authorized ? 404 : 401, body: "")
+        }
+        let url = try await server.start()
+        defer { server.stop() }
+        let headers = try #require(JellyfinClient.playbackHeaders(token: token))
+        await engine.openPrepared(.init(url: url, headers: headers))
+        #expect(log.requests.contains { $0.contains("ApiKey=\(token)") || $0.contains("Token=\"\(token)\"") })
+    }
 }
 
 // MARK: - Engines
@@ -87,6 +137,13 @@ enum Engine {
     case ffmpeg, ksAVFoundation, avFoundation, vlc
 
     func open(_ url: URL, headers: [String: String]) async {
+        guard let resource = try? await PlaybackResourceResolver.resolve(.init(url: url, headers: headers)) else { return }
+        await openPrepared(resource)
+    }
+
+    func openPrepared(_ resource: PlaybackResource) async {
+        let url = resource.url
+        let headers = resource.headers
         switch self {
         case .ffmpeg:
             let input = PlaybackCredentials.input(for: .ksPlayer, url: url, headers: headers)
@@ -195,7 +252,7 @@ final nonisolated class RedirectOrigins: Sendable {
         status: 401, headers: ["WWW-Authenticate": "Basic realm=\"media\""], body: ""
     )
 
-    static func start(secret: String, targetChallenges: Bool = true) async throws -> RedirectOrigins {
+    static func start(secret: String, targetChallenges: Bool = true, targetHost: String = "localhost") async throws -> RedirectOrigins {
         let targetLog = RequestLog()
         let destination = try GuideHTTPServer { request in
             targetLog.append(request)
@@ -203,7 +260,7 @@ final nonisolated class RedirectOrigins: Sendable {
             return authorized || !targetChallenges ? .init(status: 404, body: "") : challenge
         }
         let destinationURL = try await destination.start()
-        let target = URL(string: "http://localhost:\(destinationURL.port!)/media/film.mkv")!
+        let target = URL(string: "http://\(targetHost):\(destinationURL.port!)/media/film.mkv")!
         let originLog = RequestLog()
         let origin = try GuideHTTPServer { request in
             originLog.append(request)
