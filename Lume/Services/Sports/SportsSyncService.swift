@@ -82,7 +82,10 @@ final class SportsSyncService {
     }
 
     private var liveTask: Task<Void, Never>?
-    private var liveClients = 0
+    private var liveClients = ActivityLeases()
+    var isLivePolling: Bool {
+        liveTask != nil
+    }
 
     /// `@AppStorage` key for the Sports tab toggle.
     nonisolated static let baseTabEnabledKey = "sports.tabEnabled"
@@ -179,13 +182,12 @@ final class SportsSyncService {
             liveTask?.cancel()
             task = nil
             liveTask = nil
-            if !current.isEnabled { liveClients = 0 }
             isSyncing = false
             lastAttempt.removeAll()
         }
         guard current.isEnabled else { return }
         store.loadCached(leagueIds: leaguesToRefresh())
-        if profileChanged { startLiveLoopIfNeeded() }
+        startLiveLoopIfNeeded()
     }
 
     /// A Sports surface is meaningful only when both the parent Live TV area
@@ -286,27 +288,27 @@ final class SportsSyncService {
     // MARK: - Live scores
 
     /// Called by a sports surface (tab / rail / detail) as it appears. Reference
-    /// counted, so overlapping surfaces keep one shared 60s loop alive.
-    func beginLivePolling() {
-        guard Self.isEnabled else { return }
-        liveClients += 1
+    /// leased, so overlapping surfaces keep one shared 60s loop alive. Keep
+    /// visible subscriptions through a temporary disable; only work stops.
+    func beginLivePolling(owner: ActivityLease) {
+        liveClients.acquire(owner)
         startLiveLoopIfNeeded()
     }
 
     /// Called as a sports surface disappears; the loop stops when the last one goes.
-    func endLivePolling() {
-        liveClients = max(0, liveClients - 1)
-        if liveClients == 0 {
+    func endLivePolling(owner: ActivityLease) {
+        liveClients.release(owner)
+        if !liveClients.isActive {
             liveTask?.cancel()
             liveTask = nil
         }
     }
 
     private func startLiveLoopIfNeeded() {
-        guard liveTask == nil, liveClients > 0 else { return }
+        guard Self.isEnabled, liveTask == nil, liveClients.isActive else { return }
         liveTask = Task(priority: .utility) { [weak self] in
             while !Task.isCancelled {
-                guard let self, Self.isEnabled, liveClients > 0 else { break }
+                guard let self, Self.isEnabled, liveClients.isActive else { break }
                 if isForeground, !ContentIndexingService.shared.isPlaybackActive {
                     await pollTick()
                 }

@@ -66,6 +66,36 @@ private nonisolated struct AvailabilityFollowSource: SportsFollowSource {
 @MainActor
 @Suite(.globalState)
 struct SportsAvailabilityLifecycleTests {
+    @Test func `polling leases survive disable and stale releases do not stop a successor`() {
+        let saved = ActiveProfileStore.current
+        ActiveProfileStore.current = UUID()
+        let sportsKey = SportsSyncService.enabledKey
+        defer {
+            UserDefaults.standard.removeObject(forKey: sportsKey)
+            ActiveProfileStore.current = saved
+        }
+        let service = SportsSyncService()
+        service.isForeground = false // Exercise admission, not ESPN or the store.
+        service.availabilityDidChange()
+        let old = ActivityLease()
+        let current = ActivityLease()
+        service.beginLivePolling(owner: old)
+        service.beginLivePolling(owner: old)
+        #expect(service.isLivePolling)
+        UserDefaults.standard.set(false, forKey: sportsKey)
+        service.availabilityDidChange()
+        #expect(!service.isLivePolling)
+        UserDefaults.standard.set(true, forKey: sportsKey)
+        service.availabilityDidChange()
+        #expect(service.isLivePolling)
+        service.beginLivePolling(owner: current)
+        service.endLivePolling(owner: old)
+        service.endLivePolling(owner: old)
+        #expect(service.isLivePolling)
+        service.endLivePolling(owner: current)
+        #expect(!service.isLivePolling)
+    }
+
     @Test(arguments: [false, true])
     func `obsolete refresh cannot publish or clear a replacement refresh`(switchProfile: Bool) async throws {
         let saved = ActiveProfileStore.current

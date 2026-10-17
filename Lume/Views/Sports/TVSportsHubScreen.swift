@@ -121,7 +121,7 @@
             .paywall(isPresented: $showPaywall, highlight: .sportsHub)
             .payPerViewConfirmation($pendingEvent, onWatch: playEvent)
             .onAppear(perform: onAppear)
-            .onDisappear { SportsSyncService.shared.endLivePolling() }
+            .sportsLivePolling()
             .environment(browse)
         }
 
@@ -388,7 +388,6 @@
         func onAppear() {
             store.loadCached(leagueIds: displayLeagueIds)
             SportsSyncService.shared.refreshIfStale()
-            SportsSyncService.shared.beginLivePolling()
         }
 
         var heroSelectionContext: String {

@@ -103,8 +103,7 @@
             .task(id: [fixture.id, restriction.visibilityToken]) {
                 await loadDetail()
             }
-            .onAppear { SportsSyncService.shared.beginLivePolling() }
-            .onDisappear { SportsSyncService.shared.endLivePolling() }
+            .sportsLivePolling()
         }
 
         private static let channelColumnWidth: CGFloat = 520

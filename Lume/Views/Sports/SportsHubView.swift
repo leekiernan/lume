@@ -142,7 +142,7 @@ struct SportsHubView: View {
             }
         #endif
             .onAppear(perform: onAppear)
-            .onDisappear { SportsSyncService.shared.endLivePolling() }
+            .sportsLivePolling()
     }
 
     // MARK: - Content
@@ -325,7 +325,6 @@ struct SportsHubView: View {
     private func onAppear() {
         store.loadCached(leagueIds: displayLeagueIds)
         SportsSyncService.shared.refreshIfStale()
-        SportsSyncService.shared.beginLivePolling()
     }
 
     /// Resolves the currently visible fixtures to the viewer's channels in one

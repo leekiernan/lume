@@ -44,7 +44,7 @@ import SwiftUI
             .sheet(isPresented: $showManageTeams) { TVManageTeamsPane() }
             .paywall(isPresented: $showPaywall, highlight: .sportsHub)
             .onAppear(perform: warm)
-            .onDisappear { SportsSyncService.shared.endLivePolling() }
+            .sportsLivePolling()
         }
 
         /// Premium-gated (the hub is a Lume Pro feature). Free users still see a
@@ -172,7 +172,6 @@ import SwiftUI
         /// Loads the cached snapshots, re-fetches every followed league that is
         /// missing or stale and joins the live poll (see `PhoneSportsHomeRail.warm`).
         private func warm() {
-            SportsSyncService.shared.beginLivePolling()
             guard premium.isPremium else { return }
             store.loadCached(leagueIds: displayLeagueIds)
             SportsSyncService.shared.refreshIfStale()
