@@ -244,7 +244,7 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
         } else {
             hasStartedPlayback = false
             startTracker.beginStream()
-            PlaybackQoE.shared.beginStartup(engine: .avPlayer, isLive: media.isLive, owner: self)
+            startup.recordSession(engine: .avPlayer, isLive: media.isLive, owner: self)
             startStartupWatchdog()
         }
 
@@ -284,10 +284,8 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
     /// The stream's first frame — `proof` is non-`nil` exactly once per stream
     /// (see `PlaybackStartTracker`). Disarms the startup watchdog.
     private func markPlaybackStarted(_ proof: PlaybackStartTracker.Proof?) {
-        guard let proof, startup.started() else { return }
-        if proof == .playhead { Logger.player.info("AVPlayer: first frame proven by playhead progress") }
+        guard startup.accept(proof, engine: .avPlayer) else { return }
         hasStartedPlayback = true
-        PlaybackQoE.shared.noteFirstFrame()
         cancelStartupWatchdog()
     }
 
@@ -311,9 +309,6 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
     func reportFailure() {
         guard startup.fail() else { return }
         resourcePreparation.cancel()
-        if !hasStartedPlayback {
-            PlaybackQoE.shared.noteStartupFailure()
-        }
         cancelStartupWatchdog()
         retry.handle(.terminalFailure)
         Logger.player.error("AVPlayer playback failure reported")
@@ -336,7 +331,6 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
         trackLoadTask?.cancel()
         cancelStartupWatchdog()
         retry.handle(.teardown)
-        PlaybackQoE.shared.endSession(owner: self)
         pipController?.stopPictureInPicture()
         pipController = nil
         player.pause()

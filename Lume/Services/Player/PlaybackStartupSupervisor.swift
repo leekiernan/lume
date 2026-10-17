@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 /// The lifecycle around first-frame proof, not the proof itself. Engines keep
 /// PlaybackStartTracker's ready/playhead/frame checks and their reconnect policy.
@@ -7,7 +8,7 @@ nonisolated struct PlaybackStartupState: Equatable {
         case idle
         case waiting(RequestToken)
         case started
-        case failed
+        case failed(hadFirstFrame: Bool)
     }
 
     /// Engine callbacks can arrive while a representable is being mounted,
@@ -32,7 +33,8 @@ nonisolated struct PlaybackStartupState: Equatable {
 
     mutating func fail() -> Bool {
         switch phase {
-        case .waiting, .started: phase = .failed; return true
+        case .waiting: phase = .failed(hadFirstFrame: false); return true
+        case .started: phase = .failed(hadFirstFrame: true); return true
         case .idle, .failed: return false
         }
     }
@@ -48,6 +50,35 @@ nonisolated struct PlaybackStartupState: Equatable {
 final class PlaybackStartupSupervisor {
     private var state = PlaybackStartupState()
     private var timer: Task<Void, Never>?
+    private let qoe: PlaybackQoE
+    private weak var owner: AnyObject?
+
+    init(qoe: PlaybackQoE = .shared) {
+        self.qoe = qoe
+    }
+
+    /// One accounting owner, shared by all engines. Mount-time callbacks may
+    /// precede this registration; replay their accepted terminal fact, never
+    /// reset the first-frame/failure latch just because the view appeared.
+    func recordSession(engine: PlayerEngineKind, isLive: Bool, owner: AnyObject, restarting: Bool = true) {
+        if restarting { cancelTimer(); _ = state.begin() }
+        self.owner = owner
+        qoe.beginStartup(engine: engine, isLive: isLive, owner: owner)
+        switch state.phase {
+        case .started, .failed(hadFirstFrame: true): qoe.noteFirstFrame(owner: owner)
+        case .failed(hadFirstFrame: false): qoe.noteStartupFailure(owner: owner)
+        case .idle, .waiting: break
+        }
+    }
+
+    /// Engines keep their proof rules; accepting a proof, disarming the timer
+    /// and reporting first frame are one shared transition.
+    func accept(_ proof: PlaybackStartTracker.Proof?, engine: PlayerEngineKind) -> Bool {
+        guard let proof, started() else { return false }
+        if proof == .playhead { Logger.player.info("\(engine.rawValue, privacy: .public): first frame proven by playhead progress") }
+        if proof == .displayedFrames { Logger.player.info("\(engine.rawValue, privacy: .public): first frame proven by displayed frames") }
+        return true
+    }
 
     /// A genuinely new load or explicit retry resets the terminal latch.
     func begin(timeout: TimeInterval, onTimeout: @escaping @MainActor () -> Void) {
@@ -72,12 +103,14 @@ final class PlaybackStartupSupervisor {
     func started() -> Bool {
         guard state.started() else { return false }
         cancelTimer()
+        if let owner { qoe.noteFirstFrame(owner: owner) }
         return true
     }
 
     func fail() -> Bool {
         guard state.fail() else { return false }
         cancelTimer()
+        if case .failed(hadFirstFrame: false) = state.phase, let owner { qoe.noteStartupFailure(owner: owner) }
         return true
     }
 
@@ -87,5 +120,7 @@ final class PlaybackStartupSupervisor {
 
     func end() {
         cancelTimer(); state.end()
+        if let owner { qoe.endSession(owner: owner) }
+        owner = nil
     }
 }

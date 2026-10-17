@@ -29,6 +29,49 @@ struct PlaybackStartupStateTests {
 
 @MainActor
 struct PlaybackStartupSupervisorTests {
+    @Test func `a new stream does not borrow the previous streams first frame`() throws {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let qoe = PlaybackQoE(defaults: defaults)
+        let owner = NSObject()
+        let supervisor = PlaybackStartupSupervisor(qoe: qoe)
+        supervisor.recordSession(engine: .ksPlayer, isLive: false, owner: owner)
+        #expect(supervisor.accept(.playhead, engine: .ksPlayer))
+        supervisor.recordSession(engine: .ksPlayer, isLive: false, owner: owner)
+        #expect(qoe.summary.engines[PlayerEngineKind.ksPlayer.rawValue]?.firstFrames == 1)
+        #expect(supervisor.fail())
+        #expect(!supervisor.fail())
+        #expect(qoe.summary.engines[PlayerEngineKind.ksPlayer.rawValue]?.startupFailures == 1)
+        supervisor.end()
+    }
+
+    @Test func `retired engine callbacks cannot claim the replacement sessions first frame`() throws {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let qoe = PlaybackQoE(defaults: defaults)
+        let first = PlaybackStartupSupervisor(qoe: qoe)
+        let second = PlaybackStartupSupervisor(qoe: qoe)
+        let firstOwner = NSObject()
+        let secondOwner = NSObject()
+        first.recordSession(engine: .ksPlayer, isLive: false, owner: firstOwner)
+        second.recordSession(engine: .vlcKit, isLive: false, owner: secondOwner)
+        #expect(first.accept(.playhead, engine: .ksPlayer))
+        first.end()
+        #expect(qoe.summary.engines[PlayerEngineKind.vlcKit.rawValue]?.firstFrames == 0)
+        #expect(second.accept(.displayedFrames, engine: .vlcKit))
+        #expect(qoe.summary.engines[PlayerEngineKind.vlcKit.rawValue]?.firstFrames == 1)
+        second.end()
+    }
+
+    @Test func `appearance registers first frame proof delivered before mounting`() throws {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let qoe = PlaybackQoE(defaults: defaults)
+        let owner = NSObject()
+        let supervisor = PlaybackStartupSupervisor(qoe: qoe)
+        #expect(supervisor.accept(.playhead, engine: .ksPlayer))
+        supervisor.recordSession(engine: .ksPlayer, isLive: false, owner: owner, restarting: false)
+        #expect(qoe.summary.engines[PlayerEngineKind.ksPlayer.rawValue]?.firstFrames == 1)
+        supervisor.end()
+    }
+
     @Test func `first frame before appearance is retained when the timer is armed`() async throws {
         let supervisor = PlaybackStartupSupervisor()
         let accepted = supervisor.started()

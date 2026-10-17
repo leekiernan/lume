@@ -109,13 +109,9 @@ extension KSPlayerEngineView {
     /// a playhead advance on this stream, which no stale callback can fake,
     /// needs no such gate.
     func markPlaybackStarted(_ proof: PlaybackStartTracker.Proof?) {
-        guard let proof, startup.started() else { return }
-        if proof == .playhead {
-            Logger.player.info("KSPlayer: first frame proven by playhead progress")
-        }
+        guard startup.accept(proof, engine: .ksPlayer) else { return }
         hasStartedPlayback = true
         isCatchupSegmentLoading = false
-        PlaybackQoE.shared.noteFirstFrame()
         cancelStartupWatchdog()
     }
 
@@ -290,7 +286,7 @@ extension KSPlayerEngineView {
         startup.cancelTimer()
         // Every startup attempt goes through here — open, channel swap, retry —
         // which makes it the one place join time can be started from.
-        PlaybackQoE.shared.beginStartup(engine: .ksPlayer, isLive: media.isLive, owner: coordinator)
+        startup.recordSession(engine: .ksPlayer, isLive: media.isLive, owner: coordinator, restarting: restarting)
         // With a fallback engine available, wait only the shorter fallback
         // timeout before declaring the stream dead, so a silently-hanging engine
         // hands off to the next one promptly instead of stalling on a black
@@ -324,9 +320,6 @@ extension KSPlayerEngineView {
         cancelStartupWatchdog()
         reconnector.cancel()
         isCatchupSegmentLoading = false
-        if !hasStartedPlayback {
-            PlaybackQoE.shared.noteStartupFailure()
-        }
         if !hasStartedPlayback, reportsStartupFailure {
             onPlaybackFailed?()
             return

@@ -177,7 +177,7 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
         hasStartedPlayback = false
         startTracker.beginStream()
         setBuffering(true)
-        PlaybackQoE.shared.beginStartup(engine: .vlcKit, isLive: media.isLive, owner: self)
+        startup.recordSession(engine: .vlcKit, isLive: media.isLive, owner: self)
         startStartupWatchdog()
         mediaPlayer.delegate = self
 
@@ -214,7 +214,7 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
         hasStartedPlayback = false
         startTracker.beginStream()
         setBuffering(true)
-        PlaybackQoE.shared.beginStartup(engine: .vlcKit, isLive: media.isLive, owner: self)
+        startup.recordSession(engine: .vlcKit, isLive: media.isLive, owner: self)
         startStartupWatchdog()
 
         installMedia(media.url, isLive: media.isLive, startStats: true)
@@ -264,12 +264,9 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
     /// The stream's first frame — `proof` is non-`nil` exactly once per stream
     /// (see `PlaybackStartTracker`). Disarms the startup watchdog.
     private func markPlaybackStarted(_ proof: PlaybackStartTracker.Proof?) {
-        guard let proof, startup.started() else { return }
-        if proof == .playhead { Logger.player.info("VLC: first frame proven by playhead progress") }
-        if proof == .displayedFrames { Logger.player.info("VLC: first frame proven by displayed frames") }
+        guard startup.accept(proof, engine: .vlcKit) else { return }
         hasStartedPlayback = true
         setBuffering(false)
-        PlaybackQoE.shared.noteFirstFrame()
         cancelStartupWatchdog()
     }
 
@@ -299,9 +296,6 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
     func reportFailure() {
         guard startup.fail() else { return }
         resourcePreparation.cancel()
-        if !hasStartedPlayback {
-            PlaybackQoE.shared.noteStartupFailure()
-        }
         cancelStartupWatchdog()
         retry.handle(.terminalFailure)
         Logger.player.error("playback failure reported")
@@ -316,6 +310,7 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
         startTracker.beginStream()
         setBuffering(true)
         retry.handle(.manualRetry)
+        startup.recordSession(engine: .vlcKit, isLive: isLive, owner: self)
         startStartupWatchdog()
 
         installMedia(mediaURL, isLive: isLive)
@@ -358,7 +353,6 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
         stopStatsLogging()
         retry.handle(.teardown)
         cancelStartupWatchdog()
-        PlaybackQoE.shared.endSession(owner: self)
         Logger.player.log("tearDown")
         mediaPlayer.delegate = nil
         if mediaPlayer.isPlaying { mediaPlayer.stop() }

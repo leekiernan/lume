@@ -173,6 +173,11 @@ final class PlaybackQoE {
         persist()
     }
 
+    func noteFirstFrame(owner: AnyObject) {
+        guard owner === self.owner else { return }
+        noteFirstFrame()
+    }
+
     /// A mid-stream stall began (startup buffering doesn't count — that's join
     /// time). No-op before the first frame or while already stalled.
     func noteStallBegan() {
@@ -199,6 +204,11 @@ final class PlaybackQoE {
         Perf.event(.playerStartupFailure)
         mutate(engine) { $0.startupFailures += 1 }
         persist()
+    }
+
+    func noteStartupFailure(owner: AnyObject) {
+        guard owner === self.owner else { return }
+        noteStartupFailure()
     }
 
     /// The host is switching to the next engine in the priority list.
