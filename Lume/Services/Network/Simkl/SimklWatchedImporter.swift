@@ -26,7 +26,7 @@ import Foundation
 import SwiftData
 
 /// The outcome of an import, surfaced in the settings UI.
-nonisolated struct SimklImportSummary: Equatable {
+nonisolated struct SimklImportSummary: Equatable, TrackerPagedSummary {
     var moviesMarked = 0
     var episodesMarked = 0
     /// Shows whose watched episodes were parked because the catalog has no

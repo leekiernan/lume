@@ -59,7 +59,7 @@ nonisolated enum TrackerImportPages {
     }
 }
 
-nonisolated extension TraktImportSummary: TrackerPagedSummary {
+nonisolated extension TraktImportSummary {
     mutating func add(_ page: Self) {
         moviesMarked += page.moviesMarked
         episodesMarked += page.episodesMarked
@@ -69,7 +69,7 @@ nonisolated extension TraktImportSummary: TrackerPagedSummary {
     }
 }
 
-nonisolated extension SimklImportSummary: TrackerPagedSummary {
+nonisolated extension SimklImportSummary {
     mutating func add(_ page: Self) {
         moviesMarked += page.moviesMarked
         episodesMarked += page.episodesMarked
