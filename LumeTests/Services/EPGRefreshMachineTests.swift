@@ -4,11 +4,12 @@ import Testing
 struct EPGRefreshMachineTests {
     @Test func `metadata deferred by a VOD sync remains metadata only`() throws {
         var machine = EPGRefreshMachine()
-        let transition1 = machine.contentSyncStarted()
-        #expect(!transition1)
+        let cancelledRefresh = machine.contentSyncStarted()
+        #expect(!cancelledRefresh)
         #expect(machine.begin(.enrichment, mode: .background) == nil)
         machine.contentSyncFinished(succeeded: true, refreshedLiveTV: false)
-        let job = try #require(machine.begin(.enrichment, mode: .background))
+        let jobRequest = machine.begin(.enrichment, mode: .background)
+        let job = try #require(jobRequest)
         #expect(job.intent == .enrichment)
         #expect(machine.pendingIntent == nil)
     }
@@ -17,53 +18,59 @@ struct EPGRefreshMachineTests {
         var machine = EPGRefreshMachine()
         machine.isAutoSyncQueued = true
         machine.owe(.enrichment)
-        let transition2 = machine.contentSyncStarted()
-        #expect(!transition2)
+        let cancelledRefresh = machine.contentSyncStarted()
+        #expect(!cancelledRefresh)
         machine.contentSyncFinished(succeeded: true, refreshedLiveTV: true)
         #expect(machine.begin(.enrichment, mode: .background) == nil)
         machine.isAutoSyncQueued = false
-        let job = try #require(machine.begin(.enrichment, mode: .background))
+        let jobRequest = machine.begin(.enrichment, mode: .background)
+        let job = try #require(jobRequest)
         #expect(job.intent == .guide(allowConditional: true))
     }
 
     @Test(arguments: [EPGRefreshIntent.enrichment, .guide(allowConditional: true), .guide(allowConditional: false)])
     func `content sync cancellation retains the exact running intent`(_ intent: EPGRefreshIntent) throws {
         var machine = EPGRefreshMachine()
-        let first = try #require(machine.begin(intent, mode: .background))
-        let transition3 = machine.contentSyncStarted()
-        #expect(transition3)
+        let firstRequest = machine.begin(intent, mode: .background)
+        let first = try #require(firstRequest)
+        let cancelledRefresh = machine.contentSyncStarted()
+        #expect(cancelledRefresh)
         #expect(machine.pendingIntent == intent)
         machine.contentSyncFinished(succeeded: false, refreshedLiveTV: false)
         #expect(machine.begin(.enrichment, mode: .background) == nil) // Old task must finish first.
-        let transition4 = machine.finish(first)
-        #expect(transition4)
-        let next = try #require(machine.begin(.enrichment, mode: .background))
+        let finished = machine.finish(first)
+        #expect(finished)
+        let nextRequest = machine.begin(.enrichment, mode: .background)
+        let next = try #require(nextRequest)
         #expect(next.intent == intent)
-        let transition5 = machine.finish(first)
-        #expect(!transition5)
+        let staleFinished = machine.finish(first)
+        #expect(!staleFinished)
         #expect(machine.running == next)
     }
 
     @Test func `manual work remains admitted and is not cancelled by content sync`() throws {
         var machine = EPGRefreshMachine()
-        let transition6 = machine.contentSyncStarted()
-        #expect(!transition6)
+        let cancelledBeforeManual = machine.contentSyncStarted()
+        #expect(!cancelledBeforeManual)
         machine.owe(.enrichment)
-        let job = try #require(machine.begin(.guide(allowConditional: false), mode: .manual))
-        let transition7 = machine.contentSyncStarted()
-        #expect(!transition7)
+        let jobRequest = machine.begin(.guide(allowConditional: false), mode: .manual)
+        let job = try #require(jobRequest)
+        let cancelledManual = machine.contentSyncStarted()
+        #expect(!cancelledManual)
         #expect(machine.pendingIntent == nil)
         #expect(job.intent == .guide(allowConditional: false))
     }
 
     @Test func `changes during a refresh remain owed after it finishes`() throws {
         var machine = EPGRefreshMachine()
-        let job = try #require(machine.begin(.guide(allowConditional: true), mode: .background))
+        let jobRequest = machine.begin(.guide(allowConditional: true), mode: .background)
+        let job = try #require(jobRequest)
         machine.owe(.enrichment)
-        let transition8 = machine.finish(job)
-        #expect(transition8)
+        let finished = machine.finish(job)
+        #expect(finished)
         #expect(machine.pendingIntent == .enrichment)
-        let next = try #require(machine.begin(.enrichment, mode: .background))
+        let nextRequest = machine.begin(.enrichment, mode: .background)
+        let next = try #require(nextRequest)
         #expect(next.intent == .enrichment)
     }
 
