@@ -107,6 +107,7 @@ extension CloudSyncEngine {
 
     private func applyMovieToLocal(_ values: ContentStateValues, id: String, loaded: (any PersistentModel)?) throws -> Bool {
         guard let movie = try (loaded as? Movie) ?? fetchMovie(id) else { return false }
+        if values.clearsProgress { RecentResumePoints.forget(.movie(movie.id)) }
         movie.watchProgress = values.watchProgress
         movie.isWatched = values.isWatched
         movie.lastWatchedDate = values.lastWatchedDate
@@ -129,6 +130,7 @@ extension CloudSyncEngine {
 
     private func applyEpisodeToLocal(_ values: ContentStateValues, id: String, loaded: (any PersistentModel)?) throws -> Bool {
         guard let episode = try (loaded as? Episode) ?? fetchEpisode(id) else { return false }
+        if values.clearsProgress { RecentResumePoints.forget(.episode(episode.id)) }
         episode.watchProgress = values.watchProgress
         episode.isWatched = values.isWatched
         episode.lastWatchedDate = values.lastWatchedDate
@@ -158,6 +160,7 @@ extension CloudSyncEngine {
     func resetLocalContent(_ entry: LocalContentEntry) {
         switch entry.model {
         case let movie as Movie:
+            RecentResumePoints.forget(.movie(movie.id))
             movie.watchProgress = 0
             movie.isWatched = false
             movie.lastWatchedDate = nil
@@ -172,6 +175,7 @@ extension CloudSyncEngine {
             series.lastWatchedDate = nil
             series.recommendationVoteRaw = 0
         case let episode as Episode:
+            RecentResumePoints.forget(.episode(episode.id))
             episode.watchProgress = 0
             episode.isWatched = false
             episode.lastWatchedDate = nil
