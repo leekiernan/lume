@@ -53,15 +53,32 @@ struct PlaybackResourceTests {
         }
     }
 
-    @Test func `preparation has a total deadline`() async throws {
+    @Test func `a slow source falls back to the unresolved handoff at its deadline`() async throws {
         let server = try GuideHTTPServer { _ in .init(body: "late", delay: 5) }
         let original = try await server.start()
         defer { server.stop() }
+        let resource = PlaybackResource(url: original, headers: headers)
         let start = ContinuousClock.now
-        await #expect { _ = try await PlaybackResourceResolver.resolve(.init(url: original, headers: headers), timeout: 0.1) } throws: { error in
-            (error as? URLError)?.code == .timedOut
-        }
+        #expect(try await PlaybackResourceResolver.resolve(resource, timeout: 0.1) == resource)
         #expect(start.duration(to: .now) < .seconds(2))
+    }
+
+    @Test func `an unreachable source falls back to the unresolved handoff`() async throws {
+        let server = try GuideHTTPServer { _ in .init(body: "x") }
+        let original = try await server.start()
+        server.stop()
+        let resource = PlaybackResource(url: original, headers: headers)
+        #expect(try await PlaybackResourceResolver.resolve(resource) == resource)
+    }
+
+    @Test func `a cancelled caller is not handed the fallback`() async throws {
+        let server = try GuideHTTPServer { _ in .init(body: "late", delay: 5) }
+        let original = try await server.start()
+        defer { server.stop() }
+        let read = Task { try await PlaybackResourceResolver.resolve(.init(url: original, headers: headers)) }
+        try await Task.sleep(for: .milliseconds(100))
+        read.cancel()
+        await #expect(throws: (any Error).self) { _ = try await read.value }
     }
 
     @Test func `unprotected streams bypass the network`() async throws {

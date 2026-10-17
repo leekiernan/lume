@@ -11,9 +11,15 @@ nonisolated struct PlaybackResource: Equatable, Hashable {
 }
 
 /// Resolve authenticated redirects before native engines open the stream.
-/// Headers remain on the original origin. At the first foreign origin we stop
-/// probing and hand off without them; native code never sees a reusable source
-/// header while following that cross-origin redirect.
+/// Headers remain on the original origin (or its HTTPS upgrade). At the first
+/// foreign origin we stop probing and hand off without them; native code never
+/// sees a reusable source header while following that cross-origin redirect.
+///
+/// A slow or unreachable source (a NAS spinning up its disks) is not a reason
+/// to refuse playback: on a timeout or transport error the original resource
+/// is handed off unresolved, which is the query/userinfo handoff — a foreign
+/// redirect still replaces that URL, so nothing leaks; only a relative
+/// redirect would go unauthenticated. Unsafe redirects and loops still fail.
 nonisolated enum PlaybackResourceResolver {
     static let timeout: TimeInterval = 4
     private static let session: URLSession = {
@@ -30,19 +36,32 @@ nonisolated enum PlaybackResourceResolver {
     {
         try Task.checkCancellation()
         guard resource.needsPreparation else { return resource }
-        return try await withThrowingTaskGroup(of: PlaybackResource.self) { group in
-            group.addTask { try await follow(resource, session: session) }
-            group.addTask {
-                try await Task.sleep(for: .seconds(timeout))
-                throw URLError(.timedOut)
+        do {
+            return try await withThrowingTaskGroup(of: PlaybackResource.self) { group in
+                group.addTask { try await follow(resource, session: session) }
+                group.addTask {
+                    try await Task.sleep(for: .seconds(timeout))
+                    throw URLError(.timedOut)
+                }
+                defer { group.cancelAll() }
+                return try await group.next()!
             }
-            defer { group.cancelAll() }
-            return try await group.next()!
+        } catch let error as URLError where fallsBack(error) && !Task.isCancelled {
+            return resource
         }
     }
 
+    /// A slow or unreachable source, not a bad answer from one. Anything else
+    /// fails closed: Foundation reports a `file:` Location as a permission
+    /// error and an `rtmp:` one as unsupported, so the list is of what may
+    /// fall back, not of what may not.
+    private static func fallsBack(_ error: URLError) -> Bool {
+        [.timedOut, .cannotFindHost, .cannotConnectToHost, .dnsLookupFailed, .networkConnectionLost,
+         .notConnectedToInternet, .cannotLoadFromNetwork, .resourceUnavailable].contains(error.code)
+    }
+
     private static func follow(_ resource: PlaybackResource, session: URLSession) async throws -> PlaybackResource {
-        let origin = HTTPOrigin(resource.url)
+        var origin = HTTPOrigin(resource.url)
         var current = resource.url
         var visited = Set<URL>()
         for _ in 0 ..< 8 {
@@ -66,7 +85,12 @@ nonisolated enum PlaybackResourceResolver {
                   target.user == nil, target.password == nil,
                   !(current.scheme?.lowercased() == "https" && target.scheme?.lowercased() != "https")
             else { throw URLError(.redirectToNonExistentLocation) }
-            guard HTTPOrigin(target) == origin else { return PlaybackResource(url: target, headers: nil) }
+            guard let next = HTTPOrigin(target), origin?.admits(next) == true else {
+                return PlaybackResource(url: target, headers: nil)
+            }
+            // After an upgrade the HTTPS origin is the boundary; the downgrade
+            // check above keeps it from stepping back to HTTP.
+            origin = next
             current = target
         }
         throw URLError(.httpTooManyRedirects)
