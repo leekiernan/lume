@@ -243,10 +243,11 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
             startStartupWatchdog()
         }
 
-        let asset = if let headers = media.httpHeaders, !headers.isEmpty {
-            AVURLAsset(url: media.url, options: ["AVURLAssetHTTPHeaderFieldsKey": headers])
+        let credentials = PlaybackCredentials.input(for: .avPlayer, url: media.url, headers: media.httpHeaders)
+        let asset = if let headers = credentials.avFoundationHeaders {
+            AVURLAsset(url: credentials.url, options: ["AVURLAssetHTTPHeaderFieldsKey": headers])
         } else {
-            AVURLAsset(url: media.url)
+            AVURLAsset(url: credentials.url)
         }
         let newItem = AVPlayerItem(asset: asset)
         newItem.preferredForwardBufferDuration = media.isLive ? 4 : 8

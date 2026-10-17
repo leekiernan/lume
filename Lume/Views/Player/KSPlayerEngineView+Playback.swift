@@ -431,6 +431,13 @@ extension KSPlayerEngineView {
         redirectCache?.target(for: media.url) ?? media.url
     }
 
+    /// What KSPlayer is built with: `streamURL` carrying the stream's
+    /// credentials (`PlaybackCredentials`). Kept apart from `streamURL`, which
+    /// is compared with `media.url` to tell a redirect-token session.
+    var playerURL: URL {
+        PlaybackCredentials.input(for: .ksPlayer, url: streamURL, headers: media.httpHeaders).url
+    }
+
     /// Whether the stream was opened on a redirect token, which a reconnect
     /// must not reuse: by then the provider may have issued a newer one.
     private var opensThroughRedirect: Bool {

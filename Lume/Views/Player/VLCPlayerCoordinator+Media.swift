@@ -20,9 +20,7 @@ extension VLCPlayerCoordinator {
         // VLCKit sends no headers, so every header-carrying source is folded
         // into the URL here: WebDAV's Basic userinfo, Jellyfin/Emby's api_key,
         // Plex's X-Plex-Token.
-        let media = VLCMedia(url: HTTPBasicCredentials.authenticatedURL(url, headers: httpHeaders)
-            ?? JellyfinPlaybackAuth.authenticatedURL(url, headers: httpHeaders)
-            ?? PlexPlaybackAuth.authenticatedURL(url, headers: httpHeaders) ?? url)
+        let media = VLCMedia(url: PlaybackCredentials.input(for: .vlc, url: url, headers: httpHeaders).url)
         applyMediaOptions(to: media, isLive: isLive)
         mediaPlayer.media = media
         // libvlc draws VLC's subtitles itself; size is the one part of the

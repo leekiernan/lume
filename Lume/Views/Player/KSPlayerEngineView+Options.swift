@@ -163,12 +163,9 @@ enum KSPlayerOptionsFactory {
         )
         options.maxBufferDuration = buffers.maximum
         options.preferredForwardBufferDuration = buffers.preferredForward
-        // Conditional: `appendHeader` writes both FFmpeg's `headers` format
-        // option and `AVURLAssetHTTPHeaderFieldsKey`, so calling it
-        // unconditionally would change the open path for every IPTV stream.
-        if let headers = media.httpHeaders, !headers.isEmpty {
-            options.appendHeader(headers)
-        }
+        // No `appendHeader`: FFmpeg would send its `headers` option to every
+        // URL it opens. Credentials ride on `playerURL` (`PlaybackCredentials`).
+        PlaybackCredentials.input(for: .ksPlayer, url: media.url, headers: media.httpHeaders).apply(to: options)
         if !media.isLive, media.startTime > 1 {
             options.startPlayTime = media.startTime
         }
@@ -182,5 +179,17 @@ enum KSPlayerOptionsFactory {
 extension KSPlayerEngineView {
     func makeOptions() -> KSOptions {
         KSPlayerOptionsFactory.make(for: media)
+    }
+}
+
+extension PlaybackCredentials.Input {
+    /// KSPlayer's half of the input; the URL itself goes to `KSVideoPlayer`.
+    func apply(to options: KSOptions) {
+        if let avFoundationHeaders {
+            options.avOptions["AVURLAssetHTTPHeaderFieldsKey"] = avFoundationHeaders
+        }
+        if sendsBasicFirst {
+            options.formatContextOptions["auth_type"] = "basic"
+        }
     }
 }

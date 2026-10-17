@@ -109,12 +109,28 @@ It does not inspect, move or change API secrets, and does not add `_NOTES` to Gi
 
 Two adjacent areas merit dedicated validation rather than an unmeasured rewrite:
 
-1. **Native playback redirects.** Initial playback URLs are origin-checked, but
-   FFmpeg, VLC and AVFoundation own their subsequent HTTP exchanges. The artwork
-   and WebDAV URLSession delegates do not govern those engines. A loopback
-   cross-origin redirect contract test per engine should establish header/query
-   forwarding before changing authenticated playback routing. This sweep does
-   not claim those internals are protected by the artwork policy.
+1. **Native playback redirects — measured and fixed.** Each engine runs its
+   own HTTP and follows redirects itself, so `PlaybackRedirectContractTests`
+   opens a loopback origin exactly as each coordinator does and records what
+   a cross-origin redirect target receives. Handed the stream's headers as
+   they were, FFmpeg (KSPlayer) sent all of them on — WebDAV Basic, the
+   Jellyfin `Authorization` token and `X-Plex-Token` — and AVFoundation
+   dropped `Authorization` but sent `X-Plex-Token`. FFmpeg also applies its
+   `headers` option to every other URL it opens.
+
+   `PlaybackCredentials` now binds a credential to the URL it was issued for,
+   which a redirect's `Location` replaces: media-server tokens as query items,
+   WebDAV Basic as userinfo (FFmpeg told `auth_type=basic`, so it is sent on
+   the first request). AVFoundation alone keeps the `Authorization` header it
+   was measured to drop; no engine is given `X-Plex-Token` as a header. Every
+   engine now reaches the origin authenticated and sends nothing to the
+   redirect target. Jellyfin and Plex sync single-file direct-play URLs, so no
+   HLS segment depends on a header.
+
+   libvlc aborts (a bad free in `vlc_http_auth_Deinit`) when a redirect target
+   answers 401. An ordinary challenge with no redirect is fine, so WebDAV on
+   VLC is unaffected; a redirect to a challenging host can still crash the
+   VLC engine, and needs a VLCKit fix or a pre-resolved redirect.
 2. **Response-size enforcement before allocation.** Some readers reject oversized
    responses only after `data(for:)` has collected them; the accepted-size limit
    is not a peak-memory limit. A bounded streaming transport should be measured
