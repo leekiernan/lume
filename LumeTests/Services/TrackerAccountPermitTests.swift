@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @MainActor
+@Suite(.serialized, .globalState)
 struct TrackerAccountPermitTests {
     @Test func `an old queued event cannot fetch the replacements credentials`() async {
         let lifetime = TrackerAccountLifetime()

@@ -330,12 +330,10 @@ final class SimklService {
     /// Off the main actor, on a context of its own — see `TraktService`.
     @concurrent
     static func applyImport(items: SimklAllItems, container: ModelContainer, scope: TrackerScope, permit: TrackerImportPermit) async -> SimklImportSummary {
-        permit.withCurrent {
-            guard scope.matches(.simkl) else { return .failure }
-            let context = ModelContext(container)
-            context.autosaveEnabled = false
-            return SimklWatchedImporter.apply(items: items, in: context, pendingScope: scope)
-        } ?? .failure
+        await TrackerImportPages.apply(
+            SimklHistoryPage.plan(items), scope: .init(container: container, permit: permit, isCurrent: { scope.matches(.simkl) }),
+            initial: SimklImportSummary()
+        ) { page, context in page.apply(in: context, scope: scope) }
     }
 }
 

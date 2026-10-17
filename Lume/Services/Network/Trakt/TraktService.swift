@@ -376,17 +376,10 @@ final class TraktService {
         scope: TrackerScope,
         permit: TrackerImportPermit
     ) async -> TraktImportSummary {
-        permit.withCurrent {
-            guard scope.matches(.trakt) else { return .failure }
-            let context = ModelContext(container)
-            context.autosaveEnabled = false
-            var summary = TraktWatchedImporter.apply(movies: history.movies, shows: history.shows, in: context, pendingScope: scope)
-            if !summary.failed, let paused = history.paused {
-                summary.inProgress = TraktPlaybackImporter.apply(paused, in: context, pendingScope: scope)
-                do { try context.save() } catch { context.rollback(); summary.failed = true }
-            }
-            return summary
-        } ?? .failure
+        await TrackerImportPages.apply(
+            TraktHistoryPage.plan(movies: history.movies, shows: history.shows, paused: history.paused),
+            scope: .init(container: container, permit: permit, isCurrent: { scope.matches(.trakt) }), initial: TraktImportSummary()
+        ) { page, context in page.apply(in: context, scope: scope) }
     }
 }
 
