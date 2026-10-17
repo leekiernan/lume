@@ -374,6 +374,23 @@ struct WidgetSnapshotExporterTests {
         let result = snapshot(container, playlist, [trending], recorded: [trending: recorded])
         #expect(items(result, trending).map(\.title) == ["Favorite Movie", "Show"])
     }
+
+    @Test func `batched recorded lookups retain kind namespaces order and channel visibility`() throws {
+        let (container, playlist) = try seedContainer()
+        let sharedID = "\(playlist.id.uuidString)-shared"
+        let movie = Movie(id: sharedID, streamId: 99, name: "Same ID Movie")
+        let series = Series(id: sharedID, seriesId: 99, name: "Same ID Series")
+        let channel = LiveStream(id: "\(sharedID)-live", streamId: 99, name: "Hidden")
+        channel.isHidden = true
+        container.mainContext.insert(movie)
+        container.mainContext.insert(series)
+        container.mainContext.insert(channel)
+        try container.mainContext.save()
+        let source = TopShelfSource(surface: .home, ref: .builtin(.trendingMovies))
+        let keys = [MediaItemKey.series(sharedID), .live(channel.id), .movie(sharedID)].map(\.description)
+        let result = snapshot(container, playlist, [source], recorded: [source: keys])
+        #expect(items(result, source).map(\.title) == ["Same ID Series", "Same ID Movie"])
+    }
 }
 
 // MARK: - Link resolution
