@@ -38,6 +38,9 @@ struct TrackerAccountSessionTests {
         #expect(tracker.storedTokens == nil && tracker.storedIdentity == nil)
         #expect(!session.isConnected)
         #expect(await session.validAccessToken() == nil)
+        // The pair the server issued meanwhile is revoked, not left valid.
+        try await waitUntil { tracker.revoked.contains("late") }
+        #expect(tracker.revoked.contains("late"))
     }
 
     @Test func `late identity cannot restore an account after disconnect`() async throws {

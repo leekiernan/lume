@@ -200,7 +200,16 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
 
     private func refresh(_ current: Backend.Tokens, request: RequestToken) async -> String? {
         let result = await backend.refresh(current.refreshToken)
-        guard generation == request, tokens?.refreshToken == current.refreshToken, !Task.isCancelled else { return nil }
+        guard generation == request, tokens?.refreshToken == current.refreshToken, !Task.isCancelled else {
+            // A disconnect or account change landed while the server was
+            // issuing this pair. Nothing will store it, but it would stay valid
+            // until it expires, so it is revoked — in a task of its own, since
+            // this one may be the cancelled refresh.
+            if case let .refreshed(orphan) = result {
+                Task { [backend] in await backend.revoke(accessToken: orphan.accessToken) }
+            }
+            return nil
+        }
         switch result {
         case let .refreshed(newTokens):
             apply(newTokens)
