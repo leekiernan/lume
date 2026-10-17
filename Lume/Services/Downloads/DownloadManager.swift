@@ -84,6 +84,19 @@ final class DownloadManager: NSObject {
 
     // MARK: - Configuration
 
+    /// Owned transport for deterministic delegate/persistence tests. The shared
+    /// instance above retains its stable system background-session identifier.
+    init(sessionConfiguration: URLSessionConfiguration) {
+        super.init()
+        session = URLSession(configuration: sessionConfiguration, delegate: self, delegateQueue: nil)
+    }
+
+    /// Release an owned non-background transport and its retained delegate.
+    func invalidateSession() {
+        precondition(session.configuration.identifier == nil, "The shared background session must remain connected")
+        session.invalidateAndCancel()
+    }
+
     func configure(container: ModelContainer) {
         modelContainer = container
     }
@@ -383,10 +396,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
             try moveIntoDownloads(from: location, to: destination)
         } catch {
             Logger.downloads.error("Rejected or failed to save download for \(info.id): \(error)")
-            Task { @MainActor in
-                self.handleFailure(taskID: taskID, id: info.id)
-                self.promoteIfNeeded()
-            }
+            deliverFailure(taskID: taskID, restoredID: info.id)
             return
         }
         Logger.downloads.info("Download complete: \(info.id)")
@@ -515,11 +525,20 @@ extension DownloadManager: URLSessionDownloadDelegate {
         // As in `didFinishDownloadingTo`, the task may outlive the process that
         // started it, so `taskMap` is not guaranteed to know it.
         let restoredID = DownloadTaskInfo(taskDescription: task.taskDescription)?.id
+        Logger.downloads.error("Download task failed: \(LogRedaction.describe(error), privacy: .public)")
+        deliverFailure(taskID: taskID, restoredID: restoredID)
+    }
+
+    /// Failure delivery owns the same background budget as success: admitting
+    /// the work before returning prevents finish-events from overtaking it.
+    private nonisolated func deliverFailure(taskID: Int, restoredID: String?) {
+        completionDeliveryGroup.enter()
         Task { @MainActor in
+            defer { self.completionDeliveryGroup.leave() }
             guard let id = self.taskMap[taskID] ?? restoredID else { return }
-            Logger.downloads.error("Download failed for \(id): \(error)")
             self.handleFailure(taskID: taskID, id: id)
             self.promoteIfNeeded()
+            await self.statusWrite?.value
         }
     }
 
@@ -531,6 +550,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
             await withCheckedContinuation { continuation in
                 self.completionDeliveryGroup.notify(queue: .global()) { continuation.resume() }
             }
+            await self.statusWrite?.value
             let handler = self.backgroundCompletionHandler
             self.backgroundCompletionHandler = nil
             handler?()
