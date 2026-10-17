@@ -24,6 +24,36 @@ struct ProfilePreferencesSynchronizerTests {
         #expect(fixture.scope.saveAttempts == 2)
     }
 
+    @Test func `a failed save retries on its own, a bounded number of times`() async throws {
+        let fixture = try PreferencesFixture()
+        defer { fixture.cleanUp() }
+        fixture.synchronizer.activate(for: fixture.scope.profileID, allowCloudSeed: true)
+        fixture.scope.failSave = true
+        fixture.setOrder("favorites")
+        fixture.synchronizer.flush(for: fixture.scope.profileID)
+        // The edit's own debounced save can interleave with the flush, so the
+        // count is bounded rather than exact; what matters is that it stops.
+        try await waitUntil { fixture.scope.saveAttempts >= 3 }
+        try await Task.sleep(for: .milliseconds(400))
+        let attempts = fixture.scope.saveAttempts
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(fixture.scope.saveAttempts == attempts)
+        #expect(attempts <= 4)
+
+        fixture.scope.failSave = false
+        fixture.setOrder("forYou")
+        fixture.synchronizer.flush(for: fixture.scope.profileID)
+        #expect(try fixture.saved().strings[fixture.orderKey] == "forYou")
+
+        // A transient failure is recovered without any further edit.
+        fixture.scope.failSave = true
+        fixture.setOrder("favorites")
+        fixture.synchronizer.flush(for: fixture.scope.profileID)
+        fixture.scope.failSave = false
+        try await waitUntil { (try? fixture.saved().strings[fixture.orderKey]) == "favorites" }
+        #expect(try fixture.saved().strings[fixture.orderKey] == "favorites")
+    }
+
     @Test func `an empty cloud row waits for a completed import before seeding`() throws {
         let fixture = try PreferencesFixture()
         defer { fixture.cleanUp() }
@@ -154,7 +184,8 @@ private final class PreferencesFixture {
                 scope.saveAttempts += 1
                 if scope.failSave { throw PreferencesTestError.forced }
                 try context.save()
-            }
+            },
+            retryDelays: [.milliseconds(20), .milliseconds(20)]
         )
     }
 

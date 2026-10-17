@@ -23,6 +23,12 @@ final class ProfilePreferencesSynchronizer {
     private var saveTask: Task<Void, Never>?
     private nonisolated(unsafe) var observer: NSObjectProtocol?
     private static let saveDelay: Duration = .milliseconds(250)
+    /// A failed save stays dirty, but with nothing else to trigger a pass the
+    /// edit would wait for the next change, import or flush — and a relaunch
+    /// before then activates with no baseline, letting the cloud copy win. So a
+    /// failure is retried on its own, a bounded number of times.
+    private let retryDelays: [Duration]
+    private var failedSaves = 0
 
     init(
         context: ModelContext,
@@ -30,8 +36,10 @@ final class ProfilePreferencesSynchronizer {
         currentProfileID: @escaping () -> UUID,
         canSynchronize: @escaping () -> Bool,
         canSeedCloud: @escaping () -> Bool,
-        save: (() throws -> Void)? = nil
+        save: (() throws -> Void)? = nil,
+        retryDelays: [Duration] = [.seconds(2), .seconds(10), .seconds(60)]
     ) {
+        self.retryDelays = retryDelays
         self.context = context
         self.defaults = defaults
         self.currentProfileID = currentProfileID
@@ -52,6 +60,7 @@ final class ProfilePreferencesSynchronizer {
 
     func activate(for profileID: UUID, allowCloudSeed: Bool) {
         cancelPendingPreferencesSave()
+        failedSaves = 0
         baseline = nil
         synchronize(for: profileID, allowCloudSeed: allowCloudSeed)
     }
@@ -230,6 +239,7 @@ final class ProfilePreferencesSynchronizer {
         guard let encoded = ProfileScopedPreferences.encode(merged) else { return }
         guard encoded != profile.preferencesJSON else {
             baseline = Baseline(snapshot: current, json: encoded)
+            failedSaves = 0
             return
         }
         let previousJSON = profile.preferencesJSON
@@ -239,6 +249,7 @@ final class ProfilePreferencesSynchronizer {
         do {
             try save()
             baseline = Baseline(snapshot: current, json: encoded)
+            failedSaves = 0
         } catch {
             // A failed save must remain dirty. Otherwise the next pass sees
             // the unsaved encoded value and incorrectly calls it persisted.
@@ -246,6 +257,21 @@ final class ProfilePreferencesSynchronizer {
             profile.preferencesJSON = previousJSON
             profile.updatedAt = previousUpdatedAt
             Logger.sync.error("Saving synced profile preferences failed: \(error.localizedDescription)")
+            scheduleRetry(for: profile.id)
+        }
+    }
+
+    /// Only for the active profile: the baseline describes it alone. Any new
+    /// edit, import or flush supersedes the retry by replacing `saveTask`.
+    private func scheduleRetry(for profileID: UUID) {
+        guard failedSaves < retryDelays.count, profileID == currentProfileID() else { return }
+        let delay = retryDelays[failedSaves]
+        failedSaves += 1
+        saveTask?.cancel()
+        saveTask = Task { [weak self] in
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled, self?.currentProfileID() == profileID, self?.canSynchronize() == true else { return }
+            self?.persistPreferencesIfChanged(for: profileID)
         }
     }
 }
