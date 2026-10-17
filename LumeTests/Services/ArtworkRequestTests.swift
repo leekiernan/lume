@@ -3,6 +3,11 @@ import Foundation
 import Testing
 
 struct ArtworkRequestTests {
+    @Test func `public artwork retains the existing disk and memory cache identity`() throws {
+        let url = try #require(URL(string: "https://image.tmdb.org/t/p/w500/poster.jpg"))
+        #expect(ArtworkRequest(url: url)?.cacheIdentity == url.absoluteString)
+    }
+
     @Test func `tokens travel as headers rather than part of the request URL`() throws {
         let plexURL = try #require(URL(string: "https://server.test/photo?width=300&X-Plex-Token=secret"))
         let plex = try #require(ArtworkRequest(url: plexURL))

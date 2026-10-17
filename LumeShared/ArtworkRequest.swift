@@ -33,9 +33,10 @@ nonisolated struct ArtworkRequest: Hashable {
         self.headers = headers
         let authentication = headers.sorted { $0.key < $1.key }.map { "\($0.key):\($0.value)" }.joined(separator: "\n")
         let scope = accountScope ?? authentication
-        // Opaque even for legacy providers whose unknown query/path carries a
-        // credential. No bearer token or password enters a cache key in plaintext.
-        cacheIdentity = Self.digest(url.absoluteString + "\n" + scope)
+        // Preserve existing public-image cache entries and offline artwork.
+        // Recognized private requests use opaque, account-isolated identities.
+        cacheIdentity = headers.isEmpty && accountScope == nil && !Self.carriesCredentials(original)
+            ? original.absoluteString : Self.digest(url.absoluteString + "\n" + scope)
     }
 
     var request: URLRequest {
