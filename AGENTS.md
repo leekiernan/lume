@@ -37,6 +37,18 @@ deliberately keeps the two live package checkouts and each checkout's
 `.build/tools`, which is what the pre-commit hook runs SwiftFormat/SwiftLint
 from.
 
+### Approval-friendly validation (Codex)
+
+Invoke `xcodebuild` directly with the action first (`build`, `build-for-testing`,
+`test`, or `test-without-building`). Avoid shell wrappers, output redirection,
+pipes, environment assignments and array/variable expansion: they prevent saved
+command-prefix approvals from matching. Expand the shared package path in the
+command itself; use `-quiet` and `-resultBundlePath` instead of redirecting logs.
+If escalation is needed, propose the reusable `xcodebuild <action>` prefix, not
+the entire command with changing destinations and output paths. Routine builds
+and tests do not need an extra conversational confirmation or announcement;
+report findings and final results. Sandbox approvals still apply.
+
 ---
 
 ## Testing
@@ -44,21 +56,20 @@ from.
 Tests deploy to **iOS 26.4+ Simulator only** — never tvOS. Use an iPhone 17 Pro or newer sim; iOS 26.2 sims fail with a deployment-target mismatch (exit 65).
 
 ```bash
-# Every invocation below takes the shared package clone — see "Private
-# DerivedData needs a shared package clone" above.
-SPM=(-clonedSourcePackagesDirPath ~/Library/Developer/Lume-SharedSPM)
-
 # Full suite
-xcodebuild test -project Lume.xcodeproj -scheme Lume "${SPM[@]}" \
+xcodebuild test -project Lume.xcodeproj -scheme Lume \
+  -clonedSourcePackagesDirPath ~/Library/Developer/Lume-SharedSPM \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
 
 # Unit tests only
-xcodebuild test -project Lume.xcodeproj -scheme Lume "${SPM[@]}" \
+xcodebuild test -project Lume.xcodeproj -scheme Lume \
+  -clonedSourcePackagesDirPath ~/Library/Developer/Lume-SharedSPM \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   -only-testing:LumeTests
 
 # UI tests only
-xcodebuild test -project Lume.xcodeproj -scheme Lume "${SPM[@]}" \
+xcodebuild test -project Lume.xcodeproj -scheme Lume \
+  -clonedSourcePackagesDirPath ~/Library/Developer/Lume-SharedSPM \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   -only-testing:LumeUITests
 ```
