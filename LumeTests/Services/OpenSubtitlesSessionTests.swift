@@ -87,6 +87,33 @@ struct OpenSubtitlesSessionTests {
         #expect(storage.cacheWrites == 1)
     }
 
+    @Test func `replacing an account revokes downloads begun during login`() async {
+        let loginGate = SubtitleTestGate<OpenSubtitlesSession>()
+        let fileGate = SubtitleTestGate<Data>()
+        let client = SubtitleTestClient()
+        client.loginBody = { try await loginGate.wait() }
+        client.linkBody = { OpenSubtitlesDownload(link: URL(string: "https://example.invalid/subtitle")!, fileName: "test.srt", remainingDownloads: 9) }
+        client.fetchBody = { try await fileGate.wait() }
+        let storage = SubtitleTestStorage()
+        storage.saved = account
+        let service = makeService(client, storage)
+        service.restore()
+        let login = Task { await service.signIn(username: "next", password: "test") }
+        await loginGate.entered()
+        let download = Task { try await service.download(Self.subtitle) }
+        await fileGate.entered()
+        var next = account
+        next.username = "next"
+        next.token = "next-test-token"
+        loginGate.finish(.success(next))
+        await login.value
+        fileGate.finish(.success(Data("subtitle".utf8)))
+        await #expect(throws: CancellationError.self) { try await download.value }
+        #expect(service.username == "next")
+        #expect(service.remainingDownloads == nil)
+        #expect(storage.cacheWrites == 0)
+    }
+
     @Test func `cancelled login does not persist credentials or leave signing in stuck`() async {
         let gate = SubtitleTestGate<OpenSubtitlesSession>()
         let client = SubtitleTestClient()

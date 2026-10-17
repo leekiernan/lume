@@ -11,7 +11,7 @@ protocol OpenSubtitlesProviding {
     func fetch(_ download: OpenSubtitlesDownload) async throws -> Data
 }
 
-extension OpenSubtitlesClient: OpenSubtitlesProviding {}
+nonisolated extension OpenSubtitlesClient: OpenSubtitlesProviding {}
 
 /// Small persistence boundaries keep lifecycle tests away from the household's
 /// keychain, defaults and subtitle files.

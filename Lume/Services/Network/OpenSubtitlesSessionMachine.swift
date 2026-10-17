@@ -47,6 +47,9 @@ nonisolated struct OpenSubtitlesSessionMachine {
     @discardableResult
     mutating func finishSignIn(_ request: RequestToken, session: OpenSubtitlesSession) -> Bool {
         guard case let .signingIn(active, _) = state, active == request else { return false }
+        // Work started with the previous account while login was pending must
+        // not publish into the newly connected account either.
+        generation = RequestToken()
         state = .idle(Account(session: session), error: nil)
         return true
     }
