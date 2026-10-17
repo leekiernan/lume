@@ -293,6 +293,10 @@ struct FullScreenPlayerView: View {
         .onAppear {
             installSessionEffects()
             beginReviewSession()
+            // Pause background indexing — its periodic saves merge into the
+            // main context and hitch KSPlayer's render loop. Taken here, the
+            // pair of `onDisappear`, so no task timing can leave it held.
+            ContentIndexingService.shared.beginPlayback(owner: playbackLease)
         }
         .onChange(of: activeMedia.id, initial: true) {
             publishSources(to: controlsBridge)
@@ -308,9 +312,6 @@ struct FullScreenPlayerView: View {
             // Seed the recall pair with the channel we opened on, so the very
             // first in-player recall has somewhere to jump back to.
             LiveChannelHistory.record(activeMedia)
-            // Pause background indexing — its periodic saves merge into the
-            // main context and hitch KSPlayer's render loop.
-            ContentIndexingService.shared.beginPlayback(owner: playbackLease)
             // Resolved alongside the activation: the round trip is one FFmpeg
             // would otherwise make on every read of the opening file.
             let opening = engine == .ksPlayer ? activeMedia : nil

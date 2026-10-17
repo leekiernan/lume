@@ -208,19 +208,22 @@ struct MultiViewScreen: View {
         #endif
             .persistentSystemOverlays(.hidden)
             .preferredColorScheme(.dark)
+            .onAppear {
+                // Leases are taken here, the pair of `onDisappear`, so no task
+                // timing can leave one held. The tiles' QoE reports would be
+                // nonsense against a summary that models one stream at a time,
+                // and background indexing merges periodic saves into the main
+                // context, which hitches every running decoder.
+                PlaybackQoE.shared.suspend(owner: playbackLease)
+                ContentIndexingService.shared.beginPlayback(owner: playbackLease)
+            }
             .task {
                 guard !Task.isCancelled else { return }
-                // The tiles' QoE reports would be nonsense against a summary that
-                // models one stream at a time.
-                PlaybackQoE.shared.suspend(owner: playbackLease)
                 // Reported from here rather than the presentation sites: on macOS
                 // the grid is its own window with the browse root still visible,
                 // so an armed rating sheet would otherwise animate in over four
                 // running streams.
                 AppStoreReviewPrompt.shared.notePlayerAppeared()
-                // Background indexing merges periodic saves into the main context,
-                // which hitches every running decoder — more so with four of them.
-                ContentIndexingService.shared.beginPlayback(owner: playbackLease)
                 await PlaybackAudioSession.shared.activate(owner: audioSessionOwner, configuration: .multiView)
                 guard !Task.isCancelled else { return }
                 adoptQueuedChannels()
