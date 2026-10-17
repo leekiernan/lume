@@ -18,8 +18,9 @@ nonisolated enum PlaylistConnection: Hashable {
 
     init?(playlist: Playlist) {
         guard let source = playlist.knownSourceType,
-              let endpoint = URL(string: playlist.serverURL),
-              endpoint.isFileURL && source == .m3u || RemoteImageURL(url: endpoint) != nil else { return nil }
+              let endpoint = URL(string: playlist.serverURL) else { return nil }
+        let isServer = ["http", "https"].contains(endpoint.scheme?.lowercased() ?? "") && endpoint.host?.isEmpty == false
+        guard isServer || (endpoint.isFileURL && source == .m3u) else { return nil }
         let credentials = Credentials(username: playlist.username, password: playlist.password)
         switch source {
         case .xtream: self = .xtream(endpoint: endpoint, credentials: credentials)

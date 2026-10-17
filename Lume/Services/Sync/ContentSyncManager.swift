@@ -160,7 +160,8 @@ actor ContentSyncManager {
         for playlist: Playlist,
         request: ProviderSyncRequest
     ) async throws -> Set<AppArea> {
-        guard let connection = playlist.connection else { throw SyncError.notImplemented }
+        guard playlist.knownSourceType != nil else { throw SyncError.notImplemented }
+        guard let connection = playlist.connection else { throw SyncError.networkError(URLError(.badURL)) }
         let sourceType = connection.sourceType
         let requestedAreas = request.syncAreas ?? Self.syncAreas(
             enabled: AppAreaSettings.enabledContentAreas(disabledRaw: AppAreaSettings.storedValue),
