@@ -16,17 +16,14 @@ final nonisolated class ArtworkRedirectPolicy: NSObject, URLSessionTaskDelegate 
     }
 
     static func sameOrigin(_ first: URL, _ second: URL) -> Bool {
-        func origin(_ url: URL) -> String {
-            let scheme = url.scheme?.lowercased() ?? ""
-            return "\(scheme)://\(url.host?.lowercased() ?? ""):\(url.port ?? (scheme == "https" ? 443 : 80))"
-        }
-        return origin(first) == origin(second)
+        guard let origin = HTTPOrigin(first) else { return false }
+        return origin == HTTPOrigin(second)
     }
 
     func urlSession(_: URLSession, task _: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
                     newRequest request: URLRequest, completionHandler: @escaping @Sendable (URLRequest?) -> Void)
     {
-        guard let previous = response.url else { completionHandler(nil); return }
+        guard let previous = response.url, let next = request.url, HTTPOrigin(next) != nil else { completionHandler(nil); return }
         completionHandler(Self.redirect(request, from: previous))
     }
 }

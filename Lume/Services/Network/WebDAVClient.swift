@@ -132,6 +132,7 @@ final nonisolated class WebDAVClient: Sendable {
         depth: String,
         credentials: WebDAVCredentials?
     ) async throws -> (Data, HTTPURLResponse) {
+        guard HTTPOrigin(url) != nil else { throw WebDAVError.invalidURL }
         var request = URLRequest(url: url)
         request.httpMethod = "PROPFIND"
         request.setValue(depth, forHTTPHeaderField: "Depth")
@@ -144,7 +145,7 @@ final nonisolated class WebDAVClient: Sendable {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await session.data(for: request)
+            (data, response) = try await session.data(for: request, delegate: WebDAVRedirectPolicy.shared)
         } catch {
             throw WebDAVError.networkError(error)
         }
@@ -190,7 +191,8 @@ final nonisolated class WebDAVClient: Sendable {
     /// a 301 to the slashed form (which drops the PROPFIND body) and relative
     /// href resolution loses the last path segment.
     static func normalizedCollectionURL(_ url: URL) -> URL {
-        guard !url.absoluteString.hasSuffix("/") else { return url }
-        return URL(string: url.absoluteString + "/") ?? url
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: true) else { return url }
+        if !components.percentEncodedPath.hasSuffix("/") { components.percentEncodedPath += "/" }
+        return components.url ?? url
     }
 }

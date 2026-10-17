@@ -90,9 +90,9 @@ nonisolated enum WebDAVWalkProducer {
             result.directoriesVisited += 1
 
             for resource in resources {
+                guard WebDAVPathIdentity.contains(resource.url, in: base) else { continue }
                 if resource.isCollection {
                     let key = visitKey(resource.url)
-                    guard isDescendant(key, of: rootKey) else { continue }
                     // A symlinked directory pointing back up the share would
                     // otherwise walk forever. This is termination, not a depth
                     // or request cap.
@@ -179,13 +179,6 @@ nonisolated enum WebDAVWalkProducer {
     /// query or trailing slash. Case-sensitive — a WebDAV path is.
     private static func visitKey(_ url: URL) -> String {
         WebDAVPathIdentity.key(url.absoluteString)
-    }
-
-    /// Whether a listed href is actually inside the collection the user named.
-    /// Apache aliases and Nextcloud shares can return hrefs that resolve above
-    /// the share root; walking those would leave the user's folder entirely.
-    private static func isDescendant(_ key: String, of rootKey: String) -> Bool {
-        key == rootKey || key.hasPrefix(rootKey + "/")
     }
 
     /// The collection's own folder name. Every file in the share inherits it as

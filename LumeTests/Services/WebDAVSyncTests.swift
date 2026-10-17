@@ -165,6 +165,29 @@ struct WebDAVSyncTests {
 
     // MARK: Full tree
 
+    @Test func `walk ignores foreign and escaped files as well as directories`() async throws {
+        let host = uniqueHost()
+        defer { WebDAVTreeStubProtocol.remove(host: host) }
+        WebDAVTreeStubProtocol.install(host: host, replies: [
+            "/Movies/": collection("/Movies/", [
+                StubChild(href: "https://foreign.test/Movies/Foreign.mkv", isCollection: false),
+                StubChild(href: "/Private/Secret.mkv", isCollection: false),
+                StubChild(href: "/Movies/%2e%2e/Private/", isCollection: true),
+                StubChild(href: "/Movies/Allowed.2020.mkv", isCollection: false)
+            ])
+        ])
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [WebDAVTreeStubProtocol.self]
+        let client = WebDAVClient(urlSession: URLSession(configuration: config))
+        let result = try await WebDAVWalkProducer.walk(
+            root: #require(URL(string: "https://\(host)/Movies/")),
+            credentials: WebDAVCredentials(username: "user", password: "fixture"), client: client, progress: nil
+        )
+        #expect(result.entries.count == 1)
+        #expect(result.entries.first?.url.hasSuffix("Allowed.2020.mkv") == true)
+        #expect(WebDAVTreeStubProtocol.requestCount(host: host) == 1)
+    }
+
     @Test func `walks a nested share into movies, episodes and categories`() async throws {
         let host = uniqueHost()
         defer { WebDAVTreeStubProtocol.remove(host: host) }
