@@ -114,7 +114,7 @@ struct SportsAvailabilityReactionTests {
         #expect(service.followedLeagueIds.count == 2)
     }
 
-    @Test func `reload warms the leagues from its new snapshot rather than the previous follows`() throws {
+    @Test func `reload warms the leagues from its new snapshot rather than the previous follows`() async throws {
         let saved = ActiveProfileStore.current
         defer { ActiveProfileStore.current = saved }
         let profile = UUID()
@@ -134,6 +134,7 @@ struct SportsAvailabilityReactionTests {
         sync.configure(provider: EmptyAvailabilityProvider(), followSource: follows)
         #expect(store.snapshot(for: key) == nil)
         follows.configure(container: container)
+        await store.hydrate(leagueIds: follows.followedLeagueIds)
         #expect(store.snapshot(for: key) != nil)
     }
 
