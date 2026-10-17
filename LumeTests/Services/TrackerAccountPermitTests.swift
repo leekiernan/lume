@@ -24,17 +24,48 @@ struct TrackerAccountPermitTests {
         #expect(token == nil)
     }
 
-    @Test func `restoring replacement credentials retires the sessions old permit`() async {
+    @Test func `a same account rotation preserves queued delivery but retires imports`() async {
         let tracker = FakeTracker()
         tracker.storedTokens = FakeTokens(accessToken: "old", refreshToken: "old-r", issuedAt: 1)
         tracker.storedIdentity = alice
+        tracker.identityResponses = [alice, alice]
         let session = TrackerAccountSession(backend: FakeBackend(tracker: tracker))
         _ = await session.restore()
         let old = session.operationPermit
+        let oldImport = session.importPermit
         tracker.storedTokens = FakeTokens(accessToken: "new", refreshToken: "new-r", issuedAt: 2)
         _ = await session.restore()
-        #expect(!old.isCurrent)
-        #expect(await old.accessToken(using: session.validAccessToken) == nil)
-        #expect(await session.operationPermit.accessToken(using: session.validAccessToken) == "new")
+        #expect(old.isCurrent)
+        #expect(!oldImport.isCurrent)
+        #expect(await old.accessToken(using: session.operationAccessToken) == "new")
+    }
+
+    @Test func `a changed account with the same remembered identity cannot send an old event`() async {
+        let tracker = FakeTracker()
+        tracker.storedTokens = FakeTokens(accessToken: "old", refreshToken: "r", issuedAt: 1)
+        tracker.storedIdentity = alice
+        tracker.identityResponses = [alice, nil, FakeIdentity(username: "bob", scope: "fake:2")]
+        let session = TrackerAccountSession(backend: FakeBackend(tracker: tracker))
+        _ = await session.restore()
+        let permit = session.operationPermit
+        tracker.storedTokens = FakeTokens(accessToken: "new", refreshToken: "new-r", issuedAt: 2)
+        _ = await session.restore()
+        #expect(await permit.accessToken(using: session.operationAccessToken) == nil)
+        #expect(!permit.isCurrent)
+    }
+
+    @Test func `disconnect and reconnect to the same account retire queued events`() async {
+        let tracker = FakeTracker()
+        tracker.storedTokens = FakeTokens(accessToken: "old", refreshToken: "r", issuedAt: 1)
+        tracker.storedIdentity = alice
+        tracker.identityResponses = [alice, alice]
+        let session = TrackerAccountSession(backend: FakeBackend(tracker: tracker))
+        _ = await session.restore()
+        let permit = session.operationPermit
+        await session.disconnect()
+        tracker.storedTokens = FakeTokens(accessToken: "new", refreshToken: "new-r", issuedAt: 2)
+        tracker.storedIdentity = alice
+        _ = await session.restore()
+        #expect(await permit.accessToken(using: session.operationAccessToken) == nil)
     }
 }

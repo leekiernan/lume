@@ -48,6 +48,10 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
     @ObservationIgnored private var identityTask: Task<Void, Never>?
     @ObservationIgnored private var refreshTask: Task<String?, Never>?
     @ObservationIgnored private let lifetime = TrackerAccountLifetime()
+    /// Delivery belongs to an account, not to one OAuth token pair. Imports
+    /// and credential refreshes retain their stricter token-generation fence.
+    @ObservationIgnored private let deliveryLifetime = TrackerAccountLifetime()
+    @ObservationIgnored private var verifiedDeliveryGeneration: RequestToken?
     private var generation: RequestToken {
         lifetime.current
     }
@@ -57,7 +61,7 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
     }
 
     var operationPermit: TrackerAccountPermit {
-        TrackerAccountPermit(account: lifetime)
+        TrackerAccountPermit(account: deliveryLifetime)
     }
 
     /// A refresh token the service rejected. Another device may have consumed
@@ -111,6 +115,7 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
     func restore() async -> TrackerRestoreOutcome {
         guard isConfigured else { return .signedOut }
         guard let stored = backend.loadTokens() else {
+            deliveryLifetime.invalidate()
             invalidateSessionWork()
             tokens = nil
             refreshFailedForToken = nil
@@ -119,7 +124,13 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
             send(.tokensGone)
             return .signedOut
         }
-        if tokens != stored { invalidateSessionWork() }
+        if tokens != stored {
+            // An unknown identity cannot prove a same-account rotation.
+            if identity?.scope == nil || identity?.scope != backend.loadIdentity()?.scope {
+                deliveryLifetime.invalidate()
+            }
+            invalidateSessionWork()
+        }
         tokens = stored
         if refreshFailedForToken != stored.refreshToken {
             refreshFailedForToken = nil
@@ -150,6 +161,7 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
     /// recording the user's decision so iCloud signs every device out.
     func disconnect() async {
         let revokedToken = tokens?.accessToken
+        deliveryLifetime.invalidate()
         invalidateSessionWork()
         send(.disconnected)
         if backend.clearTokensForUserDisconnect() {
@@ -165,6 +177,7 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
 
     private func invalidateSessionWork() {
         lifetime.invalidate()
+        verifiedDeliveryGeneration = nil
         refreshTask?.cancel()
         refreshTask = nil
         identityTask?.cancel()
@@ -172,6 +185,21 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
     }
 
     // MARK: - Tokens
+
+    /// A queued event may survive a token rotation, but must not trust a stale
+    /// remembered identity for the new credentials. Confirm it before delivery;
+    /// a different account retires the permit before a request can be sent.
+    func operationAccessToken() async -> String? {
+        let request = generation
+        guard let token = await validAccessToken(), isConnected, !Task.isCancelled,
+              generation == request else { return nil }
+        if verifiedDeliveryGeneration != request {
+            guard let fresh = await backend.fetchIdentity(accessToken: token),
+                  generation == request, isConnected, !Task.isCancelled else { return nil }
+            adopt(fresh)
+        }
+        return token
+    }
 
     /// A usable access token, refreshing first if the pair is stale.
     /// Concurrent refreshes coalesce into one request.
@@ -236,6 +264,8 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
     // MARK: - Identity
 
     private func setIdentity(_ newIdentity: Backend.Identity?, confirmed: Bool) {
+        if identity?.scope != newIdentity?.scope { deliveryLifetime.invalidate() }
+        if confirmed { verifiedDeliveryGeneration = generation }
         guard identity != newIdentity || confirmed else { return }
         identity = newIdentity
         identityDidChange?(newIdentity, confirmed)
@@ -317,6 +347,7 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
 
     private func finishConnect(with newTokens: Backend.Tokens) async {
         guard !Task.isCancelled, isConnecting else { return }
+        deliveryLifetime.invalidate()
         invalidateSessionWork()
         let request = generation
         apply(newTokens)

@@ -222,7 +222,7 @@ final class TraktService {
             defer { backgroundTime.end() }
             await previous?.value
             guard !Task.isCancelled, let self, permit.isCurrent else { return }
-            guard let accessToken = await permit.accessToken(using: session.validAccessToken) else {
+            guard let accessToken = await permit.accessToken(using: session.operationAccessToken) else {
                 Logger.network.warning(
                     "Trakt scrobble \(action.rawValue, privacy: .public) dropped: no valid access token"
                 )
