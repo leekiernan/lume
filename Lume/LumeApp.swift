@@ -297,6 +297,7 @@ struct LumeApp: App {
                     // Core Audio's one-off component registration, off the main
                     // thread, so pressing Play doesn't pay it (see the type).
                     if !Self.isUnitTestHost { AudioEngineWarmUp.schedule() }
+                    if !Self.isUnitTestHost { await ProviderArtworkMaintenance.run(container: catalogContainer) }
 
                     // Give DownloadManager access to the model container so it
                     // can persist download state from its delegate callbacks.
