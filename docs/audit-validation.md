@@ -78,6 +78,10 @@ now lives on `CatalogGenreView`, which the app actually opens. Framework-invoked
 callbacks and test hooks were not treated as dead code merely because shipping
 call sites do not name them. No persisted fields or decoder contracts changed.
 
+The startup-timeout closure also now carries its `@MainActor @Sendable` function
+type explicitly. This removes our callback-conversion compiler warning without
+changing when the watchdog fires or adding a KSPlayer workaround.
+
 ## Accepted player diagnostics
 
 The reported startup messages do not currently accompany a playback failure.
@@ -137,3 +141,24 @@ The final run's evidence is `/tmp/lume-validation-final.xcresult` and
 not run. No Debug timings are presented as performance benchmarks. Physical-
 device checks remain the board's responsibility, not a prerequisite for
 engineering review. The branch remains unmerged pending review.
+
+### Follow-up cleanup verification
+
+Validated after the cleanup and callback annotation at `a134fef8`:
+
+- **87 targeted regression tests passed**, with zero failures or skips, on the
+  same iOS simulator. Coverage includes guide downloads, Top Shelf settings,
+  poster adapters, genre derivation, tracker outboxes, sports caches/retention,
+  audio-session leases, startup state/deadlines, redirect probes and metadata
+  delivery. Parameterized cases account for 104 individual executions.
+- **iOS build-for-testing, tvOS build and macOS build passed.** The startup
+  callback conversion warnings are absent from all three final builds.
+- All cleanup commits passed formatting/lint hooks; the final diff passes
+  `git diff --check`. The seven removed names have no remaining Swift references
+  in shipping code, tests, performance tests or scripts.
+
+The earlier full-suite result above remains the baseline; it was not re-run for
+this deletion-only cleanup and callback annotation. Follow-up evidence is in
+`/tmp/lume-audit-cleanup-tests.xcresult` and the three
+`/tmp/lume-audit-cleanup-<platform>-final-build.xcresult` bundles. Only regenerable
+task build caches are removed; these results and the shared package clone stay.
