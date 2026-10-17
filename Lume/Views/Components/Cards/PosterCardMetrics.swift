@@ -102,16 +102,6 @@ extension View {
         }
     }
 
-    /// Width for a poster card's title line, matching `posterArtworkFrame`.
-    @ViewBuilder
-    func posterTitleFrame(fillsWidth: Bool, presentation: PosterCardMetrics.Presentation = .rail) -> some View {
-        if fillsWidth {
-            frame(maxWidth: .infinity, alignment: .leading)
-        } else {
-            frame(width: PosterCardMetrics.layout(for: presentation).width, alignment: .leading)
-        }
-    }
-
     /// Applies the focus-aware card button style on tvOS (scale + shadow on
     /// focus) and the plain style elsewhere, so browse cards lift cleanly
     /// without overlapping neighbours.
