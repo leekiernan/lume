@@ -251,13 +251,3 @@ nonisolated enum GenrePageFetcher {
         return page
     }
 }
-
-// MARK: - Genre detail grids
-
-/// The full grid of movies in a genre, reachable from a genre tile. The fetch
-/// narrows to candidate rows in SQLite with `localizedStandardContains`, then
-/// re-filters to exact-token matches so substrings can't sneak in — all of it
-/// on a background context (`GenrePageFetcher`), because the grid asks for the
-/// next page from a cell's `onAppear`, mid-scroll.
-typealias MovieGenreView = CatalogGenreView<MovieCatalog>
-typealias SeriesGenreView = CatalogGenreView<SeriesCatalog>
