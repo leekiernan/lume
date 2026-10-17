@@ -79,7 +79,7 @@ final class SportsStore {
     /// fetch for a league that has not been refreshed yet.
     func mergeTeams(_ teams: [SportsTeam], for leagueId: String) {
         guard !teams.isEmpty else { return }
-        var snapshot = snapshots[leagueId] ?? SportsLeagueSnapshot()
+        var snapshot = snapshots[leagueId] ?? SportsLeagueSnapshot(fetchedAt: .distantPast)
         snapshot.teams = teams
         snapshot.teamsFetchedAt = Date()
         snapshots[leagueId] = snapshot

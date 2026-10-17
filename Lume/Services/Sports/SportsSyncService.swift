@@ -393,27 +393,30 @@ final class SportsSyncService {
         let monthResults = await fetchedMonths
         let teamsResult = await fetchedTeams
         let standingsResult = await fetchedStandings
+        // A roster/day update may have landed while these requests ran. Failed
+        // fields retain that current value, not the pre-request snapshot.
+        let current = store.snapshot(for: league.id) ?? existing
         let gotFixtures = monthResults.contains(where: \.succeeded)
-        let fixtures = SportsFixtureWindowResult.merging(monthResults, into: existing?.fixtures ?? [])
+        let fixtures = SportsFixtureWindowResult.merging(monthResults, into: current?.fixtures ?? [])
         let teams: [SportsTeam]
         let teamsFetchedAt: Date?
         switch teamsResult {
         case let .success(fetched):
-            teams = fetched
-            teamsFetchedAt = teamsCacheFresh ? existing?.teamsFetchedAt : Date()
+            teams = teamsCacheFresh ? (current?.teams ?? fetched) : fetched
+            teamsFetchedAt = teamsCacheFresh ? current?.teamsFetchedAt : Date()
         case .failure:
-            teams = existing?.teams ?? []
-            teamsFetchedAt = existing?.teamsFetchedAt
+            teams = current?.teams ?? []
+            teamsFetchedAt = current?.teamsFetchedAt
         }
         let standings: [SportsStandingRow] = switch standingsResult {
         case let .success(fetched): fetched
-        case .failure: existing?.standings ?? []
+        case .failure: current?.standings ?? []
         }
         let gotTeams = !teamsCacheFresh && SportsFetch.succeeded(teamsResult)
         guard !Task.isCancelled, Self.isEnabled, gotFixtures || gotTeams || SportsFetch.succeeded(standingsResult) else { return false }
 
         let snapshot = SportsLeagueSnapshot(
-            fetchedAt: Date(),
+            fetchedAt: !monthResults.isEmpty && monthResults.allSatisfy(\.succeeded) ? Date() : (current?.fetchedAt ?? .distantPast),
             fixtures: Self.retainedFixtures(fixtures),
             standings: standings,
             teams: teams,
@@ -444,7 +447,8 @@ final class SportsSyncService {
         guard let existing, let fetchedAt = existing.teamsFetchedAt else {
             return false
         }
-        return Date().timeIntervalSince(fetchedAt) < teamCacheLifetime
+        let age = Date().timeIntervalSince(fetchedAt)
+        return age >= -60 && age < teamCacheLifetime
     }
 
     /// Re-fetches the given days by day for every league and merges the fresh
