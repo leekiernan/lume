@@ -54,13 +54,16 @@ struct PlaybackResourceTests {
     }
 
     @Test func `a slow source falls back to the unresolved handoff at its deadline`() async throws {
-        let server = try GuideHTTPServer { _ in .init(body: "late", delay: 5) }
+        // The server stalls a minute; the deadline must end the wait long
+        // before, however busy the machine (a tight bound fails under a full
+        // parallel run without telling a regression from load).
+        let server = try GuideHTTPServer { _ in .init(body: "late", delay: 60) }
         let original = try await server.start()
         defer { server.stop() }
         let resource = PlaybackResource(url: original, headers: headers)
         let start = ContinuousClock.now
         #expect(try await PlaybackResourceResolver.resolve(resource, timeout: 0.1) == resource)
-        #expect(start.duration(to: .now) < .seconds(2))
+        #expect(start.duration(to: .now) < .seconds(30))
     }
 
     @Test func `an unreachable source falls back to the unresolved handoff`() async throws {

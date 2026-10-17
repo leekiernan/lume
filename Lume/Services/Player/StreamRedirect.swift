@@ -36,7 +36,7 @@ nonisolated enum StreamRedirect {
 
     /// The URL `url` redirects to, or nil when it doesn't redirect or the
     /// request fails. Asks for a single byte so a direct stream costs nothing.
-    static func resolve(_ url: URL, session: URLSession = session) async -> URL? {
+    static func resolve(_ url: URL, session: URLSession = session, timeout: TimeInterval = timeout) async -> URL? {
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: timeout)
         request.setValue("bytes=0-0", forHTTPHeaderField: "Range")
         do {

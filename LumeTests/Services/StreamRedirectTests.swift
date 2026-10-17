@@ -2,29 +2,39 @@ import Foundation
 @testable import Lume
 import Testing
 
-/// Wall-clock bounds, so off the main actor: `resolve` runs on its caller's
-/// executor, and under a full parallel run a `@MainActor` caller's clock also
-/// counted seconds of waiting for a main thread other suites kept busy.
+/// A full parallel run can starve the cooperative pool for seconds, so a
+/// tight wall-clock bound can't tell a slow machine from a regression. These
+/// give the probe a minute and require it back well inside that: a probe that
+/// waited for its body or its timeout takes the whole minute.
 struct StreamRedirectTimingTests {
     private let provider = URL(string: "https://provider.test/series/user/pass/42.mkv")!
+    private let patience: TimeInterval = 60
+
+    private func session(_ protocolClass: AnyClass) -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [protocolClass]
+        configuration.timeoutIntervalForRequest = patience
+        configuration.timeoutIntervalForResource = patience
+        return URLSession(configuration: configuration)
+    }
 
     @Test func `a server ignoring Range does not have to finish its body`() async {
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [HeaderOnlyStreamProtocol.self]
-        let session = URLSession(configuration: configuration)
+        let session = session(HeaderOnlyStreamProtocol.self)
         defer { session.invalidateAndCancel() }
         let start = ContinuousClock.now
-        #expect(await StreamRedirect.resolve(provider, session: session) == nil)
-        #expect(start.duration(to: .now) < .seconds(2))
+        #expect(await StreamRedirect.resolve(provider, session: session, timeout: patience) == nil)
+        #expect(start.duration(to: .now) < .seconds(patience / 2))
     }
 
     @Test func `a cancelled probe does not wait for its timeout`() async {
-        let provider = provider
+        let session = session(SilentStreamProtocol.self)
+        defer { session.invalidateAndCancel() }
+        let (provider, patience) = (provider, patience)
         let start = ContinuousClock.now
-        let task = Task.detached { await StreamRedirect.resolve(provider) }
+        let task = Task.detached { await StreamRedirect.resolve(provider, session: session, timeout: patience) }
         task.cancel()
         #expect(await task.value == nil)
-        #expect(start.duration(to: .now) < .seconds(2))
+        #expect(start.duration(to: .now) < .seconds(patience / 2))
     }
 }
 
@@ -145,6 +155,23 @@ private final nonisolated class HeaderOnlyStreamProtocol: URLProtocol {
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         // Intentionally never deliver or finish the body.
     }
+
+    override func stopLoading() {}
+}
+
+/// Never answers, so only cancellation (or the timeout) ends the probe.
+private final nonisolated class SilentStreamProtocol: URLProtocol {
+    // swiftlint:disable:next static_over_final_class
+    override class func canInit(with _: URLRequest) -> Bool {
+        true
+    }
+
+    // swiftlint:disable:next static_over_final_class
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {}
 
     override func stopLoading() {}
 }
