@@ -409,8 +409,8 @@ final class SportsSyncService {
         case let .success(fetched): fetched
         case .failure: existing?.standings ?? []
         }
-        let gotTeams = !teamsCacheFresh && teamsResult.isSuccess
-        guard !Task.isCancelled, Self.isEnabled, gotFixtures || gotTeams || standingsResult.isSuccess else { return false }
+        let gotTeams = !teamsCacheFresh && SportsFetch.succeeded(teamsResult)
+        guard !Task.isCancelled, Self.isEnabled, gotFixtures || gotTeams || SportsFetch.succeeded(standingsResult) else { return false }
 
         let snapshot = SportsLeagueSnapshot(
             fetchedAt: Date(),

@@ -53,6 +53,11 @@ nonisolated struct SportsFixtureWindowResult {
 }
 
 nonisolated enum SportsFetch {
+    static func succeeded<Value>(_ result: Result<Value, any Error>) -> Bool {
+        if case .success = result { return true }
+        return false
+    }
+
     static func capture<Value: Sendable>(_ operation: @Sendable () async throws -> Value) async -> Result<Value, any Error> {
         do { return try await .success(operation()) } catch { return .failure(error) }
     }
@@ -73,12 +78,5 @@ nonisolated enum SportsFetch {
             }
             return windows.indices.compactMap { results[$0] }
         }
-    }
-}
-
-nonisolated extension Result {
-    var isSuccess: Bool {
-        if case .success = self { return true }
-        return false
     }
 }
