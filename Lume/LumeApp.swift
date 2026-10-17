@@ -457,6 +457,7 @@ struct LumeApp: App {
                         .onAppear { AppStoreReviewPrompt.shared.noteBlockingSheetAppeared() }
                         .onDisappear { AppStoreReviewPrompt.shared.noteBlockingSheetDismissed() }
                 }
+                .observeArtworkAccounts()
                 .appAppearance(AppAppearance.resolve(appearanceRaw))
                 .lumeProgressViews()
                 .tint(.lumeAccent)
@@ -479,6 +480,7 @@ struct LumeApp: App {
                         FullScreenPlayerView(media: media)
                             .frame(minWidth: 800, minHeight: 450)
                     }
+                    .observeArtworkAccounts()
                     .lumeProgressViews()
                 }
             }
