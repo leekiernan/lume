@@ -124,8 +124,13 @@ Two adjacent areas merit dedicated validation rather than an unmeasured rewrite:
    at most eight source-origin hops, with a four-second total deadline, using
    Range GETs whose bodies are cancelled at the headers. Same-origin hops retain
    authentication; the first foreign target is handed off without source headers
-   and is not probed. Non-HTTP targets, redirect userinfo and HTTPS downgrades
-   fail closed. Unprotected streams keep their existing path.
+   and is not probed. The same host upgrading to HTTPS (`http://` behind a TLS
+   proxy, Jellyfin's 8096 → 8920) keeps authentication; TLS proves the host
+   name whatever the port. Non-HTTP targets, redirect userinfo, HTTPS
+   downgrades and loops fail closed. A timeout or transport error does not: the
+   original resource is handed off unresolved — the query/userinfo handoff,
+   which a foreign redirect still replaces — so a slow NAS is never refused
+   outright. Unprotected streams keep their existing path.
 
    `PlaybackCredentials` builds transient native inputs from the prepared
    resource: tokens as query items, WebDAV Basic as userinfo (FFmpeg told
@@ -138,7 +143,15 @@ Two adjacent areas merit dedicated validation rather than an unmeasured rewrite:
    API calls have a stricter, separate policy: Plex, Jellyfin and WebDAV reject
    foreign-origin redirects entirely, including credential-bearing login POSTs.
    Playback may legitimately use a CDN; account APIs may not forward credentials
-   or request bodies to one.
+   or request bodies to one. Plex and Jellyfin follow their own host's HTTPS
+   upgrade; WebDAV does not, because its listings are checked against the
+   configured root's origin and an upgraded listing would read as empty.
+
+   **Open, for device testing:** on KSPlayer, an authenticated stream switch
+   (next episode, the tvOS episode rail) unmounts the player while the new
+   source is prepared and mounts a fresh one, where it used to swap the URL in
+   place. That likely ends Picture in Picture on auto-advance for Jellyfin, Plex
+   and WebDAV; unauthenticated streams still swap in place.
 
    Artwork retains canonical `ApiKey` in transport so it works without legacy
    authorization. With an explicit account scope, that token is excluded from
@@ -160,7 +173,8 @@ Two adjacent areas merit dedicated validation rather than an unmeasured rewrite:
    the chunk that passes it. The bound is on the application's retained body,
    not Foundation's queues, decompression, cache, allocator capacity or concurrent
    reads. The decoded body is checked too. HEAD/304 representation lengths are
-   not body budgets. Proxy clients discard non-success bodies at the headers,
+   not body budgets, and those responses are allowed to complete rather than
+   cancelled, so their connection stays reusable. Proxy clients discard non-success bodies at the headers,
    preserving 404 unsupported and 5xx host-outage semantics without collecting
    their error pages. Caller cancellation still cancels the request.
 
