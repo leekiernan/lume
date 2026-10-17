@@ -62,6 +62,12 @@ extension CloudSyncEngine {
     /// reconcile (which re-reads the active profile from `ActiveProfileStore`)
     /// re-baselines against the newly projected state.
     func switchProfile(from: UUID, to toID: UUID) throws {
+        try ProfileProjectionGate.shared.withExclusive {
+            try swapProfileProjection(from: from, to: toID)
+        }
+    }
+
+    private func swapProfileProjection(from: UUID, to toID: UUID) throws {
         do {
             // Gather the catalog's current user-state once and reuse it for both
             // the export into the outgoing profile's mirrors and the catalog

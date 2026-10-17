@@ -78,6 +78,15 @@ actor WatchProgressWriter {
         holdLive: Bool = false,
         recordedAt: Date = .now
     ) -> WatchedChange? {
+        ProfileProjectionGate.shared.withCurrent(scope) {
+            recordCurrent(ref: ref, progress: progress, duration: duration, holdLive: holdLive, recordedAt: recordedAt)
+        } ?? nil
+    }
+
+    private func recordCurrent(
+        ref: PlayableMedia.ContentRef, progress: TimeInterval, duration: TimeInterval,
+        holdLive: Bool, recordedAt: Date
+    ) -> WatchedChange? {
         guard scope.isCurrent, progress.isFinite, progress > 0 else { return nil }
 
         let completed = WatchCompletion.isComplete(progress: progress, duration: duration)
@@ -115,6 +124,12 @@ actor WatchProgressWriter {
     /// its place in Continue Watching and never reach Trakt.
     @discardableResult
     func markWatched(ref: PlayableMedia.ContentRef, duration: TimeInterval, recordedAt: Date = .now) -> WatchedChange? {
+        ProfileProjectionGate.shared.withCurrent(scope) {
+            markCurrentWatched(ref: ref, duration: duration, recordedAt: recordedAt)
+        } ?? nil
+    }
+
+    private func markCurrentWatched(ref: PlayableMedia.ContentRef, duration: TimeInterval, recordedAt: Date) -> WatchedChange? {
         guard scope.isCurrent else { return nil }
         do {
             switch ref {

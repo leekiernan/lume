@@ -171,7 +171,7 @@ enum StorageManager {
         RecentResumePoints.clear(profileID: scope.profileID)
         await Task.detached(priority: .userInitiated) {
             do {
-                try CatalogMaintenance.mutate(container: container, isCurrent: { scope.isCurrent }, page: { cursor in
+                try CatalogMaintenance.mutate(container: container, scope: scope, page: { cursor in
                     FetchDescriptor<Movie>(
                         predicate: #Predicate { $0.id > cursor && ($0.watchProgress != 0 || $0.isWatched || $0.lastWatchedDate != nil) },
                         sortBy: [SortDescriptor(\.id, comparator: .lexical)]
@@ -185,7 +185,7 @@ enum StorageManager {
                         movie.lastWatchedDate = nil
                     }
                 })
-                try CatalogMaintenance.mutate(container: container, isCurrent: { scope.isCurrent }, page: { cursor in
+                try CatalogMaintenance.mutate(container: container, scope: scope, page: { cursor in
                     FetchDescriptor<Episode>(
                         predicate: #Predicate { $0.id > cursor && ($0.watchProgress != 0 || $0.isWatched || $0.lastWatchedDate != nil) },
                         sortBy: [SortDescriptor(\.id, comparator: .lexical)]
@@ -199,7 +199,7 @@ enum StorageManager {
                         episode.lastWatchedDate = nil
                     }
                 })
-                try CatalogMaintenance.mutate(container: container, isCurrent: { scope.isCurrent }, page: { cursor in
+                try CatalogMaintenance.mutate(container: container, scope: scope, page: { cursor in
                     FetchDescriptor<Series>(
                         predicate: #Predicate { $0.id > cursor && $0.lastWatchedDate != nil },
                         sortBy: [SortDescriptor(\.id, comparator: .lexical)]
@@ -219,7 +219,7 @@ enum StorageManager {
     }
 
     private nonisolated static func clearLiveHistory(container: ModelContainer, scope: ProfileScope) throws {
-        try CatalogMaintenance.mutate(container: container, isCurrent: { scope.isCurrent }, page: { cursor in
+        try CatalogMaintenance.mutate(container: container, scope: scope, page: { cursor in
             FetchDescriptor<LiveStream>(
                 predicate: #Predicate { $0.id > cursor && $0.lastWatchedDate != nil },
                 sortBy: [SortDescriptor(\.id, comparator: .lexical)]
@@ -249,7 +249,7 @@ enum StorageManager {
         let scope = ProfileScope.current
         await Task.detached(priority: .userInitiated) {
             do {
-                try CatalogMaintenance.mutate(container: container, isCurrent: { scope.isCurrent }, page: { cursor in
+                try CatalogMaintenance.mutate(container: container, scope: scope, page: { cursor in
                     FetchDescriptor<LiveStream>(
                         predicate: #Predicate { $0.id > cursor && $0.id.starts(with: playlistPrefix) && $0.lastWatchedDate != nil },
                         sortBy: [SortDescriptor(\.id, comparator: .lexical)]

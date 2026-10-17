@@ -35,8 +35,9 @@ struct CatalogMaintenanceTests {
     @Test func `retired maintenance scope does not mutate another page`() throws {
         let container = try makeTestContainer()
         var visits = 0
+        let retired = ProfileScope(profileID: ActiveProfileStore.current, generation: RequestToken())
         #expect(throws: CancellationError.self) {
-            try CatalogMaintenance.mutate(container: container, isCurrent: { false }, page: { cursor in
+            try CatalogMaintenance.mutate(container: container, scope: retired, page: { cursor in
                 FetchDescriptor<Movie>(predicate: #Predicate { $0.id > cursor })
             }, mutate: { _, _ in visits += 1 })
         }

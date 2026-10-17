@@ -8,7 +8,7 @@ nonisolated enum CatalogMaintenance {
     static func mutate<Row: CatalogImportRow>(
         container: ModelContainer,
         pageSize: Int = 1000,
-        isCurrent: () -> Bool = { true },
+        scope: ProfileScope? = nil,
         page: (String) -> FetchDescriptor<Row>,
         mutate: ([Row], ModelContext) throws -> Void
     ) throws {
@@ -16,20 +16,27 @@ nonisolated enum CatalogMaintenance {
         var cursor = ""
         while true {
             try Task.checkCancellation()
-            guard isCurrent() else { throw CancellationError() }
-            let count = try autoreleasepool {
-                let context = ModelContext(container)
-                context.autosaveEnabled = false
-                var descriptor = page(cursor)
-                descriptor.fetchLimit = pageSize
-                let rows = try context.fetch(descriptor)
-                guard let last = rows.last else { return 0 }
-                cursor = last.id
-                try mutate(rows, context)
-                try Task.checkCancellation()
-                guard isCurrent() else { throw CancellationError() }
-                try context.save()
-                return rows.count
+            func perform() throws -> Int {
+                try autoreleasepool {
+                    let context = ModelContext(container)
+                    context.autosaveEnabled = false
+                    var descriptor = page(cursor)
+                    descriptor.fetchLimit = pageSize
+                    let rows = try context.fetch(descriptor)
+                    guard let last = rows.last else { return 0 }
+                    cursor = last.id
+                    try mutate(rows, context)
+                    try Task.checkCancellation()
+                    try context.save()
+                    return rows.count
+                }
+            }
+            let count: Int
+            if let scope {
+                guard let saved = try ProfileProjectionGate.shared.withCurrent(scope, operation: perform) else { throw CancellationError() }
+                count = saved
+            } else {
+                count = try perform()
             }
             if count < pageSize { return }
         }
