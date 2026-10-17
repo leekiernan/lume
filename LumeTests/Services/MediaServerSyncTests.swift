@@ -251,10 +251,9 @@ struct MediaServerSyncTests {
         #expect(movie.name == "Arrival")
         #expect(movie.id == "\(playlistId.uuidString)-jellyfin-m1")
         #expect(movie.categoryId == "\(playlistId.uuidString)-vod-libMovies")
-        // Token-free stream URL; the image URL carries the session token.
+        // Stored stream and artwork routes are both credential-free.
         #expect(movie.directURL == "http://\(host):8096/Videos/m1/stream?Static=true")
         #expect(movie.streamIcon?.contains("/Items/m1/Images/Primary") == true)
-        #expect(movie.streamIcon?.contains("api_key=sess") == true)
         #expect(movie.rating == 7.5)
         #expect(movie.plot == "Overview of Arrival.")
         #expect(movie.tmdb == "329865" && movie.tmdbId == 329_865 && movie.tmdbAssignment?.origin == .catalogue)
@@ -272,6 +271,7 @@ struct MediaServerSyncTests {
         #expect(pilot.title == "Pilot")
         #expect(pilot.seasonNum == 1)
         #expect(pilot.directSource == "http://\(host):8096/Videos/e1/stream?Static=true")
+        try assertArtwork([movie.streamIcon, show.cover, pilot.movieImage], playlist: stored)
 
         // One category per imported library; the music library is skipped.
         let categories = try context.fetch(FetchDescriptor<Lume.Category>())
@@ -281,6 +281,16 @@ struct MediaServerSyncTests {
     }
 
     // MARK: Prune
+
+    private func assertArtwork(_ routes: [String?], playlist: Playlist) throws {
+        for route in routes {
+            let url = try #require(route.flatMap(URL.init(string:)))
+            #expect(!ArtworkRequest.carriesCredentials(url))
+            let artwork = try #require(ProviderArtworkAccount(playlist: playlist)?.request(for: url))
+            #expect(artwork.headers["X-Emby-Token"] == "sess")
+            #expect(artwork.url.query?.contains("ApiKey=sess") == true)
+        }
+    }
 
     @Test func `a second sync prunes removed titles and stores the fresh session`() async throws {
         let host = uniqueHost()
