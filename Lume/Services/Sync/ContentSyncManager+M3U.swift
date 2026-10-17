@@ -210,7 +210,8 @@ extension ContentSyncManager {
     /// The m3u pipeline: download → classify/import → EPG. Imports and sweeps
     /// only `areas` (see `ContentSyncManager+AreaGating`).
     func performM3USync(playlist: Playlist, playlistId: UUID, progress: SyncProgress?, areas: Set<AppArea>) async throws {
-        let serverURL = playlist.serverURL
+        guard case let .m3u(location) = playlist.connection else { throw M3UError.invalidURL }
+        let serverURL = location.absoluteString
         let storedEPGURL = playlist.epgURL
         let client = M3UClient()
 

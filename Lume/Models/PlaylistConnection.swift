@@ -14,7 +14,7 @@ nonisolated enum PlaylistConnection: Hashable {
     case stalker(portal: URL, mac: String, credentials: Credentials)
     case webDAV(endpoint: URL, credentials: Credentials)
     case mediaServer(flavor: MediaServerFlavor, endpoint: URL, credentials: Credentials, session: JellyfinSession?)
-    case plex(endpoint: URL, token: String?)
+    case plex(endpoint: URL, credentials: Credentials, token: String?)
 
     init?(playlist: Playlist) {
         guard let source = playlist.knownSourceType,
@@ -34,7 +34,7 @@ nonisolated enum PlaylistConnection: Hashable {
                                                let userID = playlist.jellyfinUserId, !userID.isEmpty
             { JellyfinSession(accessToken: token, userId: userID) } else { nil }
             self = .mediaServer(flavor: source == .emby ? .emby : .jellyfin, endpoint: endpoint, credentials: credentials, session: session)
-        case .plex: self = .plex(endpoint: endpoint, token: playlist.plexAccessToken)
+        case .plex: self = .plex(endpoint: endpoint, credentials: credentials, token: playlist.plexAccessToken)
         }
     }
 
@@ -51,7 +51,7 @@ nonisolated enum PlaylistConnection: Hashable {
 
     func playbackHeaders(for resource: URL) -> [String: String]? {
         let endpoint: URL? = switch self {
-        case let .webDAV(server, _), let .mediaServer(_, server, _, _), let .plex(server, _): server
+        case let .webDAV(server, _), let .mediaServer(_, server, _, _), let .plex(server, _, _): server
         case .xtream, .m3u, .stalker: nil
         }
         guard let endpoint, ArtworkRedirectPolicy.sameOrigin(endpoint, resource) else { return nil }
@@ -63,7 +63,7 @@ nonisolated enum PlaylistConnection: Hashable {
         case let .webDAV(_, credentials) where !credentials.username.isEmpty:
             ["Authorization": "Basic " + Data("\(credentials.username):\(credentials.password)".utf8).base64EncodedString()]
         case let .mediaServer(_, _, _, session): JellyfinClient.playbackHeaders(token: session?.accessToken)
-        case let .plex(_, token): PlexClient.playbackHeaders(token: token)
+        case let .plex(_, _, token): PlexClient.playbackHeaders(token: token)
         case .xtream, .m3u, .stalker, .webDAV: nil
         }
     }
@@ -79,6 +79,19 @@ nonisolated enum PlaylistConnection: Hashable {
         // Preserve the provider base path byte-for-byte, including its historical
         // trailing-slash behaviour. Only newly appended components are encoded.
         components.percentEncodedPath += "/" + encoded.joined(separator: "/")
+        return components.url
+    }
+
+    /// API credentials are only meaningful for an Xtream connection. Preserve
+    /// provider base paths and duplicate query items exactly as before.
+    func xtreamEndpoint(path: String, parameters: [URLQueryItem] = []) -> URL? {
+        guard case let .xtream(endpoint, credentials) = self,
+              var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false) else { return nil }
+        if !components.path.hasSuffix("/"), !path.hasPrefix("/") { components.path.append("/") }
+        components.path.append(path)
+        components.queryItems = (components.queryItems ?? []) + [
+            URLQueryItem(name: "username", value: credentials.username), URLQueryItem(name: "password", value: credentials.password)
+        ] + parameters
         return components.url
     }
 }

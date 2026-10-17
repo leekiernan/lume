@@ -25,7 +25,7 @@ extension ContentSyncManager {
     @discardableResult
     func importStalkerCategory(apiId: String, type: CategoryType, playlist: Playlist) async throws -> Int {
         guard type == .vod || type == .series, !apiId.isEmpty else { return 0 }
-        let client = StalkerClient(configuration: StalkerClient.Configuration(playlist: playlist))
+        let client = try StalkerClient(configuration: StalkerClient.Configuration(playlist: playlist))
         let playlistId = playlist.id
         let walk = try await client.getAllOrderedItems(
             type: type == .vod ? "vod" : "series", categoryId: apiId
@@ -106,7 +106,8 @@ extension ContentSyncManager {
         limit: Int = 60
     ) async -> (movies: [String], series: [String]) {
         guard playlist.sourceType == .stalker, !query.isEmpty else { return ([], []) }
-        let client = StalkerClient(configuration: StalkerClient.Configuration(playlist: playlist))
+        guard let configuration = try? StalkerClient.Configuration(playlist: playlist) else { return ([], []) }
+        let client = StalkerClient(configuration: configuration)
         let playlistId = playlist.id
         var movieIds: [String] = []
         var seriesIds: [String] = []

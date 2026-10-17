@@ -41,12 +41,13 @@ final nonisolated class StalkerClient: Sendable {
         }
 
         /// A configuration built from a playlist's stored fields.
-        init(playlist: Playlist, timeout: TimeInterval = 30) {
+        init(playlist: Playlist, timeout: TimeInterval = 30) throws {
+            guard case let .stalker(portal, mac, credentials) = playlist.connection else { throw StalkerError.invalidURL }
             self.init(
-                portalURL: playlist.serverURL,
-                macAddress: playlist.macAddress ?? "",
-                username: playlist.username,
-                password: playlist.password,
+                portalURL: portal.absoluteString,
+                macAddress: mac,
+                username: credentials.username,
+                password: credentials.password,
                 timeout: timeout
             )
         }

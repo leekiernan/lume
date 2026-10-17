@@ -13,10 +13,10 @@ import SwiftData
 
 extension ContentSyncManager {
     func performWebDAVSync(playlist: Playlist, playlistId: UUID, progress: SyncProgress?, areas: Set<AppArea>) async throws {
-        let credentials = Self.credentials(for: playlist)
-        guard let root = URL(string: playlist.serverURL), root.scheme != nil, root.host() != nil else {
+        guard case let .webDAV(root, auth) = playlist.connection else {
             throw WebDAVError.invalidURL
         }
+        let credentials = auth.username.isEmpty ? nil : WebDAVCredentials(username: auth.username, password: auth.password)
 
         // No phase spacing here: that gap is owed to an Xtream provider's
         // connection slot (`spaceContentPhaseRequests`), and a WebDAV share is
@@ -105,14 +105,5 @@ extension ContentSyncManager {
             throw SyncError.networkError(WebDAVError.invalidResponse)
         }
         return walk
-    }
-
-    /// `nil` for an anonymous share: an empty username means no `Authorization`
-    /// header at all, not an empty Basic credential (which some servers answer
-    /// with a 403 rather than the 401 that would let the user fix it).
-    private static func credentials(for playlist: Playlist) -> WebDAVCredentials? {
-        let username = playlist.username
-        guard !username.isEmpty else { return nil }
-        return WebDAVCredentials(username: username, password: playlist.password)
     }
 }

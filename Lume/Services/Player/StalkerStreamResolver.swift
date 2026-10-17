@@ -21,7 +21,7 @@ nonisolated enum StalkerStreamResolver {
         guard let playlist = PlayerContentLookup.playlist(for: media.contentRef, in: ModelContext(container)) else {
             throw StalkerError.invalidURL
         }
-        let client = StalkerClient(configuration: StalkerClient.Configuration(playlist: playlist))
+        let client = try StalkerClient(configuration: StalkerClient.Configuration(playlist: playlist))
         let url = try await client.resolveStreamURL(type: type, cmd: cmd)
         Logger.player.log("Stalker create_link resolved a stream URL for \(media.title, privacy: .public)")
         return media.replacingURL(url)

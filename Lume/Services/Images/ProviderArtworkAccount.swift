@@ -16,11 +16,11 @@ nonisolated struct ProviderArtworkAccount: Hashable {
         case let .mediaServer(_, _, _, session):
             guard let session else { return nil }
             account = session.userId
-        case let .plex(_, token):
+        case let .plex(_, credentials, token):
             // Plex's credential-only/manual-token setup has no stable account
             // identifier. Keep conservative token isolation for that case;
             // username-backed sign-ins survive normal token rotation.
-            let username = playlist.username.trimmingCharacters(in: .whitespacesAndNewlines)
+            let username = credentials.username.trimmingCharacters(in: .whitespacesAndNewlines)
             account = username.isEmpty ? (token ?? "anonymous") : username
         default: return nil
         }
@@ -37,7 +37,7 @@ nonisolated struct ProviderArtworkAccount: Hashable {
             guard let session, var components = URLComponents(url: clean, resolvingAgainstBaseURL: false) else { return nil }
             components.queryItems = (components.queryItems ?? []) + JellyfinPlaybackAuth.queryItems(token: session.accessToken)
             return components.url.flatMap { ArtworkRequest(url: $0, accountScope: scope) }
-        case let .plex(endpoint, token):
+        case let .plex(endpoint, _, token):
             guard ArtworkRedirectPolicy.sameOrigin(clean, endpoint) else { return ArtworkRequest(url: clean) }
             guard var components = URLComponents(url: clean, resolvingAgainstBaseURL: false) else { return nil }
             if let token, !token.isEmpty {
@@ -59,7 +59,7 @@ nonisolated struct ProviderArtworkAccount: Hashable {
 
     func ownsOrigin(_ url: URL) -> Bool {
         switch connection {
-        case let .mediaServer(_, endpoint, _, _), let .plex(endpoint, _): ArtworkRedirectPolicy.sameOrigin(url, endpoint)
+        case let .mediaServer(_, endpoint, _, _), let .plex(endpoint, _, _): ArtworkRedirectPolicy.sameOrigin(url, endpoint)
         default: false
         }
     }

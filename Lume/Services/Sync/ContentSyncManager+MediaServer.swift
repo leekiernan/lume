@@ -64,7 +64,7 @@ extension ContentSyncManager {
         progress: SyncProgress?,
         areas: Set<AppArea>
     ) async throws {
-        guard let base = URL(string: playlist.serverURL), base.scheme != nil, base.host != nil else {
+        guard case let .mediaServer(sourceFlavor, base, credentials, _) = playlist.connection, sourceFlavor == flavor else {
             throw JellyfinError.invalidURL
         }
         let server = JellyfinClient.normalizedServerURL(base)
@@ -72,7 +72,7 @@ extension ContentSyncManager {
         await progress?.start(.authenticating)
         let session: JellyfinSession
         do {
-            session = try await jellyfinClient.authenticate(server: server, username: playlist.username, password: playlist.password)
+            session = try await jellyfinClient.authenticate(server: server, username: credentials.username, password: credentials.password)
         } catch {
             let described = (error as? JellyfinError)?.logDescription ?? "login failed"
             let product = flavor.displayName
