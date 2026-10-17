@@ -296,7 +296,7 @@ extension KSPlayerEngineView {
         // hands off to the next one promptly instead of stalling on a black
         // screen for the full startup timeout.
         let timeout = startupTimeout
-        startup.begin(timeout: timeout) {
+        startup.begin(timeout: timeout, alreadyStarted: hasStartedPlayback) {
             Logger.player.error("startup watchdog: no first frame within \(timeout, format: .fixed(precision: 0), privacy: .public)s, declaring stream dead")
             failPlayback()
         }

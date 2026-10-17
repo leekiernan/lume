@@ -29,6 +29,19 @@ struct PlaybackStartupStateTests {
 
 @MainActor
 struct PlaybackStartupSupervisorTests {
+    @Test func `first frame before appearance is retained when the timer is armed`() async throws {
+        let supervisor = PlaybackStartupSupervisor()
+        let accepted = supervisor.started()
+        #expect(accepted)
+        var expired = false
+        supervisor.begin(timeout: 0.01, alreadyStarted: true) { expired = true }
+        try await Task.sleep(for: .milliseconds(30))
+        #expect(!expired)
+        supervisor.end()
+        let lateProof = supervisor.started()
+        #expect(!lateProof)
+    }
+
     @Test func `a replaced timer cannot call the old failure handler`() async throws {
         let supervisor = PlaybackStartupSupervisor()
         var expired: [String] = []

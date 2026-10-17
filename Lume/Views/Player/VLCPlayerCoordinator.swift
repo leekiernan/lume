@@ -296,7 +296,7 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
 
     /// Arm the startup watchdog. Cancelled once the first frame renders.
     private func startStartupWatchdog() {
-        startup.begin(timeout: startupTimeout) { [weak self] in
+        startup.begin(timeout: startupTimeout, alreadyStarted: hasStartedPlayback) { [weak self] in
             guard let self else { return }
             Logger.player.error("startup watchdog: no first frame within \(startupTimeout, format: .fixed(precision: 0), privacy: .public)s, declaring stream dead")
             reportFailure()

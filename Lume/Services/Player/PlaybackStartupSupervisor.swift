@@ -10,7 +10,9 @@ nonisolated struct PlaybackStartupState: Equatable {
         case failed
     }
 
-    private(set) var phase: Phase = .idle
+    /// Engine callbacks can arrive while a representable is being mounted,
+    /// before its appearance hook arms the deadline. Do not discard that proof.
+    private(set) var phase: Phase = .waiting(RequestToken())
 
     mutating func begin() -> RequestToken {
         let token = RequestToken()
@@ -47,9 +49,10 @@ final class PlaybackStartupSupervisor {
     private var state = PlaybackStartupState()
     private var timer: Task<Void, Never>?
 
-    func begin(timeout: TimeInterval, onTimeout: @escaping @MainActor () -> Void) {
+    func begin(timeout: TimeInterval, alreadyStarted: Bool = false, onTimeout: @escaping @MainActor () -> Void) {
         cancelTimer()
         let token = state.begin()
+        if alreadyStarted { _ = state.started(); return }
         timer = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(timeout)) } catch { return }
             guard let self, state.canExpire(token) else { return }
