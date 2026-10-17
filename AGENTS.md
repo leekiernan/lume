@@ -30,9 +30,11 @@ xcframeworks plus VLCKit's 865 MB xcframework, **6.4 GB per build dir**; eight
 of them once filled `/tmp` with 65 GB. Sharing one clone dir also builds faster
 and dodges the botched-checkout race that breaks multi-platform archiving.
 
-Delete your `-derivedDataPath` dir when the task is done, or run
-`Scripts/clean-build-cache.sh` (report only; `--apply` to reclaim, `--deep` to
-also drop DeviceSupport, the SwiftPM download cache and idle simulators). It
+Delete your task-owned `-derivedDataPath` dir when the task is done using
+`Scripts/cleanup.sh` as described below. For broader, explicitly requested
+maintenance, `Scripts/clean-build-cache.sh` is report-only by default; `--apply`
+reclaims build caches. Adding `--deep` also drops DeviceSupport and the SwiftPM
+download cache, deletes unavailable simulators and erases shut-down simulators. It
 deliberately keeps the two live package checkouts and each checkout's
 `.build/tools`, which is what the pre-commit hook runs SwiftFormat/SwiftLint
 from.
@@ -48,6 +50,20 @@ If escalation is needed, propose the reusable `xcodebuild <action>` prefix, not
 the entire command with changing destinations and output paths. Routine builds
 and tests do not need an extra conversational confirmation or announcement;
 report findings and final results. Sandbox approvals still apply.
+
+### Approval-friendly task cleanup (Codex)
+
+Use `Scripts/cleanup.sh --apply <explicit task-cache path> [...]` directly,
+without a shell wrapper, redirection, wildcards or variable expansion. This
+guarded helper already has a reusable approval; do not fall back to raw `rm`
+or the broad maintenance sweep for routine task cleanup. Only name caches
+created for the current task, after all commands using them have finished.
+
+The helper accepts `/private/tmp/lume-dd-<task>` (also `/tmp/`) and temporary
+`lume-<task>-tests.<token>/.build` directories. It validates every target before
+deleting any, rejects symlinks and refuses to apply while `xcodebuild` is
+running. Shared package clones, repository files, logs and `.xcresult` evidence
+are outside this cleanup scope. Run without `--apply` to preview if uncertain.
 
 ---
 
