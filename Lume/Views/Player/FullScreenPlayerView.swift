@@ -466,7 +466,8 @@ struct FullScreenPlayerView: View {
                 usesQuickStartupTimeout: hasFallbackEngine,
                 onPlaybackFailed: handlePlaybackFailure,
                 onSelectMedia: switchMedia,
-                onCompleteCurrentItem: completeActiveEpisode, onRemoteAdvance: remoteAdvanceHandler, onCatchupSeek: handleCatchupSeek, session: session
+                onCompleteCurrentItem: completeActiveEpisode, onRemoteAdvance: remoteAdvanceHandler, onCatchupSeek: handleCatchupSeek,
+                session: session, nowPlayingOwner: playbackLease
             )
             .id(engineIdentity)
         case .ksPlayer:
@@ -479,7 +480,7 @@ struct FullScreenPlayerView: View {
                 onPlaybackFailed: engineFailedToStart,
                 onSelectMedia: switchMedia,
                 onCompleteCurrentItem: completeActiveEpisode, onRemoteAdvance: remoteAdvanceHandler, onCatchupSeek: handleCatchupSeek,
-                session: session, redirectCache: redirectCache
+                session: session, nowPlayingOwner: playbackLease, redirectCache: redirectCache
             )
             .id(engineIdentity)
         case .vlcKit:
@@ -491,7 +492,8 @@ struct FullScreenPlayerView: View {
                 usesQuickStartupTimeout: hasFallbackEngine,
                 onPlaybackFailed: engineFailedToStart,
                 onSelectMedia: switchMedia,
-                onCompleteCurrentItem: completeActiveEpisode, onRemoteAdvance: remoteAdvanceHandler, onCatchupSeek: handleCatchupSeek, session: session
+                onCompleteCurrentItem: completeActiveEpisode, onRemoteAdvance: remoteAdvanceHandler, onCatchupSeek: handleCatchupSeek,
+                session: session, nowPlayingOwner: playbackLease
             )
             .id(engineIdentity)
         }

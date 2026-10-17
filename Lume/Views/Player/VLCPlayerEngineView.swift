@@ -73,6 +73,7 @@ struct VLCPlayerEngineView: View {
     var onCatchupSeek: ((CatchupSeek) -> Void)?
     /// The full-screen session this engine reports to; nil in Multi-View.
     var session: PlaybackSession?
+    var nowPlayingOwner: ActivityLease?
 
     @StateObject var coordinator = VLCPlayerCoordinator()
     @State private var chrome = PlayerChromeController()
@@ -195,20 +196,20 @@ struct VLCPlayerEngineView: View {
             coordinator.onPlaybackFailure = { reportFailure() }
             #if os(iOS)
                 coordinator.onPictureInPictureStop = {
-                    PlayerBackgrounding.pictureInPictureDidStop(owner: coordinator) { closePlayer() }
+                    PlayerBackgrounding.pictureInPictureDidStop(owner: nowPlayingOwner) { closePlayer() }
                 }
             #endif
             coordinator.startupTimeout = PlaybackPolicy.startupTimeout(quick: usesQuickStartupTimeout)
             coordinator.retriesStartupErrors = PlaybackPolicy.retriesStartupError(canFallBack: reportsStartupFailure)
             coordinator.configure(media: media)
             NowPlayingService.shared.attachTransport(
-                .driving(coordinator, advance: onRemoteAdvance), owner: coordinator
+                .driving(coordinator, advance: onRemoteAdvance), owner: coordinator, host: nowPlayingOwner
             )
             scheduleHide()
         }
         .onDisappear {
             chrome.deactivate()
-            NowPlayingService.shared.detachTransport(owner: coordinator)
+            NowPlayingService.shared.detachTransport(owner: coordinator, host: nowPlayingOwner)
             coordinator.tearDown()
         }
         .onChange(of: coordinator.isPlaying) { _, playing in

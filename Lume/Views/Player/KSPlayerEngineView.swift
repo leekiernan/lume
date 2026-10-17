@@ -65,6 +65,7 @@ struct KSPlayerEngineView: View {
     var onCatchupSeek: ((CatchupSeek) -> Void)?
     /// The full-screen session this engine reports to; nil in Multi-View.
     var session: PlaybackSession?
+    var nowPlayingOwner: ActivityLease?
     /// Resolved tokens belong to this presented host, never another window.
     var redirectCache: StreamRedirectCache?
 
@@ -348,7 +349,7 @@ struct KSPlayerEngineView: View {
                 startup.end()
                 cancelStallWatchdog()
                 PlaybackQoE.shared.endSession(owner: coordinator)
-                NowPlayingService.shared.detachTransport(owner: coordinator)
+                NowPlayingService.shared.detachTransport(owner: coordinator, host: nowPlayingOwner)
                 coordinator.resetPlayer()
             }
             .onChange(of: engine.isPlaying) { _, _ in
@@ -498,7 +499,7 @@ struct KSPlayerEngineView: View {
                 startup.end()
                 cancelStallWatchdog()
                 PlaybackQoE.shared.endSession(owner: coordinator)
-                NowPlayingService.shared.detachTransport(owner: coordinator)
+                NowPlayingService.shared.detachTransport(owner: coordinator, host: nowPlayingOwner)
                 coordinator.resetPlayer()
             }
             .onChange(of: isPlaying) { _, _ in scheduleHide() }

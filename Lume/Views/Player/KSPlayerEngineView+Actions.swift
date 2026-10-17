@@ -28,7 +28,7 @@ extension KSPlayerEngineView {
                 coordinator?.seek(time: time)
             },
             advance: onRemoteAdvance
-        ), owner: coordinator)
+        ), owner: coordinator, host: nowPlayingOwner)
     }
 
     func togglePlay() {

@@ -42,11 +42,10 @@ final class NowPlayingService {
     /// Also lets browse shortcuts yield to an active player's remote commands.
     private(set) var currentMedia: PlayableMedia?
 
-    private var transport: Transport?
-    /// Identity of the engine coordinator that attached the current transport.
-    /// Engine swaps overlap (the new engine's `onAppear` can precede the old
-    /// one's `onDisappear`), so a detach only clears its own attach.
-    private var transportOwner: ObjectIdentifier?
+    private var transports = NowPlayingTransportRegistry()
+    private var transport: Transport? {
+        transports.transport(for: ownership.owner)
+    }
 
     private var clock: PlaybackClock?
     private var artwork: MPMediaItemArtwork?
@@ -61,22 +60,21 @@ final class NowPlayingService {
     /// Attach the transport of the engine currently on screen. `owner` is the
     /// engine's coordinator, so a stale detach from a torn-down engine can't
     /// drop a newer engine's transport.
-    func attachTransport(_ transport: Transport, owner: AnyObject) {
-        self.transport = transport
-        transportOwner = ObjectIdentifier(owner)
+    func attachTransport(_ transport: Transport, owner: AnyObject, host: ActivityLease?) {
+        guard let host else { return }
+        transports.attach(transport, owner: owner, host: host)
         // An engine swap mid-session tears the old engine down, and KSPlayer's
         // layer deinit strips every target from the shared command center —
         // ours included. Re-registering on each attach keeps commands alive
         // across engine fallbacks.
-        if let media = currentMedia {
+        if ownership.owner == host, let media = currentMedia {
             registerCommands(for: media)
         }
     }
 
-    func detachTransport(owner: AnyObject) {
-        guard transportOwner == ObjectIdentifier(owner) else { return }
-        transport = nil
-        transportOwner = nil
+    func detachTransport(owner: AnyObject, host: ActivityLease?) {
+        guard let host else { return }
+        transports.detach(owner: owner, host: host)
     }
 
     /// Publishes `media` for as long as the calling `.task(id:)` lives — the
@@ -118,6 +116,8 @@ final class NowPlayingService {
 
     /// Tear the whole session down when the player is dismissed.
     func endSession(owner: ActivityLease) {
+        // Also release a non-selected host's captured view callbacks.
+        transports.remove(host: owner)
         guard ownership.release(owner) else { return }
         currentMedia = nil
         clock = nil
@@ -126,13 +126,6 @@ final class NowPlayingService {
         channelName = nil
         removeCommands()
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
-    }
-
-    /// PiP can end before the host disappears. Only the attached engine may
-    /// tear down that host's session; a late old-engine callback is harmless.
-    func endSession(transportOwner: AnyObject) {
-        guard self.transportOwner == ObjectIdentifier(transportOwner), let owner = ownership.owner else { return }
-        endSession(owner: owner)
     }
 
     // MARK: - Remote commands
