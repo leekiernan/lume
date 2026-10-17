@@ -7,16 +7,20 @@ final nonisolated class ArtworkRedirectPolicy: NSObject, URLSessionTaskDelegate 
 
     static func redirect(_ request: URLRequest, from previous: URL) -> URLRequest {
         guard let next = request.url else { return request }
-        func origin(_ url: URL) -> String {
-            let scheme = url.scheme?.lowercased() ?? ""
-            return "\(scheme)://\(url.host?.lowercased() ?? ""):\(url.port ?? (scheme == "https" ? 443 : 80))"
-        }
-        guard origin(next) != origin(previous) else { return request }
+        guard !sameOrigin(next, previous) else { return request }
         var safe = request
         for name in ["Authorization", "X-Plex-Token", "X-Emby-Token"] {
             safe.setValue(nil, forHTTPHeaderField: name)
         }
         return safe
+    }
+
+    static func sameOrigin(_ first: URL, _ second: URL) -> Bool {
+        func origin(_ url: URL) -> String {
+            let scheme = url.scheme?.lowercased() ?? ""
+            return "\(scheme)://\(url.host?.lowercased() ?? ""):\(url.port ?? (scheme == "https" ? 443 : 80))"
+        }
+        return origin(first) == origin(second)
     }
 
     func urlSession(_: URLSession, task _: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,

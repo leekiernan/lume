@@ -136,8 +136,8 @@ nonisolated extension PlayableMedia {
 
     /// Auth belongs to a validated source snapshot, not to a loose combination
     /// of optional columns interpreted independently by each playback caller.
-    private static func authHeaders(for playlist: Playlist) -> [String: String]? {
-        playlist.connection?.playbackHeaders
+    private static func authHeaders(for playlist: Playlist, resource: URL) -> [String: String]? {
+        playlist.connection?.playbackHeaders(for: resource)
     }
 
     static func from(movie: Movie, playlist: Playlist) -> PlayableMedia? {
@@ -171,7 +171,7 @@ nonisolated extension PlayableMedia {
                 isWatched: movie.isWatched, duration: movie.durationSecs
             ),
             contentRef: .movie(movie.id),
-            httpHeaders: authHeaders(for: playlist)
+            httpHeaders: authHeaders(for: playlist, resource: url)
         )
     }
 
@@ -230,7 +230,7 @@ nonisolated extension PlayableMedia {
                 isWatched: episode.isWatched, duration: episode.durationSecs
             ),
             contentRef: .episode(episode.id),
-            httpHeaders: authHeaders(for: playlist),
+            httpHeaders: authHeaders(for: playlist, resource: url),
             seriesPosterURL: seriesPosterURL
         )
     }
@@ -269,7 +269,7 @@ nonisolated extension PlayableMedia {
             startTime: 0,
             contentRef: .live(stream.id),
             channelScope: scope,
-            httpHeaders: authHeaders(for: playlist)
+            httpHeaders: authHeaders(for: playlist, resource: url)
         )
     }
 

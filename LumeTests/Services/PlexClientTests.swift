@@ -247,6 +247,12 @@ struct PlexClientTests {
         #expect(image.absoluteString == "http://plex.test:32400/library/metadata/1/thumb/17")
     }
 
+    @Test func `external artwork does not acquire the server token`() throws {
+        let base = server("private-server.test")
+        let external = try #require(PlexClient.imageURL(server: base, path: "https://cdn.test/public.jpg", token: "private-secret"))
+        #expect(external.absoluteString == "https://cdn.test/public.jpg")
+    }
+
     @Test func `no token means no playback headers`() {
         #expect(PlexClient.playbackHeaders(token: nil) == nil)
         #expect(PlexClient.playbackHeaders(token: "") == nil)

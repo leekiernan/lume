@@ -49,7 +49,16 @@ nonisolated enum PlaylistConnection: Hashable {
         }
     }
 
-    var playbackHeaders: [String: String]? {
+    func playbackHeaders(for resource: URL) -> [String: String]? {
+        let endpoint: URL? = switch self {
+        case let .webDAV(server, _), let .mediaServer(_, server, _, _), let .plex(server, _): server
+        case .xtream, .m3u, .stalker: nil
+        }
+        guard let endpoint, ArtworkRedirectPolicy.sameOrigin(endpoint, resource) else { return nil }
+        return authenticationHeaders
+    }
+
+    private var authenticationHeaders: [String: String]? {
         switch self {
         case let .webDAV(_, credentials) where !credentials.username.isEmpty:
             ["Authorization": "Basic " + Data("\(credentials.username):\(credentials.password)".utf8).base64EncodedString()]

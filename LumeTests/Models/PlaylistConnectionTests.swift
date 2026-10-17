@@ -7,6 +7,7 @@ struct PlaylistConnectionTests {
         let playlist = Playlist(name: "Source", serverURL: "https://example.test", username: "user", password: "pass")
         playlist.sourceTypeRaw = "future-server"
         #expect(playlist.connection == nil)
+        #expect(LumeProxySource(playlist: playlist) == nil)
         #expect(XtreamClient.buildMovieURL(for: Movie(id: "movie", streamId: 1, name: "Movie"), playlist: playlist) == nil)
         playlist.sourceType = .xtream
         playlist.serverURL = "file:///private/server"
@@ -15,15 +16,17 @@ struct PlaylistConnectionTests {
         #expect(playlist.connection?.sourceType == .m3u)
     }
 
-    @Test func `source-specific authentication never uses unrelated stored columns`() {
+    @Test func `source-specific authentication never uses unrelated stored columns`() throws {
+        let resource = try #require(URL(string: "https://example.test/resource"))
         let playlist = Playlist(name: "Source", webdavURL: "https://example.test/share", username: "user", password: "pass")
         playlist.plexAccessToken = "old-plex-token"
         playlist.jellyfinAccessToken = "old-media-server-token"
-        #expect(playlist.connection?.playbackHeaders == ["Authorization": "Basic dXNlcjpwYXNz"])
+        #expect(playlist.connection?.playbackHeaders(for: resource) == ["Authorization": "Basic dXNlcjpwYXNz"])
         playlist.sourceType = .plex
-        #expect(playlist.connection?.playbackHeaders == ["X-Plex-Token": "old-plex-token"])
+        #expect(playlist.connection?.playbackHeaders(for: resource) == ["X-Plex-Token": "old-plex-token"])
+        #expect(try playlist.connection?.playbackHeaders(for: #require(URL(string: "https://another.test/resource"))) == nil)
         playlist.sourceType = .xtream
-        #expect(playlist.connection?.playbackHeaders == nil)
+        #expect(playlist.connection?.playbackHeaders(for: resource) == nil)
     }
 
     @Test func `xtream stream credentials are encoded as individual path components`() throws {

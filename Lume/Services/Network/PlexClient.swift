@@ -343,7 +343,7 @@ final nonisolated class PlexClient: Sendable {
             url: URL(string: path, relativeTo: server)?.absoluteURL ?? server,
             resolvingAgainstBaseURL: false
         ) else { return nil }
-        if let token, !token.isEmpty {
+        if let token, !token.isEmpty, let image = components.url, ArtworkRedirectPolicy.sameOrigin(image, server) {
             var items = components.queryItems ?? []
             items.append(URLQueryItem(name: tokenQueryItem, value: token))
             components.queryItems = items

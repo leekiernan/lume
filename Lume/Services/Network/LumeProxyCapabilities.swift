@@ -80,7 +80,7 @@ nonisolated struct LumeProxySource: Hashable {
     let identity: String
 
     init?(playlist: Playlist) {
-        guard playlist.sourceType == .xtream, let url = XtreamClient.lumeCapabilitiesURL(for: playlist),
+        guard playlist.knownSourceType == .xtream, let url = XtreamClient.lumeCapabilitiesURL(for: playlist),
               ["http", "https"].contains(url.scheme?.lowercased() ?? ""), url.host != nil else { return nil }
         playlistID = playlist.id
         capabilitiesURL = url
