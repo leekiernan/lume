@@ -14,6 +14,8 @@ import Testing
 
 struct LogRedactionTests {
     @Test(arguments: [
+        "Authorization: Basic dTpw",
+        "authorization: basic dTpw",
         "Authorization: Bearer bearer-secret",
         "authorization: bearer bearer-secret",
         "X-Plex-Token: plex-secret",
@@ -22,7 +24,7 @@ struct LogRedactionTests {
     ])
     func `strips explicit token headers without needing a URL`(message: String) {
         let scrubbed = LogRedaction.scrubURLs(in: message)
-        #expect(!scrubbed.contains("-secret"))
+        #expect(!scrubbed.contains("-secret") && !scrubbed.contains("dTpw"))
         #expect(scrubbed.contains("<redacted>"))
         #expect(LogRedaction.scrubURLs(in: scrubbed) == scrubbed)
     }
