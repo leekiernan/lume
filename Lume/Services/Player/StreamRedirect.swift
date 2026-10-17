@@ -39,18 +39,10 @@ nonisolated enum StreamRedirect {
     static func resolve(_ url: URL, session: URLSession = session) async -> URL? {
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: timeout)
         request.setValue("bytes=0-0", forHTTPHeaderField: "Range")
-        do {
-            // Inspect headers, never collect the media body. Some providers
-            // ignore Range and answer 200 with an entire multi-gigabyte film.
-            let (bytes, response) = try await session.bytes(for: request, delegate: RefuseRedirects())
-            defer { bytes.task.cancel() }
-            try Task.checkCancellation()
-            guard let http = response as? HTTPURLResponse else { return nil }
-            return target(of: http, for: url)
-        } catch {
-            Logger.player.info("stream redirect: resolve failed (\(LogRedaction.describe(error), privacy: .public))")
-            return nil
-        }
+        // Cancel at the response-delegate boundary, before accepting any body.
+        // AsyncBytes can wait for its first chunk even after headers arrive.
+        guard let response = await StreamHeaderProbe().response(for: request, configuration: session.configuration) else { return nil }
+        return target(of: response, for: url)
     }
 
     /// Where a redirect response points, when it is one to an HTTP(S) URL.
@@ -65,20 +57,6 @@ nonisolated enum StreamRedirect {
 
     private static func isHTTP(_ url: URL) -> Bool {
         ["http", "https"].contains(url.scheme?.lowercased())
-    }
-
-    /// Hands the 3xx back instead of following it. The completion-handler
-    /// form: the async one crashes the compiler's Objective-C thunk.
-    private final class RefuseRedirects: NSObject, URLSessionTaskDelegate {
-        func urlSession(
-            _: URLSession,
-            task _: URLSessionTask,
-            willPerformHTTPRedirection _: HTTPURLResponse,
-            newRequest _: URLRequest,
-            completionHandler: @escaping @Sendable (URLRequest?) -> Void
-        ) {
-            completionHandler(nil)
-        }
     }
 }
 
