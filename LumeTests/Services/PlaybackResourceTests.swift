@@ -90,4 +90,17 @@ struct PlaybackResourceTests {
         #expect(retiredCallbacks == 0)
         preparation.cancel()
     }
+
+    @Test @MainActor func `a cancelled caller cannot begin a preparation`() async throws {
+        let preparation = PlaybackResourcePreparation(resolve: { _ in
+            Issue.record("cancelled preparation must not perform network work")
+            throw URLError(.cancelled)
+        })
+        let resource = try PlaybackResource(url: #require(URL(string: "https://media.test/film")), headers: headers)
+        await Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            preparation.prepare(resource, onReady: { _ in Issue.record("cancelled callback") }, onFailure: { Issue.record("cancelled failure") })
+        }.value
+        #expect(!preparation.isPreparing)
+    }
 }

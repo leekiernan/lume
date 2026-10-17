@@ -101,6 +101,7 @@ final class PlaybackResourcePreparation {
                  onFailure: @escaping @MainActor () -> Void)
     {
         cancel()
+        guard !Task.isCancelled else { return }
         guard resource.needsPreparation else { onReady(resource); return }
         let token = generation
         let resolve = resolve

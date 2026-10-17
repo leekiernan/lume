@@ -10,9 +10,10 @@
 //  opens, HLS segments included; AVFoundation drops `Authorization` across
 //  origins but keeps a custom header such as `X-Plex-Token`.
 //
-//  So a credential travels in the URL it was issued for, which a redirect's
-//  `Location` replaces: a media-server token as a query item, WebDAV's Basic
-//  pair as userinfo. The one header left is `Authorization` for AVFoundation,
+//  PlaybackResourceResolver first retains authentication through same-origin
+//  redirects and removes it at a foreign target. From that prepared input a
+//  credential travels in the URL: a media-server token as a query item,
+//  WebDAV's Basic pair as userinfo. The one header left is `Authorization` for AVFoundation,
 //  which it was measured to drop. The URL is transient by the same contract
 //  as `HTTPBasicCredentials`: built at the handoff, never stored back onto
 //  the media, a deep link, a download or restoration state.
