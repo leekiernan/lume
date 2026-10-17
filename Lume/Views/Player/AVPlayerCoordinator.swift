@@ -122,9 +122,8 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
     /// Internal (read-only) for `+Reconnect.swift`.
     private(set) var currentMedia: PlayableMedia?
     /// Fires `onPlaybackFailure` if playback never starts within `startupTimeout`.
-    private var startupWatchdog: Task<Void, Never>?
+    private let startup = PlaybackStartupSupervisor()
     /// Guards `onPlaybackFailure` so a failure is reported at most once per load.
-    private var didReportFailure = false
     /// Bounded reconnect after the item fails — the budget every engine uses.
     /// Internal for `+Reconnect.swift`.
     let retry = PlaybackRetryController()
@@ -240,7 +239,6 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
         } else {
             hasStartedPlayback = false
             startTracker.beginStream()
-            didReportFailure = false
             PlaybackQoE.shared.beginStartup(engine: .avPlayer, isLive: media.isLive, owner: self)
             startStartupWatchdog()
         }
@@ -269,7 +267,7 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
     /// The stream's first frame — `proof` is non-`nil` exactly once per stream
     /// (see `PlaybackStartTracker`). Disarms the startup watchdog.
     private func markPlaybackStarted(_ proof: PlaybackStartTracker.Proof?) {
-        guard let proof else { return }
+        guard let proof, startup.started() else { return }
         if proof == .playhead { Logger.player.info("AVPlayer: first frame proven by playhead progress") }
         hasStartedPlayback = true
         PlaybackQoE.shared.noteFirstFrame()
@@ -278,19 +276,15 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
 
     /// Arm the startup watchdog. Cancelled once playback actually starts.
     private func startStartupWatchdog() {
-        startupWatchdog?.cancel()
-        startupWatchdog = Task { @MainActor [weak self] in
+        startup.begin(timeout: startupTimeout) { [weak self] in
             guard let self else { return }
-            try? await Task.sleep(nanoseconds: UInt64(startupTimeout * 1_000_000_000))
-            guard !Task.isCancelled, !hasStartedPlayback else { return }
             Logger.player.error("AVPlayer startup watchdog: no playback within \(startupTimeout, format: .fixed(precision: 0), privacy: .public)s, declaring stream dead")
             reportFailure()
         }
     }
 
     private func cancelStartupWatchdog() {
-        startupWatchdog?.cancel()
-        startupWatchdog = nil
+        startup.cancelTimer()
     }
 
     /// Report a stream that couldn't be started. Fires `onPlaybackFailure` at
@@ -298,8 +292,7 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
     /// the failure overlay.
     /// Internal for `+Reconnect.swift`.
     func reportFailure() {
-        guard !didReportFailure else { return }
-        didReportFailure = true
+        guard startup.fail() else { return }
         if !hasStartedPlayback {
             PlaybackQoE.shared.noteStartupFailure()
         }
@@ -319,6 +312,7 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
     // MARK: - Teardown
 
     func tearDown() {
+        startup.end()
         teardownItemObservers()
         trackLoadTask?.cancel()
         cancelStartupWatchdog()

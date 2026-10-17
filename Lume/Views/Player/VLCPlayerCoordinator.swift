@@ -142,9 +142,8 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
     private var isReloading = false
 
     /// Reports startup timeout even when the engine never emits an error.
-    private var startupWatchdog: Task<Void, Never>?
-    /// Guards `onPlaybackFailure` so a failure is reported at most once per load.
-    private var didReportFailure = false
+    private let startup = PlaybackStartupSupervisor()
+    // Guards `onPlaybackFailure` so a failure is reported at most once per load.
 
     // MARK: - Setup
 
@@ -181,7 +180,6 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
         hasStartedPlayback = false
         startTracker.beginStream()
         setBuffering(true)
-        didReportFailure = false
         PlaybackQoE.shared.beginStartup(engine: .vlcKit, isLive: media.isLive, owner: self)
         startStartupWatchdog()
         mediaPlayer.delegate = self
@@ -226,7 +224,6 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
         hasStartedPlayback = false
         startTracker.beginStream()
         setBuffering(true)
-        didReportFailure = false
         PlaybackQoE.shared.beginStartup(engine: .vlcKit, isLive: media.isLive, owner: self)
         startStartupWatchdog()
 
@@ -281,7 +278,7 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
     /// The stream's first frame — `proof` is non-`nil` exactly once per stream
     /// (see `PlaybackStartTracker`). Disarms the startup watchdog.
     private func markPlaybackStarted(_ proof: PlaybackStartTracker.Proof?) {
-        guard let proof else { return }
+        guard let proof, startup.started() else { return }
         if proof == .playhead { Logger.player.info("VLC: first frame proven by playhead progress") }
         if proof == .displayedFrames { Logger.player.info("VLC: first frame proven by displayed frames") }
         hasStartedPlayback = true
@@ -299,27 +296,22 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
 
     /// Arm the startup watchdog. Cancelled once the first frame renders.
     private func startStartupWatchdog() {
-        startupWatchdog?.cancel()
-        startupWatchdog = Task { @MainActor [weak self] in
+        startup.begin(timeout: startupTimeout) { [weak self] in
             guard let self else { return }
-            try? await Task.sleep(nanoseconds: UInt64(startupTimeout * 1_000_000_000))
-            guard !Task.isCancelled, !hasStartedPlayback else { return }
             Logger.player.error("startup watchdog: no first frame within \(startupTimeout, format: .fixed(precision: 0), privacy: .public)s, declaring stream dead")
             reportFailure()
         }
     }
 
     private func cancelStartupWatchdog() {
-        startupWatchdog?.cancel()
-        startupWatchdog = nil
+        startup.cancelTimer()
         startupFrameTimer?.invalidate()
         startupFrameTimer = nil
     }
 
     /// Reports failure at most once per load, for fallback or the error overlay.
     private func reportFailure() {
-        guard !didReportFailure else { return }
-        didReportFailure = true
+        guard startup.fail() else { return }
         if !hasStartedPlayback {
             PlaybackQoE.shared.noteStartupFailure()
         }
@@ -336,7 +328,6 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
         hasStartedPlayback = false
         startTracker.beginStream()
         setBuffering(true)
-        didReportFailure = false
         retry.handle(.manualRetry)
         startStartupWatchdog()
 
@@ -391,6 +382,7 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
     }
 
     func tearDown() {
+        startup.end()
         stopStatsLogging()
         retry.handle(.teardown)
         cancelStartupWatchdog()

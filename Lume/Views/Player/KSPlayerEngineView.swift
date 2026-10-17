@@ -112,7 +112,7 @@ struct KSPlayerEngineView: View {
     /// Fires `failPlayback()` if the stream hasn't produced a frame within
     /// `startupTimeout`. Covers a stream that hangs in `.preparing`/`.buffering`
     /// forever without ever emitting `.error` (so the reconnector never engages).
-    @State var startupWatchdog: Task<Void, Never>?
+    @State var startup = PlaybackStartupSupervisor()
     /// Fires a reconnect (`recoverWedgedStream`) if a live stream sits in `.buffering` for
     /// `stallTimeout` after playback had started. A mid-stream decode failure
     /// wedges KSPlayer in `.buffering` forever without ever emitting `.error`
@@ -343,6 +343,7 @@ struct KSPlayerEngineView: View {
                 chrome.deactivate()
                 reconnector.cancel()
                 cancelStartupWatchdog()
+                startup.end()
                 cancelStallWatchdog()
                 PlaybackQoE.shared.endSession(owner: coordinator)
                 NowPlayingService.shared.detachTransport(owner: coordinator)
@@ -492,6 +493,7 @@ struct KSPlayerEngineView: View {
                 #endif
                 reconnector.cancel()
                 cancelStartupWatchdog()
+                startup.end()
                 cancelStallWatchdog()
                 PlaybackQoE.shared.endSession(owner: coordinator)
                 NowPlayingService.shared.detachTransport(owner: coordinator)

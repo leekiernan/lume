@@ -109,7 +109,7 @@ extension KSPlayerEngineView {
     /// a playhead advance on this stream, which no stale callback can fake,
     /// needs no such gate.
     func markPlaybackStarted(_ proof: PlaybackStartTracker.Proof?) {
-        guard let proof else { return }
+        guard let proof, startup.started() else { return }
         if proof == .playhead {
             Logger.player.info("KSPlayer: first frame proven by playhead progress")
         }
@@ -287,7 +287,7 @@ extension KSPlayerEngineView {
     /// Arm the startup watchdog. Started on open and on each stream swap; the
     /// first frame (`markPlaybackStarted`) disarms it.
     func startStartupWatchdog() {
-        startupWatchdog?.cancel()
+        startup.cancelTimer()
         // Every startup attempt goes through here — open, channel swap, retry —
         // which makes it the one place join time can be started from.
         PlaybackQoE.shared.beginStartup(engine: .ksPlayer, isLive: media.isLive, owner: coordinator)
@@ -296,17 +296,14 @@ extension KSPlayerEngineView {
         // hands off to the next one promptly instead of stalling on a black
         // screen for the full startup timeout.
         let timeout = startupTimeout
-        startupWatchdog = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-            guard !Task.isCancelled, !hasStartedPlayback else { return }
+        startup.begin(timeout: timeout) {
             Logger.player.error("startup watchdog: no first frame within \(timeout, format: .fixed(precision: 0), privacy: .public)s, declaring stream dead")
             failPlayback()
         }
     }
 
     func cancelStartupWatchdog() {
-        startupWatchdog?.cancel()
-        startupWatchdog = nil
+        startup.cancelTimer()
     }
 
     /// Give up on a stream that never started (or dropped for good). Tears down
@@ -317,7 +314,7 @@ extension KSPlayerEngineView {
     /// this view is about to be torn down. Otherwise (mid-stream give-up, or the
     /// last engine in the priority list) it raises the failure overlay as before.
     func failPlayback() {
-        guard !loadFailed else { return }
+        guard !loadFailed, startup.fail() else { return }
         cancelStartupWatchdog()
         reconnector.cancel()
         isCatchupSegmentLoading = false

@@ -28,7 +28,7 @@ struct MultiViewKSTile: View {
     @State private var reconnector = PlaybackRetryController()
     @State private var reloadToken = 0
     @State private var hasStarted = false
-    @State private var startupWatchdog: Task<Void, Never>?
+    @State private var startup = PlaybackStartupSupervisor()
 
     var body: some View {
         KSVideoPlayer(
@@ -47,7 +47,7 @@ struct MultiViewKSTile: View {
             startWatchdog()
         }
         .onDisappear {
-            startupWatchdog?.cancel()
+            startup.end()
             reconnector.cancel()
             coordinator.resetPlayer()
         }
@@ -61,13 +61,14 @@ struct MultiViewKSTile: View {
         switch state {
         case .bufferFinished:
             reconnector.reset()
-            guard !hasStarted else { return }
+            guard !hasStarted, startup.started() else { return }
             hasStarted = true
-            startupWatchdog?.cancel()
+            startup.cancelTimer()
             onPlaybackStarted()
         case .error:
-            startupWatchdog?.cancel()
+            startup.cancelTimer()
             guard hasStarted else {
+                guard startup.fail() else { return }
                 onPlaybackFailed()
                 return
             }
@@ -82,11 +83,9 @@ struct MultiViewKSTile: View {
     /// KSPlayer can hang in `.preparing`/`.buffering` indefinitely without ever
     /// emitting `.error`, which would leave the tile spinning forever.
     private func startWatchdog() {
-        startupWatchdog?.cancel()
         let timeout = PlaybackPolicy.tileStartupTimeout(quick: usesQuickStartupTimeout)
-        startupWatchdog = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(timeout))
-            guard !Task.isCancelled, !hasStarted else { return }
+        startup.begin(timeout: timeout) {
+            guard !hasStarted, startup.fail() else { return }
             onPlaybackFailed()
         }
     }
