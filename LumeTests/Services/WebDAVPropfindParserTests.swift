@@ -150,6 +150,18 @@ private enum PropfindFixtures {
 }
 
 struct WebDAVPropfindParserTests {
+    @Test func `the first response may be a real child rather than the collection`() throws {
+        let root = try #require(URL(string: "https://nas.test/Movies/"))
+        let body = """
+        <D:multistatus xmlns:D="DAV:">
+        <D:response><D:href>/Movies/Film.mkv</D:href><D:propstat><D:prop><D:getcontentlength>42</D:getcontentlength></D:prop></D:propstat></D:response>
+        <D:response><D:href>/Movies/</D:href><D:propstat><D:prop><D:resourcetype><D:collection/></D:resourcetype></D:prop></D:propstat></D:response>
+        </D:multistatus>
+        """
+        let resources = try #require(WebDAVPropfindParser.parse(Data(body.utf8), collection: root))
+        #expect(resources.map(\.name) == ["Film.mkv"])
+    }
+
     private func parse(_ body: String, collection: URL = PropfindFixtures.collection) -> [WebDAVResource]? {
         WebDAVPropfindParser.parse(Data(body.utf8), collection: collection)
     }

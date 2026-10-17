@@ -46,7 +46,6 @@ final nonisolated class WebDAVPropfindParser: NSObject, XMLParserDelegate {
     private let collectionKey: String
     private var resources: [WebDAVResource] = []
     private var sawMultistatus = false
-    private var isFirstResponse = true
 
     private var inResponse = false
     private var inResourceType = false
@@ -155,14 +154,13 @@ final nonisolated class WebDAVPropfindParser: NSObject, XMLParserDelegate {
     private func endResponse() {
         defer {
             inResponse = false
-            isFirstResponse = false
         }
         guard let href, let url = URL(string: href, relativeTo: collection)?.absoluteURL else { return }
 
-        // The collection asked about is returned as the first response. Emitting
+        // The collection can occur anywhere, or be omitted. Emitting
         // it would give every directory a phantom row and leave the recursive
         // walk descending into itself forever.
-        guard !isFirstResponse, WebDAVPathIdentity.key(url.absoluteString) != collectionKey else { return }
+        guard WebDAVPathIdentity.key(url.absoluteString) != collectionKey else { return }
         guard let name = Self.lastSegment(of: href) else { return }
 
         resources.append(WebDAVResource(
