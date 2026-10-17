@@ -333,6 +333,7 @@ final class TraktService {
 
         let container = context.container
         let outcome = await TrackerImportRun(
+            permit: session.importPermit,
             begin: { await TrackerScope.begin(after: self.mutations) },
             accessToken: { await self.session.validAccessToken() },
             fetch: { token in
@@ -345,11 +346,8 @@ final class TraktService {
                 return (movies: watched.movies, shows: watched.shows, paused: paused)
             },
             isCurrent: { $0.isCurrent(isConnected: self.isConnected, account: self.mutations.account, pendingCount: self.mutations.pendingCount) },
-            apply: { history, scope in
-                await Self.applyImport(
-                    movies: history.movies, shows: history.shows, paused: history.paused, container: container,
-                    scope: scope
-                )
+            apply: { history, scope, permit in
+                await Self.applyImport(history: history, container: container, scope: scope, permit: permit)
             }
         ).perform()
         switch outcome {
@@ -372,20 +370,22 @@ final class TraktService {
     /// since isn't reopened.
     @concurrent
     private static func applyImport(
-        movies: [TraktWatchedMovie],
-        shows: [TraktWatchedShow],
-        paused: [TraktPlaybackItem]?,
+        history: (movies: [TraktWatchedMovie], shows: [TraktWatchedShow], paused: [TraktPlaybackItem]?),
         container: ModelContainer,
-        scope: TrackerScope
+        scope: TrackerScope,
+        permit: TrackerImportPermit
     ) async -> TraktImportSummary {
-        guard scope.matches(.trakt) else { return .failure }
-        let context = ModelContext(container)
-        var summary = TraktWatchedImporter.apply(movies: movies, shows: shows, in: context, pendingScope: scope)
-        if !summary.failed, let paused {
-            summary.inProgress = TraktPlaybackImporter.apply(paused, in: context, pendingScope: scope)
-            if context.hasChanges { try? context.save() }
-        }
-        return summary
+        permit.withCurrent {
+            guard scope.matches(.trakt) else { return .failure }
+            let context = ModelContext(container)
+            context.autosaveEnabled = false
+            var summary = TraktWatchedImporter.apply(movies: history.movies, shows: history.shows, in: context, pendingScope: scope)
+            if !summary.failed, let paused = history.paused {
+                summary.inProgress = TraktPlaybackImporter.apply(paused, in: context, pendingScope: scope)
+                do { try context.save() } catch { context.rollback(); summary.failed = true }
+            }
+            return summary
+        } ?? .failure
     }
 }
 

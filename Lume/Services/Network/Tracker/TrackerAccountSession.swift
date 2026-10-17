@@ -47,7 +47,15 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
     @ObservationIgnored private var pollingTask: Task<Void, Never>?
     @ObservationIgnored private var identityTask: Task<Void, Never>?
     @ObservationIgnored private var refreshTask: Task<String?, Never>?
-    @ObservationIgnored private var generation = RequestToken()
+    @ObservationIgnored private let lifetime = TrackerAccountLifetime()
+    private var generation: RequestToken {
+        lifetime.current
+    }
+
+    var importPermit: TrackerImportPermit {
+        TrackerImportPermit(account: lifetime)
+    }
+
     /// A refresh token the service rejected. Another device may have consumed
     /// it and be exporting the replacement through iCloud, so don't retry it
     /// until a different pair arrives.
@@ -152,7 +160,7 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
     }
 
     private func invalidateSessionWork() {
-        generation = RequestToken()
+        lifetime.invalidate()
         refreshTask?.cancel()
         refreshTask = nil
         identityTask?.cancel()
