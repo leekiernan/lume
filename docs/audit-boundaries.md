@@ -11,6 +11,10 @@ permanent migration or replacement of provider-specific DTOs.
   when the viewer switches away and back to the same profile. Resume hints are
   profile-scoped, and clearing history also clears those hints and records the
   existing clear-history intent.
+- `ProfileProjectionGate` serializes synchronous viewer-state saves with the
+  catalogue projection swap. It covers writes already underway, not just queued
+  work. Scoped maintenance holds it one page at a time; model contexts stay with
+  their existing owners, and no network call or suspension runs under the gate.
 - Tracker sessions invalidate refresh and identity work before disconnecting.
   Remote revocation cannot clear a newer login, and mutation queues recheck their
   account after awaiting a token.
@@ -90,3 +94,13 @@ Physical-device checks should include player open/resume/source-switch/retry,
 download cancel/retry, profile changes, offline sports warm-up, and authenticated
 media-server artwork in Top Shelf. They complement simulator tests and builds;
 they are not a prerequisite for the engineering handoff.
+
+Verification on 17 October 2026 passed 3,512 unit tests across 500 suites on an
+iPhone 17 Pro simulator running iOS 27. This includes the final early-frame
+startup and profile-projection refinements. The iOS test build, native tvOS and
+macOS builds, and the formatting/lint commit hooks passed. UI automation and
+physical-device checks were not run for this pass.
+
+No performance benchmark is claimed here: query and memory improvements follow
+from bounded fetches, fewer lookups and releasing each page's context, not a
+Debug timing comparison.
