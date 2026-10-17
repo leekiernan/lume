@@ -326,7 +326,7 @@ final class NowPlayingService {
         }
         guard !Task.isCancelled, ownership.accepts(owner), profile == ActiveProfileStore.current else { return }
         guard let posterURL else { return }
-        guard let image = try? await ImagePipeline.shared.image(for: posterURL, maxPixelSize: 600) else { return }
+        guard let image = try? await ImagePipeline.shared.image(for: posterURL, maxPixelSize: 600, ownerID: media.id) else { return }
         guard !Task.isCancelled, ownership.accepts(owner), profile == ActiveProfileStore.current else { return }
         artwork = Self.makeArtwork(image)
         publish()

@@ -26,7 +26,7 @@ struct HomeHeroCarousel: View {
         HeroCarousel(
             items: items,
             imageURL: \.imageURL,
-            backdrop: { HeroBackdrop(url: $0.imageURL, posterURL: $0.posterURL) },
+            backdrop: { HeroBackdrop(url: $0.imageURL, posterURL: $0.posterURL).artworkOwner($0.id) },
             info: { HeroInfo(hero: $0, isCompact: $1) },
             managesArtworkComposition: true,
             portraitURL: \.posterURL

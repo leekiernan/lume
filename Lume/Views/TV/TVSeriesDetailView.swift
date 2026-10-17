@@ -141,6 +141,7 @@
                 title: series.name,
                 backdropURL: TMDBClient.backdropURL(series.backdropPath),
                 posterFallbackURL: URL(string: series.cover ?? ""),
+                artworkOwnerID: series.id,
                 logoURL: TMDBClient.logoURL(series.logoPath),
                 tagline: series.tagline,
                 rating: series.starRating,

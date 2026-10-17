@@ -126,6 +126,7 @@
                 title: movie.name,
                 backdropURL: TMDBClient.backdropURL(movie.backdropPath),
                 posterFallbackURL: URL(string: movie.streamIcon ?? ""),
+                artworkOwnerID: movie.id,
                 logoURL: TMDBClient.logoURL(movie.logoPath),
                 tagline: movie.tagline,
                 rating: movie.starRating,

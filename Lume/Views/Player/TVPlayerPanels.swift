@@ -209,7 +209,7 @@
 
         private var still: some View {
             ZStack(alignment: .bottomLeading) {
-                EpisodeStillArtwork(title: episode.title, url: episode.movieImage.flatMap(URL.init(string:)), maxPixelSize: cardWidth) {
+                EpisodeStillArtwork(title: episode.title, url: episode.movieImage.flatMap(URL.init(string:)), maxPixelSize: cardWidth, ownerID: episode.id) {
                     Image(systemName: "play.tv")
                         .font(.system(size: 40))
                         .foregroundStyle(.white.opacity(0.5))

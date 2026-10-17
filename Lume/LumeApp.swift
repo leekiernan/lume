@@ -41,6 +41,7 @@ struct LumeApp: App {
         let (catalog, cloud) = Self.makeModelContainers()
         catalogContainer = catalog
         cloudContainer = cloud
+        ProviderArtworkAccounts.shared.replace(((try? catalog.mainContext.fetch(FetchDescriptor<Playlist>())) ?? []).compactMap(ProviderArtworkAccount.init))
         let coordinator = LaunchTimeline.measure("sync coordinator") {
             CloudSyncCoordinator(
                 catalogContainer: catalog,
@@ -437,6 +438,7 @@ struct LumeApp: App {
                         topShelf.refresh(immediately: true)
                     }
                 }
+                .observeArtworkAccounts()
                 .appAppearance(AppAppearance.resolve(appearanceRaw))
         }
         .modelContainer(catalogContainer)

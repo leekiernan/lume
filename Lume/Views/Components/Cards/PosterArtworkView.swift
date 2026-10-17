@@ -61,6 +61,7 @@ struct PosterArtworkView<Content: View>: View {
                 content(phase)
             }
         }
+        .artworkOwner(request?.id)
         .task(id: source.diagnostic) {
             if let diagnostic = source.diagnostic {
                 await ImagePipeline.shared.notePosterSourceIssue(diagnostic)

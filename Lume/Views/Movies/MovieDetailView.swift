@@ -134,6 +134,7 @@ struct MovieDetailView: View {
                         height: DetailMetrics.heroHeight(for: proxy.size),
                         fallbackSymbol: "film"
                     )
+                    .artworkOwner(movie.id)
 
                     actions
                         .padding(.horizontal, DetailMetrics.contentPadding)

@@ -307,6 +307,7 @@ struct SeriesDetailView: View {
                             height: DetailMetrics.heroHeight(for: proxy.size),
                             fallbackSymbol: "tv"
                         )
+                        .artworkOwner(series.id)
 
                         actions
                             .padding(.horizontal, DetailMetrics.contentPadding)

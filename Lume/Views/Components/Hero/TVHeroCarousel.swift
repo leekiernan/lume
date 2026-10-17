@@ -42,6 +42,7 @@
 
         /// The artwork to warm for a slide, when it is known up front.
         private let prefetchURL: ((Item) -> URL?)?
+        private let artworkOwner: ((Item) -> String)?
         private var artworkGeometry: ArtworkGeometry?
 
         struct ArtworkGeometry: Equatable {
@@ -60,8 +61,9 @@
             prefetchNeighbours()
         }
 
-        init(prefetchURL: ((Item) -> URL?)? = nil) {
+        init(prefetchURL: ((Item) -> URL?)? = nil, artworkOwner: ((Item) -> String)? = nil) {
             self.prefetchURL = prefetchURL
+            self.artworkOwner = artworkOwner
         }
 
         var currentHero: Item? {
@@ -137,16 +139,14 @@
         private func prefetchNeighbours() {
             let count = items.count
             guard count > 1, let prefetchURL, let geometry = artworkGeometry else { return }
-            let renditions = [(currentIndex - 1 + count) % count, (currentIndex + 1) % count]
-                .compactMap { prefetchURL(items[$0]) }
-                .map {
-                    HeroArtworkPolicy.rendition(
-                        url: $0, width: geometry.width, height: geometry.height, displayScale: geometry.displayScale
-                    )
-                }
-            guard let pixels = renditions.first?.decodeSizeInPixels else { return }
-            let urls = renditions.compactMap(\.url)
-            Task { await ImagePipeline.shared.prefetch(urls, maxPixelSize: pixels) }
+            for index in [(currentIndex - 1 + count) % count, (currentIndex + 1) % count] {
+                let rendition = HeroArtworkPolicy.rendition(
+                    url: prefetchURL(items[index]), width: geometry.width, height: geometry.height, displayScale: geometry.displayScale
+                )
+                guard let url = rendition.url else { continue }
+                let ownerID = artworkOwner?(items[index])
+                Task { await ImagePipeline.shared.prefetch([url], maxPixelSize: rendition.decodeSizeInPixels, ownerID: ownerID) }
+            }
         }
     }
 

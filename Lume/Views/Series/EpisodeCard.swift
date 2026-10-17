@@ -76,7 +76,7 @@ import SwiftUI
 
         private var thumbnail: some View {
             ZStack(alignment: .topLeading) {
-                EpisodeStillArtwork(title: episode.title, url: episode.movieImage.flatMap(URL.init(string:)), maxPixelSize: 142) {
+                EpisodeStillArtwork(title: episode.title, url: episode.movieImage.flatMap(URL.init(string:)), maxPixelSize: 142, ownerID: episode.id) {
                     Text("E\(episode.episodeNum)")
                         .font(.headline)
                         .foregroundStyle(.white.opacity(0.7))

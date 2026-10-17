@@ -203,6 +203,7 @@ private struct ContinueWatchingCell: View {
                         label: ContinueWatching.remaining(progress: movie.watchProgress, duration: movie.durationSecs)
                             .map(ContinueWatching.remainingLabel)
                     )
+                    .artworkOwner(item.id)
                     .matchedTransitionSourceIfAvailable(id: movie.id, in: animationNamespace)
                 }
                 .posterCardButtonStyle()
@@ -216,6 +217,7 @@ private struct ContinueWatchingCell: View {
                         fraction: continuation?.fraction ?? 0,
                         label: continuation.map(ContinueWatching.seriesLabel)
                     )
+                    .artworkOwner(item.id)
                     .matchedTransitionSourceIfAvailable(id: show.id, in: animationNamespace)
                 }
                 .posterCardButtonStyle()

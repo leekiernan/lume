@@ -8,10 +8,10 @@
             TopShelfImages.directory("TopShelfPrivateArtwork")
         }
 
-        typealias Loader = @Sendable (URL, Int) async -> CGImage?
+        typealias Loader = @Sendable (ArtworkRequest, Int) async -> CGImage?
 
         private struct Work {
-            let url: URL
+            let request: ArtworkRequest
             let file: URL
         }
 
@@ -36,13 +36,14 @@
             guard let directory else { return false }
             var pending: [URL: Work] = [:]
             for item in source.sections.flatMap(\.items) {
-                for url in [item.imageURL, item.backdropURL, item.logoURL].compactMap(\.self) where ArtworkRequest.carriesCredentials(url) {
-                    guard let file = file(for: url, owner: item.id, directory: directory), !FileManager.default.fileExists(atPath: file.path) else { continue }
-                    pending[file] = Work(url: url, file: file)
+                for url in [item.imageURL, item.backdropURL, item.logoURL].compactMap(\.self) where ProviderArtworkAccounts.requiresPrivateRendering(url) {
+                    guard let request = ProviderArtworkAccounts.request(for: url, ownerID: item.id),
+                          let file = file(for: url, owner: item.id, directory: directory), !FileManager.default.fileExists(atPath: file.path) else { continue }
+                    pending[file] = Work(request: request, file: file)
                 }
             }
             let rendered = await TopShelfImages.boundedMap(Array(pending.values)) { work -> URL? in
-                guard !Task.isCancelled, let image = await load(work.url, 1920), !Task.isCancelled else { return nil }
+                guard !Task.isCancelled, let image = await load(work.request, 1920), !Task.isCancelled else { return nil }
                 return TopShelfImages.write(UIImage(cgImage: image), to: work.file)
             }
             guard !Task.isCancelled, rendered.contains(where: { $0 != nil }) else { return false }
@@ -66,18 +67,15 @@
         }
 
         private static func exported(_ url: URL?, owner: String, directory: URL?) -> URL? {
-            guard let url, ArtworkRequest.carriesCredentials(url) else { return url }
+            guard let url, ProviderArtworkAccounts.requiresPrivateRendering(url) else { return url }
             guard let directory, let file = file(for: url, owner: owner, directory: directory),
                   FileManager.default.fileExists(atPath: file.path) else { return nil }
             return file
         }
 
         private static func file(for url: URL, owner: String, directory: URL) -> URL? {
-            // A playlist UUID alone does not identify its current account: its
-            // credentials can be edited in place. Without a stable account ID
-            // in the snapshot, retain the legacy credential fingerprint.
-            guard let request = ArtworkRequest(url: url) else { return nil }
-            let key = String(owner.prefix(36)) + "|" + request.cacheIdentity
+            guard let request = ProviderArtworkAccounts.request(for: url, ownerID: owner) else { return nil }
+            let key = owner + "|" + request.cacheIdentity
             return directory.appendingPathComponent(TopShelfImages.fileName(for: key))
         }
     }

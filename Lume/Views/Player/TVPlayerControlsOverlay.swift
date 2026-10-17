@@ -435,6 +435,7 @@
                 focus: $focus,
                 onClose: closePanel
             )
+            .artworkOwner(media.id)
         }
     }
 

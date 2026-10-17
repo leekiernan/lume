@@ -55,6 +55,13 @@ nonisolated struct ArtworkRequest: Hashable {
         return request
     }
 
+    /// In-flight work and failures depend on the current credential. Decoded
+    /// and disk caches do not: a rotation should retry a failed request without
+    /// discarding successfully loaded artwork for the same account.
+    var transportIdentity: String {
+        Self.digest(cacheIdentity + "\n" + url.absoluteString + "\n" + headers.sorted { $0.key < $1.key }.description)
+    }
+
     static func carriesCredentials(_ url: URL) -> Bool {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return true }
         if components.user != nil || components.password != nil { return true }

@@ -6,6 +6,7 @@ struct EpisodeStillArtwork<Placeholder: View>: View {
     let title: String
     let url: URL?
     let maxPixelSize: CGFloat
+    var ownerID: String?
     @ViewBuilder var placeholder: () -> Placeholder
 
     var body: some View {
@@ -19,6 +20,7 @@ struct EpisodeStillArtwork<Placeholder: View>: View {
                 tile.overlay { placeholder() }
             }
         }
+        .artworkOwner(ownerID)
     }
 
     private var tile: some View {

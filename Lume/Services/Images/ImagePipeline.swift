@@ -88,10 +88,18 @@ actor ImagePipeline {
     /// memory is keyed by URL + size (decoded result depends on the target size).
     nonisolated static func memoryKey(_ url: URL, maxPixelSize: CGFloat?) -> String {
         let identity = ArtworkRequest(url: url)?.cacheIdentity ?? url.absoluteString
+        return sizedKey(identity, maxPixelSize: maxPixelSize)
+    }
+
+    nonisolated static func memoryKey(_ request: ArtworkRequest, maxPixelSize: CGFloat?) -> String {
+        sizedKey(request.cacheIdentity, maxPixelSize: maxPixelSize)
+    }
+
+    private nonisolated static func sizedKey(_ identity: String, maxPixelSize: CGFloat?) -> String {
         if let maxPixelSize {
-            return "\(identity)|\(Int(maxPixelSize))"
+            "\(identity)|\(Int(maxPixelSize))"
         } else {
-            return "\(identity)|full"
+            "\(identity)|full"
         }
     }
 
@@ -99,6 +107,10 @@ actor ImagePipeline {
     /// placeholder flash on the very first frame.
     nonisolated static func cachedImage(for url: URL, maxPixelSize: CGFloat?) -> PlatformImage? {
         ImageMemoryCache.shared.image(for: memoryKey(url, maxPixelSize: maxPixelSize))
+    }
+
+    nonisolated static func cachedImage(for request: ArtworkRequest, maxPixelSize: CGFloat?) -> PlatformImage? {
+        ImageMemoryCache.shared.image(for: memoryKey(request, maxPixelSize: maxPixelSize))
     }
 
     /// `URLSession`'s async API reports a cancelled request as `URLError.cancelled`
@@ -112,19 +124,25 @@ actor ImagePipeline {
 
     /// Returns a decoded image for `url`, downsampled to `maxPixelSize` (longest
     /// edge in pixels) when provided. Throws on permanent failure.
-    func image(for url: URL, maxPixelSize: CGFloat?) async throws -> PlatformImage {
-        let key = Self.memoryKey(url, maxPixelSize: maxPixelSize)
+    func image(for url: URL, maxPixelSize: CGFloat?, ownerID: String? = nil) async throws -> PlatformImage {
+        guard let request = ProviderArtworkAccounts.request(for: url, ownerID: ownerID) else { throw URLError(.badURL) }
+        return try await image(for: request, maxPixelSize: maxPixelSize)
+    }
 
-        if let cached = ImageMemoryCache.shared.image(for: key) {
+    func image(for request: ArtworkRequest, maxPixelSize: CGFloat?) async throws -> PlatformImage {
+        let memoryKey = Self.memoryKey(request, maxPixelSize: maxPixelSize)
+        let key = Self.sizedKey(request.transportIdentity, maxPixelSize: maxPixelSize)
+
+        if let cached = ImageMemoryCache.shared.image(for: memoryKey) {
             return cached
         }
 
-        if isFrozenOut(url) {
+        if isFrozenOut(request.transportIdentity) {
             throw ImagePipelineError.recentlyFailed
         }
 
         let token = makeWaiterToken()
-        let task = startOrJoin(key: key, url: url, maxPixelSize: maxPixelSize, waiter: token, priority: .userInitiated)
+        let task = startOrJoin(key: key, request: request, maxPixelSize: maxPixelSize, waiter: token, priority: .userInitiated)
 
         // Awaiting another task's value is not a cancellation point, so before this
         // handler a scrolled-away cell left its download running to completion:
@@ -141,13 +159,14 @@ actor ImagePipeline {
 
     /// Warms the cache for upcoming images (e.g. neighbouring hero slides). Fire
     /// and forget — failures are ignored.
-    func prefetch(_ urls: [URL], maxPixelSize: CGFloat?) {
+    func prefetch(_ urls: [URL], maxPixelSize: CGFloat?, ownerID: String? = nil) {
         for url in urls {
-            let key = Self.memoryKey(url, maxPixelSize: maxPixelSize)
-            guard ImageMemoryCache.shared.image(for: key) == nil,
+            guard let request = ProviderArtworkAccounts.request(for: url, ownerID: ownerID) else { continue }
+            let key = Self.sizedKey(request.transportIdentity, maxPixelSize: maxPixelSize)
+            guard Self.cachedImage(for: request, maxPixelSize: maxPixelSize) == nil,
                   inFlight[key] == nil,
-                  !isFrozenOut(url) else { continue }
-            _ = startOrJoin(key: key, url: url, maxPixelSize: maxPixelSize, waiter: nil, priority: .utility)
+                  !isFrozenOut(request.transportIdentity) else { continue }
+            _ = startOrJoin(key: key, request: request, maxPixelSize: maxPixelSize, waiter: nil, priority: .utility)
         }
     }
 
@@ -170,7 +189,7 @@ actor ImagePipeline {
     /// prefetches, which start a load but never hold it open.
     private func startOrJoin(
         key: String,
-        url: URL,
+        request: ArtworkRequest,
         maxPixelSize: CGFloat?,
         waiter: UInt64?,
         priority: TaskPriority
@@ -185,12 +204,13 @@ actor ImagePipeline {
 
         let started = ContinuousClock.now
         let task = Task.detached(priority: priority) { [maxRetries] in
-            try await Self.load(url: url, maxPixelSize: maxPixelSize, key: key, retries: maxRetries)
+            try await Self.load(request: request, maxPixelSize: maxPixelSize,
+                                key: Self.memoryKey(request, maxPixelSize: maxPixelSize), retries: maxRetries)
         }
         var waiters: Set<UInt64> = []
         if let waiter { waiters.insert(waiter) }
         inFlight[key] = InFlightLoad(task: task, waiters: waiters)
-        Task { await self.retire(key: key, url: url, task: task, started: started) }
+        Task { await self.retire(key: key, request: request, task: task, started: started) }
         return task
     }
 
@@ -209,7 +229,8 @@ actor ImagePipeline {
 
     /// Records the outcome once a load settles and retires its row unless a newer
     /// load has already replaced it.
-    private func retire(key: String, url: URL, task: Task<PlatformImage, Error>, started: ContinuousClock.Instant) async {
+    private func retire(key: String, request: ArtworkRequest, task: Task<PlatformImage, Error>, started: ContinuousClock.Instant) async {
+        let url = request.url
         do {
             _ = try await task.value
             let elapsed = started.duration(to: .now)
@@ -219,9 +240,9 @@ actor ImagePipeline {
                 // End-to-end disk/network/decode time, once per shared load.
                 Logger.network.notice("Slow image load completed in \(milliseconds, privacy: .public)ms, URL \(url.absoluteString, privacy: .private(mask: .hash))")
             }
-            retryAfter[url.absoluteString] = nil
+            retryAfter[request.transportIdentity] = nil
         } catch {
-            noteFailure(error, for: url)
+            noteFailure(error, for: request)
         }
         if inFlight[key]?.task == task {
             inFlight[key] = nil
@@ -237,10 +258,10 @@ actor ImagePipeline {
 
     /// True while `url` is inside its retry window. Expired entries are dropped on
     /// the way past so the table drains without a timer.
-    private func isFrozenOut(_ url: URL) -> Bool {
-        guard let deadline = retryAfter[url.absoluteString] else { return false }
+    private func isFrozenOut(_ key: String) -> Bool {
+        guard let deadline = retryAfter[key] else { return false }
         guard deadline > .now else {
-            retryAfter[url.absoluteString] = nil
+            retryAfter[key] = nil
             return false
         }
         return true
@@ -250,11 +271,12 @@ actor ImagePipeline {
     /// a round trip to rediscover the same dead poster. A cancellation is not a
     /// failure — the image was never given a chance — and transient errors get the
     /// short window so an offline moment doesn't blank the catalog for minutes.
-    private func noteFailure(_ error: Error, for url: URL) {
+    private func noteFailure(_ error: Error, for request: ArtworkRequest) {
         guard !Self.isCancellation(error) else { return }
         // Report once per URL's freeze-out, not once per cell or decoded size.
         // Hash the full URL: provider image URLs can contain account credentials.
-        if (retryAfter[url.absoluteString] ?? .distantPast) <= .now {
+        let key = request.transportIdentity
+        if (retryAfter[key] ?? .distantPast) <= .now {
             let reason = if let error = error as? ImagePipelineError {
                 switch error {
                 case .decodingFailed: "decoding failed"
@@ -266,10 +288,10 @@ actor ImagePipeline {
             } else {
                 "load failed"
             }
-            Logger.network.notice("Image load failed: \(reason, privacy: .public), URL \(url.absoluteString, privacy: .private(mask: .hash))")
+            Logger.network.notice("Image load failed: \(reason, privacy: .public), URL \(request.url.absoluteString, privacy: .private(mask: .hash))")
         }
         let delay = Self.isTransientFailure(error) ? transientRetryDelay : deadURLRetryDelay
-        retryAfter[url.absoluteString] = Date.now.addingTimeInterval(delay)
+        retryAfter[key] = Date.now.addingTimeInterval(delay)
         pruneFailuresIfNeeded()
     }
 
@@ -298,9 +320,8 @@ actor ImagePipeline {
 
     // MARK: - Loading (runs off-actor)
 
-    private nonisolated static func load(url: URL, maxPixelSize: CGFloat?, key: String, retries: Int) async throws -> PlatformImage {
+    private nonisolated static func load(request: ArtworkRequest, maxPixelSize: CGFloat?, key: String, retries: Int) async throws -> PlatformImage {
         // Disk holds the original bytes keyed by URL; reuse across target sizes.
-        guard let request = ArtworkRequest(url: url) else { throw URLError(.badURL) }
         let diskKey = request.cacheIdentity
         if let data = ImageDiskCache.shared.data(for: diskKey) {
             if let image = ImageDecoder.decode(data, maxPixelSize: maxPixelSize) {
@@ -312,7 +333,7 @@ actor ImagePipeline {
             ImageDiskCache.shared.removeData(for: diskKey)
         }
 
-        let data = try await fetch(url: url, retries: retries)
+        let data = try await fetch(request: request, retries: retries)
 
         // The decode below is the expensive part; skip it for a subscriber that has
         // already gone away rather than burning a core on pixels nobody will draw.
@@ -329,8 +350,7 @@ actor ImagePipeline {
         return image
     }
 
-    private nonisolated static func fetch(url: URL, retries: Int) async throws -> Data {
-        guard let request = ArtworkRequest(url: url) else { throw URLError(.badURL) }
+    private nonisolated static func fetch(request: ArtworkRequest, retries: Int) async throws -> Data {
         var attempt = 0
         while true {
             try Task.checkCancellation()
