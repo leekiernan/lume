@@ -345,6 +345,30 @@ struct WebDAVSyncTests {
     /// nothing: the coverage gate alone would wave a sweep through, and only
     /// the walk-completed gate keeps `Beta` and the favorites and watch
     /// progress keyed to it.
+    @Test func `a listing named under another authority aborts instead of pruning`() async throws {
+        let host = uniqueHost()
+        defer { WebDAVTreeStubProtocol.remove(host: host) }
+        WebDAVTreeStubProtocol.install(host: host, replies: [
+            "/Share/": collection("/Share/", [StubChild(href: "/Share/Alpha.2001.1080p.mkv", isCollection: false)])
+        ])
+        let container = try makeTestContainer()
+        let playlist = try makePlaylist(container: container, url: "https://\(host)/Share/")
+        let manager = makeManager(container: container)
+        try await manager.syncPlaylist(playlist)
+        #expect(try ModelContext(container).fetchCount(FetchDescriptor<Movie>()) == 1)
+
+        // A TLS proxy in front: the same share answers with its backend's address.
+        WebDAVTreeStubProtocol.install(host: host, replies: [
+            "/Share/": collection("http://\(host):5005/Share/", [
+                StubChild(href: "http://\(host):5005/Share/Alpha.2001.1080p.mkv", isCollection: false)
+            ])
+        ])
+        await #expect(throws: (any Error).self) {
+            try await manager.syncPlaylist(playlist)
+        }
+        #expect(try ModelContext(container).fetchCount(FetchDescriptor<Movie>()) == 1)
+    }
+
     @Test func `a walk that fails midway keeps every row and never prunes`() async throws {
         let host = uniqueHost()
         defer { WebDAVTreeStubProtocol.remove(host: host) }

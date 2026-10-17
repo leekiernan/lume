@@ -88,6 +88,15 @@ nonisolated enum WebDAVWalkProducer {
 
             let resources = try await client.list(directory.url, credentials: credentials)
             result.directoriesVisited += 1
+            // A listing none of whose entries lie in the share means the server
+            // names itself differently from the saved address (a TLS proxy's
+            // `https://nas:5006` answering with `http://nas:5005/…` hrefs), not
+            // that the folder is empty. Completing would prune the whole
+            // catalogue, so it aborts as a bad response instead.
+            guard resources.isEmpty || resources.contains(where: { WebDAVPathIdentity.contains($0.url, in: base) }) else {
+                Logger.database.error("WebDAV listing named no resource inside the share; aborting the walk")
+                throw WebDAVError.invalidResponse
+            }
 
             for resource in resources {
                 guard WebDAVPathIdentity.contains(resource.url, in: base) else { continue }
