@@ -197,3 +197,25 @@ this deletion-only cleanup and callback annotation. Follow-up evidence is in
 `/tmp/lume-audit-cleanup-tests.xcresult` and the three
 `/tmp/lume-audit-cleanup-<platform>-final-build.xcresult` bundles. Only regenerable
 task build caches are removed; these results and the shared package clone stay.
+
+### Redirect and bounded-read verification
+
+Validated on 17 October 2026 at `aa14de1a`, on an iPhone 17 Pro simulator
+running iOS 27.0:
+
+- **LumeTests:** 3,573 tests; 3,570 passed. The 3 failures were timing budgets
+  (`StreamRedirectTests` ×2, `ProfileProjectionGateTests`) exceeded while the
+  tvOS and macOS builds ran alongside; both suites then passed alone twice,
+  13 of 13 each run.
+- **Builds:** tvOS and macOS builds passed with private DerivedData and the
+  shared package clone.
+- **Benchmarks:** `NetworkReadBenchmarks` in the Benchmark configuration, one
+  test per process, bodies served out of process; figures above.
+- **Formatting and lint:** SwiftFormat and strict SwiftLint passed on every
+  changed file.
+
+Four suites from earlier commits on this branch (`EPGRefreshMachineTests`,
+`NowPlayingSessionOwnershipTests`, `VLCResumeSeekMachineTests`,
+`ActivityLeaseTests`) did not compile; `af412bd0` fixes them. Physical-device
+playback of WebDAV, Jellyfin and Plex through each engine remains the board's
+check.
