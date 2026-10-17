@@ -42,15 +42,15 @@ final nonisolated class StreamHeaderProbe: NSObject, URLSessionDataDelegate, @un
     func urlSession(_: URLSession, dataTask _: URLSessionDataTask, didReceive response: URLResponse,
                     completionHandler: @escaping @Sendable (URLSession.ResponseDisposition) -> Void)
     {
-        completionHandler(.cancel)
         finish(response as? HTTPURLResponse)
+        completionHandler(.cancel)
     }
 
     func urlSession(_: URLSession, task _: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
                     newRequest _: URLRequest, completionHandler: @escaping @Sendable (URLRequest?) -> Void)
     {
-        completionHandler(nil)
         finish(response)
+        completionHandler(nil)
     }
 
     func urlSession(_: URLSession, task _: URLSessionTask, didCompleteWithError _: (any Error)?) {
