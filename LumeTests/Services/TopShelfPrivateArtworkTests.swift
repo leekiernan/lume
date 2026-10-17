@@ -41,9 +41,12 @@
             #expect(changed)
             let file = try #require(exported.sections[0].items[0].imageURL)
             #expect(file.isFileURL && FileManager.default.fileExists(atPath: file.path))
-            var rotated = snapshot(token: "rotated-secret")
-            TopShelfPrivateArtwork.applyCached(to: &rotated, directory: directory)
-            #expect(rotated.sections[0].items[0].imageURL == file)
+            var reopened = snapshot(token: "private-secret")
+            TopShelfPrivateArtwork.applyCached(to: &reopened, directory: directory)
+            #expect(reopened.sections[0].items[0].imageURL == file)
+            var anotherAccount = snapshot(token: "another-account-secret")
+            TopShelfPrivateArtwork.applyCached(to: &anotherAccount, directory: directory)
+            #expect(anotherAccount.sections[0].items[0].imageURL == nil)
             #expect(exported == exported.withoutArtworkCredentials)
         }
     }

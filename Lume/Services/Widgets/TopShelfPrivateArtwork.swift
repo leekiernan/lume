@@ -73,8 +73,12 @@
         }
 
         private static func file(for url: URL, owner: String, directory: URL) -> URL? {
-            guard let request = ArtworkRequest(url: url, accountScope: String(owner.prefix(36))) else { return nil }
-            return directory.appendingPathComponent(request.cacheIdentity).appendingPathExtension("png")
+            // A playlist UUID alone does not identify its current account: its
+            // credentials can be edited in place. Without a stable account ID
+            // in the snapshot, retain the legacy credential fingerprint.
+            guard let request = ArtworkRequest(url: url) else { return nil }
+            let key = String(owner.prefix(36)) + "|" + request.cacheIdentity
+            return directory.appendingPathComponent(TopShelfImages.fileName(for: key))
         }
     }
 #endif
