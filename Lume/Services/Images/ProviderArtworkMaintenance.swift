@@ -32,11 +32,11 @@ nonisolated enum ProviderArtworkMaintenance {
     }
 
     static func scrub(prefix: String, in context: ModelContext) throws {
-        try scrub(FetchDescriptor<Movie>(predicate: #Predicate { $0.id.hasPrefix(prefix) }, sortBy: [SortDescriptor(\.id)]),
+        try scrub(FetchDescriptor<Movie>(predicate: #Predicate { $0.id.starts(with: prefix) }, sortBy: [SortDescriptor(\.id)]),
                   field: \.streamIcon, context: context)
-        try scrub(FetchDescriptor<Series>(predicate: #Predicate { $0.id.hasPrefix(prefix) }, sortBy: [SortDescriptor(\.id)]),
+        try scrub(FetchDescriptor<Series>(predicate: #Predicate { $0.id.starts(with: prefix) }, sortBy: [SortDescriptor(\.id)]),
                   field: \.cover, context: context)
-        try scrub(FetchDescriptor<Episode>(predicate: #Predicate { $0.id.hasPrefix(prefix) }, sortBy: [SortDescriptor(\.id)]),
+        try scrub(FetchDescriptor<Episode>(predicate: #Predicate { $0.id.starts(with: prefix) }, sortBy: [SortDescriptor(\.id)]),
                   field: \.movieImage, context: context)
     }
 
@@ -55,7 +55,7 @@ nonisolated enum ProviderArtworkMaintenance {
                 row[keyPath: field] = clean
             }
             if context.hasChanges { try context.save() }
-            page.fetchOffset += rows.count
+            page.fetchOffset = (page.fetchOffset ?? 0) + rows.count
         }
     }
 }
