@@ -337,7 +337,7 @@ struct KSPlayerEngineView: View {
                 engine.attach(coordinator: coordinator, catchupRouter: catchupRouter)
                 attachNowPlayingTransport()
                 scheduleHide()
-                startStartupWatchdog()
+                startStartupWatchdog(restarting: false)
             }
             .onDisappear {
                 chrome.deactivate()
@@ -483,7 +483,7 @@ struct KSPlayerEngineView: View {
                 attachNowPlayingTransport()
                 scheduleHide()
                 observePipState()
-                startStartupWatchdog()
+                startStartupWatchdog(restarting: false)
             }
             .onDisappear {
                 chrome.deactivate()

@@ -84,7 +84,7 @@ struct MultiViewKSTile: View {
     /// emitting `.error`, which would leave the tile spinning forever.
     private func startWatchdog() {
         let timeout = PlaybackPolicy.tileStartupTimeout(quick: usesQuickStartupTimeout)
-        startup.begin(timeout: timeout, alreadyStarted: hasStarted) {
+        startup.arm(timeout: timeout) {
             guard !hasStarted, startup.fail() else { return }
             onPlaybackFailed()
         }

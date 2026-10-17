@@ -34,12 +34,29 @@ struct PlaybackStartupSupervisorTests {
         let accepted = supervisor.started()
         #expect(accepted)
         var expired = false
-        supervisor.begin(timeout: 0.01, alreadyStarted: true) { expired = true }
+        supervisor.arm(timeout: 0.01) { expired = true }
         try await Task.sleep(for: .milliseconds(30))
         #expect(!expired)
         supervisor.end()
         let lateProof = supervisor.started()
         #expect(!lateProof)
+    }
+
+    @Test func `appearance cannot reset an earlier terminal failure`() async throws {
+        let supervisor = PlaybackStartupSupervisor()
+        let reported = supervisor.fail()
+        #expect(reported)
+        var expired = false
+        supervisor.arm(timeout: 0.01) { expired = true }
+        let duplicate = supervisor.fail()
+        let lateFrame = supervisor.started()
+        #expect(!duplicate && !lateFrame)
+        try await Task.sleep(for: .milliseconds(30))
+        #expect(!expired)
+        supervisor.begin(timeout: 1) { expired = true }
+        let retried = supervisor.started()
+        #expect(retried)
+        supervisor.end()
     }
 
     @Test func `a replaced timer cannot call the old failure handler`() async throws {

@@ -49,13 +49,21 @@ final class PlaybackStartupSupervisor {
     private var state = PlaybackStartupState()
     private var timer: Task<Void, Never>?
 
-    func begin(timeout: TimeInterval, alreadyStarted: Bool = false, onTimeout: @escaping @MainActor () -> Void) {
+    /// A genuinely new load or explicit retry resets the terminal latch.
+    func begin(timeout: TimeInterval, onTimeout: @escaping @MainActor () -> Void) {
+        _ = state.begin()
+        arm(timeout: timeout, onTimeout: onTimeout)
+    }
+
+    /// Appearance alone must not erase first-frame proof or a failure delivered
+    /// synchronously while the representable was being mounted.
+    func arm(timeout: TimeInterval, onTimeout: @escaping @MainActor () -> Void) {
         cancelTimer()
+        guard case .waiting = state.phase else { return }
         let token = state.begin()
-        if alreadyStarted { _ = state.started(); return }
         timer = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(timeout)) } catch { return }
-            guard let self, state.canExpire(token) else { return }
+            guard let self, !Task.isCancelled, state.canExpire(token) else { return }
             timer = nil
             onTimeout()
         }

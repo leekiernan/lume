@@ -286,7 +286,7 @@ extension KSPlayerEngineView {
 
     /// Arm the startup watchdog. Started on open and on each stream swap; the
     /// first frame (`markPlaybackStarted`) disarms it.
-    func startStartupWatchdog() {
+    func startStartupWatchdog(restarting: Bool = true) {
         startup.cancelTimer()
         // Every startup attempt goes through here — open, channel swap, retry —
         // which makes it the one place join time can be started from.
@@ -296,9 +296,14 @@ extension KSPlayerEngineView {
         // hands off to the next one promptly instead of stalling on a black
         // screen for the full startup timeout.
         let timeout = startupTimeout
-        startup.begin(timeout: timeout, alreadyStarted: hasStartedPlayback) {
+        let onTimeout = {
             Logger.player.error("startup watchdog: no first frame within \(timeout, format: .fixed(precision: 0), privacy: .public)s, declaring stream dead")
             failPlayback()
+        }
+        if restarting {
+            startup.begin(timeout: timeout, onTimeout: onTimeout)
+        } else {
+            startup.arm(timeout: timeout, onTimeout: onTimeout)
         }
     }
 
