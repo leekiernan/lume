@@ -82,6 +82,59 @@ The startup-timeout closure also now carries its `@MainActor @Sendable` function
 type explicitly. This removes our callback-conversion compiler warning without
 changing when the watchdog fires or adding a KSPlayer workaround.
 
+## Stateful ownership follow-up
+
+The next pass encapsulates six lifetimes without changing catalogue identity,
+profile ownership of viewing state, provider fallback or third-party engines:
+
+- **OpenSubtitles account.** `OpenSubtitlesSessionMachine` represents login,
+  connected/signed-out state and account generations. Local logout happens
+  before best-effort remote logout. Late login successes/errors, searches,
+  downloads and language-cache updates cannot publish into a retired session;
+  a successful account replacement also retires work begun during login.
+  Injectable client, keychain/cache boundaries enable suspended-request tests
+  without changing the household's credentials or subtitle files.
+- **Playback hosts.** Idempotent activity leases aggregate indexing pauses and
+  Multi-View QoE suspension across overlapping hosts. Now Playing selects one
+  host and fences asynchronous artwork/EPG/sampler work by stream generation.
+  Engine transports are host-qualified too: mounting a new host never borrows
+  an old host's transport. PiP teardown checks both host and engine identity,
+  including a replaced engine in the same host; stale callbacks cannot dismiss
+  the replacement.
+  Redirect tokens are host-local, and clearing a cache revokes in-flight probes.
+  These are distinct ownership policies, not a new all-purpose playback machine.
+- **Sports polling.** A shared visibility modifier owns an explicit subscription
+  per surface. Duplicate appearances/releases cannot alter another surface's
+  subscription. Disabling the feature stops work, retaining visible interests
+  so re-enabling can restart the loop; profile changes still cancel old work.
+- **Guide refresh.** `EPGRefreshMachine` extends the existing admission gate with
+  running-job identity and typed debt: enrichment, conditional guide or forced
+  guide. Provider work dominates enrichment, and forced recovery is not weakened
+  by a later trigger. Cancelling for a VOD content sync retains metadata-only
+  intent rather than promoting it to a provider download. Manual refresh still
+  bypasses content-sync admission. Publication fences and successful schedule
+  timestamps remain in the executor.
+- **VLC resume seek.** Waiting, issued and landed replace three parallel flags.
+  The machine retains VLC's seekability and two-second landing tolerance, and
+  rejects nonfinite/unrepresentable resume positions before `VLCTime` conversion.
+  AVPlayer's different readiness contract is deliberately not folded into it.
+- **Profile preferences.** `ProfilePreferencesSynchronizer` owns a single
+  snapshot/JSON baseline, import merges, apply suppression and debounced writes.
+  `ProfileManager` retains roster/selection/projection responsibilities. Existing
+  unknown-field preservation and pre-import cloud-seeding rules remain intact.
+  A failed preference save restores only its own model fields, leaving edits
+  dirty for a real retry without rolling back unrelated context mutations.
+
+The tests exercise stale completions using controlled suspension, overlapping
+leases, typed refresh debt and isolated preference stores. Physical playback,
+PiP and system-card presentation still require device validation; pure ownership
+tests do not claim to prove platform UI behavior.
+
+Suggested device checks are ordinary playback/resume, source/engine switches,
+PiP closure and system transport controls, overlapping player/Multi-View windows,
+and disabling/re-enabling Sports or switching profile while a sports surface is
+visible. No recovery build or storage migration is required for this pass.
+
 ## Accepted player diagnostics
 
 The reported startup messages do not currently accompany a playback failure.
