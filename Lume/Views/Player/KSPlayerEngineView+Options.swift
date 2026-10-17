@@ -178,18 +178,17 @@ enum KSPlayerOptionsFactory {
 
 extension KSPlayerEngineView {
     func makeOptions() -> KSOptions {
-        KSPlayerOptionsFactory.make(for: media)
+        let options = KSPlayerOptionsFactory.make(for: media)
+        let resource = playbackResource ?? resourceRequest
+        PlaybackCredentials.input(for: .ksPlayer, url: resource.url, headers: resource.headers).apply(to: options)
+        return options
     }
 }
 
-extension PlaybackCredentials.Input {
+nonisolated extension PlaybackCredentials.Input {
     /// KSPlayer's half of the input; the URL itself goes to `KSVideoPlayer`.
     func apply(to options: KSOptions) {
-        if let avFoundationHeaders {
-            options.avOptions["AVURLAssetHTTPHeaderFieldsKey"] = avFoundationHeaders
-        }
-        if sendsBasicFirst {
-            options.formatContextOptions["auth_type"] = "basic"
-        }
+        options.avOptions["AVURLAssetHTTPHeaderFieldsKey"] = avFoundationHeaders
+        options.formatContextOptions["auth_type"] = sendsBasicFirst ? "basic" : nil
     }
 }
