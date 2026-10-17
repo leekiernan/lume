@@ -56,6 +56,10 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
         TrackerImportPermit(account: lifetime)
     }
 
+    var operationPermit: TrackerAccountPermit {
+        TrackerAccountPermit(account: lifetime)
+    }
+
     /// A refresh token the service rejected. Another device may have consumed
     /// it and be exporting the replacement through iCloud, so don't retry it
     /// until a different pair arrives.

@@ -211,6 +211,7 @@ final class TraktService {
             return
         }
         let previous = scrobbleTask
+        let permit = session.operationPermit
         // The last scrobble — the stop sent as the player closes — usually
         // goes out as the app leaves the foreground (tvOS closes the player on
         // Home). Without asking for background time the request is suspended
@@ -220,8 +221,8 @@ final class TraktService {
         scrobbleTask = Task { [weak self] in
             defer { backgroundTime.end() }
             await previous?.value
-            guard !Task.isCancelled, let self else { return }
-            guard let accessToken = await session.validAccessToken() else {
+            guard !Task.isCancelled, let self, permit.isCurrent else { return }
+            guard let accessToken = await permit.accessToken(using: session.validAccessToken) else {
                 Logger.network.warning(
                     "Trakt scrobble \(action.rawValue, privacy: .public) dropped: no valid access token"
                 )

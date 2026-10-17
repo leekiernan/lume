@@ -17,25 +17,46 @@ final nonisolated class TrackerAccountLifetime: Sendable {
 
 nonisolated struct TrackerImportPermit {
     private let viewer: ProfileScope
-    private let account: TrackerAccountLifetime
-    private let generation: RequestToken
+    private let account: TrackerAccountPermit
 
     init(account: TrackerAccountLifetime) {
         viewer = .current
-        self.account = account
-        generation = account.current
+        self.account = TrackerAccountPermit(account: account)
     }
 
     var isCurrent: Bool {
-        viewer.isCurrent && account.current == generation
+        viewer.isCurrent && account.isCurrent
     }
 
     /// Revalidate after the executor hop, then serialize the synchronous local
     /// transaction with projection swaps. Never hold this across an await.
     func withCurrent<Value>(_ operation: () -> Value) -> Value? {
         ProfileProjectionGate.shared.withCurrent(viewer) {
-            guard account.current == generation else { return nil }
+            guard account.isCurrent else { return nil }
             return operation()
         } ?? nil
+    }
+}
+
+/// Transient account operations share the session generation, without adopting
+/// the import's viewer projection rule. Trakt's connection is still global.
+nonisolated struct TrackerAccountPermit {
+    private let account: TrackerAccountLifetime
+    private let generation: RequestToken
+
+    init(account: TrackerAccountLifetime) {
+        self.account = account
+        generation = account.current
+    }
+
+    var isCurrent: Bool {
+        account.current == generation
+    }
+
+    @MainActor
+    func accessToken(using fetch: () async -> String?) async -> String? {
+        guard !Task.isCancelled, isCurrent else { return nil }
+        let token = await fetch()
+        return !Task.isCancelled && isCurrent ? token : nil
     }
 }
