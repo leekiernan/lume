@@ -37,11 +37,14 @@ nonisolated struct OpenSubtitlesSessionMachine {
         state = .idle(session.map { Account(session: $0) }, error: nil)
     }
 
+    /// The attempt has a token of its own: the current account's permits stay
+    /// valid while it runs, and only a successful sign-in revokes them. A
+    /// failed or cancelled attempt leaves that account's downloads alone.
     mutating func beginSignIn() -> RequestToken? {
         guard !isSigningIn else { return nil }
-        generation = RequestToken()
-        state = .signingIn(generation, previous: account)
-        return generation
+        let request = RequestToken()
+        state = .signingIn(request, previous: account)
+        return request
     }
 
     @discardableResult

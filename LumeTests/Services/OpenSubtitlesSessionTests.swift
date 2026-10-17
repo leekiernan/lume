@@ -6,6 +6,23 @@ import Testing
 struct OpenSubtitlesSessionTests {
     private let account = OpenSubtitlesSession(token: "test-token", username: "viewer", host: "example.invalid", allowedDownloads: 10)
 
+    @Test func `a failed sign-in keeps the current account's work`() throws {
+        var machine = OpenSubtitlesSessionMachine()
+        machine.restore(account)
+        let permit = machine.generation
+        let attempt = machine.beginSignIn()
+        let request = try #require(attempt)
+        #expect(machine.accepts(permit))
+        machine.failSignIn(request, message: "rejected")
+        #expect(machine.accepts(permit))
+        #expect(machine.account?.session == account)
+
+        let next = machine.beginSignIn()
+        let replacement = try #require(next)
+        machine.finishSignIn(replacement, session: account)
+        #expect(!machine.accepts(permit))
+    }
+
     @Test func `logout revokes a suspended login and its error`() async {
         let gate = SubtitleTestGate<OpenSubtitlesSession>()
         let client = SubtitleTestClient()
