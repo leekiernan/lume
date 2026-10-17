@@ -17,6 +17,7 @@ final class ProfilePreferencesSynchronizer {
     private let currentProfileID: () -> UUID
     private let canSynchronize: () -> Bool
     private let canSeedCloud: () -> Bool
+    private let save: () throws -> Void
     private var baseline: Baseline?
     private var isApplyingPreferences = false
     private var saveTask: Task<Void, Never>?
@@ -28,13 +29,15 @@ final class ProfilePreferencesSynchronizer {
         defaults: UserDefaults = .standard,
         currentProfileID: @escaping () -> UUID,
         canSynchronize: @escaping () -> Bool,
-        canSeedCloud: @escaping () -> Bool
+        canSeedCloud: @escaping () -> Bool,
+        save: (() throws -> Void)? = nil
     ) {
         self.context = context
         self.defaults = defaults
         self.currentProfileID = currentProfileID
         self.canSynchronize = canSynchronize
         self.canSeedCloud = canSeedCloud
+        self.save = save ?? { try context.save() }
         observer = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification, object: defaults, queue: .main
         ) { [weak self] _ in
@@ -229,12 +232,19 @@ final class ProfilePreferencesSynchronizer {
             baseline = Baseline(snapshot: current, json: encoded)
             return
         }
+        let previousJSON = profile.preferencesJSON
+        let previousUpdatedAt = profile.updatedAt
         profile.preferencesJSON = encoded
         profile.updatedAt = Date()
         do {
-            try context.save()
+            try save()
             baseline = Baseline(snapshot: current, json: encoded)
         } catch {
+            // A failed save must remain dirty. Otherwise the next pass sees
+            // the unsaved encoded value and incorrectly calls it persisted.
+            // Restore only our fields, not unrelated changes in the context.
+            profile.preferencesJSON = previousJSON
+            profile.updatedAt = previousUpdatedAt
             Logger.sync.error("Saving synced profile preferences failed: \(error.localizedDescription)")
         }
     }

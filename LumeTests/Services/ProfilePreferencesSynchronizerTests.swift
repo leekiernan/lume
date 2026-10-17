@@ -5,6 +5,25 @@ import Testing
 
 @MainActor
 struct ProfilePreferencesSynchronizerTests {
+    @Test func `failed saves remain dirty and retry without changing unrelated fields`() throws {
+        let fixture = try PreferencesFixture()
+        defer { fixture.cleanUp() }
+        fixture.synchronizer.activate(for: fixture.scope.profileID, allowCloudSeed: true)
+        let previousJSON = fixture.profile.preferencesJSON
+        let previousUpdatedAt = fixture.profile.updatedAt
+        fixture.setOrder("favorites")
+        fixture.profile.name = "Edited name"
+        fixture.scope.failSave = true
+        fixture.synchronizer.flush(for: fixture.scope.profileID)
+        #expect(fixture.profile.preferencesJSON == previousJSON)
+        #expect(fixture.profile.updatedAt == previousUpdatedAt)
+        #expect(fixture.profile.name == "Edited name")
+        fixture.scope.failSave = false
+        fixture.synchronizer.flush(for: fixture.scope.profileID)
+        #expect(try fixture.saved().strings[fixture.orderKey] == "favorites")
+        #expect(fixture.scope.saveAttempts == 2)
+    }
+
     @Test func `an empty cloud row waits for a completed import before seeding`() throws {
         let fixture = try PreferencesFixture()
         defer { fixture.cleanUp() }
@@ -95,6 +114,8 @@ struct ProfilePreferencesSynchronizerTests {
 private final class PreferencesTestScope {
     var profileID: UUID
     var canSynchronize = true
+    var failSave = false
+    var saveAttempts = 0
     init(profileID: UUID) {
         self.profileID = profileID
     }
@@ -125,9 +146,15 @@ private final class PreferencesFixture {
         try container.mainContext.save()
         let scope = PreferencesTestScope(profileID: profile.id)
         self.scope = scope
+        let context = container.mainContext
         synchronizer = ProfilePreferencesSynchronizer(
             context: container.mainContext, defaults: defaults,
-            currentProfileID: { scope.profileID }, canSynchronize: { scope.canSynchronize }, canSeedCloud: { true }
+            currentProfileID: { scope.profileID }, canSynchronize: { scope.canSynchronize }, canSeedCloud: { true },
+            save: {
+                scope.saveAttempts += 1
+                if scope.failSave { throw PreferencesTestError.forced }
+                try context.save()
+            }
         )
     }
 
@@ -147,3 +174,5 @@ private final class PreferencesFixture {
         defaults.removePersistentDomain(forName: suite)
     }
 }
+
+private nonisolated enum PreferencesTestError: Error { case forced }
