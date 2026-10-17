@@ -169,7 +169,7 @@ final class DownloadManager: NSObject {
             XtreamClient.buildMovieURL(for: movie, playlist: playlist)
         }) else { return }
 
-        let ext = movie.containerExtension ?? "mp4"
+        let ext = DownloadFileIdentity.safeExtension(movie.containerExtension)
         let filename = "\(Self.sanitize(id)).\(ext)"
         idToFilename[id] = filename
         enqueue(PendingDownload(id: id, title: movie.name, url: url, filename: filename))
@@ -185,22 +185,11 @@ final class DownloadManager: NSObject {
             XtreamClient.buildEpisodeURL(for: episode, playlist: playlist)
         }) else { return }
 
-        let ext = episode.containerExtension
+        let ext = DownloadFileIdentity.safeExtension(episode.containerExtension)
         let filename = "\(Self.sanitize(id)).\(ext)"
         let title = episode.series.map { "\($0.name) S\(episode.seasonNum)E\(episode.episodeNum)" } ?? episode.title
         idToFilename[id] = filename
         enqueue(PendingDownload(id: id, title: title, url: url, filename: filename))
-    }
-
-    /// Where to download an item from, for the sources `supportsDownloads`
-    /// admits: an m3u row carries its URL, an Xtream one is built from the
-    /// account credentials. `nil` for every other source.
-    static func downloadURL(direct: String?, playlist: Playlist, xtream: () -> URL?) -> URL? {
-        switch playlist.sourceType {
-        case .m3u: direct.flatMap(URL.init(string:))
-        case .xtream: xtream()
-        case .stalker, .webdav, .jellyfin, .emby, .plex: nil
-        }
     }
 
     func cancelDownload(id: String) {
@@ -354,11 +343,6 @@ final class DownloadManager: NSObject {
             )
         }
     }
-
-    nonisolated static func sanitize(_ id: String) -> String {
-        id.replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: ":", with: "_")
-    }
 }
 
 // MARK: - URLSessionDownloadDelegate
@@ -405,7 +389,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
     ) {
         let taskID = downloadTask.taskIdentifier
         let responseURL = downloadTask.response?.url ?? downloadTask.currentRequest?.url
-        let ext = responseURL?.pathExtension.isEmpty == false ? responseURL!.pathExtension : "mp4"
+        let ext = DownloadFileIdentity.safeExtension(responseURL?.pathExtension)
 
         // Resolve the destination from the task itself rather than from any map
         // on the main actor: with a background session this callback can arrive

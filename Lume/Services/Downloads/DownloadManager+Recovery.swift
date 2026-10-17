@@ -35,8 +35,7 @@ extension DownloadManager {
     }
 
     nonisolated static func isDownloadFile(_ url: URL, for sanitizedID: String) -> Bool {
-        let base = url.deletingPathExtension().lastPathComponent
-        return base == sanitizedID || base.hasPrefix(sanitizedID + ".")
+        DownloadFileIdentity.matches(url, stem: sanitizedID)
     }
 
     /// Settles catalog items still marked `pending`/`downloading` that the
