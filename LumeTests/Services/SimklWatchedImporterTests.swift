@@ -17,6 +17,20 @@ struct SimklWatchedImporterTests {
         try ModelContext(makeTestContainer())
     }
 
+    @Test func `unchanged parked history does not rewrite its file`() throws {
+        let context = try makeContext()
+        let series = Series(id: "parked-show", seriesId: 1, name: "Show")
+        series.tmdbId = 300
+        context.insert(series)
+        _ = SimklWatchedImporter.apply(movies: [], shows: [showProgress()], in: context)
+        let file = try #require(SimklPendingWatchedStore.fileURL)
+        let sentinel = Date(timeIntervalSince1970: 1000)
+        try FileManager.default.setAttributes([.modificationDate: sentinel], ofItemAtPath: file.path)
+        _ = SimklWatchedImporter.apply(movies: [], shows: [showProgress()], in: context)
+        let modified = try FileManager.default.attributesOfItem(atPath: file.path)[.modificationDate] as? Date
+        #expect(modified == sentinel)
+    }
+
     private let watchedDate = ISO8601DateFormatter().date(from: "2014-10-11T17:00:54Z")
 
     /// A Simkl show reporting season 1 episode 2 as watched.

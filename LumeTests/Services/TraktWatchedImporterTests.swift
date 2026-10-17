@@ -78,6 +78,20 @@ struct TraktWatchedImporterTests {
         TraktWatchedMovie(movie: TraktWatchedMedia(ids: TraktIDs(tmdb: tmdb, trakt: nil)), lastWatchedAt: lastWatchedAt)
     }
 
+    @Test func `unchanged parked history does not rewrite its file`() throws {
+        let context = try makeContext()
+        let series = Series(id: "parked-show", seriesId: 1, name: "Show")
+        series.tmdbId = 300
+        context.insert(series)
+        _ = TraktWatchedImporter.apply(movies: [], shows: [showProgress()], in: context)
+        let file = try #require(TraktPendingWatchedStore.fileURL)
+        let sentinel = Date(timeIntervalSince1970: 1000)
+        try FileManager.default.setAttributes([.modificationDate: sentinel], ofItemAtPath: file.path)
+        _ = TraktWatchedImporter.apply(movies: [], shows: [showProgress()], in: context)
+        let modified = try FileManager.default.attributesOfItem(atPath: file.path)[.modificationDate] as? Date
+        #expect(modified == sentinel)
+    }
+
     @Test func `marks matching movies watched and leaves the rest untouched`() throws {
         let context = try makeContext()
         let match = makeMovie(id: "a", tmdbId: 100)

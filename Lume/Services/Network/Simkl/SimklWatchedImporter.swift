@@ -154,8 +154,11 @@ nonisolated enum SimklWatchedImporter {
             if series.episodes.isEmpty {
                 // Nothing to mark yet. Park it for `Series.insertEpisodes`, which
                 // runs when the detail screen fetches the episodes anyway.
-                pending[tmdb] = progress.parked
-                pendingChanged = true
+                let updated = progress.parked
+                if pending[tmdb] != updated {
+                    pending[tmdb] = updated
+                    pendingChanged = true
+                }
                 queued += 1
             } else {
                 marked += markEpisodes(of: series, using: progress, profileID: pendingScope.profileID)
