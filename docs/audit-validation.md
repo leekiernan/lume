@@ -63,6 +63,40 @@ a claim that every possible code path or third-party engine has been proved.
   shared/exclusive global-state protocol. A profile-switch test must not retire
   a different test's writer; storage-wide clears require exclusive access.
 
+## Follow-up dead-code cleanup
+
+A reference sweep of 913 shipping Swift files, cross-checked against unit tests,
+performance tests and scripts, identified seven declarations without callers:
+
+- `M3UClient.downloadEPG`, superseded by the conditional `downloadGuide` path.
+- `SportsLeague.withLogo` and `TopShelfSettings.followsActiveProfile`.
+- `View.posterTitleFrame`, the `MovieGenreView` and `SeriesGenreView` aliases,
+  and the unused `TrackerHistoryMutation` alias.
+
+These are removed in separate, focused commits. The genre-grid documentation
+now lives on `CatalogGenreView`, which the app actually opens. Framework-invoked
+callbacks and test hooks were not treated as dead code merely because shipping
+call sites do not name them. No persisted fields or decoder contracts changed.
+
+## Accepted player diagnostics
+
+The reported startup messages do not currently accompany a playback failure.
+Per the requested complexity trade-off, this pass adds no KSPlayer fork,
+mounting adapter, method interception or log suppression to work around them:
+
+- KSPlayer's constructor still calls synchronous audio-session APIs on the main
+  thread after Lume's off-main activation. `PlaybackAudioSession` serializes the
+  app's ownership; it does not control those library calls. Its comment now
+  states that boundary rather than implying pre-configuration prevents them.
+- KSPlayer's coordinator publishes `isMaskShow` during synchronous preparation.
+  This is the source-derived likely path for the view-update publication warning;
+  deferring Lume's callbacks does not defer the coordinator's own publications.
+  Revisit if playback or UI symptoms appear, rather than asserting this warning
+  is harmless in every situation.
+- `preparing` and `prepareToPlay` are ordinary lifecycle diagnostics. FFmpeg's
+  HLS probe warns for legacy `application/x-mpegurl` or `audio/x-mpegurl` MIME
+  types and then accepts the input; that warning is not a rejected stream.
+
 ## Deliberate boundaries and next measurements
 
 The enhanced proxy remains optional. This pass does not alter provider catalogue

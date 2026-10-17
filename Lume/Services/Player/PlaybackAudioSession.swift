@@ -23,9 +23,9 @@ actor PlaybackAudioSession {
 
         #if os(iOS) || os(tvOS)
             let session = AVAudioSession.sharedInstance()
-            // The same category, mode and routing policy KSPlayer sets as it
-            // opens a stream, so its own synchronous main-thread call finds
-            // nothing to change.
+            // Match KSPlayer's category, mode and routing policy. The library
+            // still activates synchronously from its constructor; this actor
+            // serializes our ownership, not the library's internal calls.
             #if os(tvOS)
                 try? session.setCategory(.playback, mode: .moviePlayback, policy: .longFormAudio, options: [])
             #else
