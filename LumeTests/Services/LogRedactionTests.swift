@@ -13,6 +13,20 @@ import Foundation
 import Testing
 
 struct LogRedactionTests {
+    @Test(arguments: [
+        "Authorization: Bearer bearer-secret",
+        "authorization: bearer bearer-secret",
+        "X-Plex-Token: plex-secret",
+        "\"X-Emby-Token\":\"emby-secret\"",
+        "Authorization: MediaBrowser Client=\"Lume\", Token=\"jellyfin-secret\""
+    ])
+    func `strips explicit token headers without needing a URL`(message: String) {
+        let scrubbed = LogRedaction.scrubURLs(in: message)
+        #expect(!scrubbed.contains("-secret"))
+        #expect(scrubbed.contains("<redacted>"))
+        #expect(LogRedaction.scrubURLs(in: scrubbed) == scrubbed)
+    }
+
     @Test func `strips xtream credentials in path`() {
         let message = "open of 'http://iptv.example.com:8080/live/myuser/mypass/1234.ts' failed"
         let scrubbed = LogRedaction.scrubURLs(in: message)

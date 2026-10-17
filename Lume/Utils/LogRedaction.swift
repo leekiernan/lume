@@ -35,6 +35,9 @@ nonisolated enum LogRedaction {
         if scrubbed.contains("Basic ") {
             scrubbed = scrubbed.replacing(basicAuthPattern, with: "Basic <redacted>")
         }
+        scrubbed = scrubbed.replacing(bearerAuthPattern) { "\($0.output.scheme) <redacted>" }
+        scrubbed = scrubbed.replacing(mediaServerHeaderPattern) { "\($0.output.name): <redacted>" }
+        scrubbed = scrubbed.replacing(mediaBrowserTokenPattern) { "\($0.output.prefix)<redacted>\($0.output.suffix)" }
         return scrubbed
     }
 
@@ -132,6 +135,9 @@ nonisolated enum LogRedaction {
     /// value. The 8-character floor keeps ordinary prose ("Basic auth failed")
     /// readable; anything longer is redacted whether or not it decodes.
     private static let basicAuthPattern = /Basic\s+[A-Za-z0-9+\/=_\-]{8,}/
+    private static let bearerAuthPattern = /(?i)(?<scheme>Bearer)\s+[^\s'",;<>]+/
+    private static let mediaServerHeaderPattern = /(?i)(?<name>X-Plex-Token|X-Emby-Token)["']?\s*[:=]\s*["']?[^\s'",;<>}\]]+/
+    private static let mediaBrowserTokenPattern = /(?i)(?<prefix>\bToken\s*=\s*["'])[^"']+(?<suffix>["'])/
 }
 
 /// An error type with a hand-written, credential-free diagnostic summary.
