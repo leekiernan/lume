@@ -134,38 +134,10 @@ nonisolated extension PlayableMedia {
     // When a local file is available (downloaded for offline viewing), it takes
     // priority over the remote URL.
 
-    /// The Basic-auth header a WebDAV share needs at playback time. WebDAV
-    /// catalog rows store a credential-free URL, so the credential has to
-    /// travel alongside it rather than inside `directURL` / `directSource`.
-    /// `nil` for every other source type, and `nil` for an anonymous share.
-    private static func webdavHeaders(for playlist: Playlist) -> [String: String]? {
-        guard playlist.sourceType == .webdav, !playlist.username.isEmpty else { return nil }
-        let token = Data("\(playlist.username):\(playlist.password)".utf8).base64EncodedString()
-        return ["Authorization": "Basic \(token)"]
-    }
-
-    /// The session-token header a Jellyfin or Emby server needs at playback
-    /// time. The stored stream URLs are token-free on purpose (see the
-    /// property comment), so the session authenticates the request instead.
-    /// `nil` before the playlist's first sync, which is what issues the
-    /// session.
-    private static func jellyfinHeaders(for playlist: Playlist) -> [String: String]? {
-        guard playlist.sourceType == .jellyfin || playlist.sourceType == .emby else { return nil }
-        return JellyfinClient.playbackHeaders(token: playlist.jellyfinAccessToken)
-    }
-
-    /// The `X-Plex-Token` header a Plex server needs at playback time. `nil`
-    /// for a server that allows unauthenticated access on the local network,
-    /// which stores no token at all.
-    private static func plexHeaders(for playlist: Playlist) -> [String: String]? {
-        guard playlist.sourceType == .plex else { return nil }
-        return PlexClient.playbackHeaders(token: playlist.plexAccessToken)
-    }
-
-    /// The auth headers for the playlist's source, if it authenticates per
-    /// request rather than per URL. `nil` for the URL-credential sources.
+    /// Auth belongs to a validated source snapshot, not to a loose combination
+    /// of optional columns interpreted independently by each playback caller.
     private static func authHeaders(for playlist: Playlist) -> [String: String]? {
-        webdavHeaders(for: playlist) ?? jellyfinHeaders(for: playlist) ?? plexHeaders(for: playlist)
+        playlist.connection?.playbackHeaders
     }
 
     static func from(movie: Movie, playlist: Playlist) -> PlayableMedia? {

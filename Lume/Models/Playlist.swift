@@ -282,8 +282,8 @@ extension Playlist {
     }
 
     /// The only form of `serverURL` that may be rendered on screen: any
-    /// userinfo credentials are stripped, so a URL that carries them cannot be
-    /// shown, screenshotted or read aloud.
+    /// credentials in userinfo, paths and queries are omitted, so they cannot
+    /// be shown, screenshotted or read aloud.
     var displayURL: String {
         DisplayAddress.origin(of: serverURL)
     }

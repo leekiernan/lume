@@ -160,7 +160,8 @@ actor ContentSyncManager {
         for playlist: Playlist,
         request: ProviderSyncRequest
     ) async throws -> Set<AppArea> {
-        let sourceType = playlist.sourceType
+        guard let connection = playlist.connection else { throw SyncError.notImplemented }
+        let sourceType = connection.sourceType
         let requestedAreas = request.syncAreas ?? Self.syncAreas(
             enabled: AppAreaSettings.enabledContentAreas(disabledRaw: AppAreaSettings.storedValue),
             repairing: request.repairingAreas
@@ -186,7 +187,7 @@ actor ContentSyncManager {
             try await performWebDAVSync(playlist: playlist, playlistId: request.playlistID, progress: request.progress, areas: areas)
         case .jellyfin, .emby:
             // Both speak the same API; the flavour only tags the rows.
-            let flavor = MediaServerFlavor(sourceType: sourceType) ?? .jellyfin
+            guard case let .mediaServer(flavor, _, _, _) = connection else { throw SyncError.notImplemented }
             try await performMediaServerSync(
                 playlist: playlist, playlistId: request.playlistID, flavor: flavor, progress: request.progress, areas: areas
             )

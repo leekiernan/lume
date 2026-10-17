@@ -259,13 +259,13 @@ final nonisolated class XtreamClient: Sendable {
     /// Builds a playback URL for a movie
     static func buildMovieURL(for movie: Movie, playlist: Playlist) -> URL? {
         let ext = movie.containerExtension ?? "mp4"
-        return URL(string: "\(playlist.serverURL)/movie/\(playlist.username)/\(playlist.password)/\(movie.streamId).\(ext)")
+        return playlist.connection?.xtreamStream(path: ["movie", "\(movie.streamId).\(ext)"])
     }
 
     /// Builds a playback URL for an episode
     static func buildEpisodeURL(for episode: Episode, playlist: Playlist) -> URL? {
         let ext = episode.containerExtension
-        return URL(string: "\(playlist.serverURL)/series/\(playlist.username)/\(playlist.password)/\(episode.episodeId).\(ext)")
+        return playlist.connection?.xtreamStream(path: ["series", "\(episode.episodeId).\(ext)"])
     }
 
     /// Builds a playback URL for a live stream. `format` overrides the
@@ -273,7 +273,7 @@ final nonisolated class XtreamClient: Sendable {
     /// falling back to HLS.
     static func buildLiveStreamURL(for stream: LiveStream, playlist: Playlist, format: StreamFormat? = nil) -> URL? {
         let ext = Self.resolvedFormat(format, playlist: playlist, fallback: .m3u8).rawValue
-        return URL(string: "\(playlist.serverURL)/live/\(playlist.username)/\(playlist.password)/\(stream.streamId).\(ext)")
+        return playlist.connection?.xtreamStream(path: ["live", "\(stream.streamId).\(ext)"])
     }
 
     /// An explicit argument or playlist choice wins. On automatic, `fallback`
@@ -322,7 +322,7 @@ final nonisolated class XtreamClient: Sendable {
         // explicit playlist/argument choice, but prefer TS when it is unknown.
         let ext = Self.resolvedFormat(format, playlist: playlist, fallback: .tsStream).rawValue
         let startString = Self.timeshiftStartString(for: start, playlist: playlist)
-        return URL(string: "\(playlist.serverURL)/timeshift/\(playlist.username)/\(playlist.password)/\(durationMinutes)/\(startString)/\(stream.streamId).\(ext)")
+        return playlist.connection?.xtreamStream(path: ["timeshift", "\(durationMinutes)", startString, "\(stream.streamId).\(ext)"])
     }
 }
 
