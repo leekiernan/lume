@@ -89,6 +89,10 @@ final class PlaybackResourcePreparation {
     private var generation = RequestToken()
     private let resolve: @Sendable (PlaybackResource) async throws -> PlaybackResource
 
+    var isPreparing: Bool {
+        task != nil
+    }
+
     init(resolve: @escaping @Sendable (PlaybackResource) async throws -> PlaybackResource = { try await PlaybackResourceResolver.resolve($0) }) {
         self.resolve = resolve
     }

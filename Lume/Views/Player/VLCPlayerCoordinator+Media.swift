@@ -13,14 +13,31 @@ import VLCKit
 extension VLCPlayerCoordinator {
     /// Every rebuild path goes through here: a fresh `VLCMedia` invalidates the
     /// track list, so the preferred-language latch must reset with it.
-    func installMedia(_ url: URL, isLive: Bool) {
+    func installMedia(_ url: URL, isLive: Bool, startStats: Bool = false) {
+        cancelStartupWatchdog()
+        if httpHeaders?.isEmpty == false {
+            mediaPlayer.stop()
+            isPlaying = false
+        }
+        resourcePreparation.prepare(.init(url: url, headers: httpHeaders), onReady: { [weak self] resource in
+            guard let self else { return }
+            if !hasStartedPlayback { startStartupWatchdog() }
+            installResolvedMedia(resource, isLive: isLive)
+            mediaPlayer.play()
+            applyDeinterlace()
+            isPlaying = true
+            if startStats { startStatsLogging() }
+        }, onFailure: { [weak self] in self?.reportFailure() })
+    }
+
+    private func installResolvedMedia(_ resource: PlaybackResource, isLive: Bool) {
         // The credential-bearing MRL exists only for this call: it is never
         // stored back onto `mediaURL`, so it cannot reach a deep link, a Cast
         // payload, a download task description or window-restoration state.
         // VLCKit sends no headers, so every header-carrying source is folded
         // into the URL here: WebDAV's Basic userinfo, Jellyfin/Emby's api_key,
         // Plex's X-Plex-Token.
-        let media = VLCMedia(url: PlaybackCredentials.input(for: .vlc, url: url, headers: httpHeaders).url)
+        let media = VLCMedia(url: PlaybackCredentials.input(for: .vlc, url: resource.url, headers: resource.headers).url)
         applyMediaOptions(to: media, isLive: isLive)
         mediaPlayer.media = media
         // libvlc draws VLC's subtitles itself; size is the one part of the
