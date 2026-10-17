@@ -2,8 +2,12 @@ import Foundation
 @testable import Lume
 import Testing
 
-@MainActor
-struct StreamRedirectTests {
+/// Wall-clock bounds, so off the main actor: `resolve` runs on its caller's
+/// executor, and under a full parallel run a `@MainActor` caller's clock also
+/// counted seconds of waiting for a main thread other suites kept busy.
+struct StreamRedirectTimingTests {
+    private let provider = URL(string: "https://provider.test/series/user/pass/42.mkv")!
+
     @Test func `a server ignoring Range does not have to finish its body`() async {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [HeaderOnlyStreamProtocol.self]
@@ -15,13 +19,17 @@ struct StreamRedirectTests {
     }
 
     @Test func `a cancelled probe does not wait for its timeout`() async {
+        let provider = provider
         let start = ContinuousClock.now
-        let task = Task { await StreamRedirect.resolve(provider) }
+        let task = Task.detached { await StreamRedirect.resolve(provider) }
         task.cancel()
         #expect(await task.value == nil)
         #expect(start.duration(to: .now) < .seconds(2))
     }
+}
 
+@MainActor
+struct StreamRedirectTests {
     private let provider = URL(string: "https://provider.test/series/user/pass/42.mkv")!
 
     private func media(
