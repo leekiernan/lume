@@ -27,6 +27,7 @@ struct FullScreenPlayerView: View {
     /// to reject a stale `onDisappear` after another player has already opened.
     @State var audioSessionOwner = UUID()
     @State var playbackLease = ActivityLease()
+    @State private var redirectCache = StreamRedirectCache()
     /// The engine mounts once the session is active, so KSPlayer's own
     /// synchronous main-thread activation finds it already done, and once a
     /// KSPlayer stream's provider redirect is resolved (`StreamRedirect`).
@@ -312,7 +313,7 @@ struct FullScreenPlayerView: View {
             // Resolved alongside the activation: the round trip is one FFmpeg
             // would otherwise make on every read of the opening file.
             let opening = engine == .ksPlayer ? activeMedia : nil
-            async let redirect: Void = { if let opening { await StreamRedirectCache.shared.prepare(opening) } }()
+            async let redirect: Void = { if let opening { await redirectCache.prepare(opening) } }()
             await configureAudioSessionForPlayback()
             await redirect
             guard !Task.isCancelled else { return }
@@ -406,7 +407,7 @@ struct FullScreenPlayerView: View {
             session.send(.leave(.dismiss))
             NowPlayingService.shared.endSession(owner: playbackLease)
             releaseAudioSession()
-            StreamRedirectCache.shared.clear()
+            redirectCache.clear()
             ContentIndexingService.shared.endPlayback(owner: playbackLease)
             endReviewSession(isChildWatching: profileManager?.activeProfileIsChild ?? false)
         }
@@ -476,7 +477,8 @@ struct FullScreenPlayerView: View {
                 usesQuickStartupTimeout: hasFallbackEngine,
                 onPlaybackFailed: engineFailedToStart,
                 onSelectMedia: switchMedia,
-                onCompleteCurrentItem: completeActiveEpisode, onRemoteAdvance: remoteAdvanceHandler, onCatchupSeek: handleCatchupSeek, session: session
+                onCompleteCurrentItem: completeActiveEpisode, onRemoteAdvance: remoteAdvanceHandler, onCatchupSeek: handleCatchupSeek,
+                session: session, redirectCache: redirectCache
             )
             .id(engineIdentity)
         case .vlcKit:

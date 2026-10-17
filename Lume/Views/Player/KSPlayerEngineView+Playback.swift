@@ -428,7 +428,7 @@ extension KSPlayerEngineView {
     /// resolved for this session (`StreamRedirectCache`), else `media.url`.
     /// Stable across view updates — a changed URL rebuilds the session.
     var streamURL: URL {
-        StreamRedirectCache.shared.target(for: media.url)
+        redirectCache?.target(for: media.url) ?? media.url
     }
 
     /// Whether the stream was opened on a redirect token, which a reconnect

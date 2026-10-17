@@ -65,6 +65,8 @@ struct KSPlayerEngineView: View {
     var onCatchupSeek: ((CatchupSeek) -> Void)?
     /// The full-screen session this engine reports to; nil in Multi-View.
     var session: PlaybackSession?
+    /// Resolved tokens belong to this presented host, never another window.
+    var redirectCache: StreamRedirectCache?
 
     @StateObject var coordinator = KSVideoPlayer.Coordinator()
     /// KSPlayer's coordinator is the library's, so the catch-up routing lives

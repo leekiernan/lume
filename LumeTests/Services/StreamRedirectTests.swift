@@ -83,6 +83,37 @@ struct StreamRedirectTests {
         await cache.prepare(live)
         #expect(cache.target(for: live.url) == live.url)
     }
+
+    @Test func `two hosts keep independent tokens for the same provider URL`() async throws {
+        let firstTarget = try #require(URL(string: "https://cdn.test/first"))
+        let secondTarget = try #require(URL(string: "https://cdn.test/second"))
+        let first = StreamRedirectCache(resolve: { _ in firstTarget })
+        let second = StreamRedirectCache(resolve: { _ in secondTarget })
+        await first.prepare(media())
+        await second.prepare(media())
+        first.clear()
+        #expect(first.target(for: provider) == provider)
+        #expect(second.target(for: provider) == secondTarget)
+    }
+
+    @Test func `a cleared host rejects a late redirect result`() async {
+        let (arrivals, arrived) = AsyncStream<Void>.makeStream()
+        var completion: CheckedContinuation<URL?, Never>?
+        let cache = StreamRedirectCache(resolve: { _ in
+            await withCheckedContinuation {
+                completion = $0
+                arrived.yield(())
+            }
+        })
+        let preparing = Task { await cache.prepare(media()) }
+        for await _ in arrivals {
+            break
+        }
+        cache.clear()
+        completion?.resume(returning: URL(string: "https://cdn.test/expired"))
+        await preparing.value
+        #expect(cache.target(for: provider) == provider)
+    }
 }
 
 private final nonisolated class HeaderOnlyStreamProtocol: URLProtocol {
