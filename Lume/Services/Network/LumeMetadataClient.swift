@@ -132,12 +132,12 @@ actor LumeMetadataClient {
         do {
             var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 5)
             if let etag = cached?.etag { request.setValue(etag, forHTTPHeaderField: "If-None-Match") }
-            var (data, response) = try await BoundedResponse.data(for: request, session: session, limit: Self.maximumBytes)
+            var (data, response) = try await BoundedResponse.data(for: request, session: session, limit: Self.maximumBytes, bodyPolicy: .successful)
             if (response as? HTTPURLResponse)?.statusCode == 304, cached == nil {
                 // One unconditional recovery; a 304 without retained bytes is
                 // not a successful read and must never establish local proof.
                 request.setValue(nil, forHTTPHeaderField: "If-None-Match")
-                (data, response) = try await BoundedResponse.data(for: request, session: session, limit: Self.maximumBytes)
+                (data, response) = try await BoundedResponse.data(for: request, session: session, limit: Self.maximumBytes, bodyPolicy: .successful)
             }
             try Task.checkCancellation()
             guard let response = response as? HTTPURLResponse else { return .unavailable }

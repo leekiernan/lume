@@ -219,7 +219,7 @@ actor LumeProxyCapabilityStore {
     private static func fetch(_ url: URL, session: URLSession) async -> Negotiation {
         do {
             let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 3)
-            let (data, response) = try await BoundedResponse.data(for: request, session: session, limit: 65536)
+            let (data, response) = try await BoundedResponse.data(for: request, session: session, limit: 65536, bodyPolicy: .successful)
             guard let response = response as? HTTPURLResponse else { return Negotiation(state: .unavailable) }
             if response.statusCode == 404 {
                 Logger.network.info("Proxy capabilities: unsupported")

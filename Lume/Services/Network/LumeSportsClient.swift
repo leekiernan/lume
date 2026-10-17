@@ -101,7 +101,7 @@ actor LumeSportsClient {
             flight = Flight(task: Task {
                 do {
                     let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 3)
-                    let (data, response) = try await BoundedResponse.data(for: request, session: session, limit: Self.maximumBytes)
+                    let (data, response) = try await BoundedResponse.data(for: request, session: session, limit: Self.maximumBytes, bodyPolicy: .successful)
                     let status = (response as? HTTPURLResponse)?.statusCode ?? 0
                     guard status == 200 else { return Payload(hostDown: status >= 500) }
                     return Payload(batch: LumeSportsBatch.decode(data), byteCount: data.count)

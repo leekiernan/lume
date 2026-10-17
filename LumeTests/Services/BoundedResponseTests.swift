@@ -53,4 +53,70 @@ struct BoundedResponseTests {
         read.cancel()
         await #expect(throws: URLError.self) { _ = try await read.value }
     }
+
+    @Test func `a caller cancelled before starting always completes`() async throws {
+        let (server, request) = try await serve(.init(body: "unused"))
+        defer { server.stop() }
+        for _ in 0 ..< 100 {
+            let read = Task {
+                withUnsafeCurrentTask { $0?.cancel() }
+                return try await BoundedResponse.data(for: request, session: .shared, limit: 4096)
+            }
+            await #expect { _ = try await read.value } throws: { error in
+                (error as? URLError)?.code == .cancelled
+            }
+        }
+    }
+
+    @Test(arguments: ["HEAD", "GET"])
+    func `bodyless responses may advertise a larger representation`(method: String) async throws {
+        let (server, original) = try await serve(.init(status: method == "HEAD" ? 200 : 304,
+                                                       headers: ["Content-Length": "65536"], declaresLength: false))
+        defer { server.stop() }
+        var request = original
+        request.httpMethod = method
+        if method == "GET" { request.setValue("\"cached\"", forHTTPHeaderField: "If-None-Match") }
+        let (data, response) = try await BoundedResponse.data(for: request, session: .shared, limit: 4096)
+        #expect(data.isEmpty)
+        #expect((response as? HTTPURLResponse)?.statusCode == (method == "HEAD" ? 200 : 304))
+    }
+
+    @Test(arguments: [404, 503], [true, false])
+    func `discarding error bodies preserves their HTTP status`(status: Int, declaresLength: Bool) async throws {
+        let (server, request) = try await serve(.init(status: status, body: String(repeating: "x", count: 65537), declaresLength: declaresLength))
+        defer { server.stop() }
+        let (data, response) = try await BoundedResponse.data(for: request, session: .shared, limit: 4096, bodyPolicy: .successful)
+        #expect(data.isEmpty)
+        #expect((response as? HTTPURLResponse)?.statusCode == status)
+    }
+
+    @Test func `the sessions redirect delegate still strips foreign credentials`() async throws {
+        let log = RequestLog()
+        let destination = try GuideHTTPServer { request in
+            log.append(request)
+            return .init(body: "safe")
+        }
+        let target = try await destination.start()
+        defer { destination.stop() }
+        let (origin, original) = try await serve(.init(status: 302, headers: ["Location": target.absoluteString], body: ""))
+        defer { origin.stop() }
+        var request = original
+        request.setValue("private-token", forHTTPHeaderField: "X-Plex-Token")
+        let session = URLSession(configuration: .ephemeral, delegate: ArtworkRedirectPolicy.shared, delegateQueue: nil)
+        defer { session.invalidateAndCancel() }
+        let (body, _) = try await BoundedResponse.data(for: request, session: session, limit: 4096)
+        #expect(body == Data("safe".utf8))
+        #expect(!log.requests.isEmpty)
+        #expect(!log.requests.contains { $0.contains("private-token") })
+    }
+
+    @Test func `the limit applies after HTTP decompression`() async throws {
+        let encoded = "H4sIAAAAAAAAA+3BgQAAAACAINb9JRapCgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGr/kSDDAAABAA=="
+        let body = try #require(Data(base64Encoded: encoded))
+        let (server, request) = try await serve(.init(headers: ["Content-Encoding": "gzip"], bodyBytes: body))
+        defer { server.stop() }
+        await #expect(throws: BoundedResponse.TooLarge(limit: 4096)) {
+            _ = try await BoundedResponse.data(for: request, session: .shared, limit: 4096)
+        }
+    }
 }
