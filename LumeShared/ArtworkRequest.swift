@@ -8,6 +8,9 @@ nonisolated struct ArtworkRequest: Hashable {
     let url: URL
     let headers: [String: String]
     let cacheIdentity: String
+    /// Credential-sensitive in-flight/failure key, computed once. Successful
+    /// decoded/disk images use cacheIdentity and survive token rotation.
+    let transportIdentity: String
 
     init?(url original: URL, accountScope: String? = nil) {
         guard ["http", "https"].contains(original.scheme?.lowercased() ?? ""), original.host != nil,
@@ -45,21 +48,16 @@ nonisolated struct ArtworkRequest: Hashable {
         let scope = accountScope ?? authentication
         // Preserve existing public-image cache entries and offline artwork.
         // Recognized private requests use opaque, account-isolated identities.
-        cacheIdentity = headers.isEmpty && accountScope == nil && !Self.carriesCredentials(original)
+        let isPublic = headers.isEmpty && accountScope == nil && !Self.carriesCredentials(original)
+        cacheIdentity = isPublic
             ? original.absoluteString : Self.digest(identityURL.absoluteString + "\n" + scope)
+        transportIdentity = isPublic ? cacheIdentity : Self.digest(cacheIdentity + "\n" + url.absoluteString + "\n" + authentication)
     }
 
     var request: URLRequest {
         var request = URLRequest(url: url)
         request.allHTTPHeaderFields = headers
         return request
-    }
-
-    /// In-flight work and failures depend on the current credential. Decoded
-    /// and disk caches do not: a rotation should retry a failed request without
-    /// discarding successfully loaded artwork for the same account.
-    var transportIdentity: String {
-        Self.digest(cacheIdentity + "\n" + url.absoluteString + "\n" + headers.sorted { $0.key < $1.key }.description)
     }
 
     static func carriesCredentials(_ url: URL) -> Bool {

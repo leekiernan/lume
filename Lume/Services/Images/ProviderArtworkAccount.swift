@@ -14,8 +14,7 @@ nonisolated struct ProviderArtworkAccount: Hashable {
         let account: String
         switch connection {
         case let .mediaServer(_, _, _, session):
-            guard let session else { return nil }
-            account = session.userId
+            account = session?.userId ?? "unavailable"
         case let .plex(_, credentials, token):
             // Plex's credential-only/manual-token setup has no stable account
             // identifier. Keep conservative token isolation for that case;

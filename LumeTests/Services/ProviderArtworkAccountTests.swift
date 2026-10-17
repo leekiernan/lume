@@ -67,4 +67,17 @@ struct ProviderArtworkAccountTests {
         playlist.plexAccessToken = "bob"
         #expect(ProviderArtworkAccount(playlist: playlist)?.request(for: url)?.cacheIdentity != before.cacheIdentity)
     }
+
+    @Test func `missing media server credentials do not disable public artwork fallbacks`() throws {
+        let playlist = Playlist(name: "JF", mediaServerURL: "https://server.test", flavor: .jellyfin,
+                                username: "alice", password: "password", accessToken: "old", userId: "user")
+        playlist.jellyfinAccessToken = nil
+        let account = try #require(ProviderArtworkAccount(playlist: playlist))
+        #expect(try account.request(for: #require(URL(string: "https://server.test/Items/1/Images/Primary"))) == nil)
+        let publicImage = try #require(URL(string: "https://image.tmdb.org/t/p/w185/poster.jpg"))
+        let request = try #require(account.request(for: publicImage))
+        #expect(request.headers.isEmpty)
+        #expect(request.cacheIdentity == publicImage.absoluteString)
+        #expect(request.transportIdentity == request.cacheIdentity)
+    }
 }
