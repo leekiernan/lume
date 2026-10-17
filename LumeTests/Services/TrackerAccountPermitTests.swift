@@ -69,4 +69,28 @@ struct TrackerAccountPermitTests {
         _ = await session.restore()
         #expect(await permit.accessToken(using: session.operationAccessToken) == nil)
     }
+
+    @Test func `a cloud rotation during a local refresh keeps a same account event`() async throws {
+        let tracker = FakeTracker()
+        tracker.storedTokens = FakeTokens(accessToken: "old", refreshToken: "old-r", issuedAt: 1)
+        tracker.storedIdentity = alice
+        tracker.identityResponses = [alice, alice]
+        let session = TrackerAccountSession(backend: FakeBackend(tracker: tracker))
+        _ = await session.restore()
+        let permit = session.operationPermit
+        var completion: CheckedContinuation<TrackerRefreshOutcome<FakeTokens>, Never>?
+        tracker.refreshGate = { await withCheckedContinuation { completion = $0 } }
+        tracker.storedTokens = FakeTokens(accessToken: "expired", refreshToken: "expired-r", issuedAt: 2, needsRefresh: true)
+        let restoring = Task { await session.restore() }
+        try await waitUntil { completion != nil }
+        let oldRefresh = try #require(completion)
+        let event = Task { await permit.accessToken(using: session.operationAccessToken) }
+        await Task.yield()
+        tracker.storedTokens = FakeTokens(accessToken: "cloud", refreshToken: "cloud-r", issuedAt: 3)
+        _ = await session.restore()
+        oldRefresh.resume(returning: .unavailable)
+        _ = await restoring.value
+        #expect(await event.value == "cloud")
+        #expect(permit.isCurrent)
+    }
 }

@@ -38,8 +38,9 @@ nonisolated struct TrackerImportPermit {
     }
 }
 
-/// Transient account operations share the session generation, without adopting
-/// the import's viewer projection rule. Trakt's connection is still global.
+/// A captured lifetime without the import's viewer projection rule. Imports
+/// use the strict credential lifetime; scrobbles use an account lifetime that
+/// survives verified same-account rotations. Trakt is still globally connected.
 nonisolated struct TrackerAccountPermit {
     private let account: TrackerAccountLifetime
     private let generation: RequestToken

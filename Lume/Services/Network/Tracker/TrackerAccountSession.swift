@@ -190,15 +190,25 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
     /// remembered identity for the new credentials. Confirm it before delivery;
     /// a different account retires the permit before a request can be sent.
     func operationAccessToken() async -> String? {
-        let request = generation
-        guard let token = await validAccessToken(), isConnected, !Task.isCancelled,
-              generation == request else { return nil }
-        if verifiedDeliveryGeneration != request {
-            guard let fresh = await backend.fetchIdentity(accessToken: token),
-                  generation == request, isConnected, !Task.isCancelled else { return nil }
-            adopt(fresh)
+        let delivery = operationPermit
+        // A cloud rotation can also land while this event awaits an old local
+        // refresh/identity lookup. Retry with the replacement pair, but only
+        // while the original account lifetime still holds. Bound churn.
+        for _ in 0 ..< 3 {
+            guard delivery.isCurrent, isConnected, !Task.isCancelled else { return nil }
+            let request = generation
+            let token = await validAccessToken()
+            if generation != request { continue }
+            guard let token else { return nil }
+            if verifiedDeliveryGeneration != request {
+                let fresh = await backend.fetchIdentity(accessToken: token)
+                if generation != request { continue }
+                guard let fresh, delivery.isCurrent, isConnected, !Task.isCancelled else { return nil }
+                adopt(fresh)
+            }
+            return delivery.isCurrent && isConnected && !Task.isCancelled ? token : nil
         }
-        return token
+        return nil
     }
 
     /// A usable access token, refreshing first if the pair is stale.
