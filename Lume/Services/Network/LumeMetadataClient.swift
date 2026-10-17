@@ -43,6 +43,8 @@ actor LumeMetadataClient {
         }
     }
 
+    /// A batch past this is refused as it arrives (`BoundedResponse`).
+    private static let maximumBytes = 8 * 1024 * 1024
     private let session: URLSession
     private let capabilities: LumeProxyCapabilityStore
     private var cache: [URL: Cached] = [:]
@@ -130,19 +132,19 @@ actor LumeMetadataClient {
         do {
             var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 5)
             if let etag = cached?.etag { request.setValue(etag, forHTTPHeaderField: "If-None-Match") }
-            var (data, response) = try await session.data(for: request)
+            var (data, response) = try await BoundedResponse.data(for: request, session: session, limit: Self.maximumBytes, bodyPolicy: .successful)
             if (response as? HTTPURLResponse)?.statusCode == 304, cached == nil {
                 // One unconditional recovery; a 304 without retained bytes is
                 // not a successful read and must never establish local proof.
                 request.setValue(nil, forHTTPHeaderField: "If-None-Match")
-                (data, response) = try await session.data(for: request)
+                (data, response) = try await BoundedResponse.data(for: request, session: session, limit: Self.maximumBytes, bodyPolicy: .successful)
             }
             try Task.checkCancellation()
             guard let response = response as? HTTPURLResponse else { return .unavailable }
             if response.statusCode == 404 { return .unsupported }
             if response.statusCode == 304, let cached { data = cached.data }
             guard response.statusCode == 200 || (response.statusCode == 304 && cached != nil),
-                  !data.isEmpty, data.count <= 8 * 1024 * 1024 else { return .unavailable }
+                  !data.isEmpty else { return .unavailable }
             let result = decode(data, read: read)
             if case let .available(items, statuses) = result {
                 let etag = response.value(forHTTPHeaderField: "ETag") ?? (response.statusCode == 304 ? cached?.etag : nil)

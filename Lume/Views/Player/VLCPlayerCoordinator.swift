@@ -130,6 +130,7 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
     /// Auth headers for the current stream (WebDAV only). VLCKit has no header
     /// API, so `installMedia` folds these into a userinfo MRL at handoff.
     var httpHeaders: [String: String]?
+    let resourcePreparation = PlaybackResourcePreparation()
     /// Last playback position reported to the UI — a reconnect resumes VOD here
     /// rather than restarting from the top.
     private var lastKnownTime: TimeInterval = 0
@@ -180,14 +181,10 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
         startStartupWatchdog()
         mediaPlayer.delegate = self
 
-        installMedia(media.url, isLive: media.isLive)
+        installMedia(media.url, isLive: media.isLive, startStats: true)
         let deinterlaceOn = options.deinterlace
         // swiftlint:disable:next line_length
         Logger.player.log("configure: live=\(media.isLive, privacy: .public) startTime=\(media.startTime, format: .fixed(precision: 1), privacy: .public)s deinterlace=\(deinterlaceOn, privacy: .public) url=\(media.url.absoluteString, privacy: .private(mask: .hash))")
-        mediaPlayer.play()
-        applyDeinterlace()
-        isPlaying = true
-        startStatsLogging()
     }
 
     /// Internal so `logStateChange()` (in +Diagnostics) can re-assert it.
@@ -220,14 +217,10 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
         PlaybackQoE.shared.beginStartup(engine: .vlcKit, isLive: media.isLive, owner: self)
         startStartupWatchdog()
 
-        installMedia(media.url, isLive: media.isLive)
+        installMedia(media.url, isLive: media.isLive, startStats: true)
         let deinterlaceOn = options.deinterlace
         // swiftlint:disable:next line_length
         Logger.player.log("reload: live=\(media.isLive, privacy: .public) startTime=\(media.startTime, format: .fixed(precision: 1), privacy: .public)s deinterlace=\(deinterlaceOn, privacy: .public) url=\(media.url.absoluteString, privacy: .private(mask: .hash))")
-        mediaPlayer.play()
-        applyDeinterlace()
-        isPlaying = true
-        startStatsLogging()
     }
 
     // MARK: - Reconnect
@@ -288,7 +281,7 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
     }
 
     /// Arm the startup watchdog. Cancelled once the first frame renders.
-    private func startStartupWatchdog() {
+    func startStartupWatchdog() {
         startup.begin(timeout: startupTimeout) { [weak self] in
             guard let self else { return }
             Logger.player.error("startup watchdog: no first frame within \(startupTimeout, format: .fixed(precision: 0), privacy: .public)s, declaring stream dead")
@@ -296,15 +289,16 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
         }
     }
 
-    private func cancelStartupWatchdog() {
+    func cancelStartupWatchdog() {
         startup.cancelTimer()
         startupFrameTimer?.invalidate()
         startupFrameTimer = nil
     }
 
     /// Reports failure at most once per load, for fallback or the error overlay.
-    private func reportFailure() {
+    func reportFailure() {
         guard startup.fail() else { return }
+        resourcePreparation.cancel()
         if !hasStartedPlayback {
             PlaybackQoE.shared.noteStartupFailure()
         }
@@ -325,9 +319,6 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
         startStartupWatchdog()
 
         installMedia(mediaURL, isLive: isLive)
-        mediaPlayer.play()
-        applyDeinterlace()
-        isPlaying = true
         Logger.player.log("retry: reloading VLC stream from failure overlay")
     }
 
@@ -345,9 +336,6 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
         }
 
         installMedia(mediaURL, isLive: isLive)
-        mediaPlayer.play()
-        applyDeinterlace()
-        isPlaying = true
     }
 
     // MARK: - Resume
@@ -365,6 +353,7 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
     }
 
     func tearDown() {
+        resourcePreparation.cancel()
         startup.end()
         stopStatsLogging()
         retry.handle(.teardown)
@@ -437,7 +426,7 @@ extension VLCPlayerCoordinator: VLCMediaPlayerDelegate {
         // callbacks on its own event thread, and reentering libvlc from
         // there (e.g. the resume seek) can crash or deadlock.
         DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
+            guard let self, !resourcePreparation.isPreparing else { return }
             logStateChange()
             handleRetry(for: mediaPlayer.state)
             seekToResumeIfNeeded()
@@ -455,7 +444,7 @@ extension VLCPlayerCoordinator: VLCMediaPlayerDelegate {
     /// progress climbs to 1.0 when buffering completes.
     func mediaPlayerBufferingChanged(_ progress: Float) {
         DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
+            guard let self, !resourcePreparation.isPreparing else { return }
             if progress >= 1.0 {
                 PlaybackQoE.shared.noteStallEnded()
                 // Before the first frame the spinner waits for the start proof.
@@ -479,7 +468,7 @@ extension VLCPlayerCoordinator: VLCMediaPlayerDelegate {
 
     func mediaPlayerTimeChanged(_: Notification) {
         DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
+            guard let self, !resourcePreparation.isPreparing else { return }
             seekToResumeIfNeeded()
             let seconds = (mediaPlayer.time.value?.doubleValue ?? 0) / 1000
             guard isResumeSettled(currentSeconds: seconds) else { return }
@@ -499,7 +488,7 @@ extension VLCPlayerCoordinator: VLCMediaPlayerDelegate {
     func mediaPlayerLengthChanged(_ length: Int64) {
         let seconds = Double(length) / 1000
         DispatchQueue.main.async { [weak self] in
-            guard let self, seconds > 0 else { return }
+            guard let self, !resourcePreparation.isPreparing, seconds > 0 else { return }
             onDuration?(seconds)
             pipController?.invalidatePlaybackState()
         }

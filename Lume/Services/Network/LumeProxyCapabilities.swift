@@ -219,19 +219,22 @@ actor LumeProxyCapabilityStore {
     private static func fetch(_ url: URL, session: URLSession) async -> Negotiation {
         do {
             let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 3)
-            let (data, response) = try await session.data(for: request)
+            let (data, response) = try await BoundedResponse.data(for: request, session: session, limit: 65536, bodyPolicy: .successful)
             guard let response = response as? HTTPURLResponse else { return Negotiation(state: .unavailable) }
             if response.statusCode == 404 {
                 Logger.network.info("Proxy capabilities: unsupported")
                 return Negotiation(state: .unsupported)
             }
             if response.statusCode >= 500 { return Negotiation(state: .unavailable, hostDown: true) }
-            guard response.statusCode == 200, data.count <= 65536,
+            guard response.statusCode == 200,
                   let capabilities = try? JSONDecoder().decode(LumeProxyCapabilities.self, from: data) else { return Negotiation(state: .unavailable) }
             guard capabilities.version == 1 else { return Negotiation(state: .unsupported) }
             let batchSize = capabilities.metadataBatchSize ?? 0
             Logger.network.info("Proxy capabilities: v1; metadata batch limit=\(batchSize, privacy: .public)")
             return Negotiation(state: .supported(capabilities))
+        } catch is BoundedResponse.TooLarge {
+            // A host that answers, too much: not down.
+            return Negotiation(state: .unavailable)
         } catch {
             // Do not log URLs/errors: optional API errors can contain credentials.
             return Negotiation(state: .unavailable, hostDown: true)

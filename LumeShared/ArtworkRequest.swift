@@ -32,11 +32,21 @@ nonisolated struct ArtworkRequest: Hashable {
         self.url = url
         self.headers = headers
         let authentication = headers.sorted { $0.key < $1.key }.map { "\($0.key):\($0.value)" }.joined(separator: "\n")
+        // Canonical Jellyfin ApiKey must remain in transport: X-Emby-Token
+        // alone requires legacy authorization. It is authentication, not image
+        // identity. Without an explicit account scope, fingerprint every token
+        // (including duplicate aliases) so distinct accounts cannot share art.
+        var identityURL = url
+        if accountScope != nil, components.path.lowercased().contains("/images/") {
+            components.queryItems = retained.filter { $0.name.lowercased() != "apikey" }
+            if components.queryItems?.isEmpty == true { components.queryItems = nil }
+            identityURL = components.url ?? url
+        }
         let scope = accountScope ?? authentication
         // Preserve existing public-image cache entries and offline artwork.
         // Recognized private requests use opaque, account-isolated identities.
         cacheIdentity = headers.isEmpty && accountScope == nil && !Self.carriesCredentials(original)
-            ? original.absoluteString : Self.digest(url.absoluteString + "\n" + scope)
+            ? original.absoluteString : Self.digest(identityURL.absoluteString + "\n" + scope)
     }
 
     var request: URLRequest {

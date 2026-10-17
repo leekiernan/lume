@@ -145,7 +145,7 @@ final nonisolated class WebDAVClient: Sendable {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await session.data(for: request, delegate: WebDAVRedirectPolicy.shared)
+            (data, response) = try await session.data(for: request, delegate: SameOriginRedirectPolicy.shared)
         } catch {
             throw WebDAVError.networkError(error)
         }

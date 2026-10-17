@@ -404,7 +404,7 @@ final nonisolated class PlexClient: Sendable {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await session.data(for: request)
+            (data, response) = try await session.data(for: request, delegate: SameOriginRedirectPolicy.mediaServer)
         } catch {
             throw PlexError.networkError(error)
         }

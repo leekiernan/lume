@@ -162,18 +162,104 @@ It does not inspect, move or change API secrets, and does not add `_NOTES` to Gi
 
 Two adjacent areas merit dedicated validation rather than an unmeasured rewrite:
 
-1. **Native playback redirects.** Initial playback URLs are origin-checked, but
-   FFmpeg, VLC and AVFoundation own their subsequent HTTP exchanges. The artwork
-   and WebDAV URLSession delegates do not govern those engines. A loopback
-   cross-origin redirect contract test per engine should establish header/query
-   forwarding before changing authenticated playback routing. This sweep does
-   not claim those internals are protected by the artwork policy.
-2. **Response-size enforcement before allocation.** Some readers reject oversized
-   responses only after `data(for:)` has collected them; the accepted-size limit
-   is not a peak-memory limit. A bounded streaming transport should be measured
-   in Release for CPU, memory, cancellation and connection reuse before adoption,
-   particularly for repeated metadata batches and artwork. The existing header-
-   only stream redirect probe is already streaming and is not a full-body read.
+1. **Native playback redirects — measured and fixed.** Each engine runs its
+   own HTTP and follows redirects itself, so `PlaybackRedirectContractTests`
+   opens a loopback origin exactly as each coordinator does and records what
+   a cross-origin redirect target receives. Handed the stream's headers as
+   they were, FFmpeg (KSPlayer) sent all of them on — WebDAV Basic, the
+   Jellyfin `Authorization` token and `X-Plex-Token` — and AVFoundation
+   dropped `Authorization` but sent `X-Plex-Token`. FFmpeg also applies its
+   `headers` option to every other URL it opens.
+
+   Query-only handoff prevented that leak but broke authenticated relative
+   redirects: a new path dropped the token. The follow-up adds shared
+   `PlaybackResourceResolver` preparation for protected HTTP streams. It follows
+   at most eight source-origin hops, with a four-second total deadline, using
+   Range GETs whose bodies are cancelled at the headers. Same-origin hops retain
+   authentication; the first foreign target is handed off without source headers
+   and is not probed. The same host upgrading to HTTPS (`http://` behind a TLS
+   proxy, Jellyfin's 8096 → 8920) keeps authentication; TLS proves the host
+   name whatever the port. Non-HTTP targets, redirect userinfo, HTTPS
+   downgrades and loops fail closed. A timeout or transport error does not: the
+   original resource is handed off unresolved — the query/userinfo handoff,
+   which a foreign redirect still replaces — so a slow NAS is never refused
+   outright. Unprotected streams keep their existing path.
+
+   `PlaybackCredentials` builds transient native inputs from the prepared
+   resource: tokens as query items, WebDAV Basic as userinfo (FFmpeg told
+   `auth_type=basic`). AVFoundation alone keeps `Authorization`; no engine gets
+   `X-Plex-Token` as a header. Jellyfin uses canonical `ApiKey`, with `api_key`
+   retained for Emby's documented contract. These URLs never replace the stored
+   media identity. Engine-owned preparation is cancelled and retired on
+   replacement/teardown; authenticated retries start from the original source.
+
+   API calls have a stricter, separate policy: Plex, Jellyfin and WebDAV reject
+   foreign-origin redirects entirely, including credential-bearing login POSTs.
+   Playback may legitimately use a CDN; account APIs may not forward credentials
+   or request bodies to one. Plex and Jellyfin follow their own host's HTTPS
+   upgrade; WebDAV does not, because its listings are checked against the
+   configured root's origin and an upgraded listing would read as empty.
+
+   **Open, for device testing:** on KSPlayer, an authenticated stream switch
+   (next episode, the tvOS episode rail) unmounts the player while the new
+   source is prepared and mounts a fresh one, where it used to swap the URL in
+   place. That likely ends Picture in Picture on auto-advance for Jellyfin, Plex
+   and WebDAV; unauthenticated streams still swap in place.
+
+   Artwork retains canonical `ApiKey` in transport so it works without legacy
+   authorization. With an explicit account scope, that token is excluded from
+   image cache identity; image tags and sizing remain significant. Unscoped
+   callers still fingerprint every token through the transport URL and headers,
+   including duplicate aliases, rather than risk sharing private artwork.
+
+   This covers the initial direct-file redirect chain, not every dynamic request
+   a native demuxer might make. Jellyfin/Plex currently use single-file direct
+   play. Arbitrary authenticated HLS and redirects that change on later seeks
+   need their own contracts. libvlc's measured redirect-plus-401 bad free is a
+   library defect. Pre-resolution removes the initial native redirect, but VLC's
+   foreign-target probes deliberately do not challenge for Basic authentication.
+   Challenging foreign targets remain unverified, not a claimed VLCKit crash fix.
+2. **Response-size enforcement before allocation — measured and adopted.**
+   `BoundedResponse` reads a body on the caller's own session through a
+   per-task data delegate: a declared `Content-Length` over the limit is
+   refused before any body is read, and an undeclared body is cancelled at
+   the chunk that passes it. The bound is on the application's retained body,
+   not Foundation's queues, decompression, cache, allocator capacity or concurrent
+   reads. The decoded body is checked too. HEAD/304 representation lengths are
+   not body budgets, and those responses are allowed to complete rather than
+   cancelled, so their connection stays reusable. Proxy clients discard non-success bodies at the headers,
+   preserving 404 unsupported and 5xx host-outage semantics without collecting
+   their error pages. Caller cancellation still cancels the request.
+
+   The earlier peak-memory table is withdrawn: external-server mode still
+   allocated 8 MiB + 64 MiB of unused local fixtures before checking its URL.
+   Those figures were not reader-only measurements. The corrected harness
+   constructs local bodies only in local mode. `Scripts/network-read-fixture.py`
+   supplies a reproducible out-of-process server; compare one Benchmark test per
+   process, never subtract 72 MiB from the old peaks to invent new measurements.
+
+   Corrected runs at `e37895ff`, on the same iOS 27 iPhone 17 Pro simulator,
+   used that external server, Benchmark optimization and five measured iterations
+   per case. Peaks below are the whole test-host process in decimal MB, excluding
+   fixture storage, not the reader's incremental allocation:
+
+   | Payload / budget | Reader | Mean process peak | Peak RSD |
+   |---|---|---:|---:|
+   | 64 MiB undeclared / 8 MiB | Collect then check | 175.31 MB | 0.97% |
+   | | Bounded | 45.74 MB | 0.47% |
+   | Five accepted 8 MiB reads | Collect then check | 58.44 MB | 0.45% |
+   | | Bounded | 51.93 MB | 0.44% |
+
+   CPU and clock RSDs were mostly above 10% (up to 57%); no speed or accepted-path
+   CPU-overhead claim is made from them. All four cases passed their byte-count
+   assertions, and a separate test confirmed keep-alive connection reuse.
+   Evidence: `/tmp/lume-redirect-fixes-perf-{oversized,accepted}-{collect,bounded}.xcresult`
+   and `/tmp/lume-redirect-fixes-perf-connection-reuse.xcresult`.
+
+   The metadata and sports batch readers (8 MB) and capability negotiation
+   (64 KB) now enforce their limits this way, with the same outcomes as
+   before for an oversized body. Artwork has no accepted-size limit to
+   enforce; choosing one is a separate decision.
 
 ## Verification
 
@@ -237,3 +323,61 @@ Evidence is `/tmp/lume-state-ownership-tests.xcresult` and
 DerivedData is removed after verification; the result bundles and shared package
 clone are retained. Physical-device/UI automation checks were not run. The
 branch remains unmerged for review.
+
+### Redirect and bounded-read verification
+
+Validated on 17 October 2026 at `aa14de1a`, on an iPhone 17 Pro simulator
+running iOS 27.0:
+
+- **LumeTests:** 3,573 tests; 3,570 passed. The 3 failures were timing budgets
+  (`StreamRedirectTests` ×2, `ProfileProjectionGateTests`) exceeded while the
+  tvOS and macOS builds ran alongside; both suites then passed alone twice,
+  13 of 13 each run.
+- **Builds:** tvOS and macOS builds passed with private DerivedData and the
+  shared package clone.
+- **Benchmarks:** the original external-mode runs included unused in-process
+  fixtures. Their peak-memory attribution is withdrawn; see the correction above.
+- **Formatting and lint:** SwiftFormat and strict SwiftLint passed on every
+  changed file.
+
+Four suites (`EPGRefreshMachineTests`, `NowPlayingSessionOwnershipTests`,
+`VLCResumeSeekMachineTests`, `ActivityLeaseTests`) did not compile at the
+redirect branch's base; `af412bd0` fixed them there. This branch fixed the same
+suites itself (`f57e9505`, `ab1665a1`), and the merge keeps those versions.
+Physical-device playback of WebDAV, Jellyfin and Plex through each engine
+remains the board's check.
+
+### Review-fix verification
+
+The follow-up fixes are isolated in conventional commits on
+`fix/redirects-and-bounded-reads`; final shipping/test source is `b1807507`.
+
+- **Final LumeTests:** 3,596 tests passed (4,068 executions including parameterized
+  cases), zero failures or skips, on the iPhone 17 Pro simulator running iOS 27.0.
+  No builds ran alongside this suite. Evidence is
+  `/tmp/lume-redirect-fixes-final-tests.xcresult`.
+- iOS build-for-testing, tvOS build and macOS build passed on the final source,
+  using private DerivedData and the shared package clone.
+- The native loopback tests cover FFmpeg, KSPlayer's AVFoundation path, Lume's
+  AVPlayer and VLC. Same-origin authentication assertions exclude preparation
+  requests, so the native request itself must authenticate. Foreign-host and
+  foreign-port probes check that source credentials do not arrive there.
+  Modern Jellyfin probes accept canonical `ApiKey`, not legacy `api_key` alone.
+- Authenticated API redirects, including login POSTs, are tested separately.
+  Reader regressions cover oversized error pages, host cooldown, bodyless
+  responses, decoded gzip limits, session-delegate forwarding, cancellation
+  and repeated cancellation before starting. Preparation tests cover replacement
+  ownership, unsafe targets, loops, a total deadline and a cancelled caller.
+- Scoped artwork tests retain canonical authentication in transport while
+  checking token rotation, account isolation, duplicate aliases and image tags.
+- The four corrected memory benchmarks and the connection-reuse check passed;
+  measurements and their limitations are recorded above.
+- Every Swift commit passed SwiftFormat and strict SwiftLint. The final diff
+  passes `git diff --check`. No `_NOTES`, project-file, localization, schema,
+  catalogue-identity or secret changes are included.
+
+Final build evidence is in
+`/tmp/lume-redirect-fixes-final-{ios,tvos,macos}-build.xcresult`.
+UI automation and physical-device playback were not run. Physical WebDAV,
+Jellyfin and Plex checks remain the board's responsibility; arbitrary authenticated
+HLS is outside the verified direct-file contract.

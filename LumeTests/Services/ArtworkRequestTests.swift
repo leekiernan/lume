@@ -46,6 +46,28 @@ struct ArtworkRequestTests {
         #expect(try !ArtworkRequest.carriesCredentials(#require(URL(string: "https://server.test/image?tag=42"))))
     }
 
+    @Test(arguments: [false, true])
+    func `canonical Jellyfin tokens remain in transport but not scoped artwork identity`(includesLegacyAlias: Bool) throws {
+        let prefix = "https://server.test/Items/42/Images/Primary?tag=1&ApiKey="
+        let oldURL = try #require(URL(string: prefix + "old" + (includesLegacyAlias ? "&api_key=old" : "")))
+        let newURL = try #require(URL(string: prefix + "new" + (includesLegacyAlias ? "&api_key=new" : "")))
+        let first = try #require(ArtworkRequest(url: oldURL, accountScope: "account-a"))
+        let rotated = try #require(ArtworkRequest(url: newURL, accountScope: "account-a"))
+        #expect(first.url.query?.contains("ApiKey=old") == true)
+        #expect(rotated.url.query?.contains("ApiKey=new") == true)
+        #expect(first.cacheIdentity == rotated.cacheIdentity)
+        #expect(first.cacheIdentity != ArtworkRequest(url: newURL, accountScope: "account-b")?.cacheIdentity)
+        #expect(ArtworkRequest(url: oldURL)?.cacheIdentity != ArtworkRequest(url: newURL)?.cacheIdentity)
+        let changedTag = try #require(URL(string: "https://server.test/Items/42/Images/Primary?tag=2&ApiKey=new"))
+        #expect(first.cacheIdentity != ArtworkRequest(url: changedTag, accountScope: "account-a")?.cacheIdentity)
+    }
+
+    @Test func `unscoped canonical token duplicates all participate in account isolation`() throws {
+        let first = try #require(URL(string: "https://server.test/Items/42/Images/Primary?ApiKey=one&ApiKey=two&api_key=legacy"))
+        let second = try #require(URL(string: "https://server.test/Items/42/Images/Primary?ApiKey=three&ApiKey=two&api_key=legacy"))
+        #expect(ArtworkRequest(url: first)?.cacheIdentity != ArtworkRequest(url: second)?.cacheIdentity)
+    }
+
     @Test func `cross-origin redirects do not forward private headers`() throws {
         let previous = try #require(URL(string: "https://server.test/image"))
         var request = try URLRequest(url: #require(URL(string: "https://cdn.test/image")))

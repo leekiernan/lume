@@ -295,7 +295,7 @@ extension KSPlayerEngineView {
         // timeout before declaring the stream dead, so a silently-hanging engine
         // hands off to the next one promptly instead of stalling on a black
         // screen for the full startup timeout.
-        let timeout = startupTimeout
+        let timeout = startupTimeout + (playbackResource == nil ? PlaybackResourceResolver.timeout : 0)
         let onTimeout: @MainActor @Sendable () -> Void = {
             Logger.player.error("startup watchdog: no first frame within \(timeout, format: .fixed(precision: 0), privacy: .public)s, declaring stream dead")
             failPlayback()
@@ -320,6 +320,7 @@ extension KSPlayerEngineView {
     /// last engine in the priority list) it raises the failure overlay as before.
     func failPlayback() {
         guard !loadFailed, startup.fail() else { return }
+        resourcePreparation.cancel()
         cancelStartupWatchdog()
         reconnector.cancel()
         isCatchupSegmentLoading = false
@@ -359,7 +360,7 @@ extension KSPlayerEngineView {
         #endif
         startStartupWatchdog()
 
-        guard let layer = coordinator.playerLayer else { return }
+        guard let layer = coordinator.playerLayer else { prepareResource(); return }
         // Resume inside this stream, so a catch-up segment's own playhead
         // rather than programme time.
         let resumeAt = catchupRouter.enginePosition(forClock: clock.current)
@@ -367,7 +368,9 @@ extension KSPlayerEngineView {
             layer.options.startPlayTime = resumeAt
         }
         Logger.player.log("retry: rebuilding KSPlayer stream from failure overlay")
-        if opensThroughRedirect {
+        if resourceRequest.needsPreparation {
+            rebuildAuthenticated(on: layer)
+        } else if opensThroughRedirect {
             rebuildFromFreshRedirect(on: layer)
         } else {
             rebuildStream(on: layer)
@@ -386,7 +389,7 @@ extension KSPlayerEngineView {
     /// rebuild path (the layer's `url` didSet): an ordered shutdown of the old
     /// item — tracks first, format context last, serialized on the item's queue —
     /// then a fresh `MEPlayerItem`.
-    private func rebuildStream(on layer: KSPlayerLayer, url: URL? = nil) {
+    func rebuildStream(on layer: KSPlayerLayer, url: URL? = nil) {
         layer.player.replace(url: url ?? layer.url, options: layer.options)
         layer.prepareToPlay()
         // Ensure autoplay once the rebuilt input is ready (prepareToPlay only
@@ -415,7 +418,9 @@ extension KSPlayerEngineView {
             layer.options.startPlayTime = resumeAt
         }
         Logger.player.log("reconnect: reloading KSPlayer stream")
-        if media.isLive {
+        if resourceRequest.needsPreparation {
+            rebuildAuthenticated(on: layer)
+        } else if media.isLive {
             rebuildStream(on: layer)
         } else if opensThroughRedirect {
             rebuildFromFreshRedirect(on: layer)
@@ -429,6 +434,14 @@ extension KSPlayerEngineView {
     /// Stable across view updates — a changed URL rebuilds the session.
     var streamURL: URL {
         redirectCache?.target(for: media.url) ?? media.url
+    }
+
+    /// What KSPlayer is built with: `streamURL` carrying the stream's
+    /// credentials (`PlaybackCredentials`). Kept apart from `streamURL`, which
+    /// is compared with `media.url` to tell a redirect-token session.
+    var playerURL: URL {
+        let resource = playbackResource ?? resourceRequest
+        return PlaybackCredentials.input(for: .ksPlayer, url: resource.url, headers: resource.headers).url
     }
 
     /// Whether the stream was opened on a redirect token, which a reconnect

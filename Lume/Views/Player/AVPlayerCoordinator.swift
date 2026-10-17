@@ -155,6 +155,7 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
     private var timeControlObservation: NSKeyValueObservation?
     private var presentationSizeObservation: NSKeyValueObservation?
     private var trackLoadTask: Task<Void, Never>?
+    private let resourcePreparation = PlaybackResourcePreparation()
 
     private var pipController: AVPictureInPictureController?
 
@@ -218,6 +219,10 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
         let reconnect = reconnecting && hasStartedPlayback
         teardownItemObservers()
         trackLoadTask?.cancel()
+        resourcePreparation.cancel()
+        player.pause()
+        player.replaceCurrentItem(with: nil)
+        isPlaying = false
 
         if media.url != currentMedia?.url {
             hasManualTrackSelection = false
@@ -243,10 +248,22 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
             startStartupWatchdog()
         }
 
-        let asset = if let headers = media.httpHeaders, !headers.isEmpty {
-            AVURLAsset(url: media.url, options: ["AVURLAssetHTTPHeaderFieldsKey": headers])
+        // Preparation has its own bounded deadline. Start the engine's frame
+        // deadline only once it has an input, keeping its failure latch reset.
+        cancelStartupWatchdog()
+        resourcePreparation.prepare(.init(url: media.url, headers: media.httpHeaders), onReady: { [weak self] resource in
+            guard let self else { return }
+            if !reconnect { startStartupWatchdog() }
+            install(media: media, resource: resource)
+        }, onFailure: { [weak self] in self?.reportFailure() })
+    }
+
+    private func install(media: PlayableMedia, resource: PlaybackResource) {
+        let credentials = PlaybackCredentials.input(for: .avPlayer, url: resource.url, headers: resource.headers)
+        let asset = if let headers = credentials.avFoundationHeaders {
+            AVURLAsset(url: credentials.url, options: ["AVURLAssetHTTPHeaderFieldsKey": headers])
         } else {
-            AVURLAsset(url: media.url)
+            AVURLAsset(url: credentials.url)
         }
         let newItem = AVPlayerItem(asset: asset)
         newItem.preferredForwardBufferDuration = media.isLive ? 4 : 8
@@ -293,6 +310,7 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
     /// Internal for `+Reconnect.swift`.
     func reportFailure() {
         guard startup.fail() else { return }
+        resourcePreparation.cancel()
         if !hasStartedPlayback {
             PlaybackQoE.shared.noteStartupFailure()
         }
@@ -312,6 +330,7 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
     // MARK: - Teardown
 
     func tearDown() {
+        resourcePreparation.cancel()
         startup.end()
         teardownItemObservers()
         trackLoadTask?.cancel()
