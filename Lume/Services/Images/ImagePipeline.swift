@@ -83,7 +83,7 @@ actor ImagePipeline {
         config.timeoutIntervalForResource = 90
         config.urlCache = nil
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
-        session = URLSession(configuration: config)
+        session = URLSession(configuration: config, delegate: ArtworkRedirectPolicy.shared, delegateQueue: nil)
     }
 
     /// Builds the memory-cache key. Disk is keyed by URL alone (original bytes);

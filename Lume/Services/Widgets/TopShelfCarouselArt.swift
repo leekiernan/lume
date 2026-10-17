@@ -61,7 +61,7 @@
         static func renderMissing(
             in snapshot: inout WidgetSnapshot,
             directory: URL? = defaultDirectory,
-            load: @escaping Loader = { await TopShelfImages.download($0, maxPixelSize: $1) }
+            load: @escaping Loader = { await TopShelfImages.loadArtwork($0, maxPixelSize: $1) }
         ) async -> Bool {
             guard let directory else { return false }
             var pending: [URL: Request] = [:]

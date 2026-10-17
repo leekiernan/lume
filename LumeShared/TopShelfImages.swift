@@ -15,6 +15,7 @@
     import UIKit
 
     nonisolated enum TopShelfImages {
+        private static let session = URLSession(configuration: .default, delegate: ArtworkRedirectPolicy.shared, delegateQueue: nil)
         /// Roll a small number of workers forward instead of decoding every
         /// channel logo at once in the memory-constrained extension.
         static func boundedMap<Input: Sendable, Output: Sendable>(
@@ -60,9 +61,24 @@
             // Downloads run in parallel and the Top Shelf waits for all of them,
             // so this bounds how long one slow host can hold it up.
             request.timeoutInterval = 4
-            guard let (data, _) = try? await URLSession.shared.data(for: request),
+            guard let (data, _) = try? await session.data(for: request),
                   let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary)
             else { return nil }
+            let options = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
+            ] as CFDictionary
+            return CGImageSourceCreateThumbnailAtIndex(source, 0, options)
+        }
+
+        /// The only local input is an artifact the app created in this one
+        /// shared cache folder. Provider-supplied arbitrary file URLs stay banned.
+        static func loadArtwork(_ url: URL, maxPixelSize: Int) async -> CGImage? {
+            guard url.isFileURL else { return await download(url, maxPixelSize: maxPixelSize) }
+            guard let directory = directory("TopShelfPrivateArtwork"),
+                  url.resolvingSymlinksInPath().deletingLastPathComponent() == directory.resolvingSymlinksInPath(),
+                  let source = CGImageSourceCreateWithURL(url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary) else { return nil }
             let options = [
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
                 kCGImageSourceCreateThumbnailWithTransform: true,

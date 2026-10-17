@@ -39,7 +39,7 @@ nonisolated enum WidgetDataStore {
         guard let url = snapshotURL, let data = try? Data(contentsOf: url) else { return nil }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return try? decoder.decode(WidgetSnapshot.self, from: data)
+        return try? decoder.decode(WidgetSnapshot.self, from: data).withoutArtworkCredentials
     }
 
     /// Throws `CocoaError(.fileNoSuchFile)` when the App Group container is
@@ -48,7 +48,7 @@ nonisolated enum WidgetDataStore {
         guard let url = snapshotURL else { throw CocoaError(.fileNoSuchFile) }
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
-        let data = try encoder.encode(snapshot)
+        let data = try encoder.encode(snapshot.withoutArtworkCredentials)
         try FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(),
             withIntermediateDirectories: true

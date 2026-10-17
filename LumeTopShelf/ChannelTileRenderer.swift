@@ -52,7 +52,7 @@ enum ChannelTileRenderer {
         if FileManager.default.fileExists(atPath: file.path) { return file }
         var logo: CGImage?
         if let logoURL = channel.logoURL {
-            logo = await TopShelfImages.download(logoURL, maxPixelSize: Int(logoBox.width))
+            logo = await TopShelfImages.loadArtwork(logoURL, maxPixelSize: Int(logoBox.width))
         }
         // A logo that failed to download gets the name tile under the
         // name-only key, so the next load tries the logo again rather than

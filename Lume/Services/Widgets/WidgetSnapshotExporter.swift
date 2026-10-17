@@ -140,18 +140,7 @@ enum WidgetSnapshotExporter {
         snapshot.topShelf = input.configuration
         let owner = snapshot.sections.isEmpty ? nil : followed
         #if os(tvOS)
-            // The carousel's art, with each title's logo drawn in, is rendered
-            // here rather than in the extension — see `TopShelfCarouselArt`.
-            // What's already rendered goes out with the snapshot; the rest
-            // follows in a second write once it has rendered.
-            let carousel = snapshot.topShelf?.style == .carousel
-            if carousel { TopShelfCarouselArt.applyCached(to: &snapshot) }
-            guard await publish(snapshot, owner: owner, canPublish: canPublish) else { return }
-            if carousel, await TopShelfCarouselArt.renderMissing(in: &snapshot) {
-                guard await publish(snapshot, owner: owner, canPublish: canPublish) else { return }
-            }
-            guard !Task.isCancelled, await canPublish() else { return }
-            TopShelfCarouselArt.prune(keeping: carousel ? snapshot : WidgetSnapshot(generatedAt: now, sections: []))
+            await exportTV(&snapshot, owner: owner, canPublish: canPublish)
         #else
             _ = await publish(snapshot, owner: owner, canPublish: canPublish)
         #endif
@@ -159,7 +148,7 @@ enum WidgetSnapshotExporter {
 
     /// Validation and publication share the main actor with settings changes,
     /// so an obsolete render cannot write after a newer request invalidates it.
-    private static func publish(_ snapshot: WidgetSnapshot, owner: UUID?, canPublish: @MainActor () -> Bool) -> Bool {
+    static func publish(_ snapshot: WidgetSnapshot, owner: UUID?, canPublish: @MainActor () -> Bool) -> Bool {
         guard !Task.isCancelled, canPublish() else {
             Logger.database.info("Top Shelf export superseded before publishing")
             return false

@@ -4,11 +4,13 @@ import Testing
 
 struct ArtworkRequestTests {
     @Test func `tokens travel as headers rather than part of the request URL`() throws {
-        let plex = try #require(ArtworkRequest(url: #require(URL(string: "https://server.test/photo?width=300&X-Plex-Token=secret"))))
+        let plexURL = try #require(URL(string: "https://server.test/photo?width=300&X-Plex-Token=secret"))
+        let plex = try #require(ArtworkRequest(url: plexURL))
         #expect(plex.url.absoluteString == "https://server.test/photo?width=300")
         #expect(plex.request.value(forHTTPHeaderField: "X-Plex-Token") == "secret")
         #expect(!plex.cacheIdentity.contains("secret"))
-        let jellyfin = try #require(ArtworkRequest(url: #require(URL(string: "https://server.test/Items/42/Images/Primary?tag=1&api_key=secret"))))
+        let jellyfinURL = try #require(URL(string: "https://server.test/Items/42/Images/Primary?tag=1&api_key=secret"))
+        let jellyfin = try #require(ArtworkRequest(url: jellyfinURL))
         #expect(jellyfin.headers["X-Emby-Token"] == "secret")
         #expect(jellyfin.url.query == "tag=1")
     }
@@ -28,5 +30,18 @@ struct ArtworkRequestTests {
         #expect(ArtworkRequest(url: URL(fileURLWithPath: "/private/secret")) == nil)
         #expect(try ArtworkRequest.carriesCredentials(#require(URL(string: "https://server.test/image?password=secret"))))
         #expect(try !ArtworkRequest.carriesCredentials(#require(URL(string: "https://server.test/image?tag=42"))))
+    }
+
+    @Test func `cross-origin redirects do not forward private headers`() throws {
+        let previous = try #require(URL(string: "https://server.test/image"))
+        var request = try URLRequest(url: #require(URL(string: "https://cdn.test/image")))
+        request.allHTTPHeaderFields = ["X-Plex-Token": "secret", "X-Emby-Token": "secret", "Authorization": "Bearer secret", "Accept": "image/png"]
+        let safe = ArtworkRedirectPolicy.redirect(request, from: previous)
+        #expect(safe.value(forHTTPHeaderField: "X-Plex-Token") == nil)
+        #expect(safe.value(forHTTPHeaderField: "X-Emby-Token") == nil)
+        #expect(safe.value(forHTTPHeaderField: "Authorization") == nil)
+        #expect(safe.value(forHTTPHeaderField: "Accept") == "image/png")
+        request.url = URL(string: "https://server.test:443/another")
+        #expect(ArtworkRedirectPolicy.redirect(request, from: previous).value(forHTTPHeaderField: "X-Plex-Token") == "secret")
     }
 }
