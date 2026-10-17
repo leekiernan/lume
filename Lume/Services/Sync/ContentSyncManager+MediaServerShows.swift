@@ -64,7 +64,7 @@ extension ContentSyncManager {
             series.categoryId = scope.categoryId
         }
         if let tag = item.primaryImageTag,
-           let url = JellyfinClient.imageURL(server: scope.server, itemId: item.id, tag: tag, token: scope.session.accessToken)?.absoluteString,
+           let url = JellyfinClient.imageURL(server: scope.server, itemId: item.id, tag: tag)?.absoluteString,
            series.cover != url
         {
             series.cover = url
@@ -229,7 +229,7 @@ extension ContentSyncManager {
     private func applyJellyfinEpisodeMetadata(_ item: JellyfinItem, to episode: Episode, series: Series, scope: JellyfinViewScope) {
         let image: String? = {
             if let tag = item.primaryImageTag {
-                return JellyfinClient.imageURL(server: scope.server, itemId: item.id, tag: tag, token: scope.session.accessToken)?.absoluteString
+                return JellyfinClient.imageURL(server: scope.server, itemId: item.id, tag: tag)?.absoluteString
             }
             return series.cover
         }()

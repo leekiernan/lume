@@ -335,20 +335,10 @@ final nonisolated class PlexClient: Sendable {
         URL(string: partKey, relativeTo: server)?.absoluteURL
     }
 
-    /// Artwork URL. Unlike streams this one embeds the token: image loaders
-    /// fetch a plain URL with no chance to attach headers. Refreshed on every
-    /// sync alongside the token itself.
-    nonisolated static func imageURL(server: URL, path: String, token: String?) -> URL? {
-        guard var components = URLComponents(
-            url: URL(string: path, relativeTo: server)?.absoluteURL ?? server,
-            resolvingAgainstBaseURL: false
-        ) else { return nil }
-        if let token, !token.isEmpty, let image = components.url, ArtworkRedirectPolicy.sameOrigin(image, server) {
-            var items = components.queryItems ?? []
-            items.append(URLQueryItem(name: tokenQueryItem, value: token))
-            components.queryItems = items
-        }
-        return components.url
+    /// A durable, token-free route. Authentication is resolved at image load.
+    nonisolated static func imageURL(server: URL, path: String) -> URL? {
+        guard let url = URL(string: path, relativeTo: server)?.absoluteURL else { return nil }
+        return ProviderArtworkAccount.tokenFree(url)
     }
 
     /// The playback header a `PlayableMedia` carries for its stream. `nil`

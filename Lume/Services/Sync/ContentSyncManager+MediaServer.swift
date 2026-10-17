@@ -257,7 +257,7 @@ extension ContentSyncManager {
             movie.directURL = url
         }
         if let tag = item.primaryImageTag,
-           let url = JellyfinClient.imageURL(server: scope.server, itemId: item.id, tag: tag, token: scope.session.accessToken)?.absoluteString,
+           let url = JellyfinClient.imageURL(server: scope.server, itemId: item.id, tag: tag)?.absoluteString,
            movie.streamIcon != url
         {
             movie.streamIcon = url

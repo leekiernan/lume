@@ -254,10 +254,10 @@ struct PlexSyncTests {
         #expect(movie.name == "Arrival")
         #expect(movie.id == "\(playlistId.uuidString)-plex-1")
         #expect(movie.categoryId == "\(playlistId.uuidString)-vod-1")
-        // Token-free stream URL; the image URL carries the token.
+        // Both durable routes are token-free; loaders attach current auth.
         #expect(movie.directURL == "http://\(host):32400/library/parts/1/17/file.mp4")
         #expect(movie.streamIcon?.contains("/library/metadata/1/thumb/17") == true)
-        #expect(movie.streamIcon?.contains("X-Plex-Token=tok") == true)
+        #expect(movie.streamIcon?.contains("X-Plex-Token") == false)
         #expect(movie.rating == 7.8)
         #expect(movie.genre == "Fantasy")
         #expect(movie.tmdb == "675")

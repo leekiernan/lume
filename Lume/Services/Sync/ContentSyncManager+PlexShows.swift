@@ -65,7 +65,7 @@ extension ContentSyncManager {
             series.categoryId = scope.categoryId
         }
         if let thumb = item.thumb,
-           let url = PlexClient.imageURL(server: scope.server, path: thumb, token: scope.token)?.absoluteString,
+           let url = PlexClient.imageURL(server: scope.server, path: thumb)?.absoluteString,
            series.cover != url
         {
             series.cover = url
@@ -194,7 +194,7 @@ extension ContentSyncManager {
     private func applyPlexEpisodeMetadata(_ item: PlexMetadata, to episode: Episode, series: Series, scope: PlexSectionScope) {
         let image: String? = {
             if let thumb = item.thumb {
-                return PlexClient.imageURL(server: scope.server, path: thumb, token: scope.token)?.absoluteString
+                return PlexClient.imageURL(server: scope.server, path: thumb)?.absoluteString
             }
             return series.cover
         }()

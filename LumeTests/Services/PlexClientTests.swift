@@ -237,19 +237,19 @@ struct PlexClientTests {
         #expect(stream.absoluteString == "http://plex.test:32400/library/parts/1/17/file.mp4")
         #expect(!stream.absoluteString.contains("X-Plex-Token"))
 
-        let image = try #require(PlexClient.imageURL(server: base, path: "/library/metadata/1/thumb/17", token: "tok"))
-        #expect(image.absoluteString == "http://plex.test:32400/library/metadata/1/thumb/17?X-Plex-Token=tok")
+        let image = try #require(PlexClient.imageURL(server: base, path: "/library/metadata/1/thumb/17"))
+        #expect(image.absoluteString == "http://plex.test:32400/library/metadata/1/thumb/17")
     }
 
     @Test func `a token-free server yields a token-free image URL`() throws {
         let base = try #require(URL(string: "http://plex.test:32400"))
-        let image = try #require(PlexClient.imageURL(server: base, path: "/library/metadata/1/thumb/17", token: nil))
+        let image = try #require(PlexClient.imageURL(server: base, path: "/library/metadata/1/thumb/17?X-Plex-Token=old"))
         #expect(image.absoluteString == "http://plex.test:32400/library/metadata/1/thumb/17")
     }
 
     @Test func `external artwork does not acquire the server token`() throws {
         let base = server("private-server.test")
-        let external = try #require(PlexClient.imageURL(server: base, path: "https://cdn.test/public.jpg", token: "private-secret"))
+        let external = try #require(PlexClient.imageURL(server: base, path: "https://cdn.test/public.jpg"))
         #expect(external.absoluteString == "https://cdn.test/public.jpg")
     }
 

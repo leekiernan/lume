@@ -279,7 +279,7 @@ extension ContentSyncManager {
             movie.directURL = url
         }
         if let thumb = item.thumb,
-           let url = PlexClient.imageURL(server: scope.server, path: thumb, token: scope.token)?.absoluteString,
+           let url = PlexClient.imageURL(server: scope.server, path: thumb)?.absoluteString,
            movie.streamIcon != url
         {
             movie.streamIcon = url

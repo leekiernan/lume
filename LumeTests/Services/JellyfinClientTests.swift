@@ -267,11 +267,11 @@ struct JellyfinClientTests {
         #expect(url.absoluteString == "http://jellyfin.test:8096/Videos/abc/stream?Static=true")
     }
 
-    @Test func `image URLs embed the tag and the token`() throws {
-        let url = try #require(JellyfinClient.imageURL(server: server("jellyfin.test"), itemId: "abc", tag: "tag1", token: "tok"))
+    @Test func `image URLs retain their tag but never a credential`() throws {
+        let url = try #require(JellyfinClient.imageURL(server: server("jellyfin.test"), itemId: "abc", tag: "tag1"))
         #expect(url.absoluteString.contains("/Items/abc/Images/Primary"))
         #expect(url.absoluteString.contains("tag=tag1"))
-        #expect(url.absoluteString.contains("api_key=tok"))
+        #expect(!ArtworkRequest.carriesCredentials(url))
     }
 
     // MARK: - Playback auth

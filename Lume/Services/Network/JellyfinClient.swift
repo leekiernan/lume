@@ -320,16 +320,15 @@ final nonisolated class JellyfinClient: Sendable {
         return components?.url
     }
 
-    /// Artwork URL. Unlike streams this one embeds the token: image loaders
-    /// fetch a plain URL with no chance to attach headers. Refreshed on every
-    /// sync alongside the token itself.
-    nonisolated static func imageURL(server: URL, itemId: String, tag: String, kind: String = "Primary", maxWidth: Int = 600, token: String) -> URL? {
+    /// A durable route, not an authenticated request. The image loader attaches
+    /// the owning playlist's current credential without changing catalogue rows.
+    nonisolated static func imageURL(server: URL, itemId: String, tag: String, kind: String = "Primary", maxWidth: Int = 600) -> URL? {
         var components = URLComponents(url: server.appendingPathComponent("Items/\(itemId)/Images/\(kind)"), resolvingAgainstBaseURL: false)
         components?.queryItems = [
             URLQueryItem(name: "tag", value: tag),
             URLQueryItem(name: "quality", value: "90"),
             URLQueryItem(name: "maxWidth", value: String(maxWidth))
-        ] + JellyfinPlaybackAuth.queryItems(token: token)
+        ]
         return components?.url
     }
 
