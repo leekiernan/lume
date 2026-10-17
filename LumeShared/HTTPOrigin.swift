@@ -14,4 +14,13 @@ nonisolated struct HTTPOrigin: Hashable {
         self.host = host
         port = url.port ?? (scheme == "https" ? 443 : 80)
     }
+
+    /// Where an authenticated redirect may keep its credentials: this origin,
+    /// or the same host upgraded to HTTPS (a proxy's `http://` → `https://`,
+    /// Jellyfin's 8096 → 8920). TLS then proves the host name, whatever the
+    /// port; plain HTTP to another port stays a different origin.
+    func admits(_ target: HTTPOrigin?) -> Bool {
+        guard let target else { return false }
+        return target == self || (target.host == host && scheme == "http" && target.scheme == "https")
+    }
 }
