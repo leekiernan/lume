@@ -257,7 +257,7 @@ struct MediaServerSyncTests {
         #expect(movie.streamIcon?.contains("api_key=sess") == true)
         #expect(movie.rating == 7.5)
         #expect(movie.plot == "Overview of Arrival.")
-        #expect(movie.tmdb == "329865")
+        #expect(movie.tmdb == "329865" && movie.tmdbId == 329_865 && movie.tmdbAssignment?.origin == .catalogue)
         #expect(movie.imdbId == "tt0371724")
 
         let series = try context.fetch(FetchDescriptor<Series>())
