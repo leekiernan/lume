@@ -150,6 +150,18 @@ private enum PropfindFixtures {
 }
 
 struct WebDAVPropfindParserTests {
+    @Test func `absolute self responses ignore userinfo default ports and host casing`() throws {
+        let root = try #require(URL(string: "https://user:fixture@NAS.test:443/Movies/?share=one"))
+        let body = """
+        <D:multistatus xmlns:D="DAV:">
+        <D:response><D:href>https://nas.test/Movies/Film.mkv</D:href></D:response>
+        <D:response><D:href>https://nas.test/Movies/</D:href><D:propstat><D:prop><D:resourcetype><D:collection/></D:resourcetype></D:prop></D:propstat></D:response>
+        </D:multistatus>
+        """
+        let resources = try #require(WebDAVPropfindParser.parse(Data(body.utf8), collection: root))
+        #expect(resources.map(\.name) == ["Film.mkv"])
+    }
+
     @Test func `the first response may be a real child rather than the collection`() throws {
         let root = try #require(URL(string: "https://nas.test/Movies/"))
         let body = """

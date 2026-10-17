@@ -43,7 +43,6 @@ final nonisolated class WebDAVPropfindParser: NSObject, XMLParserDelegate {
     }
 
     private let collection: URL
-    private let collectionKey: String
     private var resources: [WebDAVResource] = []
     private var sawMultistatus = false
 
@@ -60,7 +59,6 @@ final nonisolated class WebDAVPropfindParser: NSObject, XMLParserDelegate {
     private let httpDateFormatter: DateFormatter
 
     private init(collection: URL) {
-        collectionKey = WebDAVPathIdentity.key(collection.absoluteString)
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = TimeZone(identifier: "GMT")
@@ -160,7 +158,7 @@ final nonisolated class WebDAVPropfindParser: NSObject, XMLParserDelegate {
         // The collection can occur anywhere, or be omitted. Emitting
         // it would give every directory a phantom row and leave the recursive
         // walk descending into itself forever.
-        guard WebDAVPathIdentity.key(url.absoluteString) != collectionKey else { return }
+        guard !WebDAVPathIdentity.sameResource(url, collection) else { return }
         guard let name = Self.lastSegment(of: href) else { return }
 
         resources.append(WebDAVResource(

@@ -1,6 +1,11 @@
 import Foundation
 
 nonisolated enum WebDAVPathIdentity {
+    static func sameResource(_ first: URL, _ second: URL) -> Bool {
+        guard let origin = HTTPOrigin(first), origin == HTTPOrigin(second) else { return false }
+        return segments(first) == segments(second)
+    }
+
     /// Operational boundary only; do not change the persisted item identity.
     /// Resolve decoded dot segments before checking the share root, including
     /// escaped separators/dots returned by a non-conforming listing.
