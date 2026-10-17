@@ -380,11 +380,7 @@ struct ProfileEngineTests {
     /// point, so the caller can observe the in-flight state.
     private func beginSwitch(_ manager: ProfileManager, to id: UUID) async -> Task<Bool, Never> {
         let task = Task { await manager.switchProfile(to: id) }
-        var spins = 0
-        while !manager.isSwitching, spins < 500 {
-            await Task.yield()
-            spins += 1
-        }
+        _ = await eventually { manager.isSwitching }
         return task
     }
 
