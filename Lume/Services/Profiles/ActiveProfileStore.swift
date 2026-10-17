@@ -28,13 +28,18 @@ nonisolated enum ActiveProfileStore {
             readID()
         }
         set {
+            // Written outside the lock: the write posts `didChangeNotification`,
+            // whose observers may read `scope` (re-entering this non-recursive
+            // lock when posted on the main thread) or be waited on elsewhere.
+            // A reader between the write and the lock reconciles from the
+            // stored id itself, so the token still changes exactly once.
+            if let newValue {
+                UserDefaults.standard.set(newValue.uuidString, forKey: key)
+            } else {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
             generation.withLock { state in
-                if readID() != newValue { state = (newValue, RequestToken()) }
-                if let newValue {
-                    UserDefaults.standard.set(newValue.uuidString, forKey: key)
-                } else {
-                    UserDefaults.standard.removeObject(forKey: key)
-                }
+                if state.id != newValue { state = (newValue, RequestToken()) }
             }
         }
     }
