@@ -85,7 +85,6 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
 
     private weak var hostView: VLCHostView?
     private var isLive = false
-    private var startTime: TimeInterval = 0
     private var didConfigure = false
 
     /// Snapshot of the user's VLCKit options, refreshed from `UserDefaults` each
@@ -109,9 +108,7 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
     /// cleared when the URL changes, so it cannot leak into the next channel.
     var hasManualTrackSelection = false
 
-    private var needsResume = false
-    private var didSeekResume = false
-    private var resumeLanded = false
+    private var resumeSeek = VLCResumeSeekMachine()
 
     /// PiP window controller, delivered by VLC once PiP is ready to use.
     private var pipController: (any VLCPictureInPictureWindowControlling)?
@@ -169,8 +166,7 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
 
         VLCPlayerCoordinator.installLibVLCLogBridgeIfNeeded()
         isLive = media.isLive
-        startTime = media.startTime
-        needsResume = !media.isLive && media.startTime > 1
+        resumeSeek = VLCResumeSeekMachine(target: media.startTime, isLive: media.isLive)
         options = VLCPlayerOptions.load()
         languageOptions = PlayerLanguageOptions.load()
         mediaURL = media.url
@@ -208,10 +204,7 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
     /// episode picked from the in-player episode rail.
     func reload(media: PlayableMedia) {
         isLive = media.isLive
-        startTime = media.startTime
-        needsResume = !media.isLive && media.startTime > 1
-        didSeekResume = false
-        resumeLanded = false
+        resumeSeek = VLCResumeSeekMachine(target: media.startTime, isLive: media.isLive)
         videoInfo = nil
         options = VLCPlayerOptions.load()
         languageOptions = PlayerLanguageOptions.load()
@@ -348,10 +341,7 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
         setBuffering(true)
 
         if !isLive, lastKnownTime > 1 {
-            startTime = lastKnownTime
-            needsResume = true
-            didSeekResume = false
-            resumeLanded = false
+            resumeSeek = VLCResumeSeekMachine(target: lastKnownTime)
         }
 
         installMedia(mediaURL, isLive: isLive)
@@ -365,20 +355,13 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
     /// Seek to the saved position once the player reports it can seek.
     /// Safe to call repeatedly; it acts at most once.
     private func seekToResumeIfNeeded() {
-        guard needsResume, !didSeekResume, mediaPlayer.isSeekable else { return }
-        mediaPlayer.time = VLCTime(int: Int32((startTime * 1000).rounded()))
-        didSeekResume = true
+        guard let target = resumeSeek.seekIfPossible(isSeekable: mediaPlayer.isSeekable) else { return }
+        mediaPlayer.time = VLCTime(int: Int32((target * 1000).rounded()))
     }
 
     /// Withholds time updates until the resume seek lands.
     private func isResumeSettled(currentSeconds: TimeInterval) -> Bool {
-        guard needsResume else { return true }
-        if resumeLanded { return true }
-        if didSeekResume, currentSeconds >= startTime - 2 {
-            resumeLanded = true
-            return true
-        }
-        return false
+        resumeSeek.observe(currentSeconds: currentSeconds)
     }
 
     func tearDown() {
