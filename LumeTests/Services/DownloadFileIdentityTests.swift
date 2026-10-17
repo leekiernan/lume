@@ -34,4 +34,13 @@ struct DownloadFileIdentityTests {
         let playlist = Playlist(name: "M3U", m3uURL: "https://server.test/list")
         #expect(DownloadManager.downloadURL(direct: address, playlist: playlist, xtream: { nil }) == nil)
     }
+
+    @MainActor
+    @Test(arguments: [("rtmp://server.test/movie", false), ("https://server.test/movie.mp4", true)])
+    func `only a title with an HTTP stream offers a download`(address: String, offered: Bool) {
+        let playlist = Playlist(name: "M3U", m3uURL: "https://server.test/list")
+        let movie = Movie(id: "\(playlist.id.uuidString)-movie-1", streamId: 1, name: "Film")
+        movie.directURL = address
+        #expect(DownloadManager.canDownload(movie, from: playlist) == offered)
+    }
 }

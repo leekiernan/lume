@@ -178,9 +178,7 @@ final class DownloadManager: NSObject {
         guard activeDownloads[id] == nil, !pendingIDs.contains(id) else { return }
         guard movie.downloadStatus != .completed else { return }
 
-        guard let url = Self.downloadURL(direct: movie.directURL, playlist: playlist, xtream: {
-            XtreamClient.buildMovieURL(for: movie, playlist: playlist)
-        }) else { return }
+        guard let url = Self.movieURL(movie, playlist: playlist) else { return }
 
         let ext = DownloadFileIdentity.safeExtension(movie.containerExtension)
         let filename = "\(Self.sanitize(id)).\(ext)"
@@ -194,9 +192,7 @@ final class DownloadManager: NSObject {
         guard activeDownloads[id] == nil, !pendingIDs.contains(id) else { return }
         guard episode.downloadStatus != .completed else { return }
 
-        guard let url = Self.downloadURL(direct: episode.directSource, playlist: playlist, xtream: {
-            XtreamClient.buildEpisodeURL(for: episode, playlist: playlist)
-        }) else { return }
+        guard let url = Self.episodeURL(episode, playlist: playlist) else { return }
 
         let ext = DownloadFileIdentity.safeExtension(episode.containerExtension)
         let filename = "\(Self.sanitize(id)).\(ext)"

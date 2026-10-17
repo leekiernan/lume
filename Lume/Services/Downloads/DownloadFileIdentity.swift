@@ -25,6 +25,25 @@ nonisolated enum DownloadFileIdentity {
 }
 
 extension DownloadManager {
+    /// Whether the title has something to download. The download affordance
+    /// asks this, not just the playlist, so an m3u entry whose stream is
+    /// `rtmp:` or `file:` offers no button rather than one that does nothing.
+    static func canDownload(_ movie: Movie, from playlist: Playlist) -> Bool {
+        playlist.supportsDownloads && movieURL(movie, playlist: playlist) != nil
+    }
+
+    static func canDownload(_ episode: Episode, from playlist: Playlist) -> Bool {
+        playlist.supportsDownloads && episodeURL(episode, playlist: playlist) != nil
+    }
+
+    static func movieURL(_ movie: Movie, playlist: Playlist) -> URL? {
+        downloadURL(direct: movie.directURL, playlist: playlist) { XtreamClient.buildMovieURL(for: movie, playlist: playlist) }
+    }
+
+    static func episodeURL(_ episode: Episode, playlist: Playlist) -> URL? {
+        downloadURL(direct: episode.directSource, playlist: playlist) { XtreamClient.buildEpisodeURL(for: episode, playlist: playlist) }
+    }
+
     /// Background downloads support HTTP byte streams, not arbitrary schemes.
     static func downloadURL(direct: String?, playlist: Playlist, xtream: () -> URL?) -> URL? {
         let url: URL? = switch playlist.knownSourceType {
