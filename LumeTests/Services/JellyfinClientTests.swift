@@ -325,7 +325,15 @@ struct JellyfinClientTests {
         let headers = ["Authorization": "MediaBrowser Token=\"tok\""]
         let authed = try #require(JellyfinPlaybackAuth.authenticatedURL(url, headers: headers))
         #expect(authed.absoluteString.contains("api_key=tok"))
+        #expect(authed.absoluteString.contains("ApiKey=tok"))
         #expect(authed.absoluteString.contains("Static=true"))
+    }
+
+    @Test func `token aliases are refreshed together without ambiguous duplicates`() throws {
+        let url = try #require(URL(string: "https://server.test/video?ApiKey=old&api_key=other&Static=true"))
+        let result = try #require(JellyfinPlaybackAuth.authenticatedURL(url, headers: ["Authorization": "MediaBrowser Token=\"fresh\""]))
+        let items = try #require(URLComponents(url: result, resolvingAgainstBaseURL: false)?.queryItems)
+        #expect(items == [URLQueryItem(name: "Static", value: "true")] + JellyfinPlaybackAuth.queryItems(token: "fresh"))
     }
 
     @Test func `a basic header is not mistaken for a jellyfin token`() throws {
