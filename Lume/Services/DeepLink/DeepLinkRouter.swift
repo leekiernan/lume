@@ -45,5 +45,9 @@ final class DeepLinkRouter {
         /// `interactiveDismissDisabled`. The modal needs Menu for itself so a PIN
         /// pad nested over it can consume the press first.
         var isQuickSwitchPresented = false
+
+        /// Where Settings is. Here rather than in the view, so a tab-set change
+        /// that rebuilds the Settings tab doesn't lose it — see `TVSettingsRoute`.
+        var settingsRoute = TVSettingsRoute()
     #endif
 }

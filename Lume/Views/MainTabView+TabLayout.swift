@@ -2,39 +2,15 @@
 //  MainTabView+TabLayout.swift
 //  Lume
 //
-//  Which tabs the bar shows, and the tvOS hold that keeps that layout steady
-//  while Settings is selected. Split out of MainTabView for its size limit.
+//  Which tabs the bar shows, and keeping the selection on one of them. Split
+//  out of MainTabView for its size limit.
 //
 
 import SwiftUI
 
 extension MainTabView {
     func isOn(_ area: AppArea) -> Bool {
-        displayedTabSelection.libraryAreas.contains(area)
-    }
-
-    /// The tabs the bar shows. On tvOS, switching an area in Settings inserts
-    /// or removes a tab, and tvOS answers a changed tab set by rebuilding the
-    /// bar and moving focus onto it — out of Settings › Library after every
-    /// switch. So while Settings is selected the bar keeps the layout it had:
-    /// the switches still apply at once, and the bar catches up on leaving
-    /// (or on a deep link or profile change, which select elsewhere).
-    var displayedTabSelection: AppTabSelection {
-        #if os(tvOS)
-            heldTabSelection ?? tabSelection
-        #else
-            tabSelection
-        #endif
-    }
-
-    func holdTabLayout(for tab: AppTab) {
-        #if os(tvOS)
-            if tab != .settings {
-                heldTabSelection = nil
-            } else if heldTabSelection == nil {
-                heldTabSelection = tabSelection
-            }
-        #endif
+        tabSelection.libraryAreas.contains(area)
     }
 
     var showsSportsTab: Bool {
@@ -62,7 +38,7 @@ extension MainTabView {
     /// Keep router state in step with the resolved binding, on launch and when
     /// a profile or layout changes. Never change a valid user-selected tab.
     func repairSelectionIfNeeded() {
-        let resolved = displayedTabSelection.resolved(router.selectedTab)
+        let resolved = tabSelection.resolved(router.selectedTab)
         if router.selectedTab != resolved { router.selectedTab = resolved }
     }
 }

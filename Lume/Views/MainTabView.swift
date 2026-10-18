@@ -143,12 +143,6 @@ struct MainTabView: View {
         )
     }
 
-    #if os(tvOS)
-        /// The layout the tab bar keeps while Settings is selected — see
-        /// `displayedTabSelection` (MainTabView+TabLayout).
-        @State var heldTabSelection: AppTabSelection?
-    #endif
-
     /// Home's local rails are bounded queries, and the library category
     /// lists are playlist-scoped ones, so the scope has to be known when their
     /// `@Query` wrappers are constructed. Passing the prefix from this root keeps
@@ -163,7 +157,7 @@ struct MainTabView: View {
     }
 
     var body: some View {
-        let policy = displayedTabSelection
+        let policy = tabSelection
         let selection = Binding(
             get: { policy.resolved(router.selectedTab) },
             set: { router.selectedTab = policy.resolved($0) }
@@ -177,14 +171,13 @@ struct MainTabView: View {
             .id(activeProfileToken)
         #endif
             .onChange(of: policy, initial: true) { _, _ in repairSelectionIfNeeded() }
-            .onChange(of: activeProfileToken) { _, _ in
-                // A new profile brings its own layout; hold that one instead.
-                holdTabLayout(for: .home)
-                holdTabLayout(for: router.selectedTab)
-                repairSelectionIfNeeded()
-            }
-            .onChange(of: router.selectedTab, initial: true) { _, tab in holdTabLayout(for: tab) }
+            .onChange(of: activeProfileToken) { _, _ in repairSelectionIfNeeded() }
         #if os(tvOS)
+            // Settings opens fresh each visit, as other tabs do; its route only
+            // has to outlive a tab-set change while it's showing.
+            .onChange(of: router.selectedTab) { oldTab, newTab in
+                if oldTab == .settings, newTab != .settings { router.settingsRoute = TVSettingsRoute() }
+            }
             .disabled(blockingOverlayOwnsScreen || router.isQuickSwitchPresented)
             // The brand's ambient ground behind every tab; screens with their
             // own art (hero, detail backdrops) paint over it.
@@ -365,7 +358,7 @@ struct MainTabView: View {
                     }
                 }
 
-                if displayedTabSelection.showsSports {
+                if tabSelection.showsSports {
                     Tab(value: AppTab.sports) {
                         activeOnly(.sports, selection: selection.wrappedValue) { TVSportsHubScreen() }
                     } label: {
@@ -489,7 +482,7 @@ struct MainTabView: View {
                     }
                 }
 
-                if displayedTabSelection.showsSports {
+                if tabSelection.showsSports {
                     Tab("Sports", systemImage: "sportscourt", value: AppTab.sports) {
                         IdleUnmountingTab(isSuspended: isSwitchingProfile, isSelected: selection.wrappedValue == .sports) { SportsHubView() }
                     }

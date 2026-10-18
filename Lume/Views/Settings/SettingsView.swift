@@ -87,12 +87,14 @@ struct SettingsView: View {
         /// Routes the switch through the blocking overlay (see PlaylistSwitchModel).
         /// Not `private`: read by the SettingsView+Playlists extension.
         @Environment(PlaylistSwitchModel.self) var playlistSwitch: PlaylistSwitchModel?
-        /// The category whose content is shown in the right pane. Follows focus
-        /// in the sidebar (Apple TV Settings behaviour) and persists once focus
-        /// moves into the detail pane.
+        /// Holds `selectedCategory`, `layoutArea`, `showingSportsSettings` and
+        /// the focus reclaim, so a tab-set change that rebuilds this screen
+        /// doesn't lose them (SettingsView+TVRoute, `TVSettingsRoute`).
+        @Environment(DeepLinkRouter.self) var router: DeepLinkRouter?
+        /// The route for a Settings shown without a router (previews).
+        @State var fallbackRoute = TVSettingsRoute()
         /// Not `private`: read by the SettingsView+TVTabBarEntry extension
-        /// (separate file), as are `focusedCategory` and the two below.
-        @State var selectedCategory: SettingsCategory = .premium
+        /// (separate file), as are the two below.
         @FocusState var focusedCategory: SettingsCategory?
         /// The playlist drilled into within the Playlists category. When set, its
         /// settings replace the playlist list *in the detail pane* rather than
@@ -109,25 +111,14 @@ struct SettingsView: View {
         @State var playerRoute: PlayerSettingsRoute = .overview
         @State var isReorderingPlayerList = false
 
-        /// Which area the Library category is configuring, and whether it has
-        /// drilled into that area's categories. The rows pane is
-        /// `TVSectionLayoutDetail`, which owns that surface's stored order,
-        /// hidden set and custom rows. Not `private`: read by the
-        /// SettingsView+TVHome extension (separate file).
-        @State var layoutArea: AppArea = .home
+        /// Whether the Library category has drilled into the area's categories.
+        /// Not `private`: read by the SettingsView+TVHome extension.
         @State var showingAreaCategories = false
         /// Reasserted after the area's enabled state changes. The rows below the
         /// toggle are inserted/removed by that mutation; without an explicit
         /// anchor tvOS can hand focus back to the Settings sidebar.
         @FocusState var libraryAreaToggleFocused: Bool
-        /// An area toggle rebuilds the Library detail below its enable row. The
-        /// focus engine can briefly nominate a sidebar item while that happens;
-        /// don't interpret that transient focus as user navigation before the
-        /// enable row has reclaimed focus.
-        @State var restoringLibraryAreaToggleFocus = false
-        /// Sports is a Library sibling, not an `AppArea`: it has no catalog of
-        /// its own and remains unavailable while the parent Live TV area is off.
-        @State var showingSportsSettings = false
+
         /// Whether the Playlists pane has drilled into the guide's sources.
         @State var showingEPGSources = false
         @AppStorage(AppAreaSettings.disabledAreasKey) var disabledAreasRaw = ""
@@ -416,7 +407,7 @@ struct SettingsView: View {
                 .overlay(alignment: .top) { tvTabBarEntryCatcher }
                 .tvSettingsBackground()
                 .paywall(isPresented: $showPaywall, highlight: paywallHighlight)
-                .defaultFocus($focusedCategory, .premium)
+                .defaultFocus($focusedCategory, selectedCategory)
                 .onChange(of: focusedCategory) { oldValue, newValue in
                     // Backstop for the `defaultFocus` above: if the engine
                     // lands on the geometrically nearest row anyway, correct it
@@ -427,7 +418,7 @@ struct SettingsView: View {
                     // Not while the area toggle is putting focus back: tvOS
                     // brushes the sidebar as rows insert, and a second
                     // assertion racing that one leaves the engine on neither.
-                    if oldValue == nil, !restoringLibraryAreaToggleFocus,
+                    if oldValue == nil, !isReclaimingFocus,
                        let newValue, newValue != selectedCategory,
                        availableCategories.contains(selectedCategory)
                     {
@@ -437,7 +428,7 @@ struct SettingsView: View {
                     // Follow focus so the detail pane mirrors the highlighted
                     // category. Ignore nil (focus moved into the detail pane),
                     // which keeps the current selection visible.
-                    if let newValue, !restoringLibraryAreaToggleFocus {
+                    if let newValue, !isReclaimingFocus {
                         selectedCategory = newValue
                         // Returning focus to the sidebar leaves any drilled-in
                         // detail (a playlist, or an engine's options), so the
