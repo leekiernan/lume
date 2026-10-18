@@ -44,18 +44,15 @@ nonisolated enum ProfileScopedPreferences {
         case bool(default: BoolDefault)
     }
 
-    /// A boolean key's value before anything is written. Most are fixed; the
-    /// Sports tab's depends on the device, which only UIKit on the main actor
-    /// can say — so it's described here and resolved in `snapshot`, keeping
-    /// the key list itself readable from anywhere.
+    /// A boolean key's value before anything is written. A case, not a bare
+    /// `Bool`, so a device-dependent default can be described here and resolved
+    /// in `snapshot` while the key list stays readable from anywhere.
     enum BoolDefault: Equatable {
         case fixed(Bool)
-        case sportsTab
 
         @MainActor var value: Bool {
             switch self {
             case let .fixed(value): value
-            case .sportsTab: SportsSyncService.tabEnabledDefault
             }
         }
     }
@@ -68,7 +65,6 @@ nonisolated enum ProfileScopedPreferences {
             (AppAreaSettings.baseDisabledAreasKey, .string),
             (RecommendationSettings.baseEnabledKey, .bool(default: .fixed(RecommendationSettings.enabledDefault))),
             (SportsSyncService.baseEnabledKey, .bool(default: .fixed(SportsSyncService.enabledDefault))),
-            (SportsSyncService.baseTabEnabledKey, .bool(default: .sportsTab)),
             (SportsSyncService.baseHideScoresKey, .bool(default: .fixed(false))),
             (SportsAlertSettings.baseKey, .string),
             (SportsHubLayout.baseHiddenKey, .string),
@@ -281,10 +277,7 @@ nonisolated enum ProfileScopedPreferences {
         }
 
         if !defaults.bool(forKey: sportsMigrationFlagKey) {
-            for base in [
-                SportsSyncService.baseEnabledKey,
-                SportsSyncService.baseTabEnabledKey
-            ] {
+            for base in [SportsSyncService.baseEnabledKey] {
                 let scoped = key(base)
                 guard scoped != base, defaults.object(forKey: scoped) == nil,
                       let legacy = defaults.object(forKey: base)

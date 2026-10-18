@@ -4,8 +4,9 @@ The Sports Hub (#34): followed leagues' and teams' fixtures, live scores,
 standings and game detail from ESPN, each fixture resolved to a channel already
 in the viewer's own playlists via the EPG so one tap starts playback.
 
-Sports is a **Lume Pro** feature (`PremiumFeature.sportsHub`) and ships behind
-the `sports.tabEnabled` toggle (default on). It is a browse-and-play layer on top
+Sports is a **Lume Pro** feature (`PremiumFeature.sportsHub`), switched per
+profile by "Show Sports" (`sports.enabled.v1`, default on), which also gives it a
+tab everywhere but iPhone (`SportsSyncService.showsTab`). It is a browse-and-play layer on top
 of the existing catalog: it never adds channels, and playback only ever targets a
 `LiveStream` already imported from a playlist.
 

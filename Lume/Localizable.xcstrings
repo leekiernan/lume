@@ -57091,6 +57091,7 @@
       }
     },
     "Show Sports Tab" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -57197,6 +57198,7 @@
     },
     "Show the Sports tab. The fixtures rail on Home follows your Home layout settings." : {
       "comment" : "Footer under the Show Sports Tab toggle. The Home rail is a separate Home layout section.",
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {

@@ -31,7 +31,6 @@ struct MainTabView: View {
     @AppStorage(PlaylistSelectionStore.key) var selectedPlaylistID: String = ""
     /// Whether the Sports tab appears in the tab bar (Settings toggle). When off,
     /// the hub is still reachable from the Home rail header.
-    @AppStorage(SportsSyncService.tabEnabledKey) private var sportsTabEnabled = SportsSyncService.tabEnabledDefault
     /// The Sports feature itself is profile-scoped and additionally requires the
     /// profile's Live TV area. Reading it here makes a settings toggle rebuild
     /// the tab bar immediately, rather than waiting for an unrelated change.
@@ -150,7 +149,7 @@ struct MainTabView: View {
     }
 
     private var showsSportsTab: Bool {
-        sportsEnabled && sportsTabEnabled && SportsSyncService.isEnabled
+        sportsEnabled && SportsSyncService.showsTab && SportsSyncService.isEnabled
     }
 
     private var tabSelection: AppTabSelection {

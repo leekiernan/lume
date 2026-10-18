@@ -50,7 +50,6 @@ struct ProfileScopedPreferencesTests {
                 AppAreaSettings.disabledAreasKey,
                 RecommendationSettings.enabledKey,
                 SportsSyncService.enabledKey,
-                SportsSyncService.tabEnabledKey,
                 SportsSyncService.hideScoresKey,
                 ProfileScopedPreferences.key(SportsAlertSettings.baseKey),
                 SportsHubLayout.hiddenKey,
@@ -77,7 +76,6 @@ struct ProfileScopedPreferencesTests {
             AppAreaSettings.baseDisabledAreasKey,
             RecommendationSettings.baseEnabledKey,
             SportsSyncService.baseEnabledKey,
-            SportsSyncService.baseTabEnabledKey,
             SportsSyncService.baseHideScoresKey,
             SportsAlertSettings.baseKey,
             SportsHubLayout.baseHiddenKey,
@@ -95,7 +93,6 @@ struct ProfileScopedPreferencesTests {
         #expect(ProfileScopedPreferences.booleanBaseKeys == Set([
             RecommendationSettings.baseEnabledKey,
             SportsSyncService.baseEnabledKey,
-            SportsSyncService.baseTabEnabledKey,
             SportsSyncService.baseHideScoresKey
         ] + SectionSurface.allCases.map { HomeLayoutSettings.baseHeroSeededKey($0) }))
 
@@ -105,7 +102,6 @@ struct ProfileScopedPreferencesTests {
         var expectedDefaults = [
             RecommendationSettings.baseEnabledKey: RecommendationSettings.enabledDefault,
             SportsSyncService.baseEnabledKey: SportsSyncService.enabledDefault,
-            SportsSyncService.baseTabEnabledKey: SportsSyncService.tabEnabledDefault,
             SportsSyncService.baseHideScoresKey: false
         ]
         for surface in SectionSurface.allCases {
@@ -444,7 +440,6 @@ struct ProfileScopedPreferencesTests {
         defaults.removePersistentDomain(forName: suiteName)
         defaults.set(true, forKey: ProfileScopedPreferences.migrationFlagKey)
         defaults.set(false, forKey: SportsSyncService.baseEnabledKey)
-        defaults.set(false, forKey: SportsSyncService.baseTabEnabledKey)
 
         withActiveProfile(Self.profileA) {
             ProfileScopedPreferences.migrateLegacyValuesIfNeeded(defaults: defaults)
@@ -452,10 +447,6 @@ struct ProfileScopedPreferencesTests {
 
         #expect(!defaults.bool(forKey: ProfileScopedPreferences.key(
             SportsSyncService.baseEnabledKey,
-            profileID: Self.profileA
-        )))
-        #expect(!defaults.bool(forKey: ProfileScopedPreferences.key(
-            SportsSyncService.baseTabEnabledKey,
             profileID: Self.profileA
         )))
         #expect(defaults.bool(forKey: ProfileScopedPreferences.sportsMigrationFlagKey))

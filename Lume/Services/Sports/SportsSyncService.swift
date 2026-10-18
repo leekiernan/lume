@@ -87,12 +87,6 @@ final class SportsSyncService {
         liveTask != nil
     }
 
-    /// `@AppStorage` key for the Sports tab toggle.
-    nonisolated static let baseTabEnabledKey = "sports.tabEnabled"
-    static var tabEnabledKey: String {
-        ProfileScopedPreferences.key(baseTabEnabledKey)
-    }
-
     /// Sports is an optional Live TV feature. Its own switch gives a profile a
     /// way to hide the hub while retaining the rest of Live TV.
     nonisolated static let baseEnabledKey = "sports.enabled.v1"
@@ -109,11 +103,12 @@ final class SportsSyncService {
         ProfileScopedPreferences.key(baseHideScoresKey)
     }
 
-    /// Default for the Sports tab toggle: on everywhere except iPhone, where iOS
-    /// fits four regular tabs plus the Search pill — a fifth would push both
-    /// Sports and Search into "More". There the Home rail's "See All" opens the
-    /// hub and the tab can be enabled in Settings › Sports.
-    static var tabEnabledDefault: Bool {
+    /// Whether an enabled Sports hub gets its own tab: everywhere except
+    /// iPhone, where iOS fits four regular tabs plus the Search pill — a fifth
+    /// would push both Sports and Search into "More". There the Home rail's
+    /// "See All" opens the hub. "Show Sports" is the one switch; there is no
+    /// separate tab setting.
+    static var showsTab: Bool {
         #if os(iOS)
             UIDevice.current.userInterfaceIdiom != .phone
         #else

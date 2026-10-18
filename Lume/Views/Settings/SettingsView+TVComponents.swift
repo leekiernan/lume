@@ -185,7 +185,6 @@ import SwiftUI
     /// Live TV area at runtime because it opens fixtures on those channels.
     struct TVSportsSettingsPane: View {
         @AppStorage(SportsSyncService.enabledKey) private var enabled = SportsSyncService.enabledDefault
-        @AppStorage(SportsSyncService.tabEnabledKey) private var tabEnabled = SportsSyncService.tabEnabledDefault
         @AppStorage(SportsSyncService.hideScoresKey) private var hideScores = false
         @State private var sync = SportsSyncService.shared
         @State private var showManageTeams = false
@@ -216,7 +215,6 @@ import SwiftUI
                         }
                         .buttonStyle(TVSettingsRowButtonStyle())
 
-                        TVOptionToggleRow(title: "Show Sports Tab", isOn: $tabEnabled)
                         TVOptionToggleRow(title: "Hide Scores", isOn: $hideScores)
                     }
                 }

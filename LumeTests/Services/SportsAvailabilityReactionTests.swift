@@ -104,7 +104,6 @@ struct SportsAvailabilityReactionTests {
         service.configure(container: container)
 
         try seed("espn:soccer/eng.1", profile: profile, container: container, defaults: defaults)
-        defaults.set(false, forKey: ProfileScopedPreferences.key(SportsSyncService.baseTabEnabledKey, profileID: profile))
         defaults.set(true, forKey: ProfileScopedPreferences.key(SportsSyncService.baseHideScoresKey, profileID: profile))
         defaults.set("movies", forKey: AppAreaSettings.disabledAreasKey(profileID: profile))
         notify(defaults)

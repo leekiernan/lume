@@ -45,8 +45,6 @@ struct SportsHomeRail: View {
             @Environment(\.openWindow) private var openWindow
         #endif
 
-        @AppStorage(SportsSyncService.tabEnabledKey) private var sportsTabEnabled = SportsSyncService.tabEnabledDefault
-
         @State private var premium = PremiumManager.shared
         @State private var store = SportsStore.shared
         @State private var follows = SportsFollowService.shared
@@ -238,7 +236,7 @@ struct SportsHomeRail: View {
         }
 
         private func seeAll() {
-            if sportsTabEnabled, let router {
+            if SportsSyncService.showsTab, let router {
                 router.selectedTab = .sports
             } else {
                 showHub = true
