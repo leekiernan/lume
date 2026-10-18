@@ -7,12 +7,14 @@ import SwiftData
 nonisolated enum ProviderArtworkMaintenance {
     private static let checkpoint = "lume.providerArtwork.tokenFree.v1"
 
+    /// Detached from the launch sequence by its caller: on an upgraded device
+    /// with a large library it can take a while, and nothing at launch needs
+    /// it finished. Sync writes token-free routes itself meanwhile.
     @concurrent
     static func run(container: ModelContainer, defaults: UserDefaults = .standard) async {
         guard !defaults.bool(forKey: checkpoint) else { return }
         do {
             let context = ModelContext(container)
-            context.autosaveEnabled = false
             let playlists = try context.fetch(FetchDescriptor<Playlist>())
             for playlist in playlists {
                 let infix: String
@@ -23,7 +25,7 @@ nonisolated enum ProviderArtworkMaintenance {
                 default: continue
                 }
                 try Task.checkCancellation()
-                try scrub(prefix: CatalogID.prefix(playlist.id, infix: infix), in: context)
+                try scrub(prefix: CatalogID.prefix(playlist.id, infix: infix), container: container)
             }
             defaults.set(true, forKey: checkpoint)
         } catch {
@@ -31,31 +33,31 @@ nonisolated enum ProviderArtworkMaintenance {
         }
     }
 
-    static func scrub(prefix: String, in context: ModelContext) throws {
-        try scrub(FetchDescriptor<Movie>(predicate: #Predicate { $0.id.starts(with: prefix) }, sortBy: [SortDescriptor(\.id)]),
-                  field: \.streamIcon, context: context)
-        try scrub(FetchDescriptor<Series>(predicate: #Predicate { $0.id.starts(with: prefix) }, sortBy: [SortDescriptor(\.id)]),
-                  field: \.cover, context: context)
-        try scrub(FetchDescriptor<Episode>(predicate: #Predicate { $0.id.starts(with: prefix) }, sortBy: [SortDescriptor(\.id)]),
-                  field: \.movieImage, context: context)
+    /// Keyset pages with a fresh context each (`CatalogMaintenance`): offset
+    /// paging re-skipped every earlier row per page, and one long-lived
+    /// context kept every row it had touched resident.
+    static func scrub(prefix: String, container: ModelContainer) throws {
+        try CatalogMaintenance.mutate(container: container, pageSize: pageSize, page: { cursor in
+            FetchDescriptor<Movie>(predicate: #Predicate { $0.id > cursor && $0.id.starts(with: prefix) },
+                                   sortBy: [SortDescriptor(\.id, comparator: .lexical)])
+        }, mutate: { rows, _ in clean(rows, field: \.streamIcon) })
+        try CatalogMaintenance.mutate(container: container, pageSize: pageSize, page: { cursor in
+            FetchDescriptor<Series>(predicate: #Predicate { $0.id > cursor && $0.id.starts(with: prefix) },
+                                    sortBy: [SortDescriptor(\.id, comparator: .lexical)])
+        }, mutate: { rows, _ in clean(rows, field: \.cover) })
+        try CatalogMaintenance.mutate(container: container, pageSize: pageSize, page: { cursor in
+            FetchDescriptor<Episode>(predicate: #Predicate { $0.id > cursor && $0.id.starts(with: prefix) },
+                                     sortBy: [SortDescriptor(\.id, comparator: .lexical)])
+        }, mutate: { rows, _ in clean(rows, field: \.movieImage) })
     }
 
-    private static func scrub<Row: PersistentModel>(
-        _ descriptor: FetchDescriptor<Row>, field: ReferenceWritableKeyPath<Row, String?>, context: ModelContext
-    ) throws {
-        var page = descriptor
-        page.fetchLimit = 250
-        while true {
-            try Task.checkCancellation()
-            let rows = try context.fetch(page)
-            guard !rows.isEmpty else { return }
-            for row in rows {
-                guard let stored = row[keyPath: field], let url = URL(string: stored),
-                      let clean = ProviderArtworkAccount.tokenFree(url)?.absoluteString, clean != stored else { continue }
-                row[keyPath: field] = clean
-            }
-            if context.hasChanges { try context.save() }
-            page.fetchOffset = (page.fetchOffset ?? 0) + rows.count
+    private static let pageSize = 250
+
+    private static func clean<Row>(_ rows: [Row], field: ReferenceWritableKeyPath<Row, String?>) {
+        for row in rows {
+            guard let stored = row[keyPath: field], let url = URL(string: stored),
+                  let clean = ProviderArtworkAccount.tokenFree(url)?.absoluteString, clean != stored else { continue }
+            row[keyPath: field] = clean
         }
     }
 }
