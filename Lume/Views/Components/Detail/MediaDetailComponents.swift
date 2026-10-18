@@ -391,6 +391,14 @@ enum DetailFormat {
         ReleaseDate(dateString).map { String($0.year) }
     }
 
+    /// The release year, falling back to a "(2010)" in the provider's name —
+    /// until TMDB enrichment runs, Xtream and M3U titles often carry it only
+    /// there. A bare number isn't trusted: "Blade Runner 2049" isn't from 2049.
+    static func year(releaseDate: String?, name: String) -> String? {
+        if let year = year(from: releaseDate) { return year }
+        return name.matches(of: /\(((?:19|20)\d{2})\)/).last.map { String($0.1) }
+    }
+
     /// A localized abbreviated date ("Mar 15, 2021") from a release-date string.
     /// Uses shared, pre-configured parsers — allocating a `DateFormatter` per
     /// call is expensive, and this runs for every episode card in a season list.

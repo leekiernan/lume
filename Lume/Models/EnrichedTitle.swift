@@ -20,6 +20,7 @@ nonisolated protocol EnrichedTitle: PersistentModel {
     var contentRating: String? { get set }
     var imdbId: String? { get set }
     var plot: String? { get set }
+    var releaseDate: String? { get set }
     var genre: String? { get set }
     var genresData: Data? { get set }
     var certificationData: Data? { get set }
@@ -87,6 +88,12 @@ nonisolated extension EnrichedTitle {
             let value = details.genreNames.joined(separator: ", ")
             recordTMDBFallback(\.genre, previous: genre, applied: value)
             genres = details.genres
+        }
+        // Xtream and M3U VOD lists carry no release date, so TMDB is usually the
+        // only source; a provider date that does hold a year is kept.
+        if ContentIndexText.year(fromReleaseDate: releaseDate) == nil, let value = details.releaseDate {
+            recordTMDBFallback(\.releaseDate, previous: releaseDate, applied: value)
+            releaseDate = value
         }
         tmdbArtworkEnrichedAt = details.proxyReceipt?.artworkAt ?? Date()
         recordProxyReceipt(details.proxyReceipt, fullDetails: false)

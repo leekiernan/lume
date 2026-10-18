@@ -14,6 +14,8 @@ nonisolated struct TMDBTitleDetails {
     let artwork: TitleArtwork
     let tagline: String?
     let overview: String?
+    /// `release_date` for movies, `first_air_date` for series ("2010-07-16").
+    let releaseDate: String?
     let score: RatingScore?
     let runtime: MediaRuntime?
     let genres: [TitleGenre]
@@ -30,7 +32,7 @@ nonisolated struct TMDBTitleDetails {
     init(
         identity: TMDBTitleReference, proxyReceipt: LumeMetadataReceipt? = nil,
         posterPath: String? = nil, backdropPath: String? = nil, tagline: String? = nil, overview: String? = nil,
-        voteAverage: Double? = nil, runtimeMinutes: Int? = nil, genreNames: [String] = [], contentRating: String? = nil,
+        voteAverage: Double? = nil, releaseDate: String? = nil, runtimeMinutes: Int? = nil, genreNames: [String] = [], contentRating: String? = nil,
         cast: [TMDBCastMember] = [], similarIDs: [Int] = [], videos: [TitleVideo] = [], logoPath: String? = nil,
         imdbId: String? = nil, collectionId: Int? = nil, collectionName: String? = nil,
         collectionPosterPath: String? = nil, collectionBackdropPath: String? = nil,
@@ -41,6 +43,7 @@ nonisolated struct TMDBTitleDetails {
         artwork = TitleArtwork(poster: TMDBImagePath(posterPath), backdrop: TMDBImagePath(backdropPath), logo: TMDBImagePath(logoPath))
         self.tagline = tagline?.isEmpty == false ? tagline : nil
         self.overview = overview?.isEmpty == false ? overview : nil
+        self.releaseDate = releaseDate?.isEmpty == false ? releaseDate : nil
         score = RatingScore(voteAverage, scale: .ten)
         runtime = MediaRuntime(minutes: runtimeMinutes)
         self.genres = genres ?? genreNames.compactMap { TitleGenre(name: $0) }

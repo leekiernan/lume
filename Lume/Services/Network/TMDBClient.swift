@@ -355,6 +355,8 @@ private nonisolated struct TitleDetailsResponse: Decodable {
     let tagline: String?
     let overview: String?
     let voteAverage: Double?
+    let releaseDate: String? // movies
+    let firstAirDate: String? // tv
     let runtime: Int? // movies
     let episodeRunTime: [Int]? // tv
     let genres: [Genre]?
@@ -382,6 +384,8 @@ private nonisolated struct TitleDetailsResponse: Decodable {
         case backdropPath = "backdrop_path"
         case posterPath = "poster_path"
         case voteAverage = "vote_average"
+        case releaseDate = "release_date"
+        case firstAirDate = "first_air_date"
         case episodeRunTime = "episode_run_time"
         case releaseDates = "release_dates"
         case contentRatings = "content_ratings"
@@ -507,6 +511,7 @@ nonisolated extension TitleDetailsResponse {
             tagline: (tagline?.isEmpty == true) ? nil : tagline,
             overview: (overview?.isEmpty == true) ? nil : overview,
             voteAverage: RatingScore(voteAverage, scale: .ten)?.value,
+            releaseDate: isMovie ? releaseDate : firstAirDate,
             runtimeMinutes: MediaRuntime(minutes: isMovie ? runtime : episodeRunTime?.first)?.minutes,
             genreNames: genres?.map(\.name) ?? [],
             cast: Array(cast),
