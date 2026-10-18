@@ -94,12 +94,10 @@ final class CastService {
 
     private func observeRouteChanges() {
         #if os(iOS) || os(visionOS)
-            routeObserver = NotificationCenter.default.addObserver(
-                forName: AVAudioSession.routeChangeNotification,
-                object: nil,
-                queue: .main
+            routeObserver = NotificationCenter.default.addMainActorObserver(
+                forName: AVAudioSession.routeChangeNotification, object: nil
             ) { [weak self] _ in
-                MainActor.assumeIsolated { self?.refreshAirPlayRoute() }
+                self?.refreshAirPlayRoute()
             }
         #endif
     }

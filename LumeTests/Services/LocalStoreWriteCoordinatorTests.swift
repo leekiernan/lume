@@ -74,14 +74,10 @@ nonisolated struct LocalStoreWriteCoordinatorTests {
         )
     }
 
-    /// Yields until `condition` holds. Bounded, so a regression fails the test
-    /// instead of hanging the suite — there is no wall-clock wait involved.
+    /// Waits until `condition` holds (`eventually`): a budget of yields ran out
+    /// under a full parallel run before a queued task had even been scheduled.
     private func settle(until condition: () async -> Bool) async -> Bool {
-        for _ in 0 ..< 10000 {
-            if await condition() { return true }
-            await Task.yield()
-        }
-        return false
+        await eventually(condition)
     }
 
     /// Takes the exclusive lease and holds it until the returned gate opens, so

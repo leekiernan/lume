@@ -10,11 +10,10 @@ import Foundation
 @testable import Lume
 import Testing
 
+/// The callers assert the condition themselves afterwards; see `eventually`.
 @MainActor
 func waitUntil(_ condition: () -> Bool) async throws {
-    for _ in 0 ..< 200 where !condition() {
-        try await Task.sleep(for: .milliseconds(20))
-    }
+    _ = await eventually { condition() }
 }
 
 let alice = FakeIdentity(username: "alice", scope: "fake:1")

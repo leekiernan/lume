@@ -94,25 +94,19 @@ final class ProfileManager {
         // (a profile added/removed on another device) lands. Only the cloud store
         // posts this — the catalog store is local-only. Cheap (a few rows) and
         // guarded, so the constant import churn doesn't re-render the profile UI.
-        remoteChangeObserver = NotificationCenter.default.addObserver(
-            forName: .NSPersistentStoreRemoteChange,
-            object: nil,
-            queue: .main
+        remoteChangeObserver = NotificationCenter.default.addMainActorObserver(
+            forName: .NSPersistentStoreRemoteChange, object: nil
         ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                self?.refreshProfiles()
-                self?.preferences.applyImportedPreferencesIfNeeded()
-            }
+            self?.refreshProfiles()
+            self?.preferences.applyImportedPreferencesIfNeeded()
         }
         // A generic store-change can be an export acknowledgement or an early
         // import batch. Only a completed successful import proves that an empty
         // `preferencesJSON` is genuinely empty in CloudKit and safe to seed.
-        cloudImportObserver = NotificationCenter.default.addObserver(
-            forName: .lumeCloudImportDidComplete,
-            object: nil,
-            queue: .main
+        cloudImportObserver = NotificationCenter.default.addMainActorObserver(
+            forName: .lumeCloudImportDidComplete, object: nil
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.preferences.cloudImportDidComplete() }
+            self?.preferences.cloudImportDidComplete()
         }
     }
 

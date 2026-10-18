@@ -74,21 +74,33 @@ Tests deploy to **iOS 26.4+ Simulator only** — never tvOS. Use an iPhone 17 Pr
 ```bash
 # Full suite
 xcodebuild test -project Lume.xcodeproj -scheme Lume \
+  -collect-test-diagnostics never \
   -clonedSourcePackagesDirPath ~/Library/Developer/Lume-SharedSPM \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
 
 # Unit tests only
 xcodebuild test -project Lume.xcodeproj -scheme Lume \
+  -collect-test-diagnostics never \
   -clonedSourcePackagesDirPath ~/Library/Developer/Lume-SharedSPM \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   -only-testing:LumeTests
 
 # UI tests only
 xcodebuild test -project Lume.xcodeproj -scheme Lume \
+  -collect-test-diagnostics never \
   -clonedSourcePackagesDirPath ~/Library/Developer/Lume-SharedSPM \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   -only-testing:LumeUITests
 ```
+
+Pass `-collect-test-diagnostics never` to every command-line test run. The
+default, `on-failure`, runs a `simctl diagnose` sysdiagnose (600 s timeout)
+after any failing test, so one failure turns a ~2-minute run into 12–17
+minutes with nothing visibly happening.
+
+Some suites read fixtures from the gitignored `ExampleData/` at the repo root.
+A fresh clone or worktree needs a copy (or a symlink to an existing one), or
+17 decoding/sync tests fail with "no such file".
 
 Every test `ModelConfiguration` must set `cloudKitDatabase: .none` — `@Attribute(.unique)` models + the default `.automatic` crashes on entitled simulator hosts.
 
