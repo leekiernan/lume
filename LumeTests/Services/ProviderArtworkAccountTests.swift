@@ -38,6 +38,23 @@ struct ProviderArtworkAccountTests {
         #expect(request.url.query == "width=600")
     }
 
+    /// A Jellyfin Live TV m3u added beside its Jellyfin source: the m3u's own
+    /// logos share the server's origin and used to resolve to nothing.
+    @Test func `an ordinary playlists art on a media servers origin loads as its own`() throws {
+        let jellyfin = Playlist(name: "JF", mediaServerURL: "https://server.test", flavor: .jellyfin,
+                                username: "alice", password: "password", accessToken: "account-secret", userId: "user")
+        let account = try #require(ProviderArtworkAccount(playlist: jellyfin))
+        let accounts = [jellyfin.id: account]
+        let logo = try #require(URL(string: "https://server.test/Items/9/Images/Primary?api_key=m3u-own-key"))
+        let m3uItem = UUID().uuidString + "-live-42"
+        let request = try #require(ProviderArtworkAccounts.request(for: logo, ownerID: m3uItem, accounts: accounts))
+        #expect(request.headers["X-Emby-Token"] == "m3u-own-key")
+        #expect(!request.url.absoluteString.contains("account-secret"))
+        // Unowned, or a removed media-server source's item, still gets nothing.
+        #expect(ProviderArtworkAccounts.request(for: logo, ownerID: nil, accounts: accounts) == nil)
+        #expect(ProviderArtworkAccounts.request(for: logo, ownerID: UUID().uuidString + "-jellyfin-movie-1", accounts: accounts) == nil)
+    }
+
     @Test func `foreign artwork never receives the sources credential`() throws {
         let playlist = Playlist(name: "Plex", plexURL: "https://server.test", username: "alice", accessToken: "private")
         let external = try #require(URL(string: "https://cdn.test/poster.jpg"))

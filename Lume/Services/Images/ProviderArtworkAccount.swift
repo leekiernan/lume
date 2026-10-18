@@ -93,11 +93,17 @@ final class ProviderArtworkAccounts {
         let id = ownerID.map { MediaItemKey($0)?.id ?? $0 }
         let playlistID = id.flatMap { UUID(uuidString: String($0.prefix(36))) }
         if let playlistID, let account = accounts[playlistID] { return account.request(for: url) }
+        let isMediaServerItem = id.map { id in ["-plex-", "-jellyfin-", "-emby-"].contains { id.dropFirst(36).hasPrefix($0) } } ?? false
+        // An item of an ordinary playlist (m3u, Xtream) loads its own URL as it
+        // always has, even on a media server's origin — a Jellyfin Live TV m3u
+        // beside its Jellyfin source. Its logos are its own and never receive
+        // the account's credentials.
+        if playlistID != nil, let id, id.count > 37, !isMediaServerItem { return ArtworkRequest(url: url) }
         // An unowned prefetch cannot guess which account supplies private
         // server artwork. Public CDN art continues through the usual path.
         if accounts.values.contains(where: { $0.ownsOrigin(url) }) { return nil }
         // A removed source's legacy credential must not remain usable.
-        if let id, ["-plex-", "-jellyfin-", "-emby-"].contains(where: { id.dropFirst(36).hasPrefix($0) }) { return nil }
+        if isMediaServerItem { return nil }
         return ArtworkRequest(url: url)
     }
 
