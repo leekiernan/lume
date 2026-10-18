@@ -29,12 +29,11 @@ struct MainTabView: View {
     /// Changes when the viewer switches profile — see `activeProfileToken`.
     @AppStorage(ActiveProfileStore.key) var activeProfileToken: String = ""
     @AppStorage(PlaylistSelectionStore.key) var selectedPlaylistID: String = ""
-    /// Whether the Sports tab appears in the tab bar (Settings toggle). When off,
-    /// the hub is still reachable from the Home rail header.
-    /// The Sports feature itself is profile-scoped and additionally requires the
-    /// profile's Live TV area. Reading it here makes a settings toggle rebuild
-    /// the tab bar immediately, rather than waiting for an unrelated change.
-    @AppStorage(SportsSyncService.enabledKey) private var sportsEnabled = SportsSyncService.enabledDefault
+    /// "Show Sports", which also decides the Sports tab (`showsSportsTab`). The
+    /// feature is profile-scoped and additionally requires the profile's Live TV
+    /// area. Reading it here makes the switch update the tab bar immediately,
+    /// rather than waiting for an unrelated change.
+    @AppStorage(SportsSyncService.enabledKey) var sportsEnabled = SportsSyncService.enabledDefault
 
     /// A deep link `ContentView` caught, handled once the tabs are up.
     var pendingLink: Binding<URL?> = .constant(nil)
@@ -144,38 +143,11 @@ struct MainTabView: View {
         )
     }
 
-    private func isOn(_ area: AppArea) -> Bool {
-        tabSelection.libraryAreas.contains(area)
-    }
-
-    private var showsSportsTab: Bool {
-        sportsEnabled && SportsSyncService.showsTab && SportsSyncService.isEnabled
-    }
-
-    private var tabSelection: AppTabSelection {
-        #if os(tvOS)
-            let showsSettings = true
-        #else
-            let showsSettings = false
-        #endif
-        return AppTabSelection(disabledAreasRaw: disabledAreasRaw, showsSports: showsSportsTab, showsSettings: showsSettings)
-    }
-
-    #if os(macOS)
-        /// AppKit can retain a removed conditional tab's title for the final
-        /// role-based Search tab. Include the complete visible layout so its
-        /// native tab host is recreated once profile preferences have bound.
-        private var tabLayoutIdentity: String {
-            "\(activeProfileToken)|\(disabledAreasRaw)|\(showsSportsTab)"
-        }
+    #if os(tvOS)
+        /// The layout the tab bar keeps while Settings is selected — see
+        /// `displayedTabSelection` (MainTabView+TabLayout).
+        @State var heldTabSelection: AppTabSelection?
     #endif
-
-    /// Keep router state in step with the resolved binding, on launch and when
-    /// a profile or layout changes. Never change a valid user-selected tab.
-    private func repairSelectionIfNeeded() {
-        let resolved = tabSelection.resolved(router.selectedTab)
-        if router.selectedTab != resolved { router.selectedTab = resolved }
-    }
 
     /// Home's local rails are bounded queries, and the library category
     /// lists are playlist-scoped ones, so the scope has to be known when their
@@ -191,7 +163,7 @@ struct MainTabView: View {
     }
 
     var body: some View {
-        let policy = tabSelection
+        let policy = displayedTabSelection
         let selection = Binding(
             get: { policy.resolved(router.selectedTab) },
             set: { router.selectedTab = policy.resolved($0) }
@@ -205,7 +177,13 @@ struct MainTabView: View {
             .id(activeProfileToken)
         #endif
             .onChange(of: policy, initial: true) { _, _ in repairSelectionIfNeeded() }
-            .onChange(of: activeProfileToken) { _, _ in repairSelectionIfNeeded() }
+            .onChange(of: activeProfileToken) { _, _ in
+                // A new profile brings its own layout; hold that one instead.
+                holdTabLayout(for: .home)
+                holdTabLayout(for: router.selectedTab)
+                repairSelectionIfNeeded()
+            }
+            .onChange(of: router.selectedTab, initial: true) { _, tab in holdTabLayout(for: tab) }
         #if os(tvOS)
             .disabled(blockingOverlayOwnsScreen || router.isQuickSwitchPresented)
             // The brand's ambient ground behind every tab; screens with their
@@ -387,7 +365,7 @@ struct MainTabView: View {
                     }
                 }
 
-                if showsSportsTab {
+                if displayedTabSelection.showsSports {
                     Tab(value: AppTab.sports) {
                         activeOnly(.sports, selection: selection.wrappedValue) { TVSportsHubScreen() }
                     } label: {
@@ -511,7 +489,7 @@ struct MainTabView: View {
                     }
                 }
 
-                if showsSportsTab {
+                if displayedTabSelection.showsSports {
                     Tab("Sports", systemImage: "sportscourt", value: AppTab.sports) {
                         IdleUnmountingTab(isSuspended: isSwitchingProfile, isSelected: selection.wrappedValue == .sports) { SportsHubView() }
                     }
