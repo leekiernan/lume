@@ -35,6 +35,7 @@ Release would change what ships. Debug, Release and Sideload are untouched.
 | Microbenchmarks | `ParsingBenchmarks`, `PersistenceBenchmarks`, `M3UPersistenceBenchmarks` | Parser / import regressions |
 | Shared provider upserts | `CatalogUpsertBenchmarks` | Legacy/shared batch overhead, cold and unchanged |
 | Browse read path | `BrowseQueryBenchmarks`, `EPGQueryBenchmarks` | A browse fetch going back to scanning |
+| Cold library attribution | `ColdLibraryBenchmarks` | Cached list resolution, foreground model faults and bounded local rails over a reopened enriched SQLite catalogue |
 | Sports resolve | `SportsQueryBenchmarks` | The fixture→channel resolve going back to an unbounded guide scan |
 | Player navigation | `BrowseQueryBenchmarks+Navigation` | A previous/next lookup going back to reading the whole list |
 | End-to-end import | `M3UColdImportBenchmarks` | The whole production cold import, phase by phase |
@@ -64,6 +65,60 @@ External mode must leave `server` nil: until the follow-up review it constructed
 therefore not reader-only memory measurements and must not be corrected by
 arithmetic subtraction. Local mode remains useful for correctness/connection
 reuse, not for isolating reader memory. Stop the external server with Ctrl-C.
+
+## Cold library responsiveness investigation (18 October 2026)
+
+`ColdLibraryBenchmarks` isolates the data path behind a hero source and eight
+20-title rails. It generates 40,000 enriched movies on disk, reopens the
+container between measurements, and reads the scalar fields used by cards and
+heroes. The remote-preview case calls the production
+`SectionCollectionResolver`; its heartbeat records main-actor scheduling gaps.
+Separate probes compare individual faults, batch hydration and projections.
+Those isolated hydration probes deliberately **do not** prewarm rows with the
+background matcher, unlike the production path. A faster isolated batch is not
+evidence that the production resolver needs rewriting.
+
+The local-rail cases use the production descriptors, exclude 99 of 100
+categories, and include a variant with tied provider timestamps. Reopening
+clears the coordinator's row cache; it does **not** flush the OS filesystem
+cache. These are optimized iOS simulator attribution probes, not tvOS UI,
+remote-input latency or genuinely cold flash benchmarks.
+
+Observations across the initial and validation runs on the iPhone 17 Pro
+simulator (iOS 27, Benchmark):
+
+| Data path | Observed time |
+|---|---|
+| Nine production remote previews, 180 displayed titles | 34–73 ms total |
+| Longest main-actor heartbeat gap during those previews | 8–22 ms |
+| Four local rails, 99% of categories hidden | 5.3–7.4 ms total |
+| Same local rails with every `added` timestamp equal | 18–21 ms total |
+
+A temporary read-only probe also exercised a copied household catalogue:
+143,763 movies, 30,595 series, about 1 GB, with its actual saved membership IDs
+and hidden categories. Its first local reads took 13 ms for Recently Added,
+under 1 ms for empty Favorites and about 5 ms each for the two watch rails;
+nine cached lists took 1–33 ms each. The longest heartbeat gap was 27 ms.
+The catalogue passed SQLite's `quick_check`, its browse indexes were present,
+and the device's store/WAL modification times stayed unchanged during copying.
+No catalogue, credentials or household fixtures are committed. The temporary
+device-specific test is not retained.
+
+Validation: all six retained benchmarks pass together; the read-only real-store
+probe also passed. The Benchmark app/test build and strict formatting/lint
+checks pass. No production code, cache policy, schema, project configuration or
+localized strings changed in this investigation.
+
+**Unresolved:** these measurements do not reproduce the reported Apple TV
+remote freeze, nor rule out device flash, startup contention, image delivery or
+SwiftUI/focus work. Do not label the freeze fixed or add a second membership
+cache based on these results. The next step is a cold-launch Time Profiler/Hangs
+capture on the affected Apple TV, including the switch into Movies and remote
+presses during the stall. Existing `home hero lane` / row-ready logs distinguish
+cache reads and catalogue matching from waiting for network artwork. Success
+requires identifying the blocking stack, a targeted change, and a comparable
+before/after trace; preserving cached-first rendering and existing provider
+fallbacks is part of that requirement.
 
 ## The browse path has two halves
 
