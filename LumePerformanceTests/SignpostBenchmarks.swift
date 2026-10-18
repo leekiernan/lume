@@ -148,6 +148,8 @@ final class SignpostBenchmarks: XCTestCase {
             .catalogPurgeHistory,
             .epgSourceSync, .epgIngest, .channelEPGLoad, .guideWindowLoad,
             .homeTrendingLoad, .homeRecommendations, .homeCustomSections,
+            .libraryMovieContinueRead, .libraryMovieWatchedRead, .libraryMovieFavoritesRead, .libraryMovieAddedRead,
+            .librarySeriesContinueRead, .librarySeriesWatchedRead, .librarySeriesFavoritesRead, .librarySeriesAddedRead,
             .sportsChannelResolve, .sportsFixtureRefresh,
             .profileSwitch, .profileSwitchStores, .profileSwitchFetch, .profileSwitchExport,
             .profileSwitchReset, .profileSwitchImport, .profileSwitchSave,

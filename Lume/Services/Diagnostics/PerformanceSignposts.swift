@@ -110,6 +110,18 @@ nonisolated extension PerfSignpost {
     static let homeRecommendations = PerfSignpost("HomeRecommendations")
     static let homeCustomSections = PerfSignpost("HomeCustomSections")
 
+    // Local library reads. Separate rail names identify the synchronous @Query
+    // getter inside a SwiftUI layout/focus update, not just a direct fetch in a
+    // benchmark. These names contain no title, source URL or account identity.
+    static let libraryMovieContinueRead = PerfSignpost("LibraryMovieContinueRead")
+    static let libraryMovieWatchedRead = PerfSignpost("LibraryMovieWatchedRead")
+    static let libraryMovieFavoritesRead = PerfSignpost("LibraryMovieFavoritesRead")
+    static let libraryMovieAddedRead = PerfSignpost("LibraryMovieAddedRead")
+    static let librarySeriesContinueRead = PerfSignpost("LibrarySeriesContinueRead")
+    static let librarySeriesWatchedRead = PerfSignpost("LibrarySeriesWatchedRead")
+    static let librarySeriesFavoritesRead = PerfSignpost("LibrarySeriesFavoritesRead")
+    static let librarySeriesAddedRead = PerfSignpost("LibrarySeriesAddedRead")
+
     /// Sports
     /// The off-main batch fixture→channel resolve (`SportsChannelResolver`): two
     /// bounded catalog fetches plus the in-Swift match.
