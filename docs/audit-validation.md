@@ -597,17 +597,22 @@ Each area was reviewed against its intent before `fix/test-stalls` was merged.
   - An m3u or Xtream playlist on a Plex/Jellyfin origin (a Jellyfin Live TV
     m3u, say) resolved its own logos to nothing. They load as before, without
     the account's credentials.
-  - A cross-origin redirect whose `Location` echoed the original address
-    carried Jellyfin's query `ApiKey` to the new host. Media-server credential
-    query items and userinfo are now removed on that hop. The original fix
-    only covered top-level parameters. Nested return addresses (`rd=`, or any
-    other parameter name) are now inspected without rewriting their transport
-    bytes: a cross-origin redirect embedding authentication parameters or
-    userinfo is refused. Inspection covers relative URLs, nested wrappers and
-    repeated percent encoding, with bounded depth and work; exceeding either
-    limit also refuses the hop. ASCII-only inspection retains opaque non-UTF8
-    CDN signature bytes and cannot silently lose a value while decoding it.
-    Harmless signed CDN URLs and same-origin redirects remain byte-identical.
+  - **Credentialed redirects.** A cross-origin redirect whose `Location`
+    echoed the original address carried Jellyfin's query `ApiKey` to the new
+    host. Stripping top-level items missed nested return URLs. Inspecting
+    nested URLs (`d3f98bcf`) then missed a return URL in the path or fragment,
+    a semicolon query, a non-URL value, base64, and the token echoed under
+    another name. A credentialed artwork request (token headers, a
+    media-server key or userinfo) therefore never follows a cross-origin
+    redirect. The one exception is the same host upgrading to HTTPS, which
+    keeps its credentials as the Plex/Jellyfin API clients do. Nothing
+    legitimate depends on such a hop: the media server serves private art
+    itself, and a hop elsewhere is an SSO or forward-auth login page (not an
+    image) or a misconfiguration. A target that needed the credential would
+    fail anyway once it was withheld. Public artwork follows redirects byte
+    for byte, as before. **Device check:** confirm that no Plex library
+    thumbnail redirects to an external host. One that does would no longer
+    load.
   - Added a Top Shelf test that renders a token-free route with its owner's
     credential.
 
@@ -655,22 +660,14 @@ Final verification at `773c0fee`, with the follow-up fixes and the stall fixes
 merged: two full parallel runs passed 3,646 of 3,646, in 158 s and 96 s. tvOS
 and macOS builds passed.
 
-### Nested artwork redirect verification
+### Artwork redirect verification
 
-At `d3f98bcf`, the iOS app/test build succeeded and the full parallel LumeTests
-run passed all 3,652 tests (4,146 parameterized executions), with no failures or
-skips, in 92 s on the iPhone 17 Pro simulator running iOS 27.0. SwiftFormat and
-strict SwiftLint passed. Existing test/compiler warnings remain; the run also
-reported priority inversions in the test-only projection-gate hold helpers.
-
-Regression coverage includes mixed-case credential aliases, repeated encoding,
-nested wrappers, relative and scheme-relative return URLs, userinfo, opaque
-non-UTF8 query bytes, and excessive query size/depth. Signed CDN queries and
-same-origin redirects retain their exact URL bytes. Bounds are eight decoding
-passes per value, eight nesting levels and 64 KiB of cumulative query/decoding
-work; exceeding a bound refuses the cross-origin hop rather than guessing.
-
-Evidence: `/tmp/lume-nested-artwork-final-build.xcresult` and
-`/tmp/lume-nested-artwork-tests.xcresult`. No physical-device checks or new
-tvOS/macOS app builds were run for this focused follow-up. The fix remains on
-`fix/audit-validation`, pending review/merge.
+`d3f98bcf` refused nested credentials in query values. A probe that ran the
+committed policy against crafted redirect addresses still leaked six shapes:
+a return URL in the path, in a fragment, in a semicolon query, in a non-URL
+value, in base64, and the token under another name. The policy now refuses
+every cross-origin hop of a credentialed request instead (above). Each of
+those shapes, the same-host HTTPS upgrade, downgrades, plain-HTTP port changes
+and byte-identical public redirects are regression tests. The bounded-read
+test also checks that the session's policy still governs a hop when the
+reader supplies the task delegate.
