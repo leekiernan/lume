@@ -38,7 +38,7 @@ extension ContentSyncManager {
     /// switched-off kind is neither fetched nor swept (see
     /// `ContentSyncManager+AreaGating`).
     func performPlexSync(playlist: Playlist, playlistId: UUID, progress: SyncProgress?, areas: Set<AppArea>) async throws {
-        guard let base = URL(string: playlist.serverURL), base.scheme != nil, base.host != nil else {
+        guard case let .plex(base, credentials, storedToken) = playlist.connection else {
             throw PlexError.invalidURL
         }
         let server = PlexClient.normalizedServerURL(base)
@@ -46,7 +46,7 @@ extension ContentSyncManager {
         await progress?.start(.authenticating)
         let session: PlexSession
         do {
-            session = try await resolvePlexSession(playlist: playlist, server: server)
+            session = try await resolvePlexSession(server: server, credentials: credentials, storedToken: storedToken)
         } catch {
             let described = (error as? PlexError)?.logDescription ?? "login failed"
             Logger.database.error("Plex login aborted (\(described, privacy: .public)); catalog untouched")
@@ -148,12 +148,12 @@ extension ContentSyncManager {
     /// until the user edits the playlist. That walk is the same order
     /// `PlexAddCheck` uses, including its reason for preferring no token over
     /// a pasted one.
-    private func resolvePlexSession(playlist: Playlist, server: URL) async throws -> PlexSession {
-        let username = playlist.username.trimmingCharacters(in: .whitespacesAndNewlines)
-        let secret = playlist.password.trimmingCharacters(in: .whitespacesAndNewlines)
+    private func resolvePlexSession(server: URL, credentials: PlaylistConnection.Credentials, storedToken: String?) async throws -> PlexSession {
+        let username = credentials.username.trimmingCharacters(in: .whitespacesAndNewlines)
+        let secret = credentials.password.trimmingCharacters(in: .whitespacesAndNewlines)
         let canSignIn = !username.isEmpty && !secret.isEmpty
 
-        if let stored = playlist.plexAccessToken, !stored.isEmpty {
+        if let stored = storedToken, !stored.isEmpty {
             do {
                 return try await session(server: server, token: stored)
             } catch PlexError.unauthorized {
@@ -161,7 +161,7 @@ extension ContentSyncManager {
             }
         }
         if canSignIn {
-            return try await session(server: server, token: plexClient.signIn(username: username, password: playlist.password))
+            return try await session(server: server, token: plexClient.signIn(username: username, password: credentials.password))
         }
         do {
             return try await session(server: server, token: nil)
@@ -279,7 +279,7 @@ extension ContentSyncManager {
             movie.directURL = url
         }
         if let thumb = item.thumb,
-           let url = PlexClient.imageURL(server: scope.server, path: thumb, token: scope.token)?.absoluteString,
+           let url = PlexClient.imageURL(server: scope.server, path: thumb)?.absoluteString,
            movie.streamIcon != url
         {
             movie.streamIcon = url

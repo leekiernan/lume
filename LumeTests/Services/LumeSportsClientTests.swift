@@ -195,9 +195,9 @@ struct LumeSportsClientTests {
 
     /// A down proxy is down for every account behind it; an account the proxy
     /// rejects is only that account's problem.
-    @Test(arguments: [503, 401])
-    func `a server outage cools the whole proxy host, an account error only that account`(_ status: Int) async throws {
-        let (client, source, host) = try client(body: "", status: status)
+    @Test(arguments: [503, 401], [false, true])
+    func `a server outage cools the whole proxy host, an account error only that account`(_ status: Int, oversized: Bool) async throws {
+        let (client, source, host) = try client(body: oversized ? String(repeating: "x", count: 8 * 1024 * 1024 + 1) : "", status: status)
         let other = Playlist(name: "Second account", serverURL: "https://\(host)/panel", username: "second", password: "secret")
         let second = try #require(LumeProxySource(playlist: other))
         #expect(second.hostKey == source.hostKey && second.identity != source.identity)

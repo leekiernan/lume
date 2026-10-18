@@ -33,6 +33,22 @@ struct RelatedTitlesResolverTests {
         }
     }
 
+    @Test func `an open detail rail drops a title once its category is hidden`() throws {
+        try OnDiskCatalogStore.withContext { context in
+            let subject = movie("\(own)-movie-1", tmdb: 1, in: context)
+            subject.similarTitleIds = [2]
+            let related = movie("\(own)-movie-2", tmdb: 2, in: context)
+            related.categoryId = "drama"
+            try context.save()
+            let loader = MovieDetailLoadMachine(movie: subject)
+            loader.restrict(ContentRestriction(), movie: subject, in: context)
+            loader.resolveSimilar(subject, in: context)
+            #expect(loader.similar == [.movie(related)])
+            loader.restrict(ContentRestriction(isActive: false, restrictedCategoryIDs: [], hiddenCategoryIDs: ["drama"]), movie: subject, in: context)
+            #expect(loader.similar.isEmpty)
+        }
+    }
+
     @discardableResult
     private func movie(_ id: String, tmdb: Int, in context: ModelContext) -> Movie {
         let movie = Movie(id: id, streamId: tmdb, name: id)

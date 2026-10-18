@@ -155,6 +155,7 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
     private var timeControlObservation: NSKeyValueObservation?
     private var presentationSizeObservation: NSKeyValueObservation?
     private var trackLoadTask: Task<Void, Never>?
+    private let resourcePreparation = PlaybackResourcePreparation()
 
     private var pipController: AVPictureInPictureController?
 
@@ -218,6 +219,10 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
         let reconnect = reconnecting && hasStartedPlayback
         teardownItemObservers()
         trackLoadTask?.cancel()
+        resourcePreparation.cancel()
+        player.pause()
+        player.replaceCurrentItem(with: nil)
+        isPlaying = false
 
         if media.url != currentMedia?.url {
             hasManualTrackSelection = false
@@ -239,14 +244,26 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
         } else {
             hasStartedPlayback = false
             startTracker.beginStream()
-            PlaybackQoE.shared.beginStartup(engine: .avPlayer, isLive: media.isLive, owner: self)
+            startup.recordSession(engine: .avPlayer, isLive: media.isLive, owner: self)
             startStartupWatchdog()
         }
 
-        let asset = if let headers = media.httpHeaders, !headers.isEmpty {
-            AVURLAsset(url: media.url, options: ["AVURLAssetHTTPHeaderFieldsKey": headers])
+        // Preparation has its own bounded deadline. Start the engine's frame
+        // deadline only once it has an input, keeping its failure latch reset.
+        cancelStartupWatchdog()
+        resourcePreparation.prepare(.init(url: media.url, headers: media.httpHeaders), onReady: { [weak self] resource in
+            guard let self else { return }
+            if !reconnect { startStartupWatchdog() }
+            install(media: media, resource: resource)
+        }, onFailure: { [weak self] in self?.reportFailure() })
+    }
+
+    private func install(media: PlayableMedia, resource: PlaybackResource) {
+        let credentials = PlaybackCredentials.input(for: .avPlayer, url: resource.url, headers: resource.headers)
+        let asset = if let headers = credentials.avFoundationHeaders {
+            AVURLAsset(url: credentials.url, options: ["AVURLAssetHTTPHeaderFieldsKey": headers])
         } else {
-            AVURLAsset(url: media.url)
+            AVURLAsset(url: credentials.url)
         }
         let newItem = AVPlayerItem(asset: asset)
         newItem.preferredForwardBufferDuration = media.isLive ? 4 : 8
@@ -267,10 +284,8 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
     /// The stream's first frame — `proof` is non-`nil` exactly once per stream
     /// (see `PlaybackStartTracker`). Disarms the startup watchdog.
     private func markPlaybackStarted(_ proof: PlaybackStartTracker.Proof?) {
-        guard let proof, startup.started() else { return }
-        if proof == .playhead { Logger.player.info("AVPlayer: first frame proven by playhead progress") }
+        guard startup.accept(proof, engine: .avPlayer) else { return }
         hasStartedPlayback = true
-        PlaybackQoE.shared.noteFirstFrame()
         cancelStartupWatchdog()
     }
 
@@ -293,9 +308,7 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
     /// Internal for `+Reconnect.swift`.
     func reportFailure() {
         guard startup.fail() else { return }
-        if !hasStartedPlayback {
-            PlaybackQoE.shared.noteStartupFailure()
-        }
+        resourcePreparation.cancel()
         cancelStartupWatchdog()
         retry.handle(.terminalFailure)
         Logger.player.error("AVPlayer playback failure reported")
@@ -312,12 +325,12 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
     // MARK: - Teardown
 
     func tearDown() {
+        resourcePreparation.cancel()
         startup.end()
         teardownItemObservers()
         trackLoadTask?.cancel()
         cancelStartupWatchdog()
         retry.handle(.teardown)
-        PlaybackQoE.shared.endSession(owner: self)
         pipController?.stopPictureInPicture()
         pipController = nil
         player.pause()

@@ -502,6 +502,12 @@ nonisolated struct ContentStateValues: Codable, Equatable {
     var customOrder: Int?
     var epgEnrichmentEnabled: Bool?
 
+    /// No position and no date: progress was cleared (or never existed), so a
+    /// resume point remembered this run must not outlive it.
+    var clearsProgress: Bool {
+        watchProgress == 0 && lastWatchedDate == nil
+    }
+
     /// Whether every field is at its default — such an item carries no user
     /// state and is represented as *absent* (nil) so it never gets a cloud
     /// record and a cleared item deletes its record.

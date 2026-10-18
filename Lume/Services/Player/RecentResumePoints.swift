@@ -44,6 +44,14 @@ nonisolated enum RecentResumePoints {
         saved.withLock { $0 = $0.filter { $0.key.profileID != profileID } }
     }
 
+    /// Drops one title's record: a clear that arrived from another device. It
+    /// lands as progress 0 with no date, and `position(for:…)` lets a record
+    /// beat a dateless model — that is the one-save-behind case — so without
+    /// this the cleared title would still resume where this device left it.
+    static func forget(_ ref: PlayableMedia.ContentRef, profileID: UUID? = ActiveProfileStore.current) {
+        _ = saved.withLock { $0.removeValue(forKey: Key(profileID: profileID, ref: ref)) }
+    }
+
     /// Where `ref` should resume: the position saved here if it's newer than
     /// the model's, otherwise the model's.
     static func position(for ref: PlayableMedia.ContentRef, stored: TimeInterval, storedAt: Date?, profileID: UUID? = ActiveProfileStore.current) -> TimeInterval {

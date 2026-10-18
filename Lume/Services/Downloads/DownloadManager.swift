@@ -84,6 +84,19 @@ final class DownloadManager: NSObject {
 
     // MARK: - Configuration
 
+    /// Owned transport for deterministic delegate/persistence tests. The shared
+    /// instance above retains its stable system background-session identifier.
+    init(sessionConfiguration: URLSessionConfiguration) {
+        super.init()
+        session = URLSession(configuration: sessionConfiguration, delegate: self, delegateQueue: nil)
+    }
+
+    /// Release an owned non-background transport and its retained delegate.
+    func invalidateSession() {
+        precondition(session.configuration.identifier == nil, "The shared background session must remain connected")
+        session.invalidateAndCancel()
+    }
+
     func configure(container: ModelContainer) {
         modelContainer = container
     }
@@ -165,11 +178,9 @@ final class DownloadManager: NSObject {
         guard activeDownloads[id] == nil, !pendingIDs.contains(id) else { return }
         guard movie.downloadStatus != .completed else { return }
 
-        guard let url = Self.downloadURL(direct: movie.directURL, playlist: playlist, xtream: {
-            XtreamClient.buildMovieURL(for: movie, playlist: playlist)
-        }) else { return }
+        guard let url = Self.movieURL(movie, playlist: playlist) else { return }
 
-        let ext = movie.containerExtension ?? "mp4"
+        let ext = DownloadFileIdentity.safeExtension(movie.containerExtension)
         let filename = "\(Self.sanitize(id)).\(ext)"
         idToFilename[id] = filename
         enqueue(PendingDownload(id: id, title: movie.name, url: url, filename: filename))
@@ -181,26 +192,13 @@ final class DownloadManager: NSObject {
         guard activeDownloads[id] == nil, !pendingIDs.contains(id) else { return }
         guard episode.downloadStatus != .completed else { return }
 
-        guard let url = Self.downloadURL(direct: episode.directSource, playlist: playlist, xtream: {
-            XtreamClient.buildEpisodeURL(for: episode, playlist: playlist)
-        }) else { return }
+        guard let url = Self.episodeURL(episode, playlist: playlist) else { return }
 
-        let ext = episode.containerExtension
+        let ext = DownloadFileIdentity.safeExtension(episode.containerExtension)
         let filename = "\(Self.sanitize(id)).\(ext)"
         let title = episode.series.map { "\($0.name) S\(episode.seasonNum)E\(episode.episodeNum)" } ?? episode.title
         idToFilename[id] = filename
         enqueue(PendingDownload(id: id, title: title, url: url, filename: filename))
-    }
-
-    /// Where to download an item from, for the sources `supportsDownloads`
-    /// admits: an m3u row carries its URL, an Xtream one is built from the
-    /// account credentials. `nil` for every other source.
-    static func downloadURL(direct: String?, playlist: Playlist, xtream: () -> URL?) -> URL? {
-        switch playlist.sourceType {
-        case .m3u: direct.flatMap(URL.init(string:))
-        case .xtream: xtream()
-        case .stalker, .webdav, .jellyfin, .emby, .plex: nil
-        }
     }
 
     func cancelDownload(id: String) {
@@ -264,38 +262,6 @@ final class DownloadManager: NSObject {
         Self.excludeFromBackup(downloadsDirectory)
     }
 
-    /// Keeps downloaded media out of the user's iCloud / Finder backup.
-    ///
-    /// `Documents` is backed up by default, so a handful of downloaded films
-    /// silently added gigabytes to the user's backup — against Apple's Data
-    /// Storage Guidelines, which put content the app can fetch again but the
-    /// user expects offline in exactly this "do not back up" bucket. Apps have
-    /// been rejected over far smaller amounts.
-    ///
-    /// Set on the *directory*, which covers everything already inside it and
-    /// everything added later, so individual downloads need no bookkeeping.
-    ///
-    /// Deliberately not `Library/Caches`, the other usual answer: the system may
-    /// purge Caches under storage pressure, which would delete the film someone
-    /// downloaded for a flight. This attribute gives the semantics actually
-    /// wanted — not backed up, and never purged.
-    ///
-    /// Idempotent, and called on every launch rather than only at creation, so
-    /// installs that already have a downloads directory are corrected too.
-    nonisolated static func excludeFromBackup(_ url: URL) {
-        var url = url
-        var values = URLResourceValues()
-        values.isExcludedFromBackup = true
-        do {
-            try url.setResourceValues(values)
-        } catch {
-            // Not fatal — downloads still work, they just keep getting backed
-            // up. Logged because the symptom (a bloated backup) is otherwise
-            // invisible from inside the app.
-            Logger.downloads.error("Failed to exclude downloads from backup: \(error.localizedDescription)")
-        }
-    }
-
     private var maxConcurrent: Int {
         let raw = UserDefaults.standard.integer(forKey: Self.maxConcurrentKey)
         return raw > 0 ? raw : 1
@@ -354,11 +320,6 @@ final class DownloadManager: NSObject {
             )
         }
     }
-
-    nonisolated static func sanitize(_ id: String) -> String {
-        id.replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: ":", with: "_")
-    }
 }
 
 // MARK: - URLSessionDownloadDelegate
@@ -405,7 +366,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
     ) {
         let taskID = downloadTask.taskIdentifier
         let responseURL = downloadTask.response?.url ?? downloadTask.currentRequest?.url
-        let ext = responseURL?.pathExtension.isEmpty == false ? responseURL!.pathExtension : "mp4"
+        let ext = DownloadFileIdentity.safeExtension(responseURL?.pathExtension)
 
         // Resolve the destination from the task itself rather than from any map
         // on the main actor: with a background session this callback can arrive
@@ -431,10 +392,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
             try moveIntoDownloads(from: location, to: destination)
         } catch {
             Logger.downloads.error("Rejected or failed to save download for \(info.id): \(error)")
-            Task { @MainActor in
-                self.handleFailure(taskID: taskID, id: info.id)
-                self.promoteIfNeeded()
-            }
+            deliverFailure(taskID: taskID, restoredID: info.id)
             return
         }
         Logger.downloads.info("Download complete: \(info.id)")
@@ -563,11 +521,20 @@ extension DownloadManager: URLSessionDownloadDelegate {
         // As in `didFinishDownloadingTo`, the task may outlive the process that
         // started it, so `taskMap` is not guaranteed to know it.
         let restoredID = DownloadTaskInfo(taskDescription: task.taskDescription)?.id
+        Logger.downloads.error("Download task failed: \(LogRedaction.describe(error), privacy: .public)")
+        deliverFailure(taskID: taskID, restoredID: restoredID)
+    }
+
+    /// Failure delivery owns the same background budget as success: admitting
+    /// the work before returning prevents finish-events from overtaking it.
+    private nonisolated func deliverFailure(taskID: Int, restoredID: String?) {
+        completionDeliveryGroup.enter()
         Task { @MainActor in
+            defer { self.completionDeliveryGroup.leave() }
             guard let id = self.taskMap[taskID] ?? restoredID else { return }
-            Logger.downloads.error("Download failed for \(id): \(error)")
             self.handleFailure(taskID: taskID, id: id)
             self.promoteIfNeeded()
+            await self.statusWrite?.value
         }
     }
 
@@ -579,6 +546,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
             await withCheckedContinuation { continuation in
                 self.completionDeliveryGroup.notify(queue: .global()) { continuation.resume() }
             }
+            await self.statusWrite?.value
             let handler = self.backgroundCompletionHandler
             self.backgroundCompletionHandler = nil
             handler?()

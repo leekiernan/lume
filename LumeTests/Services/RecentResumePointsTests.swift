@@ -13,6 +13,7 @@ import Testing
 /// The record is process-wide and these run in parallel, so each test works on
 /// a title of its own rather than resetting shared state.
 @MainActor
+@Suite(.readsGlobalState)
 struct RecentResumePointsTests {
     private let episode = PlayableMedia.ContentRef.episode(UUID().uuidString)
     private let then = Date(timeIntervalSince1970: 1_700_000_000)

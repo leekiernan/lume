@@ -67,10 +67,11 @@
                 .task(id: movie.id) {
                     await loader.load(movie, restriction: restriction, in: modelContext)
                 }
-                .task(id: [movie.id, String(movie.collectionId ?? -1)]) {
+                .task(id: [movie.id, String(movie.collectionId ?? -1), restriction.visibilityToken]) {
                     await loader.loadCollection(movie, restriction: restriction, in: modelContext)
                 }
                 .onChange(of: movie.similarTMDBIds) { loader.resolveSimilar(movie, in: modelContext) }
+                .onChange(of: restriction.visibilityToken) { loader.restrict(restriction, movie: movie, in: modelContext) }
                 .onDisappear { loader.invalidate() }
                 .animation(.easeInOut(duration: 0.3), value: isLoadingTMDB)
         }
@@ -125,6 +126,7 @@
                 title: movie.name,
                 backdropURL: TMDBClient.backdropURL(movie.backdropPath),
                 posterFallbackURL: URL(string: movie.streamIcon ?? ""),
+                artworkOwnerID: movie.id,
                 logoURL: TMDBClient.logoURL(movie.logoPath),
                 tagline: movie.tagline,
                 rating: movie.starRating,

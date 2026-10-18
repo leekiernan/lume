@@ -23,7 +23,7 @@ import SwiftUI
                 TVTopShelfSettingsSection(proxy: proxy)
                 tvAreaPicker
                 if showingSportsSettings {
-                    TVSportsSettingsPane(proxy: proxy)
+                    TVSportsSettingsPane(proxy: proxy, settingsInstance: instanceID)
                 } else {
                     tvAreaEnableRow
                     tvAreaEnableNote
@@ -86,10 +86,11 @@ import SwiftUI
             let enabled = AppAreaSettings.isEnabled(layoutArea, disabledRaw: disabledAreasRaw)
             let canDisable = AppAreaSettings.canDisable(layoutArea, disabledRaw: disabledAreasRaw)
             return Button {
-                // Mark this before changing AppStorage. Removing or inserting
-                // the area detail can otherwise make tvOS briefly focus the
-                // sidebar, whose focus-follow behaviour would navigate away.
-                restoringLibraryAreaToggleFocus = true
+                // Mark this before changing AppStorage: the switch adds or
+                // removes a tab, the Settings tab is rebuilt, and focus goes to
+                // the tab bar and brushes the sidebar on the way back. The
+                // route survives the rebuild and brings focus back here.
+                route.reclaim = .areaToggle
                 AppAreaSettings.setEnabled(!enabled, for: layoutArea)
             } label: {
                 TVSettingsToggleLabel(isOn: enabled, showsIndicator: true) {
@@ -98,19 +99,7 @@ import SwiftUI
             }
             .buttonStyle(TVSettingsRowButtonStyle())
             .focused($libraryAreaToggleFocused)
-            .onChange(of: disabledAreasRaw) { _, _ in
-                guard restoringLibraryAreaToggleFocus else { return }
-
-                // This callback belongs to the updated view hierarchy. Yield
-                // once more so inserted/removed rows finish their layout before
-                // asking the focus engine to return to this stable row.
-                Task { @MainActor in
-                    await Task.yield()
-                    libraryAreaToggleFocused = true
-                    await Task.yield()
-                    restoringLibraryAreaToggleFocus = false
-                }
-            }
+            .reclaimsFocus(.areaToggle, in: Binding(get: { route }, set: { route = $0 }), instance: instanceID, focused: $libraryAreaToggleFocused)
             // The last area standing can't be switched off — there would be no
             // navigation left.
             .disabled(enabled && !canDisable)

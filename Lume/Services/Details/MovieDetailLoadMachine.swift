@@ -57,6 +57,15 @@ final class MovieDetailLoadMachine {
         similar = RelatedTitlesResolver.similar(to: movie, restriction: restriction, in: context)
     }
 
+    /// Hidden or parental-restricted categories changed under an open detail
+    /// page (a profile switch, a category hidden in Content Management):
+    /// re-resolve the rail so a title that is no longer visible drops out.
+    func restrict(_ restriction: ContentRestriction, movie: Movie, in context: ModelContext) {
+        guard restriction != self.restriction else { return }
+        self.restriction = restriction
+        resolveSimilar(movie, in: context)
+    }
+
     func loadCollection(_ movie: Movie, restriction: ContentRestriction = ContentRestriction(), in context: ModelContext) async {
         self.restriction = restriction
         prepare(movie)

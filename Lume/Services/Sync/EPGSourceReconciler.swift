@@ -38,6 +38,10 @@ nonisolated enum EPGSourceReconciler {
     /// `linkedSourcesByPlaylist(in:)`.
     @discardableResult
     static func apply(_ playlist: Playlist, existing: EPGSource?, in context: ModelContext) -> Bool {
+        // A type this build doesn't know (synced from a newer build) would read
+        // as Xtream through `sourceType`, find no guide, and delete the source
+        // the newer build created. Leave it for a build that understands it.
+        guard playlist.knownSourceType != nil else { return false }
         let playlistID = playlist.id
 
         guard let desiredURL = guideURL(for: playlist) else {

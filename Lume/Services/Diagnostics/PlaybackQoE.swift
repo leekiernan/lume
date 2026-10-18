@@ -109,7 +109,18 @@ final class PlaybackQoE {
     /// so Multi-View, which runs up to four streams concurrently through the
     /// same coordinators, would fill it with meaningless numbers. Held for the
     /// lifetime of `MultiViewScreen` rather than checked at each call site.
-    var isSuspended = false
+    private var suspensionLeases = ActivityLeases()
+    var isSuspended: Bool {
+        suspensionLeases.isActive
+    }
+
+    func suspend(owner: ActivityLease) {
+        suspensionLeases.acquire(owner)
+    }
+
+    func resume(owner: ActivityLease) {
+        suspensionLeases.release(owner)
+    }
 
     // MARK: - Session lifecycle
 
@@ -162,6 +173,11 @@ final class PlaybackQoE {
         persist()
     }
 
+    func noteFirstFrame(owner: AnyObject) {
+        guard owner === self.owner else { return }
+        noteFirstFrame()
+    }
+
     /// A mid-stream stall began (startup buffering doesn't count — that's join
     /// time). No-op before the first frame or while already stalled.
     func noteStallBegan() {
@@ -188,6 +204,11 @@ final class PlaybackQoE {
         Perf.event(.playerStartupFailure)
         mutate(engine) { $0.startupFailures += 1 }
         persist()
+    }
+
+    func noteStartupFailure(owner: AnyObject) {
+        guard owner === self.owner else { return }
+        noteStartupFailure()
     }
 
     /// The host is switching to the next engine in the priority list.

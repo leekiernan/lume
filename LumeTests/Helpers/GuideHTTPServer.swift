@@ -8,7 +8,10 @@ final nonisolated class GuideHTTPServer: @unchecked Sendable {
         var status = 200
         var headers: [String: String] = [:]
         var body = "<tv></tv>"
+        var bodyBytes: Data?
         var delay: TimeInterval = 0
+        /// False sends the body undeclared, ended by closing the connection.
+        var declaresLength = true
     }
 
     private let listener: NWListener
@@ -59,9 +62,10 @@ final nonisolated class GuideHTTPServer: @unchecked Sendable {
                 return
             }
             let response = reply(request)
-            let body = response.status == 304 ? Data() : Data(response.body.utf8)
+            let body = response.status == 304 || request.hasPrefix("HEAD ") ? Data() : response.bodyBytes ?? Data(response.body.utf8)
             let headers = response.headers.map { "\($0.key): \($0.value)\r\n" }.joined()
-            let head = "HTTP/1.1 \(response.status) Response\r\nContent-Length: \(body.count)\r\nConnection: close\r\n\(headers)\r\n"
+            let length = response.declaresLength ? "Content-Length: \(body.count)\r\n" : ""
+            let head = "HTTP/1.1 \(response.status) Response\r\n\(length)Connection: close\r\n\(headers)\r\n"
             let content = Data(head.utf8) + body
             if response.delay > 0 {
                 DispatchQueue.global().asyncAfter(deadline: .now() + response.delay) {

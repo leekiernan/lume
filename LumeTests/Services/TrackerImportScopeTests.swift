@@ -54,19 +54,20 @@ struct TrackerImportRunTests {
     }
 
     private func run(_ live: Live, scope: TrackerScope? = nil, token: String? = "t",
-                     duringFetch: @escaping () -> Void = {}) async -> TrackerImportOutcome<Int>
+                     duringFetch: @escaping () -> Void = {}, duringToken: @escaping () -> Void = {}) async -> TrackerImportOutcome<Int>
     {
         let profile = ActiveProfileStore.current
         return await TrackerImportRun(
+            permit: TrackerImportPermit(account: TrackerAccountLifetime()),
             begin: { scope ?? TrackerScope(account: live.account, profileID: profile) },
-            accessToken: { token },
+            accessToken: { duringToken(); return token },
             fetch: { _ in
                 live.fetches += 1
                 duringFetch()
                 return 3
             },
             isCurrent: { $0.isCurrent(isConnected: live.connected, account: live.account, pendingCount: live.pending) },
-            apply: { items, scope in
+            apply: { items, scope, _ in
                 live.applied.append(scope.profileID)
                 return items
             }
@@ -83,8 +84,9 @@ struct TrackerImportRunTests {
     @Test func `pending local changes defer the import before any fetch`() async {
         let live = Live()
         let outcome = await TrackerImportRun<Int, Int>(
+            permit: TrackerImportPermit(account: TrackerAccountLifetime()),
             begin: { nil }, accessToken: { "t" },
-            fetch: { _ in live.fetches += 1; return 0 }, isCurrent: { _ in true }, apply: { items, _ in items }
+            fetch: { _ in live.fetches += 1; return 0 }, isCurrent: { _ in true }, apply: { items, _, _ in items }
         ).perform()
         guard case .deferred = outcome else { Issue.record("not deferred"); return }
         #expect(live.fetches == 0)
@@ -116,6 +118,47 @@ struct TrackerImportRunTests {
         #expect(live.fetches == 0)
     }
 
+    @Test func `returning to the same profile cannot revive fetched history`() async {
+        let saved = ActiveProfileStore.current
+        defer { ActiveProfileStore.current = saved }
+        let profile = UUID()
+        ActiveProfileStore.current = profile
+        let live = Live()
+        let outcome = await run(live, duringFetch: {
+            ActiveProfileStore.current = UUID()
+            ActiveProfileStore.current = profile
+        })
+        guard case .discarded = outcome else { Issue.record("retired import revived"); return }
+        #expect(live.applied.isEmpty)
+    }
+
+    @Test func `scope is rechecked after waiting for an access token before downloading history`() async {
+        let saved = ActiveProfileStore.current
+        defer { ActiveProfileStore.current = saved }
+        let live = Live()
+        guard case .discarded = await run(live, duringToken: { ActiveProfileStore.current = UUID() }) else {
+            Issue.record("not discarded")
+            return
+        }
+        #expect(live.fetches == 0)
+    }
+
+    @Test func `a reconnect to the same account retires its in-flight import`() async {
+        let account = TrackerAccountLifetime()
+        let permit = TrackerImportPermit(account: account)
+        let scope = TrackerScope(account: "same-account", profileID: ActiveProfileStore.current)
+        var applied = false
+        let outcome = await TrackerImportRun<Int, Int>(
+            permit: permit, begin: { scope }, accessToken: { "fixture" },
+            fetch: { _ in account.invalidate(); return 1 }, isCurrent: { _ in true },
+            apply: { items, _, _ in applied = true; return items }
+        ).perform()
+        guard case .discarded = outcome else { Issue.record("retired account revived"); return }
+        #expect(!applied)
+        #expect(permit.withCurrent { true } == nil)
+        #expect(TrackerImportPermit(account: account).isCurrent)
+    }
+
     @Test(.trackerIdentity(.simkl))
     func `simkl apply refuses a profile other than the one fetched for`() async throws {
         let saved = ActiveProfileStore.current
@@ -123,7 +166,8 @@ struct TrackerImportRunTests {
         ActiveProfileStore.current = UUID()
         let account = try #require(SimklAccountIdentityStore.load()?.scope)
         let summary = try await SimklService.applyImport(
-            items: SimklAllItems(movies: [], shows: []), container: makeTestContainer(), scope: .init(profileID: UUID(), accountID: account)
+            items: SimklAllItems(movies: [], shows: []), container: makeTestContainer(), scope: .init(profileID: UUID(), accountID: account),
+            permit: TrackerImportPermit(account: TrackerAccountLifetime())
         )
         #expect(summary.failed)
     }
@@ -136,7 +180,7 @@ struct TrackerImportRunTests {
         let account = try #require(SimklAccountIdentityStore.load()?.scope)
         let summary = try await SimklService.applyImport(
             items: SimklAllItems(movies: [], shows: []), container: makeTestContainer(),
-            scope: .init(profileID: ActiveProfileStore.current, accountID: account)
+            scope: .init(profileID: ActiveProfileStore.current, accountID: account), permit: TrackerImportPermit(account: TrackerAccountLifetime())
         )
         #expect(!summary.failed)
     }
@@ -151,14 +195,14 @@ struct TrackerImportRunTests {
         for accountID in ["another-account", nil] as [String?] {
             let summary = await SimklService.applyImport(
                 items: SimklAllItems(movies: [], shows: []), container: container,
-                scope: .init(profileID: ActiveProfileStore.current, accountID: accountID)
+                scope: .init(profileID: ActiveProfileStore.current, accountID: accountID), permit: TrackerImportPermit(account: TrackerAccountLifetime())
             )
             #expect(summary.failed)
         }
         SimklAccountIdentityStore.clear()
         let disconnected = await SimklService.applyImport(
             items: SimklAllItems(movies: [], shows: []), container: container,
-            scope: .init(profileID: ActiveProfileStore.current, accountID: account)
+            scope: .init(profileID: ActiveProfileStore.current, accountID: account), permit: TrackerImportPermit(account: TrackerAccountLifetime())
         )
         #expect(disconnected.failed)
     }

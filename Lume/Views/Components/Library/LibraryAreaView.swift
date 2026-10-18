@@ -179,6 +179,7 @@ struct LibraryAreaView<Kind: LibraryAreaKind>: View {
         HeroFeedPage(
             heroItems: feed.heroItems, reservesHero: feed.heroState.reservesSpace,
             warmStartBackdropURL: heroWarmStartBackdropURL,
+            warmStartPlaylistID: activePlaylist?.id,
             warmStartPosterURL: { heroWarmStart.posterURL(hero: heroRef, catalogScope: heroWarmStartScope) },
             onSelectHero: open(hero:), rows: { rowsContent }
         )

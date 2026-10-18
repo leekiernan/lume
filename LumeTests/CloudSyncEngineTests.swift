@@ -209,6 +209,36 @@ struct CloudSyncEngineTests {
         #expect(movie?.isFavorite == true)
     }
 
+    @Test func `a progress clear from another device drops this run's resume point`() async throws {
+        let container = try makeProfileTestContainer()
+        let ctx = container.mainContext
+        let playlist = Playlist(name: "My IPTV", serverURL: "http://x", username: "u", password: "p")
+        ctx.insert(playlist)
+        let movieId = "\(playlist.id.uuidString)-movie-\(UUID().uuidString)"
+        let movie = Movie(id: movieId, streamId: 1, name: "Film")
+        movie.isFavorite = true
+        movie.watchProgress = 600
+        movie.lastWatchedDate = Date()
+        ctx.insert(movie)
+        try ctx.save()
+        let shadow = freshShadow()
+        _ = await CloudSyncEngine(container: container, shadow: shadow).reconcile()
+        RecentResumePoints.record(600, for: .movie(movieId))
+
+        // Another device clears the history; the favorite keeps the record alive.
+        let state = try #require(try ctx.fetch(FetchDescriptor<UserContentState>()).first { $0.contentId == movieId })
+        state.watchProgress = 0
+        state.lastWatchedDate = nil
+        try ctx.save()
+        // A fresh engine reads the record as the next launch or import would.
+        let pulled = await CloudSyncEngine(container: container, shadow: shadow).reconcile()
+        #expect(pulled.contentPulled == 1)
+
+        let reread = try ModelContext(container).fetch(FetchDescriptor<Movie>(predicate: #Predicate { $0.id == movieId })).first
+        #expect(reread?.watchProgress == 0)
+        #expect(RecentResumePoints.position(for: .movie(movieId), stored: 0, storedAt: nil) == 0)
+    }
+
     @Test func `empty local catalog with a populated shadow never deletes cloud mirrors`() async throws {
         let container = try makeProfileTestContainer()
         let ctx = container.mainContext

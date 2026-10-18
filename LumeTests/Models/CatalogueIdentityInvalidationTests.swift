@@ -92,4 +92,29 @@ struct CatalogueIdentityInvalidationTests {
         manager.applyMovieFields(from: dto, to: movie, playlistPrefix: "provider-")
         #expect(movie.tmdbId == 604 && movie.rating == 8)
     }
+
+    /// The reported regression: a panel refreshing new releases sent these
+    /// rows with `tmdb`, the poster, rating and trailer blanked. Each copy lost
+    /// its identity, artwork and grouping until the panel sent them again.
+    @Test func `a blank Xtream tmdb keeps the match its copies share`() throws {
+        let container = try FieldFixtures.makeContainer()
+        let context = container.mainContext
+        let manager = ContentSyncManager(modelContainer: container)
+        let standard = Movie(id: "p-movie-10480824", streamId: 10_480_824, name: "Insidious")
+        let uhd = Movie(id: "p-movie-10484022", streamId: 10_484_022, name: "4K Insidious")
+        for (movie, raw) in [(standard, #""1291595""#), (uhd, "1291595")] {
+            context.insert(movie)
+            let full = try FieldFixtures.decodeMovie(#"{"stream_id":1,"name":"Insidious","tmdb":\#(raw)}"#)
+            manager.applyMovieFields(from: full, to: movie, playlistPrefix: "p-")
+            movie.backdropPath = "/backdrop.jpg"
+            movie.tmdbEnrichedAt = Date()
+            let blank = try FieldFixtures.decodeMovie(#"{"stream_id":1,"name":"Insidious","tmdb":"","stream_icon":"","rating":"0"}"#)
+            manager.applyMovieFields(from: blank, to: movie, playlistPrefix: "p-")
+            #expect(movie.tmdbId == 1_291_595)
+            #expect(movie.backdropPath == "/backdrop.jpg" && movie.tmdbEnrichedAt != nil)
+        }
+        // A different valid ID still corrects the match.
+        try manager.applyMovieFields(from: FieldFixtures.decodeMovie(#"{"stream_id":1,"name":"Insidious","tmdb":"1291596"}"#), to: standard, playlistPrefix: "p-")
+        #expect(standard.tmdbId == 1_291_596 && standard.backdropPath == nil)
+    }
 }

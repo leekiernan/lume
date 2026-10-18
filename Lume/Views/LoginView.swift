@@ -447,8 +447,8 @@ struct LoginView: View {
                 password: password
             )
 
-            let client = StalkerClient(configuration: StalkerClient.Configuration(playlist: playlist))
             do {
+                let client = try StalkerClient(configuration: StalkerClient.Configuration(playlist: playlist))
                 try await withConnectionTimeout {
                     // Handshake + profile doubles as the connection test.
                     let profile = try await client.authenticate()

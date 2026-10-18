@@ -260,6 +260,7 @@ struct FavoriteManagementView: View {
                     }
                 }
                 .frame(width: 44, height: 44)
+                .artworkOwner(entry.id)
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 2) {

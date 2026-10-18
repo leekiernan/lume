@@ -49,10 +49,11 @@ private nonisolated struct StubProvider: SportsDataProvider {
     var standingRows: [SportsStandingRow] = []
     var monthCalls: RequestCounter?
     var fails = false
+    var failedMonth: Int?
 
-    func fixtures(league _: SportsLeague, month _: DateComponents) async throws -> [SportsFixture] {
+    func fixtures(league _: SportsLeague, month: DateComponents) async throws -> [SportsFixture] {
         monthCalls?.increment()
-        if fails { throw URLError(.notConnectedToInternet) }
+        if fails || failedMonth == month.month { throw URLError(.notConnectedToInternet) }
         return monthFixtures
     }
 
@@ -143,9 +144,14 @@ struct SportsCacheStoreTests {
 struct SportsSnapshotRetentionTests {
     private let now = Date(timeIntervalSince1970: 1_800_000_000)
 
+    @Test func `a future-dated cache cannot suppress refresh indefinitely`() {
+        #expect(!SportsSyncService.isFresh(SportsLeagueSnapshot(fetchedAt: now.addingTimeInterval(86400)), now: now))
+    }
+
     @Test func `keeps live events and a short history while trimming stale schedule`() {
         let retained = SportsSyncService.retainedFixtures([
-            makeFixture(id: "live", leagueId: "espn:soccer/ger.1", start: now.addingTimeInterval(-30 * 86400), state: .inProgress),
+            makeFixture(id: "live", leagueId: "espn:soccer/ger.1", start: now.addingTimeInterval(-3600), state: .inProgress),
+            makeFixture(id: "stuck", leagueId: "espn:soccer/ger.1", start: now.addingTimeInterval(-30 * 86400), state: .inProgress),
             makeFixture(id: "recent", leagueId: "espn:soccer/ger.1", start: now.addingTimeInterval(-2 * 86400), state: .final),
             makeFixture(id: "old", leagueId: "espn:soccer/ger.1", start: now.addingTimeInterval(-20 * 86400), state: .final),
             makeFixture(id: "soon", leagueId: "espn:soccer/ger.1", start: now.addingTimeInterval(40 * 86400), state: .scheduled),
@@ -224,6 +230,27 @@ struct SportsSyncLeagueIDTests {
 @MainActor
 @Suite(.readsGlobalState)
 struct SportsSyncRefreshTests {
+    @Test func `roster-only cache warming does not vouch for an unfetched schedule`() async {
+        let store = tempStore()
+        let league = "espn:soccer/ger.1"
+        store.mergeTeams([SportsTeam(leagueId: league, teamId: "132", name: "Bayern", shortName: "Bayern", abbreviation: "FCB")], for: league)
+        #expect(!SportsSyncService.isFresh(store.snapshot(for: league), now: Date()))
+        #expect(store.snapshot(for: league)?.teams.count == 1)
+        await store.flushCache()
+    }
+
+    @Test func `a partial schedule response does not mark its failed window fresh`() async {
+        let league = "espn:soccer/ger.1"
+        let store = tempStore()
+        let failedMonth = SportsSyncService.monthsToFetch(for: Date()).first?.month
+        let service = SportsSyncService(store: store, followSource: StubFollowSource(leagues: [league]), defaults: isolatedDefaults())
+        service.configure(provider: StubProvider(failedMonth: failedMonth))
+        await service.refreshAll()
+        #expect(store.snapshot(for: league) != nil)
+        #expect(!SportsSyncService.isFresh(store.snapshot(for: league), now: Date()))
+        await store.flushCache()
+    }
+
     private func tempStore() -> SportsStore {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         return SportsStore(cache: SportsCacheStore(directory: dir))

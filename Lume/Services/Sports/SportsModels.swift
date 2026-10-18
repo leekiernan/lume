@@ -45,13 +45,6 @@ nonisolated struct SportsLeague: Identifiable, Codable, Hashable {
     }
 }
 
-nonisolated extension SportsLeague {
-    /// A copy carrying the artwork resolved from a live API response.
-    func withLogo(_ url: URL?) -> SportsLeague {
-        SportsLeague(sport: sport, slug: slug, name: name, abbreviation: abbreviation, region: region, logoURL: url)
-    }
-}
-
 // MARK: - Region grouping
 
 /// Region buckets for the Manage Teams browser. Section titles are localised at

@@ -40,6 +40,7 @@ Release would change what ships. Debug, Release and Sideload are untouched.
 | End-to-end import | `M3UColdImportBenchmarks` | The whole production cold import, phase by phase |
 | Attribution harnesses | `M3UEpisodeRelationshipBenchmarks`, `M3UExistingRowFetchBenchmarks` | Which part of an import loop the time is actually in |
 | Signpost metrics | `SignpostBenchmarks` | A named production phase getting slower |
+| Bounded network reads | `NetworkReadBenchmarks` | A size-limited read collecting the whole body before checking it (compare peak memory one test per run; `TEST_RUNNER_LUME_PERF_HTTP` serves bodies out of process) |
 | Field telemetry | `AppPerformanceMetrics` (MetricKit) in the app | What users actually experience |
 | Player QoE | `PlaybackQoE` in the app | Join time, rebuffering, startup failures |
 
@@ -48,6 +49,21 @@ diagnostic report the user can export (Settings → Diagnostics). They are liste
 here because they are the same measurement programme: the tests tell you whether
 a phase regressed on your machine, MetricKit and QoE tell you whether it matters
 in the field.
+
+### Isolated network-reader measurements
+
+Start `python3 Scripts/network-read-fixture.py` in another terminal. It prints
+an ephemeral loopback URL and serves the same accepted 8 MiB and undeclared
+64 MiB bodies as `NetworkReadBenchmarks`, without allocating them in the test
+process. Set `TEST_RUNNER_LUME_PERF_HTTP` to that URL when invoking xcodebuild
+or `Scripts/run-performance-tests.sh NetworkReadBenchmarks/<test>`.
+
+Run each case in its own process, under Benchmark, with nothing else building.
+External mode must leave `server` nil: until the follow-up review it constructed
+72 MiB of unused fixtures before checking the environment. Earlier peaks were
+therefore not reader-only memory measurements and must not be corrected by
+arithmetic subtraction. Local mode remains useful for correctness/connection
+reuse, not for isolating reader memory. Stop the external server with Ctrl-C.
 
 ## The browse path has two halves
 

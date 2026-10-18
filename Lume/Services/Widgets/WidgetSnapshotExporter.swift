@@ -196,15 +196,18 @@ enum WidgetSnapshotExporter {
         guard let playlist = playlists.active(for: storedPlaylistID), !rows.isEmpty else {
             return WidgetSnapshot(generatedAt: now, sections: [])
         }
+        guard let restriction = visibility(isChildProfile: isChildProfile, read: {
+            var descriptor = FetchDescriptor<Category>(predicate: #Predicate { $0.isHidden || $0.isRestricted })
+            descriptor.propertiesToFetch = [\.id, \.isHidden, \.isRestricted]
+            return try context.fetch(descriptor)
+        }) else {
+            return WidgetSnapshot(generatedAt: now, sections: [])
+        }
         let scope = Scope(
             context: context,
             container: container,
             prefix: "\(playlist.id.uuidString)-",
-            restriction: ContentRestriction(
-                isActive: isChildProfile,
-                restrictedCategoryIDs: isChildProfile ? categoryIDs(in: context, matching: #Predicate { $0.isRestricted }) : [],
-                hiddenCategoryIDs: categoryIDs(in: context, matching: #Predicate { $0.isHidden })
-            )
+            restriction: restriction
         )
         return WidgetSnapshot(
             generatedAt: now,
@@ -257,14 +260,6 @@ enum WidgetSnapshotExporter {
             let shows = ((try? context.fetch(descriptor)) ?? []).filter { shows($0.id, category: $0.categoryId) }
             return (shows, ContinueWatchingLoader.load(container: container, series: shows.map(\.persistentModelID)))
         }()
-    }
-
-    private nonisolated static func categoryIDs(
-        in context: ModelContext,
-        matching predicate: Predicate<Category>
-    ) -> Set<String> {
-        let categories = (try? context.fetch(FetchDescriptor<Category>(predicate: predicate))) ?? []
-        return Set(categories.map(\.id))
     }
 
     private nonisolated static func items(for row: TopShelfRowPlan, in scope: Scope) -> [WidgetMediaItem] {
@@ -435,21 +430,24 @@ enum WidgetSnapshotExporter {
 
     /// The titles a list row (trending, a watchlist, a custom list, For You)
     /// last showed in the app, in order — see `TopShelfSettings.record`.
-    private nonisolated static func recorded(_ keys: [String], in scope: Scope) -> [WidgetMediaItem] {
-        keys.compactMap { raw in
-            guard let key = MediaItemKey(raw) else { return nil }
+    private nonisolated static func recorded(_ rawKeys: [String], in scope: Scope) -> [WidgetMediaItem] {
+        let keys = rawKeys.prefix(limit).compactMap(MediaItemKey.init)
+        let movies = (try? CatalogUpsert.lookup(Movie.self, ids: keys.filter { $0.kind == .movie }.map(\.id), context: scope.context)) ?? [:]
+        let series = (try? CatalogUpsert.lookup(Series.self, ids: keys.filter { $0.kind == .series }.map(\.id), context: scope.context)) ?? [:]
+        let streams = (try? CatalogUpsert.lookup(LiveStream.self, ids: keys.filter { $0.kind == .live }.map(\.id), context: scope.context)) ?? [:]
+        return keys.compactMap { key in
             let id = key.id
             switch key.kind {
             case .movie:
-                guard let movie = first(Movie.self, #Predicate { $0.id == id }, in: scope.context),
+                guard let movie = movies[id],
                       scope.shows(movie.id, category: movie.categoryId) else { return nil }
                 return item(movie, progress: false)
             case .series:
-                guard let show = first(Series.self, #Predicate { $0.id == id }, in: scope.context),
+                guard let show = series[id],
                       scope.shows(show.id, category: show.categoryId) else { return nil }
                 return item(show)
             case .live:
-                guard let stream = first(LiveStream.self, #Predicate { $0.id == id && $0.isHidden == false }, in: scope.context),
+                guard let stream = streams[id], !stream.isHidden,
                       scope.shows(stream.id, category: stream.categoryId) else { return nil }
                 return item(stream)
             case .episode:
@@ -457,14 +455,6 @@ enum WidgetSnapshotExporter {
                 return nil
             }
         }
-    }
-
-    private nonisolated static func first<Model: PersistentModel>(
-        _: Model.Type, _ predicate: Predicate<Model>, in context: ModelContext
-    ) -> Model? {
-        var descriptor = FetchDescriptor<Model>(predicate: predicate)
-        descriptor.fetchLimit = 1
-        return try? context.fetch(descriptor).first
     }
 
     // MARK: - Items

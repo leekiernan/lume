@@ -1,6 +1,9 @@
 import SwiftData
 import SwiftUI
 
+/// The full movie or series grid reached from a genre tile. `GenrePageFetcher`
+/// narrows candidates in SQLite, then checks exact genre tokens on a background
+/// context so loading the next page never performs the scan on the main actor.
 struct CatalogGenreView<Kind: CatalogBrowseKind>: View {
     let genre: String
     let playlistPrefix: String

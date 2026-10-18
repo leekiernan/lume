@@ -79,8 +79,7 @@ struct GameDetailSheet: View {
         }
         .gameDetailPlatformChrome()
         .task(id: fixture.id) { await loadDetail() }
-        .onAppear { SportsSyncService.shared.beginLivePolling() }
-        .onDisappear { SportsSyncService.shared.endLivePolling() }
+        .sportsLivePolling()
     }
 
     // MARK: - Background

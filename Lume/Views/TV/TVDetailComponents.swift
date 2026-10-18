@@ -153,6 +153,7 @@
         let title: String
         let backdropURL: URL?
         let posterFallbackURL: URL?
+        var artworkOwnerID: String?
         var logoURL: URL?
         var tagline: String?
         var rating: RatingScore?
@@ -164,6 +165,7 @@
         var body: some View {
             ZStack(alignment: .bottomLeading) {
                 DetailBackdropArtwork(backdropURL: backdropURL, posterFallbackURL: posterFallbackURL, fallbackSymbol: fallbackSymbol, appearance: .television)
+                    .artworkOwner(artworkOwnerID)
 
                 // Bottom scrim into the Night ground (the detail boards': clear
                 // to 60% of the way down, Night at 55% by 70%, solid at the foot).
@@ -319,7 +321,7 @@
 
         private var still: some View {
             ZStack(alignment: .bottom) {
-                EpisodeStillArtwork(title: episode.title, url: episode.movieImage.flatMap(URL.init(string:)), maxPixelSize: 640) {
+                EpisodeStillArtwork(title: episode.title, url: episode.movieImage.flatMap(URL.init(string:)), maxPixelSize: 640, ownerID: episode.id) {
                     Image(systemName: "play.tv")
                         .font(.system(size: 44))
                         .foregroundStyle(.white.opacity(0.5))

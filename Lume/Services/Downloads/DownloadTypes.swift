@@ -118,7 +118,8 @@ nonisolated struct DownloadTaskInfo: Codable {
 
     init?(taskDescription: String?) {
         guard let data = taskDescription?.data(using: .utf8),
-              let decoded = try? JSONDecoder().decode(DownloadTaskInfo.self, from: data)
+              let decoded = try? JSONDecoder().decode(DownloadTaskInfo.self, from: data),
+              DownloadFileIdentity.isBasename(decoded.filename)
         else { return nil }
         self = decoded
     }

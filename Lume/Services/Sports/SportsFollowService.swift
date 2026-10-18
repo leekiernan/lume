@@ -291,8 +291,8 @@ final class SportsFollowService {
     /// Defer out of the write/view update and ignore unrelated preference churn.
     private func observePreferences() {
         guard preferencesObserver == nil else { return }
-        preferencesObserver = NotificationCenter.default.addObserver(
-            forName: UserDefaults.didChangeNotification, object: preferences, queue: .main
+        preferencesObserver = NotificationCenter.default.addMainActorObserver(
+            forName: UserDefaults.didChangeNotification, object: preferences
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self, availability != lastAvailability else { return }

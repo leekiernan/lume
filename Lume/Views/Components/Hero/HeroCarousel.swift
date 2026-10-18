@@ -161,7 +161,8 @@ struct HeroCarousel<Item: Identifiable, Backdrop: View, Info: View>: View where 
                 sourceRatio: ratio, zoom: zoom, displayScale: displayScale
             )
             if let url = rendition.url {
-                Task { await ImagePipeline.shared.prefetch([url], maxPixelSize: rendition.decodeSizeInPixels) }
+                let ownerID = items[neighbour].id
+                Task { await ImagePipeline.shared.prefetch([url], maxPixelSize: rendition.decodeSizeInPixels, ownerID: ownerID) }
             }
         }
     }

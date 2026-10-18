@@ -190,6 +190,7 @@ struct HomeView: View {
                     HeroFeedPage(
                         heroItems: feed.heroItems, reservesHero: hero.reservesSpace,
                         warmStartBackdropURL: heroWarmStartBackdropURL,
+                        warmStartPlaylistID: activePlaylist?.id,
                         warmStartPosterURL: { heroWarmStartPosterURL }, hidesScrollIndicators: true,
                         onSelectHero: selectHero, rows: { homeRows(content) }
                     )

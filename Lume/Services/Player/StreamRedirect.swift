@@ -36,7 +36,7 @@ nonisolated enum StreamRedirect {
 
     /// The URL `url` redirects to, or nil when it doesn't redirect or the
     /// request fails. Asks for a single byte so a direct stream costs nothing.
-    static func resolve(_ url: URL, session: URLSession = session) async -> URL? {
+    static func resolve(_ url: URL, session: URLSession = session, timeout: TimeInterval = timeout) async -> URL? {
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: timeout)
         request.setValue("bytes=0-0", forHTTPHeaderField: "Range")
         do {
@@ -83,9 +83,13 @@ nonisolated enum StreamRedirect {
 /// changed URL would make `KSVideoPlayer` rebuild the session. Reconnects
 /// resolve afresh through `StreamRedirect.resolve` without writing here.
 final class StreamRedirectCache {
-    static let shared = StreamRedirectCache()
-
     private var targets: [URL: URL] = [:]
+    private var generation = RequestToken()
+    private let resolve: (URL) async -> URL?
+
+    init(resolve: @escaping (URL) async -> URL? = { await StreamRedirect.resolve($0) }) {
+        self.resolve = resolve
+    }
 
     /// The URL to open for `url`: its resolved target, or `url` itself.
     func target(for url: URL) -> URL {
@@ -96,13 +100,17 @@ final class StreamRedirectCache {
     /// redirect, or a resolve that fails, leaves the original URL in use.
     func prepare(_ media: PlayableMedia) async {
         guard StreamRedirect.isEligible(media) else { return }
-        let target = await StreamRedirect.resolve(media.url)
+        let request = RequestToken()
+        generation = request
+        let target = await resolve(media.url)
+        guard !Task.isCancelled, generation == request else { return }
         targets[media.url] = target
         Logger.player.info("stream redirect: \(target == nil ? "none, opening the provider URL" : "resolved, opening the token URL", privacy: .public)")
     }
 
     /// Ends the session: a later playback resolves a token of its own.
     func clear() {
+        generation = RequestToken()
         targets.removeAll()
     }
 }

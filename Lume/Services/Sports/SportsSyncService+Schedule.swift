@@ -22,9 +22,7 @@ extension SportsSyncService {
     nonisolated static func retainedFixtures(_ fixtures: [SportsFixture], now: Date = Date()) -> [SportsFixture] {
         fixtures.filter { fixture in
             switch fixture.status.state {
-            case .inProgress:
-                true
-            case .final:
+            case .inProgress, .final:
                 fixture.expectedEnd >= now.addingTimeInterval(-finishedFixtureRetention)
             case .scheduled, .postponed:
                 fixture.expectedEnd >= now.addingTimeInterval(-finishedFixtureRetention)
@@ -36,7 +34,8 @@ extension SportsSyncService {
     /// Whether a league's snapshot is recent enough to skip a full refresh.
     nonisolated static func isFresh(_ snapshot: SportsLeagueSnapshot?, now: Date) -> Bool {
         guard let snapshot else { return false }
-        return now.timeIntervalSince(snapshot.fetchedAt) < freshness
+        let age = now.timeIntervalSince(snapshot.fetchedAt)
+        return age >= -60 && age < freshness
     }
 
     /// A game is worth polling while the snapshot calls it live — or still

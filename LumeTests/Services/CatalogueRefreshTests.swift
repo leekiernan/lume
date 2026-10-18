@@ -49,7 +49,7 @@ struct CatalogueRefreshTests {
         #expect(Movie.catalogueTMDB("0") == nil && Movie.catalogueTMDB(" 42 ") == 42 && Movie.catalogueTMDB("abc") == nil)
     }
 
-    @Test func `series catalogue IDs replace and withdraw while detail only fills`() {
+    @Test func `series catalogue IDs replace, and survive a blank, while detail only fills`() {
         let series = Series(id: "p-series-1", seriesId: 1, name: "Show")
         series.applyProviderMetadata(SeriesMetadata(tmdb: "1429"), fillMissing: false)
         #expect(series.tmdb == "1429" && series.tmdbId == 1429)
@@ -58,9 +58,9 @@ struct CatalogueRefreshTests {
         series.tmdbEnrichedAt = Date()
         series.applyProviderMetadata(SeriesMetadata(tmdb: "1430"), fillMissing: false)
         #expect(series.tmdbId == 1430 && series.tmdb == "1430" && series.tmdbEnrichedAt == nil)
-        // The assignment now proves catalogue ownership, so withdrawal is safe.
+        // A blank from a refreshing panel is no information: the match stays.
         series.applyProviderMetadata(SeriesMetadata(tmdb: "0"), fillMissing: false)
-        #expect(series.tmdbId == nil && series.tmdb == "0" && series.tmdbAssignment == nil)
+        #expect(series.tmdbId == 1430 && series.tmdb == "1430" && series.tmdbAssignment?.origin == .catalogue)
     }
 
     @Test func `episode refresh updates playback inputs but ignores empty values`() {

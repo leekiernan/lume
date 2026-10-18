@@ -244,6 +244,7 @@ import SwiftUI
                     }
                 }
                 .frame(width: 40, height: 60)
+                .artworkOwner(movie.id)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -298,6 +299,7 @@ import SwiftUI
                     }
                 }
                 .frame(width: 70, height: 40)
+                .artworkOwner(episode.id)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
 
                 VStack(alignment: .leading, spacing: 3) {

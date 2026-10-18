@@ -67,21 +67,24 @@ enum TrackerImportOutcome<Summary> {
 /// provider-specific steps; the order and the gates are fixed here, where a
 /// test can change the scope mid-fetch.
 struct TrackerImportRun<Items, Summary> {
+    let permit: TrackerImportPermit
     var begin: () async -> TrackerScope?
     var accessToken: () async -> String?
     var fetch: (String) async throws -> Items
     /// Whether the scope taken at `begin` still holds after the fetch.
     var isCurrent: (TrackerScope) -> Bool
     /// Applies under the scope's profile; implementations re-check it there.
-    var apply: (Items, TrackerScope) async -> Summary
+    var apply: (Items, TrackerScope, TrackerImportPermit) async -> Summary
 
     func perform() async -> TrackerImportOutcome<Summary> {
-        guard let scope = await begin(), !Task.isCancelled else { return .deferred }
-        guard let token = await accessToken() else { return .failed }
+        guard let scope = await begin(), !Task.isCancelled, permit.isCurrent else { return .deferred }
+        let token = await accessToken()
+        guard !Task.isCancelled, permit.isCurrent, isCurrent(scope) else { return .discarded }
+        guard let token else { return .failed }
         do {
             let items = try await fetch(token)
-            guard !Task.isCancelled, isCurrent(scope) else { return .discarded }
-            return await .applied(apply(items, scope))
+            guard !Task.isCancelled, permit.isCurrent, isCurrent(scope) else { return .discarded }
+            return await .applied(apply(items, scope, permit))
         } catch {
             return .failed
         }

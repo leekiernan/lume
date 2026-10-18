@@ -35,6 +35,14 @@ nonisolated enum LogRedaction {
         if scrubbed.contains("Basic ") {
             scrubbed = scrubbed.replacing(basicAuthPattern, with: "Basic <redacted>")
         }
+        scrubbed = scrubbed.replacing(basicHeaderPattern) { "\($0.output.prefix)<redacted>" }
+        scrubbed = scrubbed.replacing(bearerAuthPattern) { "\($0.output.scheme) <redacted>" }
+        scrubbed = scrubbed.replacing(mediaServerHeaderPattern) { "\($0.output.name): <redacted>" }
+        scrubbed = scrubbed.replacing(mediaBrowserTokenPattern) { "\($0.output.prefix)<redacted>\($0.output.suffix)" }
+        // Schemeless fragments the URL pass can't see: a logged path or query
+        // (`/Videos/1/stream?api_key=…`, `/live/user/pass/1.ts`).
+        scrubbed = scrubbed.replacing(credentialQueryPattern) { "\($0.output.name)=<redacted>" }
+        scrubbed = scrubbed.replacing(xtreamPathPattern) { "/\($0.output.kind)/<redacted>/<redacted>/" }
         return scrubbed
     }
 
@@ -132,6 +140,13 @@ nonisolated enum LogRedaction {
     /// value. The 8-character floor keeps ordinary prose ("Basic auth failed")
     /// readable; anything longer is redacted whether or not it decodes.
     private static let basicAuthPattern = /Basic\s+[A-Za-z0-9+\/=_\-]{8,}/
+    private static let basicHeaderPattern = /(?i)(?<prefix>Authorization["']?\s*:\s*["']?Basic\s+)[A-Za-z0-9+\/=_\-]+/
+    private static let bearerAuthPattern = /(?i)(?<scheme>Bearer)\s+[^\s'",;<>]+/
+    private static let mediaServerHeaderPattern = /(?i)(?<name>X-Plex-Token|X-Emby-Token|X-MediaBrowser-Token)["']?\s*[:=]\s*["']?[^\s'",;<>}\]]+/
+    private static let mediaBrowserTokenPattern = /(?i)(?<prefix>\bToken\s*=\s*["'])[^"']+(?<suffix>["'])/
+    private static let credentialQueryPattern =
+        /(?i)(?<name>[?&](?:api_?key|access_token|token|password|username|x-plex-token))=[^&\s'"<>]+/
+    private static let xtreamPathPattern = /\/(?<kind>live|movie|series|timeshift)\/[^\/\s'"<>]+\/[^\/\s'"<>]+\//
 }
 
 /// An error type with a hand-written, credential-free diagnostic summary.

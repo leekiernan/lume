@@ -10,11 +10,10 @@ import Foundation
 @testable import Lume
 import Testing
 
+/// The callers assert the condition themselves afterwards; see `eventually`.
 @MainActor
 func waitUntil(_ condition: () -> Bool) async throws {
-    for _ in 0 ..< 200 where !condition() {
-        try await Task.sleep(for: .milliseconds(20))
-    }
+    _ = await eventually { condition() }
 }
 
 let alice = FakeIdentity(username: "alice", scope: "fake:1")
@@ -38,6 +37,9 @@ struct TrackerAccountSessionTests {
         #expect(tracker.storedTokens == nil && tracker.storedIdentity == nil)
         #expect(!session.isConnected)
         #expect(await session.validAccessToken() == nil)
+        // The pair the server issued meanwhile is revoked, not left valid.
+        try await waitUntil { tracker.revoked.contains("late") }
+        #expect(tracker.revoked.contains("late"))
     }
 
     @Test func `late identity cannot restore an account after disconnect`() async throws {

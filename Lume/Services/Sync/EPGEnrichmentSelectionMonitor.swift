@@ -20,7 +20,9 @@ final class EPGEnrichmentSelectionMonitor {
         self.defaults = defaults
         self.onChange = onChange
         fingerprint = defaults.string(forKey: Self.checkpointKey)
-        observer = NotificationCenter.default.addObserver(forName: ModelContext.didSave, object: nil, queue: .main) { [weak self] _ in
+        // Every save of every context in the process posts this, most of
+        // them off the main thread: they must not wait for it.
+        observer = NotificationCenter.default.addMainActorObserver(forName: ModelContext.didSave, object: nil) { [weak self] _ in
             Task { @MainActor [weak self] in self?.scheduleCheck() }
         }
     }

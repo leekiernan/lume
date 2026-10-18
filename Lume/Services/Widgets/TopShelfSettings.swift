@@ -169,10 +169,6 @@ nonisolated enum TopShelfSettings {
         return followedRaw == activeRaw
     }
 
-    static func followsActiveProfile(defaults: UserDefaults = .standard) -> Bool {
-        isOn(followedRaw: defaults.string(forKey: profileKey), activeRaw: ActiveProfileStore.current?.uuidString)
-    }
-
     /// The export's decision — a pure function of the three profiles, so the
     /// states can't drift. A snapshot of a profile the Top Shelf no longer
     /// follows is cleared rather than kept: its rows belong to someone else.

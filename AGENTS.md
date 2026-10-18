@@ -30,12 +30,40 @@ xcframeworks plus VLCKit's 865 MB xcframework, **6.4 GB per build dir**; eight
 of them once filled `/tmp` with 65 GB. Sharing one clone dir also builds faster
 and dodges the botched-checkout race that breaks multi-platform archiving.
 
-Delete your `-derivedDataPath` dir when the task is done, or run
-`Scripts/clean-build-cache.sh` (report only; `--apply` to reclaim, `--deep` to
-also drop DeviceSupport, the SwiftPM download cache and idle simulators). It
+Delete your task-owned `-derivedDataPath` dir when the task is done using
+`Scripts/cleanup.sh` as described below. For broader, explicitly requested
+maintenance, `Scripts/clean-build-cache.sh` is report-only by default; `--apply`
+reclaims build caches. Adding `--deep` also drops DeviceSupport and the SwiftPM
+download cache, deletes unavailable simulators and erases shut-down simulators. It
 deliberately keeps the two live package checkouts and each checkout's
 `.build/tools`, which is what the pre-commit hook runs SwiftFormat/SwiftLint
 from.
+
+### Approval-friendly validation (Codex)
+
+Invoke `xcodebuild` directly with the action first (`build`, `build-for-testing`,
+`test`, or `test-without-building`). Avoid shell wrappers, output redirection,
+pipes, environment assignments and array/variable expansion: they prevent saved
+command-prefix approvals from matching. Expand the shared package path in the
+command itself; use `-quiet` and `-resultBundlePath` instead of redirecting logs.
+If escalation is needed, propose the reusable `xcodebuild <action>` prefix, not
+the entire command with changing destinations and output paths. Routine builds
+and tests do not need an extra conversational confirmation or announcement;
+report findings and final results. Sandbox approvals still apply.
+
+### Approval-friendly task cleanup (Codex)
+
+Use `Scripts/cleanup.sh --apply <explicit task-cache path> [...]` directly,
+without a shell wrapper, redirection, wildcards or variable expansion. This
+guarded helper already has a reusable approval; do not fall back to raw `rm`
+or the broad maintenance sweep for routine task cleanup. Only name caches
+created for the current task, after all commands using them have finished.
+
+The helper accepts `/private/tmp/lume-dd-<task>` (also `/tmp/`) and temporary
+`lume-<task>-tests.<token>/.build` directories. It validates every target before
+deleting any, rejects symlinks and refuses to apply while `xcodebuild` is
+running. Shared package clones, repository files, logs and `.xcresult` evidence
+are outside this cleanup scope. Run without `--apply` to preview if uncertain.
 
 ---
 
@@ -44,24 +72,35 @@ from.
 Tests deploy to **iOS 26.4+ Simulator only** — never tvOS. Use an iPhone 17 Pro or newer sim; iOS 26.2 sims fail with a deployment-target mismatch (exit 65).
 
 ```bash
-# Every invocation below takes the shared package clone — see "Private
-# DerivedData needs a shared package clone" above.
-SPM=(-clonedSourcePackagesDirPath ~/Library/Developer/Lume-SharedSPM)
-
 # Full suite
-xcodebuild test -project Lume.xcodeproj -scheme Lume "${SPM[@]}" \
+xcodebuild test -project Lume.xcodeproj -scheme Lume \
+  -collect-test-diagnostics never \
+  -clonedSourcePackagesDirPath ~/Library/Developer/Lume-SharedSPM \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
 
 # Unit tests only
-xcodebuild test -project Lume.xcodeproj -scheme Lume "${SPM[@]}" \
+xcodebuild test -project Lume.xcodeproj -scheme Lume \
+  -collect-test-diagnostics never \
+  -clonedSourcePackagesDirPath ~/Library/Developer/Lume-SharedSPM \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   -only-testing:LumeTests
 
 # UI tests only
-xcodebuild test -project Lume.xcodeproj -scheme Lume "${SPM[@]}" \
+xcodebuild test -project Lume.xcodeproj -scheme Lume \
+  -collect-test-diagnostics never \
+  -clonedSourcePackagesDirPath ~/Library/Developer/Lume-SharedSPM \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   -only-testing:LumeUITests
 ```
+
+Pass `-collect-test-diagnostics never` to every command-line test run. The
+default, `on-failure`, runs a `simctl diagnose` sysdiagnose (600 s timeout)
+after any failing test, so one failure turns a ~2-minute run into 12–17
+minutes with nothing visibly happening.
+
+Some suites read fixtures from the gitignored `ExampleData/` at the repo root.
+A fresh clone or worktree needs a copy (or a symlink to an existing one), or
+17 decoding/sync tests fail with "no such file".
 
 Every test `ModelConfiguration` must set `cloudKitDatabase: .none` — `@Attribute(.unique)` models + the default `.automatic` crashes on entitled simulator hosts.
 

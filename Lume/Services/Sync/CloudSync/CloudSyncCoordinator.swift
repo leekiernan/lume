@@ -339,30 +339,20 @@ final class CloudSyncCoordinator {
     /// Mirror `NSPersistentCloudKitContainer` import/export events into the
     /// observable status so settings can show "Syncing…" and surface errors.
     private func observeCloudKitEvents() {
-        let observer = NotificationCenter.default.addObserver(
-            forName: NSPersistentCloudKitContainer.eventChangedNotification,
-            object: nil,
-            queue: .main
+        let observer = NotificationCenter.default.addMainActorObserver(
+            forName: NSPersistentCloudKitContainer.eventChangedNotification, object: nil
         ) { [weak self] notification in
             guard
                 let event = notification.userInfo?[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
                 as? NSPersistentCloudKitContainer.Event
             else { return }
-            // Runs on the main queue; hop to the isolated actor to mutate state.
-            let type = event.type
-            let inProgress = event.endDate == nil
-            let succeeded = event.succeeded
-            let completedAt = event.endDate
-            let errorText = Self.describe(event.error, eventType: type)
-            MainActor.assumeIsolated {
-                self?.applyCloudKitEvent(
-                    type: type,
-                    inProgress: inProgress,
-                    succeeded: succeeded,
-                    completedAt: completedAt,
-                    error: errorText
-                )
-            }
+            self?.applyCloudKitEvent(
+                type: event.type,
+                inProgress: event.endDate == nil,
+                succeeded: event.succeeded,
+                completedAt: event.endDate,
+                error: Self.describe(event.error, eventType: event.type)
+            )
         }
         observers.append(observer)
     }
@@ -483,14 +473,10 @@ final class CloudSyncCoordinator {
     /// actual import (`.remoteChange`): this fires for our own export acks too,
     /// and reconciling on those is the redundant pass we want to avoid.
     private func observeRemoteChanges() {
-        let observer = NotificationCenter.default.addObserver(
-            forName: .NSPersistentStoreRemoteChange,
-            object: nil,
-            queue: .main
+        let observer = NotificationCenter.default.addMainActorObserver(
+            forName: .NSPersistentStoreRemoteChange, object: nil
         ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                self?.reconcile(reason: .remoteChange)
-            }
+            self?.reconcile(reason: .remoteChange)
         }
         observers.append(observer)
     }
@@ -500,14 +486,8 @@ final class CloudSyncCoordinator {
     /// those rows gets applied.
     private func observeContentSyncCompletion() {
         for name in [Notification.Name.lumeContentSyncDidComplete, .lumeEpisodesDidMaterialize] {
-            let observer = NotificationCenter.default.addObserver(
-                forName: name,
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
-                MainActor.assumeIsolated {
-                    self?.reconcile(reason: .contentSync)
-                }
+            let observer = NotificationCenter.default.addMainActorObserver(forName: name, object: nil) { [weak self] _ in
+                self?.reconcile(reason: .contentSync)
             }
             observers.append(observer)
         }
@@ -518,14 +498,10 @@ final class CloudSyncCoordinator {
     /// next scene transition. Pulls do not post this notification, so there is
     /// no export/import feedback loop.
     private func observeTraktCredentialChanges() {
-        let observer = NotificationCenter.default.addObserver(
-            forName: .lumeTraktCredentialsDidChange,
-            object: nil,
-            queue: .main
+        let observer = NotificationCenter.default.addMainActorObserver(
+            forName: .lumeTraktCredentialsDidChange, object: nil
         ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                self?.reconcile(reason: .queued)
-            }
+            self?.reconcile(reason: .queued)
         }
         observers.append(observer)
     }
@@ -534,14 +510,10 @@ final class CloudSyncCoordinator {
     /// Trakt. Local connect, refresh and disconnect export promptly; a cloud
     /// pull deliberately does not repost this notification.
     private func observeSimklCredentialChanges() {
-        let observer = NotificationCenter.default.addObserver(
-            forName: .lumeSimklCredentialsDidChange,
-            object: nil,
-            queue: .main
+        let observer = NotificationCenter.default.addMainActorObserver(
+            forName: .lumeSimklCredentialsDidChange, object: nil
         ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                self?.reconcile(reason: .queued)
-            }
+            self?.reconcile(reason: .queued)
         }
         observers.append(observer)
     }

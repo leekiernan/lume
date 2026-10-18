@@ -13,6 +13,28 @@ import Foundation
 import Testing
 
 struct LogRedactionTests {
+    @Test(arguments: [
+        "Authorization: Basic dTpw",
+        "authorization: basic dTpw",
+        "Authorization: Bearer bearer-secret",
+        "authorization: bearer bearer-secret",
+        "X-Plex-Token: plex-secret",
+        "\"X-Emby-Token\":\"emby-secret\"",
+        "Authorization: MediaBrowser Client=\"Lume\", Token=\"jellyfin-secret\"",
+        "X-MediaBrowser-Token: jellyfin-secret",
+        "GET /Videos/1/stream?static=true&api_key=jellyfin-secret failed",
+        "GET /Items/1/Images/Primary?ApiKey=jellyfin-secret",
+        "open /get.php?username=user-secret&password=pass-secret",
+        "open of '/live/user-secret/pass-secret/1234.ts' failed",
+        "seek /timeshift/user-secret/pass-secret/60/2026-10-17:20-00/1.ts"
+    ])
+    func `strips explicit token headers without needing a URL`(message: String) {
+        let scrubbed = LogRedaction.scrubURLs(in: message)
+        #expect(!scrubbed.contains("-secret") && !scrubbed.contains("dTpw"))
+        #expect(scrubbed.contains("<redacted>"))
+        #expect(LogRedaction.scrubURLs(in: scrubbed) == scrubbed)
+    }
+
     @Test func `strips xtream credentials in path`() {
         let message = "open of 'http://iptv.example.com:8080/live/myuser/mypass/1234.ts' failed"
         let scrubbed = LogRedaction.scrubURLs(in: message)

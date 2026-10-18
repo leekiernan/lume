@@ -37,10 +37,21 @@ final class ContentIndexingService {
     private(set) var indexedCount = 0
     private(set) var totalCount = 0
 
-    /// Set by the player while the full-screen player is up. The indexer
+    /// Held by every mounted playback host. The indexer
     /// polls this and pauses: even background-context saves force a
     /// main-context merge that re-runs every @Query and hitches KSPlayer.
-    var isPlaybackActive = false
+    private var playbackLeases = ActivityLeases()
+    var isPlaybackActive: Bool {
+        playbackLeases.isActive
+    }
+
+    func beginPlayback(owner: ActivityLease) {
+        playbackLeases.acquire(owner)
+    }
+
+    func endPlayback(owner: ActivityLease) {
+        playbackLeases.release(owner)
+    }
 
     /// Set by `CloudSyncCoordinator` while `NSPersistentCloudKitContainer` is
     /// mid import/export. The indexer pauses then: CloudKit tears down and
@@ -70,8 +81,7 @@ final class ContentIndexingService {
     /// True while the user was interacting within the last
     /// `browsingQuietWindow` seconds. Self-clearing by construction: callers
     /// stamp and forget, so no view can leave indexing switched off by failing
-    /// to unset a flag on the way out — the failure mode that a paired
-    /// set/unset (like `isPlaybackActive`) has to be careful about.
+    /// to release an activity on the way out.
     var isUserBrowsing: Bool {
         guard let lastUserInteraction else { return false }
         return Date.now.timeIntervalSince(lastUserInteraction) < Self.browsingQuietWindow

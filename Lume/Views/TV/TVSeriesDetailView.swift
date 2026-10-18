@@ -90,6 +90,7 @@
                 }
                 .onChange(of: series.episodes.count) { loader.recomputeSeasons(series) }
                 .onChange(of: series.similarTMDBIds) { loader.resolveSimilar(series, in: modelContext) }
+                .onChange(of: restriction.visibilityToken) { loader.restrict(restriction, series: series, in: modelContext) }
                 .onDisappear { loader.invalidate() }
                 .animation(.easeInOut(duration: 0.3), value: isLoadingTMDB)
         }
@@ -140,6 +141,7 @@
                 title: series.name,
                 backdropURL: TMDBClient.backdropURL(series.backdropPath),
                 posterFallbackURL: URL(string: series.cover ?? ""),
+                artworkOwnerID: series.id,
                 logoURL: TMDBClient.logoURL(series.logoPath),
                 tagline: series.tagline,
                 rating: series.starRating,

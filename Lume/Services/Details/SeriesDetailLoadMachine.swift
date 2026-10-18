@@ -112,6 +112,15 @@ final class SeriesDetailLoadMachine {
         similar = RelatedTitlesResolver.similar(to: series, restriction: restriction, in: context)
     }
 
+    /// Hidden or parental-restricted categories changed under an open detail
+    /// page (a profile switch, a category hidden in Content Management):
+    /// re-resolve the rail so a title that is no longer visible drops out.
+    func restrict(_ restriction: ContentRestriction, series: Series, in context: ModelContext) {
+        guard restriction != self.restriction else { return }
+        self.restriction = restriction
+        resolveSimilar(series, in: context)
+    }
+
     func invalidate() {
         detail.invalidate()
         episodeLoad.invalidate()

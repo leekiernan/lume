@@ -75,7 +75,7 @@ extension FullScreenPlayerView {
         clock.rebase(onto: segment)
         engineAttempt = 0
         activeMedia = segment
-        NowPlayingService.shared.continueSession(with: segment)
+        NowPlayingService.shared.continueSession(with: segment, owner: playbackLease)
     }
 
     private func openCatchupSegment(at offset: TimeInterval, of timeline: CatchupTimeline) {

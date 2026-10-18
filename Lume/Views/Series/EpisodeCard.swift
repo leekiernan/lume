@@ -76,7 +76,7 @@ import SwiftUI
 
         private var thumbnail: some View {
             ZStack(alignment: .topLeading) {
-                EpisodeStillArtwork(title: episode.title, url: episode.movieImage.flatMap(URL.init(string:)), maxPixelSize: 142) {
+                EpisodeStillArtwork(title: episode.title, url: episode.movieImage.flatMap(URL.init(string:)), maxPixelSize: 142, ownerID: episode.id) {
                     Text("E\(episode.episodeNum)")
                         .font(.headline)
                         .foregroundStyle(.white.opacity(0.7))
@@ -176,9 +176,9 @@ import SwiftUI
                 onMarkPreviousWatched: onMarkPreviousWatched,
                 onMarkFollowingUnwatched: onMarkFollowingUnwatched,
                 onDownload: playlist.flatMap { playlist in
-                    // Stalker portals don't support offline downloads (short-lived
-                    // stream URLs), so the download affordance is hidden for them.
-                    guard playlist.supportsDownloads else { return nil }
+                    // Hidden where there's nothing to download: Stalker's
+                    // short-lived stream URLs, or a non-HTTP m3u stream.
+                    guard DownloadManager.canDownload(episode, from: playlist) else { return nil }
                     return {
                         if premium.isPremium {
                             DownloadManager.shared.startDownload(episode: episode, playlist: playlist)

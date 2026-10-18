@@ -26,6 +26,8 @@ struct FullScreenPlayerView: View {
     /// Stable for this presented player. The process-wide audio session uses it
     /// to reject a stale `onDisappear` after another player has already opened.
     @State var audioSessionOwner = UUID()
+    @State var playbackLease = ActivityLease()
+    @State private var redirectCache = StreamRedirectCache()
     /// The engine mounts once the session is active, so KSPlayer's own
     /// synchronous main-thread activation finds it already done, and once a
     /// KSPlayer stream's provider redirect is resolved (`StreamRedirect`).
@@ -291,6 +293,10 @@ struct FullScreenPlayerView: View {
         .onAppear {
             installSessionEffects()
             beginReviewSession()
+            // Pause background indexing — its periodic saves merge into the
+            // main context and hitch KSPlayer's render loop. Taken here, the
+            // pair of `onDisappear`, so no task timing can leave it held.
+            ContentIndexingService.shared.beginPlayback(owner: playbackLease)
         }
         .onChange(of: activeMedia.id, initial: true) {
             publishSources(to: controlsBridge)
@@ -302,18 +308,17 @@ struct FullScreenPlayerView: View {
             session.send(.starting(mount.engine, startCause))
         }
         .task {
+            guard !Task.isCancelled else { return }
             // Seed the recall pair with the channel we opened on, so the very
             // first in-player recall has somewhere to jump back to.
             LiveChannelHistory.record(activeMedia)
-            // Pause background indexing — its periodic saves merge into the
-            // main context and hitch KSPlayer's render loop.
-            ContentIndexingService.shared.isPlaybackActive = true
             // Resolved alongside the activation: the round trip is one FFmpeg
             // would otherwise make on every read of the opening file.
             let opening = engine == .ksPlayer ? activeMedia : nil
-            async let redirect: Void = { if let opening { await StreamRedirectCache.shared.prepare(opening) } }()
+            async let redirect: Void = { if let opening { await redirectCache.prepare(opening) } }()
             await configureAudioSessionForPlayback()
             await redirect
+            guard !Task.isCancelled else { return }
             isReadyToMount = true
         }
         .task(id: activeMedia.id) {
@@ -328,7 +333,7 @@ struct FullScreenPlayerView: View {
             // channel surf / next episode republishes; cancelled on swap. A
             // catch-up seek keeps the session (`playbackSessionID`).
             await NowPlayingService.shared.runSession(
-                media: activeMedia, clock: clock, container: modelContext.container
+                media: activeMedia, clock: clock, container: modelContext.container, owner: playbackLease
             )
         }
         .task(id: activeMedia.playbackSessionID) {
@@ -402,10 +407,10 @@ struct FullScreenPlayerView: View {
             cancelPendingCatchupSeek()
             // Stops the scrobble and saves progress while the clock is intact.
             session.send(.leave(.dismiss))
-            NowPlayingService.shared.endSession()
+            NowPlayingService.shared.endSession(owner: playbackLease)
             releaseAudioSession()
-            StreamRedirectCache.shared.clear()
-            ContentIndexingService.shared.isPlaybackActive = false
+            redirectCache.clear()
+            ContentIndexingService.shared.endPlayback(owner: playbackLease)
             endReviewSession(isChildWatching: profileManager?.activeProfileIsChild ?? false)
         }
     }
@@ -462,7 +467,8 @@ struct FullScreenPlayerView: View {
                 usesQuickStartupTimeout: hasFallbackEngine,
                 onPlaybackFailed: handlePlaybackFailure,
                 onSelectMedia: switchMedia,
-                onCompleteCurrentItem: completeActiveEpisode, onRemoteAdvance: remoteAdvanceHandler, onCatchupSeek: handleCatchupSeek, session: session
+                onCompleteCurrentItem: completeActiveEpisode, onRemoteAdvance: remoteAdvanceHandler, onCatchupSeek: handleCatchupSeek,
+                session: session, nowPlayingOwner: playbackLease
             )
             .id(engineIdentity)
         case .ksPlayer:
@@ -474,7 +480,8 @@ struct FullScreenPlayerView: View {
                 usesQuickStartupTimeout: hasFallbackEngine,
                 onPlaybackFailed: engineFailedToStart,
                 onSelectMedia: switchMedia,
-                onCompleteCurrentItem: completeActiveEpisode, onRemoteAdvance: remoteAdvanceHandler, onCatchupSeek: handleCatchupSeek, session: session
+                onCompleteCurrentItem: completeActiveEpisode, onRemoteAdvance: remoteAdvanceHandler, onCatchupSeek: handleCatchupSeek,
+                session: session, nowPlayingOwner: playbackLease, redirectCache: redirectCache
             )
             .id(engineIdentity)
         case .vlcKit:
@@ -486,7 +493,8 @@ struct FullScreenPlayerView: View {
                 usesQuickStartupTimeout: hasFallbackEngine,
                 onPlaybackFailed: engineFailedToStart,
                 onSelectMedia: switchMedia,
-                onCompleteCurrentItem: completeActiveEpisode, onRemoteAdvance: remoteAdvanceHandler, onCatchupSeek: handleCatchupSeek, session: session
+                onCompleteCurrentItem: completeActiveEpisode, onRemoteAdvance: remoteAdvanceHandler, onCatchupSeek: handleCatchupSeek,
+                session: session, nowPlayingOwner: playbackLease
             )
             .id(engineIdentity)
         }

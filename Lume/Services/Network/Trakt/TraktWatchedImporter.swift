@@ -25,7 +25,7 @@ import Foundation
 import SwiftData
 
 /// The outcome of an import, surfaced in the settings UI.
-nonisolated struct TraktImportSummary: Equatable {
+nonisolated struct TraktImportSummary: Equatable, TrackerPagedSummary {
     var moviesMarked = 0
     var episodesMarked = 0
     /// Shows whose watched episodes were parked because the catalog has no
@@ -160,8 +160,11 @@ nonisolated enum TraktWatchedImporter {
                 // runs when the detail screen fetches the episodes anyway.
                 // Replaces the watched half only: pauses parked by an earlier
                 // playback import still wait for the same episodes.
-                pending[tmdb] = TraktPendingShow(episodes: progress.parked.episodes, paused: pending[tmdb]?.paused)
-                pendingChanged = true
+                let updated = TraktPendingShow(episodes: progress.parked.episodes, paused: pending[tmdb]?.paused)
+                if pending[tmdb] != updated {
+                    pending[tmdb] = updated
+                    pendingChanged = true
+                }
                 queued += 1
             } else {
                 marked += markEpisodes(of: series, using: progress, profileID: pendingScope.profileID)

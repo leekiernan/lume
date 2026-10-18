@@ -82,12 +82,9 @@ final class SportsSyncService {
     }
 
     private var liveTask: Task<Void, Never>?
-    private var liveClients = 0
-
-    /// `@AppStorage` key for the Sports tab toggle.
-    nonisolated static let baseTabEnabledKey = "sports.tabEnabled"
-    static var tabEnabledKey: String {
-        ProfileScopedPreferences.key(baseTabEnabledKey)
+    private var liveClients = ActivityLeases()
+    var isLivePolling: Bool {
+        liveTask != nil
     }
 
     /// Sports is an optional Live TV feature. Its own switch gives a profile a
@@ -106,11 +103,12 @@ final class SportsSyncService {
         ProfileScopedPreferences.key(baseHideScoresKey)
     }
 
-    /// Default for the Sports tab toggle: on everywhere except iPhone, where iOS
-    /// fits four regular tabs plus the Search pill — a fifth would push both
-    /// Sports and Search into "More". There the Home rail's "See All" opens the
-    /// hub and the tab can be enabled in Settings › Sports.
-    static var tabEnabledDefault: Bool {
+    /// Whether an enabled Sports hub gets its own tab: everywhere except
+    /// iPhone, where iOS fits four regular tabs plus the Search pill — a fifth
+    /// would push both Sports and Search into "More". There the Home rail's
+    /// "See All" opens the hub. "Show Sports" is the one switch; there is no
+    /// separate tab setting.
+    static var showsTab: Bool {
         #if os(iOS)
             UIDevice.current.userInterfaceIdiom != .phone
         #else
@@ -179,13 +177,12 @@ final class SportsSyncService {
             liveTask?.cancel()
             task = nil
             liveTask = nil
-            if !current.isEnabled { liveClients = 0 }
             isSyncing = false
             lastAttempt.removeAll()
         }
         guard current.isEnabled else { return }
         store.loadCached(leagueIds: leaguesToRefresh())
-        if profileChanged { startLiveLoopIfNeeded() }
+        startLiveLoopIfNeeded()
     }
 
     /// A Sports surface is meaningful only when both the parent Live TV area
@@ -286,27 +283,27 @@ final class SportsSyncService {
     // MARK: - Live scores
 
     /// Called by a sports surface (tab / rail / detail) as it appears. Reference
-    /// counted, so overlapping surfaces keep one shared 60s loop alive.
-    func beginLivePolling() {
-        guard Self.isEnabled else { return }
-        liveClients += 1
+    /// leased, so overlapping surfaces keep one shared 60s loop alive. Keep
+    /// visible subscriptions through a temporary disable; only work stops.
+    func beginLivePolling(owner: ActivityLease) {
+        liveClients.acquire(owner)
         startLiveLoopIfNeeded()
     }
 
     /// Called as a sports surface disappears; the loop stops when the last one goes.
-    func endLivePolling() {
-        liveClients = max(0, liveClients - 1)
-        if liveClients == 0 {
+    func endLivePolling(owner: ActivityLease) {
+        liveClients.release(owner)
+        if !liveClients.isActive {
             liveTask?.cancel()
             liveTask = nil
         }
     }
 
     private func startLiveLoopIfNeeded() {
-        guard liveTask == nil, liveClients > 0 else { return }
+        guard Self.isEnabled, liveTask == nil, liveClients.isActive else { return }
         liveTask = Task(priority: .utility) { [weak self] in
             while !Task.isCancelled {
-                guard let self, Self.isEnabled, liveClients > 0 else { break }
+                guard let self, Self.isEnabled, liveClients.isActive else { break }
                 if isForeground, !ContentIndexingService.shared.isPlaybackActive {
                     await pollTick()
                 }
@@ -393,27 +390,30 @@ final class SportsSyncService {
         let monthResults = await fetchedMonths
         let teamsResult = await fetchedTeams
         let standingsResult = await fetchedStandings
+        // A roster/day update may have landed while these requests ran. Failed
+        // fields retain that current value, not the pre-request snapshot.
+        let current = store.snapshot(for: league.id) ?? existing
         let gotFixtures = monthResults.contains(where: \.succeeded)
-        let fixtures = SportsFixtureWindowResult.merging(monthResults, into: existing?.fixtures ?? [])
+        let fixtures = SportsFixtureWindowResult.merging(monthResults, into: current?.fixtures ?? [])
         let teams: [SportsTeam]
         let teamsFetchedAt: Date?
         switch teamsResult {
         case let .success(fetched):
-            teams = fetched
-            teamsFetchedAt = teamsCacheFresh ? existing?.teamsFetchedAt : Date()
+            teams = teamsCacheFresh ? (current?.teams ?? fetched) : fetched
+            teamsFetchedAt = teamsCacheFresh ? current?.teamsFetchedAt : Date()
         case .failure:
-            teams = existing?.teams ?? []
-            teamsFetchedAt = existing?.teamsFetchedAt
+            teams = current?.teams ?? []
+            teamsFetchedAt = current?.teamsFetchedAt
         }
         let standings: [SportsStandingRow] = switch standingsResult {
         case let .success(fetched): fetched
-        case .failure: existing?.standings ?? []
+        case .failure: current?.standings ?? []
         }
         let gotTeams = !teamsCacheFresh && SportsFetch.succeeded(teamsResult)
         guard !Task.isCancelled, Self.isEnabled, gotFixtures || gotTeams || SportsFetch.succeeded(standingsResult) else { return false }
 
         let snapshot = SportsLeagueSnapshot(
-            fetchedAt: Date(),
+            fetchedAt: !monthResults.isEmpty && monthResults.allSatisfy(\.succeeded) ? Date() : (current?.fetchedAt ?? .distantPast),
             fixtures: Self.retainedFixtures(fixtures),
             standings: standings,
             teams: teams,
@@ -444,7 +444,8 @@ final class SportsSyncService {
         guard let existing, let fetchedAt = existing.teamsFetchedAt else {
             return false
         }
-        return Date().timeIntervalSince(fetchedAt) < teamCacheLifetime
+        let age = Date().timeIntervalSince(fetchedAt)
+        return age >= -60 && age < teamCacheLifetime
     }
 
     /// Re-fetches the given days by day for every league and merges the fresh

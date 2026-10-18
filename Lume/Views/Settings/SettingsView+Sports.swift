@@ -4,8 +4,8 @@
 //
 //  Sports is a sibling in Settings > Library, while remaining operationally
 //  dependent on the profile's Live TV area because fixtures resolve to EPG
-//  channels. This pane manages the profile-scoped Sports switch, follows, tab
-//  and a manual refresh.
+//  channels. This pane manages the profile-scoped Sports switch, follows and a
+//  manual refresh. The switch also decides the tab (`SportsSyncService.showsTab`).
 //
 
 import SwiftUI
@@ -14,7 +14,6 @@ import SwiftUI
 
     struct SportsSettingsView: View {
         @AppStorage(SportsSyncService.enabledKey) private var enabled = SportsSyncService.enabledDefault
-        @AppStorage(SportsSyncService.tabEnabledKey) private var tabEnabled = SportsSyncService.tabEnabledDefault
         @AppStorage(SportsSyncService.hideScoresKey) private var hideScores = false
         @State private var sync = SportsSyncService.shared
         @State private var showingManageTeams = false
@@ -29,7 +28,6 @@ import SwiftUI
                 if enabled {
                     SportsSectionsSettingsSection()
                     teamsSection
-                    tabSection
                     scoresSection
                     SportsAlertSettingsSection()
                     refreshSection
@@ -61,14 +59,6 @@ import SwiftUI
                 }
             } header: {
                 Text("Following")
-            }
-        }
-
-        private var tabSection: some View {
-            Section {
-                Toggle("Show Sports Tab", isOn: $tabEnabled)
-            } footer: {
-                Text("Show the Sports tab. The fixtures rail on Home follows your Home layout settings.")
             }
         }
 

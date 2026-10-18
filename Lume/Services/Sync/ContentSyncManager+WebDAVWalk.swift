@@ -88,11 +88,20 @@ nonisolated enum WebDAVWalkProducer {
 
             let resources = try await client.list(directory.url, credentials: credentials)
             result.directoriesVisited += 1
+            // A listing none of whose entries lie in the share means the server
+            // names itself differently from the saved address (a TLS proxy's
+            // `https://nas:5006` answering with `http://nas:5005/…` hrefs), not
+            // that the folder is empty. Completing would prune the whole
+            // catalogue, so it aborts as a bad response instead.
+            guard resources.isEmpty || resources.contains(where: { WebDAVPathIdentity.contains($0.url, in: base) }) else {
+                Logger.database.error("WebDAV listing named no resource inside the share; aborting the walk")
+                throw WebDAVError.invalidResponse
+            }
 
             for resource in resources {
+                guard WebDAVPathIdentity.contains(resource.url, in: base) else { continue }
                 if resource.isCollection {
                     let key = visitKey(resource.url)
-                    guard isDescendant(key, of: rootKey) else { continue }
                     // A symlinked directory pointing back up the share would
                     // otherwise walk forever. This is termination, not a depth
                     // or request cap.
@@ -179,13 +188,6 @@ nonisolated enum WebDAVWalkProducer {
     /// query or trailing slash. Case-sensitive — a WebDAV path is.
     private static func visitKey(_ url: URL) -> String {
         WebDAVPathIdentity.key(url.absoluteString)
-    }
-
-    /// Whether a listed href is actually inside the collection the user named.
-    /// Apache aliases and Nextcloud shares can return hrefs that resolve above
-    /// the share root; walking those would leave the user's folder entirely.
-    private static func isDescendant(_ key: String, of rootKey: String) -> Bool {
-        key == rootKey || key.hasPrefix(rootKey + "/")
     }
 
     /// The collection's own folder name. Every file in the share inherits it as

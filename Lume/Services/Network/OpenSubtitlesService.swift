@@ -22,38 +22,64 @@ final class OpenSubtitlesService {
     static let shared = OpenSubtitlesService()
 
     /// The signed-in account name, or nil when the user hasn't signed in.
-    private(set) var username: String?
+    var username: String? {
+        machine.account?.session.username
+    }
 
     /// Downloads left in today's allowance, as last reported by `/download`.
     /// `nil` until a download has been made this session.
-    private(set) var remainingDownloads: Int?
+    var remainingDownloads: Int? {
+        machine.account?.remainingDownloads
+    }
 
     /// The account's daily download allowance, from the sign-in response.
-    private(set) var allowedDownloads: Int?
+    var allowedDownloads: Int? {
+        machine.account?.session.allowedDownloads
+    }
 
     /// A human-readable failure from the last sign-in attempt, surfaced in the
     /// Settings pane. Cleared when a new attempt begins.
-    private(set) var signInError: String?
+    var signInError: String? {
+        machine.error
+    }
 
-    private(set) var isSigningIn = false
+    var isSigningIn: Bool {
+        machine.isSigningIn
+    }
 
     /// The languages the search sheet asks for, persisted across launches.
     /// Defaults to the app's own language, which is the one the viewer reads.
     var preferredLanguages: [String] {
         didSet {
             guard preferredLanguages != oldValue else { return }
-            UserDefaults.standard.set(preferredLanguages, forKey: Self.languagesKey)
+            defaults.set(preferredLanguages, forKey: Self.languagesKey)
         }
     }
 
-    private var session: OpenSubtitlesSession?
+    private var machine = OpenSubtitlesSessionMachine()
+    private var session: OpenSubtitlesSession? {
+        machine.account?.session
+    }
+
     private var cachedLanguages: [OpenSubtitlesLanguage] = []
-    private let client = OpenSubtitlesClient.shared
+    private let client: any OpenSubtitlesProviding
+    private let persistence: OpenSubtitlesPersistence
+    private let cache: OpenSubtitlesCache
+    private let defaults: UserDefaults
 
     static let languagesKey = "openSubtitlesPreferredLanguages"
 
-    private init() {
-        let stored = UserDefaults.standard.stringArray(forKey: Self.languagesKey)
+    init(
+        client: any OpenSubtitlesProviding = OpenSubtitlesClient.shared,
+        persistence: OpenSubtitlesPersistence? = nil,
+        cache: OpenSubtitlesCache? = nil,
+        defaults: UserDefaults = .standard
+    ) {
+        self.client = client
+        self.persistence = persistence ?? .live
+        self.cache = cache ?? .live
+        self.defaults = defaults
+        let stored = defaults.stringArray(forKey: Self.languagesKey)
         preferredLanguages = stored ?? Self.defaultLanguages()
     }
 
@@ -89,9 +115,8 @@ final class OpenSubtitlesService {
     /// read, no network.
     func restore() {
         guard isConfigured else { return }
-        session = OpenSubtitlesSessionStore.load()
-        username = session?.username
-        allowedDownloads = session?.allowedDownloads
+        guard !isSigningIn, !isSignedIn else { return }
+        machine.restore(persistence.load())
     }
 
     func signIn(username enteredUsername: String, password: String) async {
@@ -99,34 +124,27 @@ final class OpenSubtitlesService {
         let trimmed = enteredUsername.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !password.isEmpty else { return }
 
-        isSigningIn = true
-        signInError = nil
-        defer { isSigningIn = false }
+        guard let request = machine.beginSignIn() else { return }
 
         do {
-            let newSession = try await client.login(username: trimmed, password: password)
-            OpenSubtitlesSessionStore.save(newSession)
-            session = newSession
-            username = newSession.username
-            allowedDownloads = newSession.allowedDownloads
-            remainingDownloads = nil
+            let newSession = try await client.login(username: trimmed, password: password, host: OpenSubtitlesClient.defaultHost)
+            try Task.checkCancellation()
+            guard machine.finishSignIn(request, session: newSession) else { return }
+            persistence.save(newSession)
         } catch {
-            signInError = OpenSubtitlesError.presentationMessage(for: error)
+            machine.failSignIn(request, message: Task.isCancelled ? nil : OpenSubtitlesError.presentationMessage(for: error))
         }
     }
 
     func signOut() async {
-        if let session {
+        let previous = machine.signOut()
+        persistence.clear()
+        cache.clear()
+        cachedLanguages = []
+        if let previous {
             // Best-effort: the local session is dropped regardless.
-            try? await client.logout(session: session)
+            try? await client.logout(session: previous)
         }
-        OpenSubtitlesSessionStore.clear()
-        session = nil
-        username = nil
-        allowedDownloads = nil
-        remainingDownloads = nil
-        signInError = nil
-        OnlineSubtitleCache.clear()
     }
 
     // MARK: - Search
@@ -136,7 +154,9 @@ final class OpenSubtitlesService {
     func search(_ query: OpenSubtitlesQuery) async throws -> [OnlineSubtitle] {
         var query = query
         query.languages = preferredLanguages
+        let permit = machine.generation
         let results = try await client.search(query, host: host, token: session?.token)
+        try requireCurrent(permit)
         return results.sorted { $0.downloadCount > $1.downloadCount }
     }
 
@@ -144,7 +164,10 @@ final class OpenSubtitlesService {
     /// app run.
     func languages() async -> [OpenSubtitlesLanguage] {
         if !cachedLanguages.isEmpty { return cachedLanguages }
-        cachedLanguages = await (try? client.languages(host: host)) ?? []
+        let permit = machine.generation
+        let fetched = await (try? client.languages(host: host)) ?? []
+        guard !Task.isCancelled, machine.accepts(permit) else { return [] }
+        cachedLanguages = fetched
         return cachedLanguages
     }
 
@@ -154,14 +177,22 @@ final class OpenSubtitlesService {
     /// on disk, so re-picking the same track inside a session costs nothing
     /// against the daily allowance.
     func download(_ subtitle: OnlineSubtitle) async throws -> URL {
-        if let cached = OnlineSubtitleCache.cachedFile(for: subtitle) { return cached }
+        if let cached = cache.cachedFile(subtitle) { return cached }
         guard let session else { throw OpenSubtitlesError.notAuthenticated }
+        let permit = machine.generation
 
         let download = try await client.downloadLink(for: subtitle, session: session)
+        try requireCurrent(permit)
         let data = try await client.fetch(download)
-        remainingDownloads = download.remainingDownloads
+        try requireCurrent(permit)
+        machine.recordDownload(download.remainingDownloads, permit: permit)
         Logger.player.info("OpenSubtitles: downloaded subtitle, \(download.remainingDownloads) left today")
-        return try OnlineSubtitleCache.store(data, for: subtitle)
+        return try cache.store(data, subtitle)
+    }
+
+    private func requireCurrent(_ permit: RequestToken) throws {
+        try Task.checkCancellation()
+        guard machine.accepts(permit) else { throw CancellationError() }
     }
 
     private var host: String {

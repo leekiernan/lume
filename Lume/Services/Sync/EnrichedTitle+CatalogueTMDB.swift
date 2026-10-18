@@ -8,15 +8,21 @@ nonisolated extension EnrichedTitle {
     ///   title was already enriched under, discard identity-owned metadata
     ///   and re-queue indexing, without erasing provider or user state.
     /// - A catalogue that stops sending the ID it supplied before withdraws it
-    ///   (a corrected or withdrawn match, which an enriching proxy can do).
+    ///   (a media server unmatching a title) — unless `withdrawsWhenAbsent` is
+    ///   false. An Xtream panel blanks `tmdb` (with the poster, rating and
+    ///   trailer) while it refreshes new releases; taking that as a withdrawal
+    ///   wiped every copy's identity, artwork and grouping until the panel
+    ///   sent them again. There an empty value is no information, and only a
+    ///   different valid ID changes the match.
     /// - An ID the device resolved itself, where the catalogue never sent
     ///   one, is kept.
-    func applyCatalogueTMDB(_ raw: String?, previous: String?) {
+    func applyCatalogueTMDB(_ raw: String?, previous: String?, withdrawsWhenAbsent: Bool = true) {
         if let supplied = Self.catalogueTMDB(raw) {
             guard let identity = TMDBTitleReference(kind: self is Movie ? .movie : .series, rawValue: supplied) else { return }
             assignTMDB(identity, origin: .catalogue)
             return
         }
+        guard withdrawsWhenAbsent else { return }
         // Legacy movie IDs were catalogue-only. Legacy series IDs are ambiguous:
         // retain them until a fresh response establishes their source.
         let knownCatalogue = tmdbAssignment?.origin == .catalogue

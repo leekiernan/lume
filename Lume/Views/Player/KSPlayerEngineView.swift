@@ -65,8 +65,13 @@ struct KSPlayerEngineView: View {
     var onCatchupSeek: ((CatchupSeek) -> Void)?
     /// The full-screen session this engine reports to; nil in Multi-View.
     var session: PlaybackSession?
+    var nowPlayingOwner: ActivityLease?
+    /// Resolved tokens belong to this presented host, never another window.
+    var redirectCache: StreamRedirectCache?
 
     @StateObject var coordinator = KSVideoPlayer.Coordinator()
+    @State var resourcePreparation = PlaybackResourcePreparation()
+    @State var preparedResource: (request: PlaybackResource, resource: PlaybackResource)?
     /// KSPlayer's coordinator is the library's, so the catch-up routing lives
     /// here and every seek goes through `seek(to:)` / `skip(by:)` in
     /// `KSPlayerEngineView+Catchup`. A reference in `@State`, like `tick`.
@@ -212,6 +217,8 @@ struct KSPlayerEngineView: View {
                 standardBody
             #endif
         }
+        .task(id: resourceRequest) { prepareResource() }
+        .onDisappear { resourcePreparation.cancel() }
         .reportsPlayback(
             to: session, engine: .ksPlayer,
             report: .init(
@@ -233,45 +240,47 @@ struct KSPlayerEngineView: View {
                 Color.black
                     .ignoresSafeArea()
 
-                KSVideoPlayer(coordinator: coordinator, url: streamURL, options: options)
-                    .onStateChanged { _, state in
-                        // Defer all state mutations so they never run inside a
-                        // SwiftUI view-update pass, which would trigger the
-                        // "Modifying state during view update" / "Publishing
-                        // changes from within view updates" runtime warnings.
-                        DispatchQueue.main.async {
-                            isPlaying = (state == .bufferFinished)
-                            clock.isPlaying = isPlaying
-                            updateLoadingState(state)
-                            engine.syncState(state)
-                            handleState(state)
-                        }
-                    }
-                    .onPlay { current, total in
-                        // Defer for the same reason as onStateChanged; also
-                        // prevents rapid back-to-back transitions (e.g.
-                        // bufferFinished → buffering) from publishing two
-                        // @ObservableObject changes in the same SwiftUI frame,
-                        // which triggers "onChange updated multiple times per
-                        // frame" warnings.
-                        DispatchQueue.main.async {
-                            if !isSeeking {
-                                catchupRouter.report(position: current, to: clock)
-                                catchupRouter.report(duration: total, to: clock)
-                            }
-                            notePlaybackProgress(current)
-                            noteClockDrift()
-                            // syncState (onStateChanged) already refreshes this
-                            // on every transition; only chase it from the
-                            // per-tick play callback until it first lands, so
-                            // steady playback doesn't re-read tracks/codec each
-                            // tick.
-                            if engine.videoInfo == nil {
-                                engine.refreshVideoInfo()
+                if playbackResource != nil {
+                    KSVideoPlayer(coordinator: coordinator, url: playerURL, options: options)
+                        .onStateChanged { _, state in
+                            // Defer all state mutations so they never run inside a
+                            // SwiftUI view-update pass, which would trigger the
+                            // "Modifying state during view update" / "Publishing
+                            // changes from within view updates" runtime warnings.
+                            DispatchQueue.main.async {
+                                isPlaying = (state == .bufferFinished)
+                                clock.isPlaying = isPlaying
+                                updateLoadingState(state)
+                                engine.syncState(state)
+                                handleState(state)
                             }
                         }
-                    }
-                    .ignoresSafeArea()
+                        .onPlay { current, total in
+                            // Defer for the same reason as onStateChanged; also
+                            // prevents rapid back-to-back transitions (e.g.
+                            // bufferFinished → buffering) from publishing two
+                            // @ObservableObject changes in the same SwiftUI frame,
+                            // which triggers "onChange updated multiple times per
+                            // frame" warnings.
+                            DispatchQueue.main.async {
+                                if !isSeeking {
+                                    catchupRouter.report(position: current, to: clock)
+                                    catchupRouter.report(duration: total, to: clock)
+                                }
+                                notePlaybackProgress(current)
+                                noteClockDrift()
+                                // syncState (onStateChanged) already refreshes this
+                                // on every transition; only chase it from the
+                                // per-tick play callback until it first lands, so
+                                // steady playback doesn't re-read tracks/codec each
+                                // tick.
+                                if engine.videoInfo == nil {
+                                    engine.refreshVideoInfo()
+                                }
+                            }
+                        }
+                        .ignoresSafeArea()
+                }
 
                 zapFrameOverlay
 
@@ -345,8 +354,7 @@ struct KSPlayerEngineView: View {
                 cancelStartupWatchdog()
                 startup.end()
                 cancelStallWatchdog()
-                PlaybackQoE.shared.endSession(owner: coordinator)
-                NowPlayingService.shared.detachTransport(owner: coordinator)
+                NowPlayingService.shared.detachTransport(owner: coordinator, host: nowPlayingOwner)
                 coordinator.resetPlayer()
             }
             .onChange(of: engine.isPlaying) { _, _ in
@@ -415,28 +423,30 @@ struct KSPlayerEngineView: View {
         private var standardBody: some View {
             let options = makeOptions()
             return ZStack {
-                KSVideoPlayer(coordinator: coordinator, url: streamURL, options: options)
-                    .onStateChanged { _, state in
-                        DispatchQueue.main.async {
-                            isPlaying = (state == .bufferFinished)
-                            clock.isPlaying = isPlaying
-                            updateLoadingState(state)
-                            refreshVideoInfo()
-                            handleState(state)
-                        }
-                    }
-                    .onPlay { current, total in
-                        DispatchQueue.main.async {
-                            if !isSeeking {
-                                catchupRouter.report(position: current, to: clock)
-                                catchupRouter.report(duration: total, to: clock)
+                if playbackResource != nil {
+                    KSVideoPlayer(coordinator: coordinator, url: playerURL, options: options)
+                        .onStateChanged { _, state in
+                            DispatchQueue.main.async {
+                                isPlaying = (state == .bufferFinished)
+                                clock.isPlaying = isPlaying
+                                updateLoadingState(state)
+                                refreshVideoInfo()
+                                handleState(state)
                             }
-                            notePlaybackProgress(current)
-                            noteClockDrift()
-                            chaseVideoInfo()
                         }
-                    }
-                    .ignoresSafeArea()
+                        .onPlay { current, total in
+                            DispatchQueue.main.async {
+                                if !isSeeking {
+                                    catchupRouter.report(position: current, to: clock)
+                                    catchupRouter.report(duration: total, to: clock)
+                                }
+                                notePlaybackProgress(current)
+                                noteClockDrift()
+                                chaseVideoInfo()
+                            }
+                        }
+                        .ignoresSafeArea()
+                }
 
                 zapFrameOverlay
 
@@ -495,8 +505,7 @@ struct KSPlayerEngineView: View {
                 cancelStartupWatchdog()
                 startup.end()
                 cancelStallWatchdog()
-                PlaybackQoE.shared.endSession(owner: coordinator)
-                NowPlayingService.shared.detachTransport(owner: coordinator)
+                NowPlayingService.shared.detachTransport(owner: coordinator, host: nowPlayingOwner)
                 coordinator.resetPlayer()
             }
             .onChange(of: isPlaying) { _, _ in scheduleHide() }

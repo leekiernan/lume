@@ -433,14 +433,6 @@ final class PlaybackSessionHealthTests {
 @MainActor
 @Suite(.globalState)
 final class PlaybackHealthTrackerTests {
-    /// QoE is a shared singleton, so every test leaves its suspension flag the
-    /// way it found it — restored inside the test body, never in `deinit`,
-    /// which is nonisolated and cannot touch main-actor state. Nothing here
-    /// calls `reset()`, which would persist to the standard defaults suite.
-    init() {
-        PlaybackQoE.shared.isSuspended = false
-    }
-
     @Test func `concurrent sessions get their own brackets`() {
         let first = PlaybackHealthTracker.shared.beginSession()
         let second = PlaybackHealthTracker.shared.beginSession()
@@ -460,16 +452,18 @@ final class PlaybackHealthTrackerTests {
     }
 
     @Test func `a session that began while QoE was suspended is not measured`() {
-        PlaybackQoE.shared.isSuspended = true
+        let owner = ActivityLease()
+        PlaybackQoE.shared.suspend(owner: owner)
         let token = PlaybackHealthTracker.shared.beginSession()
-        PlaybackQoE.shared.isSuspended = false
+        PlaybackQoE.shared.resume(owner: owner)
         #expect(PlaybackHealthTracker.shared.endSession(token) == .notMeasured(.suspended))
     }
 
     @Test func `a suspended session stays unmeasured even if it began clear`() {
         let token = PlaybackHealthTracker.shared.beginSession()
-        PlaybackQoE.shared.isSuspended = true
-        defer { PlaybackQoE.shared.isSuspended = false }
+        let owner = ActivityLease()
+        PlaybackQoE.shared.suspend(owner: owner)
+        defer { PlaybackQoE.shared.resume(owner: owner) }
         #expect(PlaybackHealthTracker.shared.endSession(token) == .notMeasured(.suspended))
     }
 }

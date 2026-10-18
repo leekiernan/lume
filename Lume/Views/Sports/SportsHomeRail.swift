@@ -45,8 +45,6 @@ struct SportsHomeRail: View {
             @Environment(\.openWindow) private var openWindow
         #endif
 
-        @AppStorage(SportsSyncService.tabEnabledKey) private var sportsTabEnabled = SportsSyncService.tabEnabledDefault
-
         @State private var premium = PremiumManager.shared
         @State private var store = SportsStore.shared
         @State private var follows = SportsFollowService.shared
@@ -88,7 +86,7 @@ struct SportsHomeRail: View {
                 #endif
                     .task(id: resolveKey(fixtures)) { await runResolve(fixtures) }
                     .onAppear(perform: warm)
-                    .onDisappear { SportsSyncService.shared.endLivePolling() }
+                    .sportsLivePolling()
             }
         }
 
@@ -238,7 +236,7 @@ struct SportsHomeRail: View {
         }
 
         private func seeAll() {
-            if sportsTabEnabled, let router {
+            if SportsSyncService.showsTab, let router {
                 router.selectedTab = .sports
             } else {
                 showHub = true
@@ -250,10 +248,9 @@ struct SportsHomeRail: View {
         /// Loads the cached snapshots, re-fetches every followed league that is
         /// missing or stale, and joins the live poll, so the rail closes out
         /// finished games and moves scores like the hub does. The poll is
-        /// reference counted and paired with `onDisappear`, so it is begun
-        /// outside the premium guard; with nothing followed it is idle.
+        /// visibility lease is held outside the premium guard; with nothing
+        /// followed the live poll is idle.
         private func warm() {
-            SportsSyncService.shared.beginLivePolling()
             guard premium.isPremium else { return }
             store.loadCached(leagueIds: displayLeagueIds)
             SportsSyncService.shared.refreshIfStale()

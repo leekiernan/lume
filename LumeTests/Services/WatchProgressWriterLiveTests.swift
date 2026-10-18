@@ -12,6 +12,7 @@ import Foundation
 import SwiftData
 import Testing
 
+@Suite(.readsGlobalState)
 struct WatchProgressWriterLiveTests {
     private func makeChannels(_ count: Int) throws -> (ModelContainer, [String]) {
         let container = try makeTestContainer()

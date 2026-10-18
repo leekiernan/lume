@@ -36,6 +36,7 @@ struct CachedAsyncImage<Content: View>: View {
     private let content: (AsyncImagePhase) -> Content
 
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.artworkOwnerID) private var ownerID
     @State private var phase: AsyncImagePhase = .empty
     /// The request that produced `phase`. SwiftUI can preserve this view's state
     /// while changing its URL, so an unkeyed success would draw the previous
@@ -74,8 +75,8 @@ struct CachedAsyncImage<Content: View>: View {
     }
 
     private var renderPhase: AsyncImagePhase {
-        guard let url else { return .failure(URLError(.badURL)) }
-        if let cached = ImagePipeline.cachedImage(for: url, maxPixelSize: pixelSize) {
+        guard let request else { return .failure(URLError(.badURL)) }
+        if let cached = ImagePipeline.cachedImage(for: request, maxPixelSize: pixelSize) {
             return .success(Image(platformImage: cached))
         }
         // Never reuse a prior URL's phase while SwiftUI is waiting to start the
@@ -86,8 +87,13 @@ struct CachedAsyncImage<Content: View>: View {
 
     /// Restart the load whenever the URL or target size changes (e.g. cell reuse).
     private var taskID: String {
-        guard let url else { return "nil" }
-        return ImagePipeline.memoryKey(url, maxPixelSize: pixelSize)
+        guard let request else { return "nil" }
+        return request.transportIdentity + "|" + ImagePipeline.memoryKey(request, maxPixelSize: pixelSize)
+    }
+
+    private var request: ArtworkRequest? {
+        _ = ProviderArtworkAccounts.shared.revision
+        return url.flatMap { ProviderArtworkAccounts.request(for: $0, ownerID: ownerID) }
     }
 
     /// Target size in pixels, or `nil` for full resolution.
@@ -98,7 +104,7 @@ struct CachedAsyncImage<Content: View>: View {
 
     private func load() async {
         let requestID = taskID
-        guard let url else {
+        guard let request else {
             phaseTaskID = requestID
             phase = .failure(URLError(.badURL))
             return
@@ -107,7 +113,7 @@ struct CachedAsyncImage<Content: View>: View {
         // The body has already rendered a memory-cache hit synchronously. Keep
         // it in state too, so an unrelated cache eviction does not blank a live
         // view on its next update.
-        if let cached = ImagePipeline.cachedImage(for: url, maxPixelSize: pixelSize) {
+        if let cached = ImagePipeline.cachedImage(for: request, maxPixelSize: pixelSize) {
             phaseTaskID = requestID
             phase = .success(Image(platformImage: cached))
             return
@@ -117,7 +123,7 @@ struct CachedAsyncImage<Content: View>: View {
         phase = .empty
 
         do {
-            let image = try await ImagePipeline.shared.image(for: url, maxPixelSize: pixelSize)
+            let image = try await ImagePipeline.shared.image(for: request, maxPixelSize: pixelSize)
             guard !Task.isCancelled, taskID == requestID else { return }
             withTransaction(transaction) {
                 phase = .success(Image(platformImage: image))

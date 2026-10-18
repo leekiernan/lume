@@ -52,7 +52,7 @@ extension ContentSyncManager {
         full: Bool = false,
         areas: Set<AppArea>
     ) async throws {
-        let client = StalkerClient(configuration: StalkerClient.Configuration(playlist: playlist))
+        let client = try StalkerClient(configuration: StalkerClient.Configuration(playlist: playlist))
 
         await progress?.start(.authenticating)
         let profile = try await client.authenticate()
@@ -411,7 +411,7 @@ extension ContentSyncManager {
     /// don't expose episodes this way yield an empty list, leaving the series
     /// browsable with no episodes rather than failing.
     func fetchStalkerEpisodes(seriesId: Int, seriesElementId: String, playlist: Playlist) async throws -> [ParsedEpisode] {
-        let client = StalkerClient(configuration: StalkerClient.Configuration(playlist: playlist))
+        let client = try StalkerClient(configuration: StalkerClient.Configuration(playlist: playlist))
         let items = try await client.getAllOrderedItems(
             type: "series",
             categoryId: "*",

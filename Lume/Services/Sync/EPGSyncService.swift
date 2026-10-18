@@ -13,71 +13,15 @@ import Observation
 import OSLog
 import SwiftData
 
-/// When a background guide refresh may run, given the playlist content syncs
-/// around it. Pure so the ordering can be unit-tested; `EPGSyncService` owns
-/// the one instance and feeds it.
-///
-/// Both downloads hit the same provider account, and Xtream panels commonly
-/// cap an account at one concurrent connection — a guide download racing the
-/// catalog sync gets one of the two rejected (and can leave the account
-/// briefly blocked, failing the sync's next requests too). So the gate is fed
-/// the real state from the places that own it, rather than predicting which
-/// sync is about to start: `MainTabView` reports whether its auto-sync queue
-/// holds anything, and `SyncProgressView` — the one place any content sync
-/// runs — reports each start and finish.
-struct EPGRefreshGate {
-    /// Content syncs running right now, automatic or manual.
-    private(set) var runningContentSyncs = 0
-    /// Whether auto-syncs are queued or on screen in the blocking cover.
-    var isAutoSyncQueued = false
-    /// A background refresh that was held back or cut short, run as soon as no
-    /// content sync is pending. Set by any deferred trigger and by every
-    /// successful sync — a freshly synced playlist's channels shouldn't wait
-    /// for the next scheduled run.
-    private(set) var isRefreshOwed = false
-
-    var isContentSyncPending: Bool {
-        runningContentSyncs > 0 || isAutoSyncQueued
-    }
-
-    /// A background trigger asking to refresh. Returns whether it may start
-    /// now; otherwise the refresh is owed.
-    mutating func request() -> Bool {
-        isRefreshOwed = isContentSyncPending
-        return !isRefreshOwed
-    }
-
-    /// A refresh was cut short and has to run again.
-    mutating func owe() {
-        isRefreshOwed = true
-    }
-
-    mutating func contentSyncStarted() {
-        runningContentSyncs += 1
-    }
-
-    /// Every start is paired with one finish, whether the sync succeeded,
-    /// failed or was aborted. A successful refresh only owes guide work when it
-    /// actually imported Live TV; a movie-only profile must not fetch an XMLTV
-    /// guide it cannot display.
-    mutating func contentSyncFinished(succeeded: Bool, refreshedLiveTV: Bool) {
-        runningContentSyncs = max(0, runningContentSyncs - 1)
-        if succeeded, refreshedLiveTV { isRefreshOwed = true }
-    }
-
-    /// Whether an owed refresh may start now. Clears the debt when it does.
-    mutating func takeOwedRefresh() -> Bool {
-        guard isRefreshOwed, !isContentSyncPending else { return false }
-        isRefreshOwed = false
-        return true
-    }
-}
-
 @Observable
 final class EPGSyncService {
     static let shared = EPGSyncService()
 
-    private(set) var isSyncing = false
+    private var machine = EPGRefreshMachine()
+    var isSyncing: Bool {
+        machine.isRunning
+    }
+
     private(set) var enrichmentReport: EPGEnrichmentReport?
     /// Readers observe this rather than download status. A 304 or failed fetch
     /// does not change the guide; a foreground return reloads local readers.
@@ -89,11 +33,6 @@ final class EPGSyncService {
 
     private var container: ModelContainer?
     private var task: Task<Void, Never>?
-    /// Whether `task` is a background refresh, which a starting content sync
-    /// cancels — rather than a manual "Sync Now", which the viewer asked for.
-    @ObservationIgnored private var isBackgroundRefresh = false
-    @ObservationIgnored private var gate = EPGRefreshGate()
-    @ObservationIgnored private var enrichmentRefreshOwed = false
     @ObservationIgnored private var selectionMonitor: EPGEnrichmentSelectionMonitor?
 
     /// Whether the app is in the foreground, set from the scene phase. The
@@ -128,13 +67,13 @@ final class EPGSyncService {
     /// Manual trigger (settings "Sync Now"): refreshes now regardless of the
     /// schedule or any in-flight content sync.
     func syncNow() {
-        kick(allowConditional: false)
+        kick(.guide(allowConditional: false), mode: .manual)
     }
 
     /// A metadata setting change must not force another full provider download.
     /// Uses the same task lifetime, admission gate and committed-reader reload.
     func refreshEnrichment() {
-        enrichmentRefreshOwed = true
+        machine.owe(.enrichment)
         runOwedRefresh()
     }
 
@@ -148,22 +87,24 @@ final class EPGSyncService {
     /// launch, so the guide ran out of listings and went empty — and a launch
     /// under a profile with Live TV off skipped it with nothing to try again.
     func syncIfDue(reason: String) {
-        if selectionMonitor?.check(notify: false) == true { enrichmentRefreshOwed = true }
+        if selectionMonitor?.check(notify: false) == true { machine.owe(.enrichment) }
         let providerDue = isDue
-        guard providerDue || enrichmentRefreshOwed || EPGEnrichmentSettings.isDue() else {
+        guard providerDue || machine.pendingIntent != nil || EPGEnrichmentSettings.isDue() else {
             Logger.database.debug("EPG refresh not due (\(reason, privacy: .public))")
             ensureCoverage(reason: reason)
             return
         }
         guard !ContentIndexingService.shared.isPlaybackActive else { return }
-        guard gate.request() else {
+        let intent: EPGRefreshIntent = providerDue ? .guide(allowConditional: true) : .enrichment
+        guard !machine.isContentSyncPending else {
+            machine.owe(intent)
             Logger.database.info("EPG refresh due (\(reason, privacy: .public)) — waiting for a playlist sync")
             return
         }
         Logger.database.info("EPG refresh due (\(reason, privacy: .public))")
         // Daily metadata does not shorten a weekly provider schedule or stamp
         // its last-success date without actually checking that provider.
-        kick(background: true, metadataOnly: !providerDue)
+        kick(intent)
     }
 
     /// Ticks the local clock every minute and re-checks the network schedule
@@ -213,9 +154,8 @@ final class EPGSyncService {
             do {
                 let repair = try await withTaskCancellationHandler { try await check.value } onCancel: { check.cancel() }
                 guard repair, !Task.isCancelled, isForeground, task == nil else { return }
-                guard gate.request() else { return }
                 Logger.database.info("EPG coverage repair (\(reason, privacy: .public))")
-                kick(background: true, allowConditional: false)
+                kick(.guide(allowConditional: false))
             } catch {
                 Logger.database.warning("EPG coverage check failed: \(error.localizedDescription, privacy: .public)")
             }
@@ -241,7 +181,7 @@ final class EPGSyncService {
 
     /// `MainTabView`'s auto-sync queue went from empty to busy or back.
     func setAutoSyncQueued(_ queued: Bool) {
-        gate.isAutoSyncQueued = queued
+        machine.isAutoSyncQueued = queued
         runOwedRefresh()
     }
 
@@ -250,32 +190,22 @@ final class EPGSyncService {
     /// have started first (at launch, or before the viewer switched to a stale
     /// playlist), and the gate alone only keeps it from starting second.
     func contentSyncDidStart() {
-        gate.contentSyncStarted()
-        if let task, isBackgroundRefresh {
-            task.cancel()
-            gate.owe()
-        }
+        if machine.contentSyncStarted() { task?.cancel() }
     }
 
     /// The content sync reported by `contentSyncDidStart` ended, however it
     /// ended.
     func contentSyncDidFinish(succeeded: Bool, refreshedLiveTV: Bool = true) {
-        gate.contentSyncFinished(succeeded: succeeded, refreshedLiveTV: refreshedLiveTV)
+        machine.contentSyncFinished(succeeded: succeeded, refreshedLiveTV: refreshedLiveTV)
         runOwedRefresh()
     }
 
     private func runOwedRefresh() {
         // `container` first: taking the debt before `configure` would drop it.
         guard container != nil, task == nil, AppAreaSettings.isEnabled(.liveTV),
-              !ContentIndexingService.shared.isPlaybackActive, !gate.isContentSyncPending
+              !ContentIndexingService.shared.isPlaybackActive, !machine.isContentSyncPending
         else { return }
-        if gate.takeOwedRefresh() {
-            enrichmentRefreshOwed = false
-            kick(background: true)
-        } else if enrichmentRefreshOwed {
-            enrichmentRefreshOwed = false
-            kick(background: true, metadataOnly: true)
-        }
+        if let intent = machine.pendingIntent { kick(intent) }
     }
 
     private var isDue: Bool {
@@ -291,15 +221,14 @@ final class EPGSyncService {
         return frequency.isDue(lastSyncDate: EPGSyncSchedule.lastSyncDate)
     }
 
-    private func kick(background: Bool = false, allowConditional: Bool = true, metadataOnly: Bool = false, retrySuperseded: Bool = true) {
+    private func kick(_ intent: EPGRefreshIntent, mode: EPGRefreshMachine.Mode = .background, retrySuperseded: Bool = true) {
         // Sports availability follows the Live TV switch too.
         guard AppAreaSettings.isEnabled(.liveTV) else {
             Logger.database.info("EPG refresh skipped: guide-consuming areas are switched off")
             return
         }
-        guard let container, task == nil else { return }
-        isSyncing = true
-        isBackgroundRefresh = background
+        guard let container, task == nil,
+              let job = machine.begin(intent, mode: mode, retrySuperseded: retrySuperseded) else { return }
         let manager = EPGSyncManager(modelContainer: container)
         let profileToken = ActiveProfileStore.current?.uuidString ?? ""
         let fence = Fence.live
@@ -307,7 +236,6 @@ final class EPGSyncService {
         let selectionFingerprint = selectionMonitor?.fingerprint
         // This pass consumes earlier changes; changes during the await below
         // remain owed and run once afterward, never alongside this pass.
-        enrichmentRefreshOwed = false
         // Background guide refresh: run below the UI so an in-flight sync (which
         // saves into the shared catalog container, churning browse `@Query`s)
         // yields CPU to the main thread instead of competing with it. The
@@ -315,20 +243,20 @@ final class EPGSyncService {
         // lockstep with a frozen main thread right after a playlist sync.
         task = Task(priority: .utility) {
             let result = await BackgroundActivity.perform("Guide refresh") {
-                await refresh(container: container, manager: manager, metadataOnly: metadataOnly, allowConditional: allowConditional, fence: fence)
+                await refresh(container: container, manager: manager, metadataOnly: job.intent.metadataOnly, allowConditional: job.intent.allowConditional, fence: fence)
             }
+            guard machine.finish(job) else { return }
             let report = result.report
             let superseded = result.superseded || fence != Fence.live
             var outcome = result.outcome
             if superseded { outcome = .cancelled }
-            if outcome.isSuccessful, !Task.isCancelled, !metadataOnly {
+            if outcome.isSuccessful, !Task.isCancelled, !job.intent.metadataOnly {
                 EPGSyncSchedule.lastSyncDate = Date()
                 EPGSyncSchedule.schemaVersion = SyncFrequency.epgCurrentSchemaVersion
             }
             if outcome.isSuccessful, !Task.isCancelled {
                 selectionMonitor?.published(selectionFingerprint)
             }
-            isSyncing = false
             task = nil
             recordEnrichment(report, outcome: outcome, profileToken: profileToken)
             updateCommittedRevision()
@@ -343,8 +271,8 @@ final class EPGSyncService {
                 // Start new work under the current profile, never relax the old
                 // job's fence. One immediate retry avoids an invalidation loop;
                 // persistent publication debt covers later scheduled attempts.
-                if retrySuperseded, !Task.isCancelled, !ContentIndexingService.shared.isPlaybackActive, gate.request() {
-                    kick(background: true, allowConditional: allowConditional, metadataOnly: metadataOnly, retrySuperseded: false)
+                if job.retrySuperseded, !Task.isCancelled, !ContentIndexingService.shared.isPlaybackActive {
+                    kick(job.intent, retrySuperseded: false)
                 }
             }
             // A refresh cancelled for a content sync may wind down after that

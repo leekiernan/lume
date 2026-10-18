@@ -3,6 +3,38 @@ import OSLog
 import SwiftData
 
 extension DownloadManager {
+    /// Keeps downloaded media out of the user's iCloud / Finder backup.
+    ///
+    /// `Documents` is backed up by default, so a handful of downloaded films
+    /// silently added gigabytes to the user's backup — against Apple's Data
+    /// Storage Guidelines, which put content the app can fetch again but the
+    /// user expects offline in exactly this "do not back up" bucket. Apps have
+    /// been rejected over far smaller amounts.
+    ///
+    /// Set on the *directory*, which covers everything already inside it and
+    /// everything added later, so individual downloads need no bookkeeping.
+    ///
+    /// Deliberately not `Library/Caches`, the other usual answer: the system may
+    /// purge Caches under storage pressure, which would delete the film someone
+    /// downloaded for a flight. This attribute gives the semantics actually
+    /// wanted — not backed up, and never purged.
+    ///
+    /// Idempotent, and called on every launch rather than only at creation, so
+    /// installs that already have a downloads directory are corrected too.
+    nonisolated static func excludeFromBackup(_ url: URL) {
+        var url = url
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        do {
+            try url.setResourceValues(values)
+        } catch {
+            // Not fatal — downloads still work, they just keep getting backed
+            // up. Logged because the symptom (a bloated backup) is otherwise
+            // invisible from inside the app.
+            Logger.downloads.error("Failed to exclude downloads from backup: \(error.localizedDescription)")
+        }
+    }
+
     nonisolated static func persistStatus(
         id: String,
         status: DownloadStatus?,
@@ -35,8 +67,7 @@ extension DownloadManager {
     }
 
     nonisolated static func isDownloadFile(_ url: URL, for sanitizedID: String) -> Bool {
-        let base = url.deletingPathExtension().lastPathComponent
-        return base == sanitizedID || base.hasPrefix(sanitizedID + ".")
+        DownloadFileIdentity.matches(url, stem: sanitizedID)
     }
 
     /// Settles catalog items still marked `pending`/`downloading` that the
@@ -57,13 +88,18 @@ extension DownloadManager {
         let files = (try? FileManager.default.contentsOfDirectory(
             at: directory, includingPropertiesForKeys: nil
         )) ?? []
+        // One directory pass, not a full file scan per interrupted catalogue row.
+        var filesByStem: [String: [URL]] = [:]
+        for file in files {
+            for stem in DownloadFileIdentity.stems(for: file) {
+                filesByStem[stem, default: []].append(file)
+            }
+        }
 
         /// The finished file for `id`, if one is already on disk.
         func downloadedFile(for id: String) -> URL? {
             let sanitized = sanitize(id)
-            return files.first {
-                isDownloadFile($0, for: sanitized) && DownloadValidator.isUsableFile(at: $0)
-            }
+            return filesByStem[sanitized]?.first { DownloadValidator.isUsableFile(at: $0) }
         }
 
         let context = ModelContext(container)

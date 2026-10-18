@@ -185,7 +185,10 @@ import SwiftUI
     /// Live TV area at runtime because it opens fixtures on those channels.
     struct TVSportsSettingsPane: View {
         @AppStorage(SportsSyncService.enabledKey) private var enabled = SportsSyncService.enabledDefault
-        @AppStorage(SportsSyncService.tabEnabledKey) private var tabEnabled = SportsSyncService.tabEnabledDefault
+        /// "Show Sports" adds or removes the Sports tab; the router's route
+        /// brings focus back to it after the rebuild (`TVSettingsRoute`).
+        @Environment(DeepLinkRouter.self) private var router: DeepLinkRouter?
+        @FocusState private var showSportsFocused: Bool
         @AppStorage(SportsSyncService.hideScoresKey) private var hideScores = false
         @State private var sync = SportsSyncService.shared
         @State private var showManageTeams = false
@@ -195,13 +198,24 @@ import SwiftUI
         /// The settings column's scroll view, which the sections list scrolls
         /// to keep a lifted row on screen.
         let proxy: ScrollViewProxy
+        /// The Settings instance this pane belongs to (`TVSettingsRoute.visibleInstance`).
+        let settingsInstance: UUID
+
+        private var routeBinding: Binding<TVSettingsRoute> {
+            Binding(get: { router?.settingsRoute ?? TVSettingsRoute() }, set: { router?.settingsRoute = $0 })
+        }
 
         var body: some View {
             VStack(alignment: .leading, spacing: 36) {
                 VStack(alignment: .leading, spacing: 8) {
                     TVSettingsSectionLabel("Sports")
 
-                    TVOptionToggleRow(title: "Show Sports", isOn: $enabled, showsIndicator: true)
+                    TVOptionToggleRow(title: "Show Sports", isOn: Binding(get: { enabled }, set: { isOn in
+                        router?.settingsRoute.reclaim = .sportsToggle
+                        enabled = isOn
+                    }), showsIndicator: true)
+                        .focused($showSportsFocused)
+                        .reclaimsFocus(.sportsToggle, in: routeBinding, instance: settingsInstance, focused: $showSportsFocused)
 
                     if enabled {
                         Button {
@@ -216,7 +230,6 @@ import SwiftUI
                         }
                         .buttonStyle(TVSettingsRowButtonStyle())
 
-                        TVOptionToggleRow(title: "Show Sports Tab", isOn: $tabEnabled)
                         TVOptionToggleRow(title: "Hide Scores", isOn: $hideScores)
                     }
                 }

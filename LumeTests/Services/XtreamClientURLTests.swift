@@ -68,14 +68,15 @@ struct XtreamClientURLTests {
         #expect(guideComponents.path == "/panel/xmltv.php")
     }
 
-    @Test func `invalid server URLs remain invalid and guide requires a nonempty server`() {
+    @Test func `invalid or empty endpoints never assemble authenticated requests`() {
         let invalid = makePlaylist(serverURL: "https://[invalid")
         #expect(XtreamClient.playerAPIURL(for: invalid) == nil)
         #expect(XtreamClient.xmltvURL(for: invalid) == nil)
         #expect(XtreamClient.xmltvURL(for: makePlaylist(serverURL: "")) == nil)
-        // Preserve the API builder's historical relative-URL behavior. Validation
-        // belongs to source entry/request handling, not this mechanical extraction.
-        #expect(XtreamClient.playerAPIURL(for: makePlaylist(serverURL: ""))?.relativeString == "/player_api.php?username=testuser&password=testpass")
+        // Source snapshots validate before assembly: no credential-bearing
+        // relative request can be manufactured from an empty endpoint.
+        #expect(XtreamClient.playerAPIURL(for: makePlaylist(serverURL: "")) == nil)
+        #expect(XtreamClient.lumeCapabilitiesURL(for: makePlaylist(serverURL: "")) == nil)
     }
 
     // MARK: - Movie URL

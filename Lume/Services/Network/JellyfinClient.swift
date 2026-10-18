@@ -320,16 +320,14 @@ final nonisolated class JellyfinClient: Sendable {
         return components?.url
     }
 
-    /// Artwork URL. Unlike streams this one embeds the token: image loaders
-    /// fetch a plain URL with no chance to attach headers. Refreshed on every
-    /// sync alongside the token itself.
-    nonisolated static func imageURL(server: URL, itemId: String, tag: String, kind: String = "Primary", maxWidth: Int = 600, token: String) -> URL? {
+    /// A durable route, not an authenticated request. The image loader attaches
+    /// the owning playlist's current credential without changing catalogue rows.
+    nonisolated static func imageURL(server: URL, itemId: String, tag: String, kind: String = "Primary", maxWidth: Int = 600) -> URL? {
         var components = URLComponents(url: server.appendingPathComponent("Items/\(itemId)/Images/\(kind)"), resolvingAgainstBaseURL: false)
         components?.queryItems = [
             URLQueryItem(name: "tag", value: tag),
             URLQueryItem(name: "quality", value: "90"),
-            URLQueryItem(name: "maxWidth", value: String(maxWidth)),
-            URLQueryItem(name: "api_key", value: token)
+            URLQueryItem(name: "maxWidth", value: String(maxWidth))
         ]
         return components?.url
     }
@@ -371,7 +369,7 @@ final nonisolated class JellyfinClient: Sendable {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await session.data(for: request)
+            (data, response) = try await session.data(for: request, delegate: SameOriginRedirectPolicy.mediaServer)
         } catch {
             throw JellyfinError.networkError(error)
         }
@@ -428,6 +426,12 @@ final nonisolated class JellyfinClient: Sendable {
 /// same contract as `HTTPBasicCredentials`: built at the point of use, never
 /// persisted onto a catalog row, a deep link or restoration state.
 nonisolated enum JellyfinPlaybackAuth {
+    /// ApiKey works with Jellyfin's legacy authorization disabled. The legacy
+    /// alias is retained for Emby's documented contract; both carry one token.
+    static func queryItems(token: String) -> [URLQueryItem] {
+        [URLQueryItem(name: "ApiKey", value: token), URLQueryItem(name: "api_key", value: token)]
+    }
+
     /// The session token inside a playback header value, if it is a Jellyfin
     /// `MediaBrowser … Token="…"` header rather than a Basic one.
     static func token(from headers: [String: String]?) -> String? {
@@ -446,8 +450,9 @@ nonisolated enum JellyfinPlaybackAuth {
               var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
         else { return nil }
         var items = components.queryItems ?? []
-        guard !items.contains(where: { $0.name == "api_key" }) else { return url }
-        items.append(URLQueryItem(name: "api_key", value: token))
+        // Refresh aliases together, never leaving ambiguous account tokens.
+        items.removeAll { ["apikey", "api_key"].contains($0.name.lowercased()) }
+        items.append(contentsOf: queryItems(token: token))
         components.queryItems = items
         return components.url
     }

@@ -170,16 +170,6 @@ nonisolated class M3UClient {
 
     private static let hashChunkSize = 1 << 20
 
-    /// Downloads an XMLTV guide to a temp file for streaming parse. Gzipped
-    /// guides (`guide.xml.gz` — the common way public EPGs are hosted) are
-    /// decompressed to a fresh temp file first.
-    func downloadEPG(from urlString: String) async throws -> URL {
-        switch try await downloadGuide(from: urlString) {
-        case let .file(url, _, _): return url
-        case .notModified: throw M3UError.serverError(304)
-        }
-    }
-
     func gunzipIfNeeded(_ fileURL: URL, deleteOriginal: Bool, maximumBytes: Int? = nil) throws -> URL {
         guard GzipFile.isGzip(fileURL) else {
             if let maximumBytes, try fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0 > maximumBytes { throw GzipFile.GzipError.sizeLimitExceeded }

@@ -211,6 +211,7 @@ final class TraktService {
             return
         }
         let previous = scrobbleTask
+        let permit = session.operationPermit
         // The last scrobble — the stop sent as the player closes — usually
         // goes out as the app leaves the foreground (tvOS closes the player on
         // Home). Without asking for background time the request is suspended
@@ -220,8 +221,8 @@ final class TraktService {
         scrobbleTask = Task { [weak self] in
             defer { backgroundTime.end() }
             await previous?.value
-            guard !Task.isCancelled, let self else { return }
-            guard let accessToken = await session.validAccessToken() else {
+            guard !Task.isCancelled, let self, permit.isCurrent else { return }
+            guard let accessToken = await permit.accessToken(using: session.operationAccessToken) else {
                 Logger.network.warning(
                     "Trakt scrobble \(action.rawValue, privacy: .public) dropped: no valid access token"
                 )
@@ -333,6 +334,7 @@ final class TraktService {
 
         let container = context.container
         let outcome = await TrackerImportRun(
+            permit: session.importPermit,
             begin: { await TrackerScope.begin(after: self.mutations) },
             accessToken: { await self.session.validAccessToken() },
             fetch: { token in
@@ -345,11 +347,8 @@ final class TraktService {
                 return (movies: watched.movies, shows: watched.shows, paused: paused)
             },
             isCurrent: { $0.isCurrent(isConnected: self.isConnected, account: self.mutations.account, pendingCount: self.mutations.pendingCount) },
-            apply: { history, scope in
-                await Self.applyImport(
-                    movies: history.movies, shows: history.shows, paused: history.paused, container: container,
-                    scope: scope
-                )
+            apply: { history, scope, permit in
+                await Self.applyImport(history: history, container: container, scope: scope, permit: permit)
             }
         ).perform()
         switch outcome {
@@ -372,20 +371,15 @@ final class TraktService {
     /// since isn't reopened.
     @concurrent
     private static func applyImport(
-        movies: [TraktWatchedMovie],
-        shows: [TraktWatchedShow],
-        paused: [TraktPlaybackItem]?,
+        history: (movies: [TraktWatchedMovie], shows: [TraktWatchedShow], paused: [TraktPlaybackItem]?),
         container: ModelContainer,
-        scope: TrackerScope
+        scope: TrackerScope,
+        permit: TrackerImportPermit
     ) async -> TraktImportSummary {
-        guard scope.matches(.trakt) else { return .failure }
-        let context = ModelContext(container)
-        var summary = TraktWatchedImporter.apply(movies: movies, shows: shows, in: context, pendingScope: scope)
-        if !summary.failed, let paused {
-            summary.inProgress = TraktPlaybackImporter.apply(paused, in: context, pendingScope: scope)
-            if context.hasChanges { try? context.save() }
-        }
-        return summary
+        await TrackerImportPages.apply(
+            TraktHistoryPage.plan(movies: history.movies, shows: history.shows, paused: history.paused),
+            scope: .init(container: container, permit: permit, isCurrent: { scope.matches(.trakt) }), initial: TraktImportSummary()
+        ) { page, context in page.apply(in: context, scope: scope) }
     }
 }
 
