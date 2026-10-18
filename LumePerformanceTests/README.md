@@ -109,16 +109,62 @@ probe also passed. The Benchmark app/test build and strict formatting/lint
 checks pass. No production code, cache policy, schema, project configuration or
 localized strings changed in this investigation.
 
-**Unresolved:** these measurements do not reproduce the reported Apple TV
-remote freeze, nor rule out device flash, startup contention, image delivery or
-SwiftUI/focus work. Do not label the freeze fixed or add a second membership
-cache based on these results. The next step is a cold-launch Time Profiler/Hangs
-capture on the affected Apple TV, including the switch into Movies and remote
-presses during the stall. Existing `home hero lane` / row-ready logs distinguish
-cache reads and catalogue matching from waiting for network artwork. Success
-requires identifying the blocking stack, a targeted change, and a comparable
-before/after trace; preserving cached-first rendering and existing provider
-fallbacks is part of that requirement.
+Those measurements alone did not reproduce the reported Apple TV remote freeze.
+They exclude the live SwiftUI `@Query` lifecycle, focus updates and device flash.
+The device capture below identifies a missing boundary; the fast direct-fetch
+benchmark is not evidence that the on-device rail query is cheap. Do not add a
+second membership cache based on these results. Success still requires a
+targeted change and a comparable before/after device trace, with cached-first
+rendering and existing provider fallbacks preserved.
+
+### Bedroom device capture and temporary markers (19 October 2026)
+
+The supplied 32.246-second Time Profiler recording is from Bedroom, Apple TV 4K
+(3rd generation), tvOS 27.2. It includes nine detected hangs/microhangs.
+
+- Movies collection query reads (`MovieCollectionRow.movies.getter`) account for
+  **3.748 seconds of sampled main-thread weight**, Series reads for 0.423 seconds.
+  These are sample weights, not a sum of wall-clock hang durations.
+- The repeated blocking stack is the row's body → `@Query` getter → SwiftData /
+  Core Data fetch → `sqlite3_step` → `pread`. It occurs during graph updates and
+  remote focus-region traversal. The 414 ms stall at 12.840 seconds, for example,
+  contains 369 ms of Movie query samples out of 411 ms of main-thread samples.
+  This is synchronous local catalogue work, not waiting for custom-list HTTP.
+- The early 2.85-second severe hang (3.769–6.617 seconds) has a 2.811-second
+  sampling gap and only 31 main-thread samples inside it. Its full duration
+  cannot be attributed to the Movie query from this recording; keep it separate.
+- A private copy of this device's catalogue also passes `quick_check`, has the
+  expected indexes and stable store/WAL timestamps during copying. Reconstructed
+  SQL for the four movie descriptors uses those indexes and about 0–6,000 VM
+  steps to return at most 21 rows. This is **not** the SQL emitted by the live
+  SwiftUI query and does not establish why that path is slow.
+
+`LibraryCollectionRead` temporarily brackets each local rail's actual `@Query`
+getter with distinct `LibraryMovie{Continue,Watched,Favorites,Added}Read` and
+`LibrarySeries{Continue,Watched,Favorites,Added}Read` intervals. They use
+**PointsOfInterest**, which the supplied Time Profiler template already records,
+rather than requiring the app's broader Performance category to be enabled.
+Reads taking at least 100 ms also log `Slow library read: movie.recentlyAdded,
+21 rows, …` (or the corresponding kind). Only medium, kind, count and elapsed
+time are logged—no title names, IDs, account details or URLs.
+
+The query is read once per body evaluation and the same array supplies the
+cards, Show All and series resume input. Its predicate, order, limit, reactive
+updates and source/profile ownership are unchanged. Tests cover one read,
+unchanged model identity/order, unique marker names and the existing collection
+query contracts. These are diagnostic marks, **not a freeze fix**.
+
+Next capture: build this branch for Bedroom, use the same Time Profiler template,
+record a cold launch, first Movies open and directional presses during the
+stall. The intervals/logs will identify which local rail is fetching, its actual
+result size and how often it re-reads. Keep the original trace unchanged; no
+household catalogue or trace data belongs in Git. Remove the temporary markers
+when the targeted fix has a comparable before/after capture.
+
+Diagnostic-build validation: 24 focused library/query/marker tests pass on the
+iOS 27 iPhone 17 Pro simulator; the optimized tvOS Release build succeeds.
+Strict formatting/lint checks pass. This is not device validation of a fix, and
+the full unit/performance suites were not rerun for the temporary markers.
 
 ## The browse path has two halves
 
