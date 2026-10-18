@@ -15,6 +15,43 @@
             return WidgetSnapshot(generatedAt: .now, sections: [WidgetSection(id: "row", title: "Row", items: [item])])
         }
 
+        /// The route sync now stores carries no token; the credential comes
+        /// from the owning playlist's account at render time.
+        @Test(.globalState) func `token-free source art renders with its owners credential`() async throws {
+            let playlist = Playlist(name: "Plex", plexURL: "https://server.test", username: "alice", accessToken: "account-secret")
+            let account = try #require(ProviderArtworkAccount(playlist: playlist))
+            ProviderArtworkAccounts.shared.replace([account])
+            defer { ProviderArtworkAccounts.shared.replace([]) }
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let item = try WidgetMediaItem(
+                id: playlist.id.uuidString + "-plex-movie-1", kind: .movie, title: "Private",
+                imageURL: URL(string: "https://server.test/library/metadata/1/thumb/2"),
+                backdropURL: nil, deepLink: #require(URL(string: "lume://open/movie/1"))
+            )
+            let source = WidgetSnapshot(generatedAt: .now, sections: [WidgetSection(id: "row", title: "Row", items: [item])])
+            var exported = source
+            TopShelfPrivateArtwork.applyCached(to: &exported, directory: directory)
+            #expect(exported.sections[0].items[0].imageURL == nil)
+            let image = UIGraphicsImageRenderer(size: CGSize(width: 4, height: 4)).image { context in
+                UIColor.red.setFill()
+                context.fill(CGRect(x: 0, y: 0, width: 4, height: 4))
+            }
+            let cgImage = try #require(image.cgImage)
+            let tokens = TokenRecorder()
+            let changed = await TopShelfPrivateArtwork.renderMissing(in: &exported, source: source, directory: directory) { request, _ in
+                await tokens.record(request.headers["X-Plex-Token"])
+                return cgImage
+            }
+            #expect(changed)
+            #expect(await tokens.values == ["account-secret"])
+            let file = try #require(exported.sections[0].items[0].imageURL)
+            #expect(file.isFileURL)
+            let json = try JSONEncoder().encode(exported)
+            #expect(String(data: json, encoding: .utf8)?.contains("account-secret") == false)
+        }
+
         @Test func `shared snapshot sanitization drops credentials but retains public images`() throws {
             let safe = snapshot(token: "private-secret").withoutArtworkCredentials
             let item = try #require(safe.sections.first?.items.first)
@@ -48,6 +85,13 @@
             TopShelfPrivateArtwork.applyCached(to: &anotherAccount, directory: directory)
             #expect(anotherAccount.sections[0].items[0].imageURL == nil)
             #expect(exported == exported.withoutArtworkCredentials)
+        }
+    }
+
+    private actor TokenRecorder {
+        private(set) var values: [String?] = []
+        func record(_ value: String?) {
+            values.append(value)
         }
     }
 #endif
