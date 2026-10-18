@@ -110,7 +110,7 @@ struct CatalogueIdentityInvalidationTests {
             movie.tmdbEnrichedAt = Date()
             let blank = try FieldFixtures.decodeMovie(#"{"stream_id":1,"name":"Insidious","tmdb":"","stream_icon":"","rating":"0"}"#)
             manager.applyMovieFields(from: blank, to: movie, playlistPrefix: "p-")
-            #expect(movie.tmdbId == 1_291_595 && movie.tmdb == "1291595")
+            #expect(movie.tmdbId == 1_291_595)
             #expect(movie.backdropPath == "/backdrop.jpg" && movie.tmdbEnrichedAt != nil)
         }
         // A different valid ID still corrects the match.

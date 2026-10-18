@@ -123,9 +123,9 @@ extension ContentSyncManager {
         if movie.rating5Based != rating5Based { movie.rating5Based = rating5Based }
         if movie.added != dto.added { movie.added = dto.added }
         if movie.containerExtension != dto.containerExtension { movie.containerExtension = dto.containerExtension }
-        // The last valid ID is kept with the match (`applyCatalogueTMDB`): a
-        // blank from a refreshing panel is not the catalogue's value.
-        if Movie.catalogueTMDB(dto.tmdb) != nil, movie.tmdb != dto.tmdb { movie.tmdb = dto.tmdb }
+        // The raw field mirrors the provider exactly, blanks included; the
+        // match itself survives a blank in `tmdbId` (`applyCatalogueTMDB`).
+        if movie.tmdb != dto.tmdb { movie.tmdb = dto.tmdb }
         let num = dto.num ?? 0
         if movie.num != num { movie.num = num }
         let isAdult = dto.isAdult ?? 0
