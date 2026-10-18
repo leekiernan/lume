@@ -219,6 +219,42 @@ benchmarks pass under Benchmark; the optimized tvOS Release build succeeds.
 Strict formatting/lint checks pass. The full unit and performance suites were
 not rerun for this targeted change.
 
+### Bedroom device verification (third capture, 19 October 2026)
+
+Run 3 lasts 30.753 seconds on the same Bedroom Apple TV. The board reports
+visibly improved responsiveness. The per-rail intervals confirm the Movies
+query improvement on device, not just in the simulator:
+
+| Movie Continue Watching reads | Before (run 2) | After (run 3) |
+|---|---:|---:|
+| Number of reads | 34 | 40 |
+| Total synchronous read time | 6.363 s | 73.220 ms |
+| First read | 1,953 ms | 1.540 ms |
+| Longest read | 1,953 ms | 4.603 ms |
+
+The new median is 1.730 ms and the 95th percentile is 2.803 ms. No read reaches
+50 ms. The seven repeated Movies-period hangs from run 2 do not recur; there
+are no detected hangs after the Movies reads begin at 6.216 seconds. Different
+run lengths and cache warmth mean these are observed capture results, not a
+universal cold-flash speedup ratio. Series Continue Watching remains unchanged
+at roughly 31 ms median, 38 ms maximum, across eight reads.
+
+One separate 2.027-second startup hang remains at 2.766–4.794 seconds, before
+the first Movie row read. There is a 1.985-second gap in main-thread samples,
+but other threads are sampled throughout it: `ContentIndexer.currentCounts`
+and the cloud reconciler's local movie reads account for 507 ms and 359 ms of
+sampled background weight. The main thread resumes in a catalogue fetch from
+`PlaylistOwner.playlist`, called by Continue Watching's artwork freshness key.
+This suggests shared-store contention, not a proven lock owner or wait chain;
+the Time Profiler recording does not sample waiting threads.
+
+A concrete follow-up is the initial `currentCounts()` in `ContentIndexer.run`:
+it runs before the browsing/cloud-sync idle gate, unlike the per-chunk counts.
+Investigate that startup scheduling and the reconciler's concurrent reads
+separately, with waiting-thread evidence, before changing them. The Movie index
+fix is device-verified; no additional cache or loader change is justified by
+this capture. Temporary rail markers can now be removed before merge.
+
 ## The browse path has two halves
 
 Import is not the only thing users wait on. A 284k-row catalog made every browse
