@@ -36,6 +36,25 @@ struct TrackerImportPagesTests {
         #expect(try ModelContext(container).fetchCount(FetchDescriptor<Movie>()) == 1)
     }
 
+    /// The reason imports are paged at all: a profile switch may land between
+    /// pages, and the rest of the history must not reach the new profile.
+    @Test func `a profile switch between pages stops the remaining writes`() async throws {
+        let saved = ActiveProfileStore.current
+        defer { ActiveProfileStore.current = saved }
+        ActiveProfileStore.current = UUID()
+        let container = try makeTestContainer()
+        let permit = TrackerImportPermit(account: TrackerAccountLifetime())
+        let scope = TrackerImportPages.Scope(container: container, permit: permit, isCurrent: { true })
+        let result = await TrackerImportPages.apply([1, 2, 3], scope: scope, initial: ImportPageCount()) { page, context in
+            context.insert(Movie(id: "movie-\(page)", streamId: page, name: "Movie"))
+            do { try context.save() } catch { return ImportPageCount(failed: true) }
+            ActiveProfileStore.current = UUID()
+            return ImportPageCount(count: 1)
+        }
+        #expect(result.count == 1 && result.failed)
+        #expect(try ModelContext(container).fetchCount(FetchDescriptor<Movie>()) == 1)
+    }
+
     @Test func `each page refetches local state and an empty response still checks ownership`() async throws {
         let container = try makeTestContainer()
         let calls = Mutex(0)
