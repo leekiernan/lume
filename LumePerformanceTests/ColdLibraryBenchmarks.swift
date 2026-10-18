@@ -1,7 +1,11 @@
 import Foundation
 @testable import Lume
 import SwiftData
+import SwiftUI
 import XCTest
+#if canImport(UIKit)
+    import UIKit
+#endif
 
 /// Cold model contexts over an enriched SQLite catalogue, not an in-memory
 /// store or a network benchmark. Reopening the container also clears Core Data's
@@ -101,6 +105,29 @@ final class ColdLibraryBenchmarks: XCTestCase {
     func testColdLocalRailsWithHiddenCategories() {
         measureLocalRails()
     }
+
+    #if canImport(UIKit)
+        /// Unlike ModelContext.fetch, @Query appends the primary key to ORDER
+        /// BY. That extra tie-breaker can change SQLite's choice of index.
+        @MainActor
+        func testMountedContinueWatchingQuery() {
+            let descriptor = MovieCollectionQuery.rowDescriptor(for: .continueWatching, playlistPrefix: prefix, excludedCategoryIDs: [])
+            let options = XCTMeasureOptions()
+            options.iterationCount = 5
+            options.invocationOptions = [.manuallyStart, .manuallyStop]
+            measure(metrics: [XCTClockMetric()], options: options) {
+                do {
+                    let container = try reopen()
+                    let host = UIHostingController(rootView: ColdMovieQuery(descriptor: descriptor).modelContainer(container))
+                    startMeasuring()
+                    _ = host.sizeThatFits(in: CGSize(width: 800, height: 600))
+                    stopMeasuring()
+                } catch {
+                    XCTFail("Mounted query failed: \(error)")
+                }
+            }
+        }
+    #endif
 
     @MainActor
     func testColdLocalRailsWithTiedTimestamps() throws {
@@ -240,3 +267,17 @@ final class ColdLibraryBenchmarks: XCTestCase {
         add(attachment)
     }
 }
+
+#if canImport(UIKit)
+    private struct ColdMovieQuery: View {
+        @Query private var movies: [Movie]
+
+        init(descriptor: FetchDescriptor<Movie>) {
+            _movies = Query(descriptor)
+        }
+
+        var body: some View {
+            Text(movies.map(\.id).joined(separator: ","))
+        }
+    }
+#endif
