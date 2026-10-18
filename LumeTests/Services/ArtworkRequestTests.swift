@@ -80,4 +80,14 @@ struct ArtworkRequestTests {
         request.url = URL(string: "https://server.test:443/another")
         #expect(ArtworkRedirectPolicy.redirect(request, from: previous).value(forHTTPHeaderField: "X-Plex-Token") == "secret")
     }
+
+    @Test func `cross-origin redirects drop credentials echoed into the new address`() throws {
+        let previous = try #require(URL(string: "https://server.test/Items/1/Images/Primary?ApiKey=secret"))
+        let echoed = try #require(URL(string: "https://sso.test/login?rd=x&ApiKey=secret&api_key=secret&X-Plex-Token=secret&sig=keep"))
+        let safe = ArtworkRedirectPolicy.redirect(URLRequest(url: echoed), from: previous)
+        #expect(safe.url?.absoluteString == "https://sso.test/login?rd=x&sig=keep")
+        // Same origin keeps its own query untouched.
+        let local = try #require(URL(string: "https://server.test/Items/1/Images/Primary?ApiKey=secret&tag=b"))
+        #expect(ArtworkRedirectPolicy.redirect(URLRequest(url: local), from: previous).url == local)
+    }
 }
