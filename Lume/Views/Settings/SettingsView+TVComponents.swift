@@ -198,6 +198,8 @@ import SwiftUI
         /// The settings column's scroll view, which the sections list scrolls
         /// to keep a lifted row on screen.
         let proxy: ScrollViewProxy
+        /// The Settings instance this pane belongs to (`TVSettingsRoute.visibleInstance`).
+        let settingsInstance: UUID
 
         private var routeBinding: Binding<TVSettingsRoute> {
             Binding(get: { router?.settingsRoute ?? TVSettingsRoute() }, set: { router?.settingsRoute = $0 })
@@ -213,7 +215,7 @@ import SwiftUI
                         enabled = isOn
                     }), showsIndicator: true)
                         .focused($showSportsFocused)
-                        .reclaimsFocus(.sportsToggle, in: routeBinding, focused: $showSportsFocused)
+                        .reclaimsFocus(.sportsToggle, in: routeBinding, instance: settingsInstance, focused: $showSportsFocused)
 
                     if enabled {
                         Button {

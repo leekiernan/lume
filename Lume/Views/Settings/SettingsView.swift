@@ -114,6 +114,9 @@ struct SettingsView: View {
         /// Whether the Library category has drilled into the area's categories.
         /// Not `private`: read by the SettingsView+TVHome extension.
         @State var showingAreaCategories = false
+        /// This instance, for `TVSettingsRoute.visibleInstance`.
+        @State var instanceID = UUID()
+
         /// Reasserted after the area's enabled state changes. The rows below the
         /// toggle are inserted/removed by that mutation; without an explicit
         /// anchor tvOS can hand focus back to the Settings sidebar.
@@ -405,6 +408,9 @@ struct SettingsView: View {
                         .focused($detailFocused)
                 }
                 .overlay(alignment: .top) { tvTabBarEntryCatcher }
+                // tvOS rebuilds Settings for each arrangement of tabs; the
+                // instance on screen is the one that may move focus.
+                .onAppear { route.visibleInstance = instanceID }
                 .tvSettingsBackground()
                 .paywall(isPresented: $showPaywall, highlight: paywallHighlight)
                 .defaultFocus($focusedCategory, selectedCategory)

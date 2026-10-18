@@ -50,19 +50,25 @@ import SwiftUI
     }
 
     extension View {
-        /// Keeps taking focus back for `target` while the route asks for it,
-        /// until it has held for a moment or a bounded window passes. tvOS
-        /// moves focus to the rebuilt tab bar some time after the switch lands,
-        /// so a single assertion at a guessed moment loses that race.
+        /// Hands focus to `target` in the Settings instance on screen, once the
+        /// rebuild lands, and stops when it has held for a moment (a bounded
+        /// window otherwise). An outgoing instance yields at once. On device the
+        /// handoff is one assertion, a second at most while the new instance is
+        /// still appearing.
         func reclaimsFocus(
             _ target: TVSettingsRoute.Reclaim,
             in route: Binding<TVSettingsRoute>,
+            instance: UUID,
             focused: FocusState<Bool>.Binding
         ) -> some View {
             task(id: route.wrappedValue.reclaim) {
                 guard route.wrappedValue.reclaim == target else { return }
                 var held = 0
                 for _ in 0 ..< 20 {
+                    // An outgoing copy hands the reclaim to the one on screen.
+                    guard route.wrappedValue.visibleInstance == instance else {
+                        return
+                    }
                     if focused.wrappedValue { held += 1 } else {
                         held = 0
                         focused.wrappedValue = true

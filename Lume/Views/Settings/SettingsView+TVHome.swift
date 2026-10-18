@@ -23,7 +23,7 @@ import SwiftUI
                 TVTopShelfSettingsSection(proxy: proxy)
                 tvAreaPicker
                 if showingSportsSettings {
-                    TVSportsSettingsPane(proxy: proxy)
+                    TVSportsSettingsPane(proxy: proxy, settingsInstance: instanceID)
                 } else {
                     tvAreaEnableRow
                     tvAreaEnableNote
@@ -99,7 +99,7 @@ import SwiftUI
             }
             .buttonStyle(TVSettingsRowButtonStyle())
             .focused($libraryAreaToggleFocused)
-            .reclaimsFocus(.areaToggle, in: Binding(get: { route }, set: { route = $0 }), focused: $libraryAreaToggleFocused)
+            .reclaimsFocus(.areaToggle, in: Binding(get: { route }, set: { route = $0 }), instance: instanceID, focused: $libraryAreaToggleFocused)
             // The last area standing can't be switched off — there would be no
             // navigation left.
             .disabled(enabled && !canDisable)
