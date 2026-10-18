@@ -254,7 +254,7 @@ struct SeriesDetailView: View {
     private var metadata: DetailMetadata {
         DetailMetadata(
             genre: series.genre,
-            year: DetailFormat.year(from: series.releaseDate),
+            year: DetailFormat.year(releaseDate: series.releaseDate, name: series.name),
             duration: nil,
             seasonInfo: availableSeasons.isEmpty ? nil : DetailFormat.seasonCount(availableSeasons.count),
             rating: series.ratingScore,

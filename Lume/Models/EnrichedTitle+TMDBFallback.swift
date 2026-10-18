@@ -10,6 +10,7 @@ nonisolated struct TMDBReplacement<Value: Codable & Equatable>: Codable {
 nonisolated struct TMDBFallbacks: Codable {
     var plot: TMDBReplacement<String>?
     var genre: TMDBReplacement<String>?
+    var releaseDate: TMDBReplacement<String>?
     var runtime: TMDBReplacement<Int>?
     var movieRating: TMDBReplacement<Double>?
     var seriesRating: TMDBReplacement<String>?
@@ -34,6 +35,7 @@ nonisolated extension EnrichedTitle {
         let changes = tmdbFallbackChanges
         if let change = changes.plot, plot == change.applied { plot = change.previous }
         if let change = changes.genre, genre == change.applied { genre = change.previous }
+        if let change = changes.releaseDate, releaseDate == change.applied { releaseDate = change.previous }
         if let movie = self as? Movie {
             if let change = changes.runtime, movie.durationSecs == change.applied { movie.durationSecs = change.previous }
             if let change = changes.movieRating, movie.rating == change.applied { movie.rating = change.previous ?? 0 }

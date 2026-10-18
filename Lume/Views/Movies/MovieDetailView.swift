@@ -258,7 +258,7 @@ struct MovieDetailView: View {
     private var metadata: DetailMetadata {
         DetailMetadata(
             genre: movie.genre,
-            year: DetailFormat.year(from: movie.releaseDate),
+            year: DetailFormat.year(releaseDate: movie.releaseDate, name: movie.name),
             duration: DetailFormat.duration(movie.durationSecs),
             seasonInfo: nil,
             rating: movie.ratingScore,
