@@ -376,8 +376,9 @@ struct ProfileEngineTests {
         #expect(manager.pendingProfileName == nil)
     }
 
-    /// Starts a switch and returns once it has reached its first suspension
-    /// point, so the caller can observe the in-flight state.
+    /// Starts a switch and returns once it is in flight. Pair it with a
+    /// `ProjectionHold`, which keeps it there: unheld, the switch could finish
+    /// before its in-flight state was read, and did under a full parallel run.
     private func beginSwitch(_ manager: ProfileManager, to id: UUID) async -> Task<Bool, Never> {
         let task = Task { await manager.switchProfile(to: id) }
         _ = await eventually { manager.isSwitching }
@@ -496,12 +497,15 @@ struct ProfileEngineTests {
         defer { ActiveProfileStore.current = saved }
 
         let (manager, _) = makeManager(container)
+        let hold = ProjectionHold()
+        defer { hold.end() }
         let switching = await beginSwitch(manager, to: profileB)
         #expect(manager.isSwitching)
 
         await manager.switchProfile(to: profileC)
         #expect(manager.pendingProfileName == "B")
 
+        hold.end()
         await switching.value
         #expect(manager.activeProfileID == profileB)
         #expect(ActiveProfileStore.current == profileB)
@@ -523,9 +527,12 @@ struct ProfileEngineTests {
         let (manager, _) = makeManager(container)
         #expect(manager.pendingProfileName == nil)
 
+        let hold = ProjectionHold()
+        defer { hold.end() }
         let switching = await beginSwitch(manager, to: profileB)
         #expect(manager.pendingProfileName == "Kids")
 
+        hold.end()
         await switching.value
         #expect(manager.isSwitching == false)
         #expect(manager.pendingProfileName == nil)
