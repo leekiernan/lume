@@ -154,17 +154,70 @@ updates and source/profile ownership are unchanged. Tests cover one read,
 unchanged model identity/order, unique marker names and the existing collection
 query contracts. These are diagnostic marks, **not a freeze fix**.
 
-Next capture: build this branch for Bedroom, use the same Time Profiler template,
-record a cold launch, first Movies open and directional presses during the
-stall. The intervals/logs will identify which local rail is fetching, its actual
-result size and how often it re-reads. Keep the original trace unchanged; no
-household catalogue or trace data belongs in Git. Remove the temporary markers
-when the targeted fix has a comparable before/after capture.
+Capture procedure: build this branch for Bedroom, use the same Time Profiler
+template, record a cold launch, first Movies open and directional presses during
+the stall. Compare the per-rail intervals, result sizes and read frequency. Keep
+the original trace unchanged; no household catalogue or trace data belongs in
+Git. Remove the temporary markers when the targeted fix has a comparable
+before/after capture.
 
 Diagnostic-build validation: 24 focused library/query/marker tests pass on the
 iOS 27 iPhone 17 Pro simulator; the optimized tvOS Release build succeeds.
 Strict formatting/lint checks pass. This is not device validation of a fix, and
 the full unit/performance suites were not rerun for the temporary markers.
+
+### Second Bedroom capture (19 October 2026)
+
+Run 2 of the supplied trace, recorded with the markers, lasts 20.949 seconds.
+It attributes the expensive reads specifically to **Movies Continue Watching**:
+34 synchronous reads occupy 6.363 seconds, including a 1.953-second first read
+and subsequent reads of 120–227 ms. Series Continue Watching is read 20 times,
+totalling 0.611 seconds, with a maximum of 38 ms. No other local rail markers
+appear in this run.
+
+The seven detected hangs overlap the first Movie read and the repeated reads
+that follow. The stacks again end in SQLite `pread` through the `@Query` getter.
+Reading once per body did not solve the problem. This prompted a comparison of
+the generated SQL rather than changes to caching, ordering or invalidation.
+
+### Targeted index fix
+
+A temporary SQL-debug probe on the iOS 27 simulator captured both production
+descriptor paths. `ModelContext.fetch` ends its ordering at `lastWatchedDate`,
+localized `name`, localized `id`; the same descriptor in a mounted SwiftUI
+`@Query` appends **`Z_PK`**. That hidden fourth sort key changes the SQLite plan:
+
+- Direct fetch: the `[isWatched, lastWatchedDate]` composite seeks dated movies.
+- Mounted query: the redundant `[isWatched]` index wins instead, reading every
+  unwatched movie's row and sorting the matches. Nearly every movie is unwatched.
+- Without that redundant index: the mounted query uses the composite and only
+  sorts the suffix within tied watch dates. Its filtering and order are unchanged.
+
+Fresh stores no longer declare `[isWatched]`. For existing stores, the pre-open
+index backfill retires it only after successfully creating the composite. This
+removes an index, not content or watch history; it does not require re-importing
+the catalogue. The composite also serves queries of its leading `isWatched`
+column. No new cache, async loader or invalidation mechanism is introduced.
+
+`testMountedContinueWatchingQuery` now mounts the real descriptor in a
+`UIHostingController` against the reopened, enriched 40,000-movie store. The
+optimized simulator benchmark fell from **34–38 ms** to **1.4–1.8 ms** across
+five measurements per run. All seven cold-library benchmarks pass. Normal unit
+tests cover fresh stores, existing-store retirement and its resulting SQL plan,
+unchanged row count, and retaining the old index if replacement creation fails.
+The temporary SQL-debug probe and launch arguments are removed.
+
+These are simulator measurements of a reproduced planner failure, not a
+measured Apple TV speedup. The per-rail markers remain for a comparable Bedroom
+capture. Verify that Movie Continue reads no longer take hundreds of milliseconds
+and directional input stays responsive; also keep the original capture's
+unattributed early stall separate rather than claiming every launch delay fixed.
+
+Validation of the index fix: 34 focused library/query/index/watch-removal tests
+pass in the normal Debug unit-test configuration; all seven cold-library
+benchmarks pass under Benchmark; the optimized tvOS Release build succeeds.
+Strict formatting/lint checks pass. The full unit and performance suites were
+not rerun for this targeted change.
 
 ## The browse path has two halves
 
