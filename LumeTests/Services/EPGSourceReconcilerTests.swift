@@ -80,6 +80,20 @@ struct EPGSourceReconcilerTests {
         #expect(sources[0].url.contains("xmltv.php"))
     }
 
+    /// Synced from a newer build: an unknown type reads as Xtream through
+    /// `sourceType`, and its source used to be deleted as guide-less.
+    @Test func `apply leaves the source of an unrecognised playlist type alone`() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let playlist = Playlist(name: "Future", m3uURL: "http://example.com/playlist.m3u", epgURL: "http://example.com/guide.xml")
+        context.insert(playlist)
+        try context.save()
+        #expect(EPGSourceReconciler.apply(playlist, in: context))
+        playlist.sourceTypeRaw = "future-server"
+        #expect(!EPGSourceReconciler.apply(playlist, in: context))
+        #expect(try context.fetch(FetchDescriptor<EPGSource>()).map(\.url) == ["http://example.com/guide.xml"])
+    }
+
     @Test func `apply creates source for m3u playlist with guide URL`() throws {
         let container = try makeContainer()
         let context = ModelContext(container)
