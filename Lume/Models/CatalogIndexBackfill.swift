@@ -44,6 +44,8 @@ nonisolated enum CatalogIndexBackfill {
         let name: String
         let table: String
         let columns: [String]
+        /// Retired only after this replacement exists.
+        var replaces: String?
 
         var createStatement: String {
             let cols = columns.map { "\($0) COLLATE BINARY ASC" }.joined(separator: ", ")
@@ -99,7 +101,8 @@ nonisolated enum CatalogIndexBackfill {
         Index(
             name: "Z_Movie_SwiftDataIndexOnBinaryisWatchedlastWatchedDate",
             table: "ZMOVIE",
-            columns: ["ZISWATCHED", "ZLASTWATCHEDDATE"]
+            columns: ["ZISWATCHED", "ZLASTWATCHEDDATE"],
+            replaces: "Z_Movie_SwiftDataIndexOnBinaryisWatched"
         ),
         Index(
             name: "Z_Episode_SwiftDataIndexOnBinaryisWatchedwatchProgress",
@@ -166,6 +169,15 @@ nonisolated enum CatalogIndexBackfill {
             if sqlite3_exec(database, index.createStatement, nil, nil, nil) != SQLITE_OK {
                 let message = String(cString: sqlite3_errmsg(database))
                 Logger.database.debug("Catalog index backfill: \(index.name, privacy: .public) skipped — \(message, privacy: .public)")
+                continue
+            }
+            // @Query adds Z_PK to the rail's ORDER BY. With both indexes
+            // present SQLite then prefers the single-column watched index,
+            // reading the whole catalogue instead of just dated movies.
+            // The composite covers all uses of its leading column. Only drop
+            // the old index once its replacement was created successfully.
+            if let replaced = index.replaces {
+                sqlite3_exec(database, "DROP INDEX IF EXISTS \(replaced)", nil, nil, nil)
             }
         }
     }

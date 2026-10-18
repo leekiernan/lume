@@ -124,6 +124,91 @@ struct CatalogIndexBackfillTests {
         #expect(indexNames(in: url) == before)
     }
 
+    @Test func `fresh stores omit the redundant watched index`() throws {
+        let (container, url) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        withExtendedLifetime(container) {
+            let names = indexNames(in: url)
+            #expect(!names.contains("Z_Movie_SwiftDataIndexOnBinaryisWatched"))
+            #expect(names.contains("Z_Movie_SwiftDataIndexOnBinaryisWatchedlastWatchedDate"))
+        }
+    }
+
+    @Test func `backfill retires the index that makes mounted watch rails scan the catalogue`() throws {
+        let (container, url) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        try withExtendedLifetime(container) {
+            try withDatabase(at: url) { database in
+                // Reproduce a store from before the model declaration changed.
+                let sql = "CREATE INDEX Z_Movie_SwiftDataIndexOnBinaryisWatched ON ZMOVIE (ZISWATCHED COLLATE BINARY ASC)"
+                #expect(sqlite3_exec(database, sql, nil, nil, nil) == SQLITE_OK)
+            }
+            CatalogIndexBackfill.run(storeURL: url)
+            #expect(!indexNames(in: url).contains("Z_Movie_SwiftDataIndexOnBinaryisWatched"))
+            let plan = try mountedWatchPlan(at: url)
+            #expect(plan.contains { $0.contains("Z_Movie_SwiftDataIndexOnBinaryisWatchedlastWatchedDate") })
+            #expect(!plan.contains { $0.contains("USE TEMP B-TREE FOR ORDER BY") }, "\(plan)")
+            #expect(try ModelContext(container).fetchCount(FetchDescriptor<Movie>()) == 1)
+        }
+    }
+
+    @Test func `backfill retains the old index when its replacement cannot be created`() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("old.store")
+        try withDatabase(at: url, create: true) { database in
+            // A store too old to have the replacement's column must retain
+            // its existing index, even though other backfills are skipped.
+            let sql = """
+            CREATE TABLE ZMOVIE (ZISWATCHED INTEGER);
+            CREATE INDEX Z_Movie_SwiftDataIndexOnBinaryisWatched ON ZMOVIE (ZISWATCHED);
+            """
+            #expect(sqlite3_exec(database, sql, nil, nil, nil) == SQLITE_OK)
+        }
+        CatalogIndexBackfill.run(storeURL: url)
+        #expect(indexNames(in: url).contains("Z_Movie_SwiftDataIndexOnBinaryisWatched"))
+    }
+
+    /// The SQL captured from a mounted @Query includes a Z_PK tie-breaker
+    /// that ModelContext.fetch does not add. Keep it in this regression probe.
+    private func mountedWatchPlan(at url: URL) throws -> [String] {
+        try withDatabase(at: url) { database in
+            // These functions are only resolved by EXPLAIN, never executed.
+            sqlite3_create_function_v2(database, "NSCoreDataStringSearch", 4, SQLITE_UTF8, nil, { _, _, _ in }, nil, nil, nil)
+            sqlite3_create_collation(database, "NSCollateFinderlike", SQLITE_UTF8, nil) { _, _, _, _, _ in 0 }
+            let sql = """
+            EXPLAIN QUERY PLAN SELECT t0.ZID, t0.ZNAME, t0.ZCATEGORYID FROM ZMOVIE t0
+            WHERE t0.ZLASTWATCHEDDATE IS NOT NULL AND t0.ZISWATCHED = 0
+              AND NSCoreDataStringSearch(t0.ZID, 'probe-', 8, 0)
+              AND (t0.ZCATEGORYID IS NULL OR NOT(t0.ZCATEGORYID IN ('hidden')))
+            ORDER BY t0.ZLASTWATCHEDDATE DESC, t0.ZNAME COLLATE NSCollateFinderlike,
+                     t0.ZID COLLATE NSCollateFinderlike, t0.Z_PK LIMIT 21
+            """
+            var statement: OpaquePointer?
+            #expect(sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK)
+            guard let statement else { return [] }
+            defer { sqlite3_finalize(statement) }
+            var plan: [String] = []
+            while sqlite3_step(statement) == SQLITE_ROW {
+                if let detail = sqlite3_column_text(statement, 3) { plan.append(String(cString: detail)) }
+            }
+            return plan
+        }
+    }
+
+    private func withDatabase<T>(at url: URL, create: Bool = false, _ body: (OpaquePointer) throws -> T) throws -> T {
+        var handle: OpaquePointer?
+        let flags = SQLITE_OPEN_READWRITE | (create ? SQLITE_OPEN_CREATE : 0)
+        let result = sqlite3_open_v2(url.path, &handle, flags, nil)
+        guard result == SQLITE_OK, let database = handle else {
+            if let handle { sqlite3_close(handle) }
+            throw CocoaError(.fileReadUnknown)
+        }
+        defer { sqlite3_close(database) }
+        return try body(database)
+    }
+
     /// A missing file is the pre-first-launch state; it must not create one.
     @Test func `backfill leaves a missing store alone`() {
         let url = FileManager.default.temporaryDirectory
