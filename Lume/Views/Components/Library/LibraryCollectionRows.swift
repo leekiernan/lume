@@ -183,11 +183,9 @@ struct MovieCollectionRow: View {
         }
     }
 
-    /// Takes a movie out of both watch rails.
+    /// Takes a movie — every copy of its title — out of both watch rails.
     private func forget(_ movie: Movie) {
-        movie.lastWatchedDate = nil
-        ContentClearLedger.shared.record(movie.id)
-        try? modelContext.save()
+        WatchRailRemoval.remove(movie, in: modelContext)
     }
 }
 
@@ -273,11 +271,9 @@ struct SeriesCollectionRow: View {
         }
     }
 
-    /// Takes a series out of both watch rails.
+    /// Takes a series — every copy of its title — out of both watch rails.
     private func forget(_ series: Series) {
-        series.lastWatchedDate = nil
-        ContentClearLedger.shared.record(series.id)
-        try? modelContext.save()
+        WatchRailRemoval.remove(series, in: modelContext)
     }
 }
 

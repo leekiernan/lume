@@ -143,22 +143,19 @@ extension HomeView {
 
     // MARK: - Recently watched
 
-    /// Clears an item's watch timestamp so it drops out of the Recently Watched
-    /// row. The @Query-backed rows update automatically once the change is saved.
+    /// Clears an item's watch timestamp — on every copy of its title — so it
+    /// drops out of the watch rails. The @Query-backed rows update
+    /// automatically once the change is saved.
     func removeFromRecentlyWatched(_ item: HomeMediaItem) {
         switch item {
         case let .movie(movie):
-            movie.lastWatchedDate = nil
-            ContentClearLedger.shared.record(movie.id)
+            WatchRailRemoval.remove(movie, in: modelContext)
         case let .series(series):
-            series.lastWatchedDate = nil
-            ContentClearLedger.shared.record(series.id)
+            WatchRailRemoval.remove(series, in: modelContext)
         case let .live(stream):
             // Shared with Live TV so the in-player rail and recall agree.
             LiveChannelHistory.removeFromRecents(stream, in: modelContext)
-            return
         }
-        try? modelContext.save()
     }
 
     // MARK: - Series resume
