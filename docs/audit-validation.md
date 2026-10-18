@@ -574,3 +574,75 @@ No UI automation or physical-device testing was run. Board smoke checks should
 cover Plex/Jellyfin artwork before and after token rotation (including cold-start
 heroes and Top Shelf), progress saves during history import, and open/swap/retry
 playback. The branch is ready for review, not yet merged.
+
+### Follow-up review
+
+Each area was reviewed against its intent before `fix/test-stalls` was merged.
+
+- **Trackers:** adequate. Same-account rotation keeps queued scrobbles. A
+  different account, a disconnect or a reconnect still drops them. The retry
+  during refresh is bounded at three. Import pages each re-check the profile
+  and account. Added the missing test: a profile switch between pages stops
+  the remaining writes.
+- **Typed connections and startup accounting:** adequate. URL assembly is
+  byte-for-byte the same, and nothing that synced before now fails validation.
+  Reconnect, retry and fallback keep their meaning. A guide source of a playlist
+  type this build doesn't know (synced from a newer build) is now left alone
+  instead of deleted.
+- **Artwork:** adequate after three fixes.
+  - The legacy-token cleanup was awaited ahead of download restore and profile
+    bootstrap, paged by offset and held every row in one context. It now runs
+    detached through `CatalogMaintenance`'s keyset pages, tested on a real
+    store file.
+  - An m3u or Xtream playlist on a Plex/Jellyfin origin (a Jellyfin Live TV
+    m3u, say) resolved its own logos to nothing. They load as before, without
+    the account's credentials.
+  - A cross-origin redirect whose `Location` echoed the original address
+    carried Jellyfin's query `ApiKey` to the new host. Media-server credential
+    query items and userinfo are now removed on that hop.
+  - Added a Top Shelf test that renders a token-free route with its owner's
+    credential.
+
+Open, non-blocking:
+- **Offline artwork after the upgrade.** Old private caches were keyed by
+  token, so downloaded titles show blank posters offline until the device is
+  online once.
+- **Leftover token bytes.** Old token bytes remain in SQLite free pages and
+  in hero warm-start defaults until overwritten.
+- **Add-time URL checks.** They accept schemes that sync later rejects
+  (`davs://`).
+- **Engine-level QoE.** There is no test of the counts per engine.
+
+### Suite stalls
+
+Sampling a full parallel run found three causes. The rotating timing failures
+were symptoms of them.
+
+- **Observers that block posters.** `addObserver(queue: .main)` holds a
+  background poster until the main thread runs the block, so every background
+  `ModelContext` save, `UserDefaults` write and store remote change waited on
+  main. One sample caught 54 threads at once in
+  `-[NSOperation waitUntilFinished]`.
+- **A deadlock risk during profile switches.** `ActiveProfileStore` wrote
+  defaults while holding its lock. During a switch, a background poster could
+  hold that lock while waiting on main, and main could be waiting for the lock.
+  `addMainActorObserver` and a write outside the lock fix both, in the app as
+  well as in tests.
+- **The live app under the unit tests.** The unit-test host launched the
+  full app, which reacted on the main thread to the tests' saves and writes.
+  The host now shows a blank window.
+
+Test waits counted in yields or a few seconds now poll to a 30 s backstop
+(`eventually`). The in-flight profile-switch tests hold the projection gate
+instead of racing the switch.
+
+`xcodebuild`'s default `-collect-test-diagnostics on-failure` runs a
+sysdiagnose with a 600 s timeout after any failing test. That turned 2-minute
+runs into 12–17 minutes. Command-line runs now pass `never` (`AGENTS.md`).
+
+Full parallel runs on the merged stall fixes passed 3,620 of 3,620, in 89 s
+and 107 s, against about 240 s and two or three failures per run before.
+
+Final verification at `773c0fee`, with the follow-up fixes and the stall fixes
+merged: two full parallel runs passed 3,646 of 3,646, in 158 s and 96 s. tvOS
+and macOS builds passed.
