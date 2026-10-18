@@ -102,12 +102,14 @@ struct PlaybackStartupSupervisorTests {
         supervisor.end()
     }
 
-    @Test func `a replaced timer cannot call the old failure handler`() async throws {
+    @Test func `a replaced timer cannot call the old failure handler`() async {
         let supervisor = PlaybackStartupSupervisor()
         var expired: [String] = []
         supervisor.begin(timeout: 0.01) { expired.append("old") }
         supervisor.begin(timeout: 0.02) { expired.append("new") }
-        try await Task.sleep(for: .milliseconds(60))
+        // Until something fires, not a fixed 60 ms a busy run outlasted. The
+        // old deadline is earlier, so had it survived it would be first.
+        _ = await eventually { !expired.isEmpty }
         #expect(expired == ["new"])
         supervisor.end()
     }
