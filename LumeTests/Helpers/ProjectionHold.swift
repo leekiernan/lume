@@ -11,12 +11,15 @@ final class ProjectionHold: @unchecked Sendable {
 
     init() {
         let held = DispatchSemaphore(value: 0)
-        Thread { [release] in
+        let holder = Thread { [release] in
             ProfileProjectionGate.shared.withExclusive {
                 held.signal()
                 release.wait()
             }
-        }.start()
+        }
+        // The main thread waits on it: match its priority, not inherit default.
+        holder.qualityOfService = .userInteractive
+        holder.start()
         held.wait()
     }
 

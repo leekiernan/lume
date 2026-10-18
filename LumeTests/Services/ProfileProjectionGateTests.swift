@@ -14,17 +14,23 @@ struct ProfileProjectionGateTests {
         let attempted = DispatchSemaphore(value: 0)
         let swapped = DispatchSemaphore(value: 0)
         defer { release.signal() }
-        Thread {
+        let holder = Thread {
             gate.withExclusive {
                 entered.signal()
                 _ = release.wait(timeout: .now() + 20)
             }
-        }.start()
+        }
+        // The main thread waits on it: match its priority, not inherit default.
+        holder.qualityOfService = .userInteractive
+        holder.start()
         #expect(entered.wait(timeout: .now() + 10) == .success)
-        Thread {
+        let contender = Thread {
             attempted.signal()
             gate.withExclusive { swapped.signal() }
-        }.start()
+        }
+        // The main thread waits on it: match its priority, not inherit default.
+        contender.qualityOfService = .userInteractive
+        contender.start()
         #expect(attempted.wait(timeout: .now() + 10) == .success)
         #expect(swapped.wait(timeout: .now() + 0.02) == .timedOut)
         release.signal()
