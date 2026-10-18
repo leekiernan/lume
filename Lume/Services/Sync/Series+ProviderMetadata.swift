@@ -27,9 +27,10 @@ nonisolated extension Series {
             if let covered, covered != proxyCoveredFields { invalidateProxyMetadata() }
         }
         if !fillMissing {
-            let catalogueOwned = tmdbAssignment?.origin == .catalogue
-            applyCatalogueTMDB(metadata.tmdb, previous: nil)
-            if Self.catalogueTMDB(metadata.tmdb) != nil || catalogueOwned, tmdb != metadata.tmdb { tmdb = metadata.tmdb }
+            // A blank `tmdb` is a panel refreshing, not a withdrawal: the match
+            // and its last valid ID stay until a different valid ID arrives.
+            applyCatalogueTMDB(metadata.tmdb, previous: nil, withdrawsWhenAbsent: false)
+            if Self.catalogueTMDB(metadata.tmdb) != nil, tmdb != metadata.tmdb { tmdb = metadata.tmdb }
         } else if tmdbId == nil, let id = Self.catalogueTMDB(metadata.tmdb), let identity = TMDBSeriesID(id) {
             assignTMDB(.series(identity), origin: .providerDetails)
             tmdb = metadata.tmdb

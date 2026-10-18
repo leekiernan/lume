@@ -5,7 +5,7 @@ import Testing
 
 @MainActor
 struct TMDBAssignmentTests {
-    @Test func `series catalogue withdrawal differs from a sparse row after detail hydration`() throws {
+    @Test func `a sparse Xtream series row keeps the catalogue match after detail hydration`() throws {
         let catalogue = try JSONDecoder().decode(XtreamSeries.self, from: Data(#"{"series_id":1,"tmdb":"1399"}"#.utf8))
         let sparse = try JSONDecoder().decode(XtreamSeries.self, from: Data(#"{"series_id":1}"#.utf8))
         let info = try JSONDecoder().decode(XtreamSeriesInfo.self, from: Data(#"{"tmdb":"1399"}"#.utf8))
@@ -16,7 +16,7 @@ struct TMDBAssignmentTests {
         series.applyProviderMetadata(catalogue, fillMissing: false)
         #expect(series.tmdbAssignment?.origin == .catalogue)
         series.applyProviderMetadata(sparse, fillMissing: false)
-        #expect(series.tmdbId == nil && series.tmdb == nil && series.tmdbAssignment == nil)
+        #expect(series.tmdbId == 1399 && series.tmdb == "1399" && series.tmdbAssignment?.origin == .catalogue)
     }
 
     @Test func `search and ambiguous legacy IDs survive sparse catalogues`() throws {

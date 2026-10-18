@@ -113,7 +113,7 @@ extension ContentSyncManager {
         }
         // Withdraw old identity-owned values before applying this response's
         // provider fields, so even an identical provider rating wins.
-        movie.applyCatalogueTMDB(dto.tmdb, previous: movie.tmdb)
+        movie.applyCatalogueTMDB(dto.tmdb, previous: movie.tmdb, withdrawsWhenAbsent: false)
         let name = dto.name ?? ""
         if movie.name != name { movie.name = name }
         if movie.streamIcon != dto.streamIcon { movie.streamIcon = dto.streamIcon }
@@ -123,7 +123,9 @@ extension ContentSyncManager {
         if movie.rating5Based != rating5Based { movie.rating5Based = rating5Based }
         if movie.added != dto.added { movie.added = dto.added }
         if movie.containerExtension != dto.containerExtension { movie.containerExtension = dto.containerExtension }
-        if movie.tmdb != dto.tmdb { movie.tmdb = dto.tmdb }
+        // The last valid ID is kept with the match (`applyCatalogueTMDB`): a
+        // blank from a refreshing panel is not the catalogue's value.
+        if Movie.catalogueTMDB(dto.tmdb) != nil, movie.tmdb != dto.tmdb { movie.tmdb = dto.tmdb }
         let num = dto.num ?? 0
         if movie.num != num { movie.num = num }
         let isAdult = dto.isAdult ?? 0
