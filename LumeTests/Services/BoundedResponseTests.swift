@@ -90,7 +90,11 @@ struct BoundedResponseTests {
         #expect((response as? HTTPURLResponse)?.statusCode == status)
     }
 
-    @Test func `the sessions redirect delegate still strips foreign credentials`() async throws {
+    /// The bounded reader supplies the task delegate; the session's redirect
+    /// policy must still be consulted. A credentialed request never reaches
+    /// the other origin, and a public one is still followed.
+    @Test(arguments: [true, false])
+    func `the sessions redirect delegate still governs foreign hops`(credentialed: Bool) async throws {
         let log = RequestLog()
         let destination = try GuideHTTPServer { request in
             log.append(request)
@@ -101,13 +105,17 @@ struct BoundedResponseTests {
         let (origin, original) = try await serve(.init(status: 302, headers: ["Location": target.absoluteString], body: ""))
         defer { origin.stop() }
         var request = original
-        request.setValue("private-token", forHTTPHeaderField: "X-Plex-Token")
+        if credentialed { request.setValue("private-token", forHTTPHeaderField: "X-Plex-Token") }
         let session = URLSession(configuration: .ephemeral, delegate: ArtworkRedirectPolicy.shared, delegateQueue: nil)
         defer { session.invalidateAndCancel() }
-        let (body, _) = try await BoundedResponse.data(for: request, session: session, limit: 4096)
-        #expect(body == Data("safe".utf8))
-        #expect(!log.requests.isEmpty)
-        #expect(!log.requests.contains { $0.contains("private-token") })
+        let (body, response) = try await BoundedResponse.data(for: request, session: session, limit: 4096)
+        if credentialed {
+            #expect((response as? HTTPURLResponse)?.statusCode == 302)
+            #expect(log.requests.isEmpty)
+        } else {
+            #expect(body == Data("safe".utf8))
+            #expect(log.requests.count == 1)
+        }
     }
 
     @Test func `the limit applies after HTTP decompression`() async throws {
