@@ -599,7 +599,15 @@ Each area was reviewed against its intent before `fix/test-stalls` was merged.
     the account's credentials.
   - A cross-origin redirect whose `Location` echoed the original address
     carried Jellyfin's query `ApiKey` to the new host. Media-server credential
-    query items and userinfo are now removed on that hop.
+    query items and userinfo are now removed on that hop. The original fix
+    only covered top-level parameters. Nested return addresses (`rd=`, or any
+    other parameter name) are now inspected without rewriting their transport
+    bytes: a cross-origin redirect embedding authentication parameters or
+    userinfo is refused. Inspection covers relative URLs, nested wrappers and
+    repeated percent encoding, with bounded depth and work; exceeding either
+    limit also refuses the hop. ASCII-only inspection retains opaque non-UTF8
+    CDN signature bytes and cannot silently lose a value while decoding it.
+    Harmless signed CDN URLs and same-origin redirects remain byte-identical.
   - Added a Top Shelf test that renders a token-free route with its owner's
     credential.
 
@@ -646,3 +654,23 @@ and 107 s, against about 240 s and two or three failures per run before.
 Final verification at `773c0fee`, with the follow-up fixes and the stall fixes
 merged: two full parallel runs passed 3,646 of 3,646, in 158 s and 96 s. tvOS
 and macOS builds passed.
+
+### Nested artwork redirect verification
+
+At `d3f98bcf`, the iOS app/test build succeeded and the full parallel LumeTests
+run passed all 3,652 tests (4,146 parameterized executions), with no failures or
+skips, in 92 s on the iPhone 17 Pro simulator running iOS 27.0. SwiftFormat and
+strict SwiftLint passed. Existing test/compiler warnings remain; the run also
+reported priority inversions in the test-only projection-gate hold helpers.
+
+Regression coverage includes mixed-case credential aliases, repeated encoding,
+nested wrappers, relative and scheme-relative return URLs, userinfo, opaque
+non-UTF8 query bytes, and excessive query size/depth. Signed CDN queries and
+same-origin redirects retain their exact URL bytes. Bounds are eight decoding
+passes per value, eight nesting levels and 64 KiB of cumulative query/decoding
+work; exceeding a bound refuses the cross-origin hop rather than guessing.
+
+Evidence: `/tmp/lume-nested-artwork-final-build.xcresult` and
+`/tmp/lume-nested-artwork-tests.xcresult`. No physical-device checks or new
+tvOS/macOS app builds were run for this focused follow-up. The fix remains on
+`fix/audit-validation`, pending review/merge.
