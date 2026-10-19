@@ -504,6 +504,59 @@ This pass changes documentation only. The synthetic probe and trace exports
 are temporary; no household content, trace payload or global SQLDebug setting is
 added to the repository. No app speedup is claimed yet.
 
+### Indexed watchlist reads (implementation, 19 October 2026)
+
+`CloudWatchlistQuery` now supplies the movie and series watchlist descriptors to
+the cloud engine, ordered solely by `addedToWatchlistDate`. Their `!= nil`
+predicates, unlimited result sets and all other state predicates are unchanged.
+`fetchAny` accepts descriptors so this ordering applies only to those two reads;
+it still deduplicates by persistent ID. The existing pre-open index backfill
+also ensures older stores have the two date indexes already declared on the
+models. Missing indexes are created once; existing indexes are left alone.
+There are no new model fields/index declarations, schema migration, display
+ordering, profile-switch scheduling or post-switch reconciliation changes.
+
+`CloudWatchlistBenchmarks` compares the old unordered and new production
+descriptors over **40,000 titles per kind, 40 watchlisted**, with synthetic plots
+and 2 KB embedding blobs. Five iterations each reopen a container over the
+on-disk store, clearing Core Data's row cache but **not** the OS filesystem
+cache. Optimized `Benchmark` configuration, iPhone 17 Pro / iOS 27.0 simulator:
+
+| Watchlist read | Unordered mean | Ordered mean | Unordered range | Ordered range |
+|---|---:|---:|---:|---:|
+| Movies | 12.143 ms | **1.950 ms** | 11.421–13.989 ms | 1.822–2.294 ms |
+| Series | 15.852 ms | **2.759 ms** | 13.786–16.665 ms | 1.585–4.468 ms |
+
+Every ordered sample is faster than every unordered sample. Series has a noisy
+spread; these small simulator timings establish a query-level improvement, not
+an Apple TV speedup ratio or end-to-end profile-switch bound. There is no hard
+timing gate. The benchmark also checks the ordered full-row plans use the date
+index with no table scan or temporary sort.
+
+A separate **untimed** SQLDebug run of `testProductionWatchlistPlans` confirms
+both real model descriptors emit a full-row SELECT ending in
+`WHERE t0.ZADDEDTOWATCHLISTDATE IS NOT NULL ORDER BY t0.ZADDEDTOWATCHLISTDATE`,
+without a limit. Replaying those complete SELECTs against the captured schema
+and indexes on SQLite 3.54.0 produces a date-index search for each; removing just
+the ORDER BY produces a table scan. This checks the actual emitted projection,
+not merely the illustrative SQL above. The temporary test-plan logging argument
+was removed; timed runs have no SQL logging enabled.
+
+Normal-suite regression checks cover descriptor ordering/no limit, all non-null
+dates (including pre-reference dates, epoch zero, extremes and ties), exclusion
+of nil dates, more than 20 results, watchlist-only state, deduplication of
+overlapping state, repeated reconcile, and export/reset/import across a profile
+round trip. The two watchlist predicate ordinals and all diagnostic marker names
+are unchanged, so the next device capture can be compared without another
+instrumentation build. Initial index-count and Series rail costs remain
+separate follow-ups; the device's intermittent Movies freeze is not claimed
+fixed until a repeat capture verifies it.
+
+Validation: 78 focused sync/profile tests pass (79 cases including parameters), plus a
+final 10-test watchlist/index-backfill pass. All five optimized benchmark/plan
+checks and the separate SQL-capture test pass. The iOS build and final tvOS
+simulator build succeed; formatting/lint pass. Device validation is still due.
+
 ## The browse path has two halves
 
 Import is not the only thing users wait on. A 284k-row catalog made every browse
