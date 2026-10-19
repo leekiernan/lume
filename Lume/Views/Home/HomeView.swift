@@ -431,7 +431,8 @@ struct HomeView: View {
         SectionFeed.Context(
             modelContext: modelContext,
             restriction: restriction,
-            playlistPrefix: playlistPrefix
+            playlistPrefix: playlistPrefix,
+            proxySources: LumeProxySource.snapshots(of: playlists)
         )
     }
 

@@ -130,7 +130,8 @@ struct LibraryAreaView<Kind: LibraryAreaKind>: View {
             .sectionFeedLoads(
                 feed: feed, configuration: .init(
                     context: SectionFeed.Context(modelContext: modelContext, restriction: restriction,
-                                                 playlistPrefix: playlistPrefix.isEmpty ? nil : playlistPrefix),
+                                                 playlistPrefix: playlistPrefix.isEmpty ? nil : playlistPrefix,
+                                                 proxySources: LumeProxySource.snapshots(of: playlists)),
                     catalogKey: catalogKey, heroRef: heroRef, heroSelection: heroSectionRaw,
                     customSections: visibleCustomSections, orderedRows: visibleRows, traktAccount: trakt.username,
                     prepareCustomSections: seedDefaultHeroIfNeeded

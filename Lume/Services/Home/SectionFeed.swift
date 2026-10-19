@@ -31,12 +31,21 @@ final class SectionFeed {
         let restriction: ContentRestriction
         let playlistPrefix: String?
         let profileID: UUID?
+        /// Each playlist's proxy source, from a screen that already holds its
+        /// playlists, for the hero's artwork check. Without it the hero reads
+        /// the playlists itself — on the main actor, where that one read can
+        /// queue behind a background catalogue fetch (160 ms on tvOS).
+        let proxySources: [UUID: LumeProxySource]?
 
-        init(modelContext: ModelContext, restriction: ContentRestriction, playlistPrefix: String?, profileID: UUID? = ActiveProfileStore.current) {
+        init(
+            modelContext: ModelContext, restriction: ContentRestriction, playlistPrefix: String?,
+            profileID: UUID? = ActiveProfileStore.current, proxySources: [UUID: LumeProxySource]? = nil
+        ) {
             self.modelContext = modelContext
             self.restriction = restriction
             self.playlistPrefix = playlistPrefix
             self.profileID = profileID
+            self.proxySources = proxySources
         }
 
         func belongsToActivePlaylist(_ id: String) -> Bool {

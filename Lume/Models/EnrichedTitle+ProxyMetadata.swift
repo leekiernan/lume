@@ -7,20 +7,12 @@ private nonisolated struct AppliedProxyMetadata: Codable {
 }
 
 nonisolated extension EnrichedTitle {
-    /// Existing render-side artwork gates also need to discard proof from an
-    /// edited account/language, without deleting the useful cached artwork.
-    var effectiveTMDBArtworkDate: Date? {
-        let date = tmdbArtworkEnrichedAt ?? tmdbEnrichedAt
-        guard proxyMetadataData != nil else { return date }
-        guard let context = modelContext,
-              hasFreshTMDBArtwork(in: context, language: TMDBClient.preferredLanguageCode()) else { return nil }
-        return date
-    }
-
-    /// The same gate for a view body, which must not fetch: the owner's source
-    /// comes from a map the caller built from playlists it already holds
-    /// (`LumeProxySource.snapshots(of:)`). Fetching the owner per title on
-    /// every render was the largest main-thread store read left on tvOS.
+    /// Render-side artwork gates also need to discard proof from an edited
+    /// account/language, without deleting the useful cached artwork. The
+    /// owner's source comes from a map the caller built once — from playlists
+    /// it already holds (`LumeProxySource.snapshots(of:)`), or one read per
+    /// batch (`snapshots(in:)`). Fetching the owner per title, as this once
+    /// did, was the largest main-thread store read left on tvOS.
     func effectiveTMDBArtworkDate(source: @autoclosure () -> LumeProxySource?) -> Date? {
         let date = tmdbArtworkEnrichedAt ?? tmdbEnrichedAt
         guard proxyMetadataData != nil else { return date }
