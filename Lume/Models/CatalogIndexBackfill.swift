@@ -69,6 +69,11 @@ nonisolated enum CatalogIndexBackfill {
         // `COLLATE NSCollateFinderlike`, which no binary index can serve.
         Index(name: "Z_Movie_SwiftDataIndexOnBinaryadded", table: "ZMOVIE", columns: ["ZADDED"]),
         Index(name: "Z_Series_SwiftDataIndexOnBinarylastModified", table: "ZSERIES", columns: ["ZLASTMODIFIED"]),
+        // Cloud/profile watchlist reads now order by their existing date
+        // indexes. Ensure older stores have them too: otherwise even that
+        // ordered descriptor still has to scan the catalogue and sort.
+        Index(name: "Z_Movie_SwiftDataIndexOnBinaryaddedToWatchlistDate", table: "ZMOVIE", columns: ["ZADDEDTOWATCHLISTDATE"]),
+        Index(name: "Z_Series_SwiftDataIndexOnBinaryaddedToWatchlistDate", table: "ZSERIES", columns: ["ZADDEDTOWATCHLISTDATE"]),
         // The Live TV rail's two section gates and its virtual collections.
         // With only the single-column indexes present SQLite chose the
         // `isHidden` one — which matches ~54,000 of 56,895 channels — and never

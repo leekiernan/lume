@@ -25,6 +25,8 @@ struct CatalogIndexBackfillTests {
     private static let expected: [(name: String, table: String)] = [
         ("Z_Movie_SwiftDataIndexOnBinaryadded", "ZMOVIE"),
         ("Z_Series_SwiftDataIndexOnBinarylastModified", "ZSERIES"),
+        ("Z_Movie_SwiftDataIndexOnBinaryaddedToWatchlistDate", "ZMOVIE"),
+        ("Z_Series_SwiftDataIndexOnBinaryaddedToWatchlistDate", "ZSERIES"),
         ("Z_LiveStream_SwiftDataIndexOnBinaryisFavoriteisHidden", "ZLIVESTREAM"),
         ("Z_LiveStream_SwiftDataIndexOnBinaryisHiddenlastWatchedDate", "ZLIVESTREAM"),
         ("Z_EPGListing_SwiftDataIndexOnBinarychannelIdend", "ZEPGLISTING"),
