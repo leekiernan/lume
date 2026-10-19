@@ -148,12 +148,6 @@ final class SignpostBenchmarks: XCTestCase {
             .catalogPurgeHistory,
             .epgSourceSync, .epgIngest, .channelEPGLoad, .guideWindowLoad,
             .homeTrendingLoad, .homeRecommendations, .homeCustomSections,
-            .libraryMovieContinueRead, .libraryMovieWatchedRead, .libraryMovieFavoritesRead, .libraryMovieAddedRead,
-            .librarySeriesContinueRead, .librarySeriesWatchedRead, .librarySeriesFavoritesRead, .librarySeriesAddedRead,
-            .playlistOwnerRead, .cloudMovieStateRead, .cloudSeriesStateRead, .cloudStatePredicateRead,
-            .contentIndexCounts, .contentIndexMovieTotal, .contentIndexSeriesTotal,
-            .contentIndexMovieIndexed, .contentIndexSeriesIndexed,
-            .genreMovieRead, .genreSeriesRead,
             .sportsChannelResolve, .sportsFixtureRefresh,
             .profileSwitch, .profileSwitchStores, .profileSwitchFetch, .profileSwitchExport,
             .profileSwitchReset, .profileSwitchImport, .profileSwitchSave,
@@ -173,43 +167,6 @@ final class SignpostBenchmarks: XCTestCase {
     /// signposts and log messages. Both derive from the bundle id.
     func testSignpostSubsystemMatchesBundle() {
         XCTAssertEqual(Perf.subsystem, Bundle.main.bundleIdentifier)
-    }
-
-    /// Time Profiler's supplied template records this category without custom
-    /// settings. Names alone did not catch the original routing mismatch.
-    func testDiagnosticCategoriesMatchTimeProfiler() {
-        let diagnostics: [PerfSignpost] = [
-            .playlistOwnerRead, .cloudMovieStateRead, .cloudSeriesStateRead, .cloudStatePredicateRead,
-            .contentIndexCounts, .contentIndexMovieTotal, .contentIndexSeriesTotal,
-            .contentIndexMovieIndexed, .contentIndexSeriesIndexed, .genreMovieRead, .genreSeriesRead,
-            .profileSwitch, .profileSwitchStores, .profileSwitchFetch, .profileSwitchExport,
-            .profileSwitchReset, .profileSwitchImport, .profileSwitchSave
-        ]
-        for mark in diagnostics {
-            XCTAssertEqual(mark.category, .pointsOfInterest, mark.metricName)
-        }
-        for kind in [LibraryCollection.Kind.continueWatching, .recentlyWatched, .favorites, .recentlyAdded] {
-            for media in [HomeListEntry.MediaType.movie, .series] {
-                XCTAssertEqual(LibraryCollectionRead.signpost(kind, media: media).category, .pointsOfInterest)
-            }
-        }
-        // Existing performance metrics retain their category and baselines.
-        XCTAssertEqual(PerfSignpost.channelEPGLoad.category.rawValue, Perf.category)
-    }
-
-    func testDiagnosticIntervalIsRecordedInPointsOfInterest() {
-        let metric = XCTOSSignpostMetric(
-            subsystem: Perf.subsystem,
-            category: PerfSignpost.Category.pointsOfInterest.rawValue,
-            name: PerfSignpost.playlistOwnerRead.metricName
-        )
-        // A delivery tripwire, not a microsecond-duration or variance gate.
-        let options = XCTMeasureOptions()
-        options.iterationCount = 1
-        measure(metrics: [metric], options: options) {
-            let value = Perf.measure(.playlistOwnerRead) { (1 ... 100).reduce(0, +) }
-            XCTAssertEqual(value, 5050)
-        }
     }
 
     // MARK: - Seeding

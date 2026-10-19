@@ -30,17 +30,10 @@ import OSLog
 /// needs the same text as a `String`; wrapping the literal once keeps the two
 /// from drifting apart.
 nonisolated struct PerfSignpost {
-    nonisolated enum Category: String {
-        case performance = "Performance"
-        case pointsOfInterest = "PointsOfInterest"
-    }
-
     let name: StaticString
-    let category: Category
 
-    init(_ name: StaticString, category: Category = .performance) {
+    init(_ name: StaticString) {
         self.name = name
-        self.category = category
     }
 
     /// The same name as a `String`, for `XCTOSSignpostMetric(subsystem:category:name:)`.
@@ -117,33 +110,6 @@ nonisolated extension PerfSignpost {
     static let homeRecommendations = PerfSignpost("HomeRecommendations")
     static let homeCustomSections = PerfSignpost("HomeCustomSections")
 
-    // Local library reads. Separate rail names identify the synchronous @Query
-    // getter inside a SwiftUI layout/focus update, not just a direct fetch in a
-    // benchmark. These names contain no title, source URL or account identity.
-    static let libraryMovieContinueRead = PerfSignpost("LibraryMovieContinueRead", category: .pointsOfInterest)
-    static let libraryMovieWatchedRead = PerfSignpost("LibraryMovieWatchedRead", category: .pointsOfInterest)
-    static let libraryMovieFavoritesRead = PerfSignpost("LibraryMovieFavoritesRead", category: .pointsOfInterest)
-    static let libraryMovieAddedRead = PerfSignpost("LibraryMovieAddedRead", category: .pointsOfInterest)
-    static let librarySeriesContinueRead = PerfSignpost("LibrarySeriesContinueRead", category: .pointsOfInterest)
-    static let librarySeriesWatchedRead = PerfSignpost("LibrarySeriesWatchedRead", category: .pointsOfInterest)
-    static let librarySeriesFavoritesRead = PerfSignpost("LibrarySeriesFavoritesRead", category: .pointsOfInterest)
-    static let librarySeriesAddedRead = PerfSignpost("LibrarySeriesAddedRead", category: .pointsOfInterest)
-
-    // Startup contention probes. These measure synchronous call boundaries,
-    // not lock ownership. Keep the count lanes distinct: a total can scan a
-    // covering index while an indexed-title count scans the table itself.
-    static let playlistOwnerRead = PerfSignpost("PlaylistOwnerRead", category: .pointsOfInterest)
-    static let cloudMovieStateRead = PerfSignpost("CloudMovieStateRead", category: .pointsOfInterest)
-    static let cloudSeriesStateRead = PerfSignpost("CloudSeriesStateRead", category: .pointsOfInterest)
-    static let cloudStatePredicateRead = PerfSignpost("CloudStatePredicateRead", category: .pointsOfInterest)
-    static let contentIndexCounts = PerfSignpost("ContentIndexCounts", category: .pointsOfInterest)
-    static let contentIndexMovieTotal = PerfSignpost("ContentIndexMovieTotal", category: .pointsOfInterest)
-    static let contentIndexSeriesTotal = PerfSignpost("ContentIndexSeriesTotal", category: .pointsOfInterest)
-    static let contentIndexMovieIndexed = PerfSignpost("ContentIndexMovieIndexed", category: .pointsOfInterest)
-    static let contentIndexSeriesIndexed = PerfSignpost("ContentIndexSeriesIndexed", category: .pointsOfInterest)
-    static let genreMovieRead = PerfSignpost("GenreMovieRead", category: .pointsOfInterest)
-    static let genreSeriesRead = PerfSignpost("GenreSeriesRead", category: .pointsOfInterest)
-
     /// Sports
     /// The off-main batch fixture→channel resolve (`SportsChannelResolver`): two
     /// bounded catalog fetches plus the in-Swift match.
@@ -156,13 +122,13 @@ nonisolated extension PerfSignpost {
     /// A whole profile switch, from the request to the re-projected catalog.
     /// Wraps `profileSwitchStores`; the gap between them is the time the swap
     /// queued behind a reconcile already running on the sync engine.
-    static let profileSwitch = PerfSignpost("ProfileSwitch", category: .pointsOfInterest)
-    static let profileSwitchStores = PerfSignpost("ProfileSwitchStores", category: .pointsOfInterest)
-    static let profileSwitchFetch = PerfSignpost("ProfileSwitchFetch", category: .pointsOfInterest)
-    static let profileSwitchExport = PerfSignpost("ProfileSwitchExport", category: .pointsOfInterest)
-    static let profileSwitchReset = PerfSignpost("ProfileSwitchReset", category: .pointsOfInterest)
-    static let profileSwitchImport = PerfSignpost("ProfileSwitchImport", category: .pointsOfInterest)
-    static let profileSwitchSave = PerfSignpost("ProfileSwitchSave", category: .pointsOfInterest)
+    static let profileSwitch = PerfSignpost("ProfileSwitch")
+    static let profileSwitchStores = PerfSignpost("ProfileSwitchStores")
+    static let profileSwitchFetch = PerfSignpost("ProfileSwitchFetch")
+    static let profileSwitchExport = PerfSignpost("ProfileSwitchExport")
+    static let profileSwitchReset = PerfSignpost("ProfileSwitchReset")
+    static let profileSwitchImport = PerfSignpost("ProfileSwitchImport")
+    static let profileSwitchSave = PerfSignpost("ProfileSwitchSave")
 
     // Player
     static let playerStartup = PerfSignpost("PlayerStartup")
@@ -194,17 +160,9 @@ nonisolated enum Perf {
     /// Matches `Logger`'s subsystem so a single Instruments/`log` filter covers
     /// both the app's log messages and its signposts.
     static let subsystem = Bundle.main.bundleIdentifier ?? "com.bilipp.lume"
-    static let category = PerfSignpost.Category.performance.rawValue
+    static let category = "Performance"
 
     private static let signposter = OSSignposter(subsystem: subsystem, category: category)
-    private static let pointsOfInterest = OSSignposter(subsystem: subsystem, category: .pointsOfInterest)
-
-    private static func recorder(for signpost: PerfSignpost) -> OSSignposter {
-        switch signpost.category {
-        case .performance: signposter
-        case .pointsOfInterest: pointsOfInterest
-        }
-    }
 
     /// Whether anything is currently recording signposts. Worth checking before
     /// building an expensive interval message, not before the interval itself.
@@ -212,24 +170,19 @@ nonisolated enum Perf {
         signposter.isEnabled
     }
 
-    static func isEnabled(for signpost: PerfSignpost) -> Bool {
-        recorder(for: signpost).isEnabled
-    }
-
     static func begin(_ signpost: PerfSignpost) -> PerfInterval {
-        let recorder = recorder(for: signpost)
-        let state = recorder.beginInterval(signpost.name, id: recorder.makeSignpostID())
+        let state = signposter.beginInterval(signpost.name, id: signposter.makeSignpostID())
         return PerfInterval(signpost: signpost, state: state)
     }
 
     static func end(_ interval: PerfInterval) {
-        recorder(for: interval.signpost).endInterval(interval.signpost.name, interval.state)
+        signposter.endInterval(interval.signpost.name, interval.state)
     }
 
     /// Emit a zero-length event — for things that happen rather than take time
     /// (a rebuffer starting, an engine handing off).
     static func event(_ signpost: PerfSignpost) {
-        recorder(for: signpost).emitEvent(signpost.name)
+        signposter.emitEvent(signpost.name)
     }
 
     /// Wrap a synchronous phase.

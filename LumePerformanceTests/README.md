@@ -613,6 +613,19 @@ Remaining, separately attributable costs:
 No further application changes were made for this capture review. The trace
 payload and temporary exports stay out of the repository.
 
+### Profiling cleanup before merge (19 October 2026)
+
+The temporary rail, ownership, genre, count and cloud-predicate intervals and
+their slow-read logging have been removed after device validation. Their
+instrumentation-only helper and tests are removed too; each rail still reads
+its reactive query once per render. The query-plan, index-backfill and profile
+state regression tests and both on-disk benchmark suites remain.
+
+The existing production signposts, including profile-switch phases, retain
+their original `Performance` category. Historical captures above used the
+temporary `PointsOfInterest` routing; reproducing those fine-grained intervals
+would require adding probes again. No SQLDebug launch argument remains enabled.
+
 ## The browse path has two halves
 
 Import is not the only thing users wait on. A 284k-row catalog made every browse

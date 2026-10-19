@@ -148,7 +148,7 @@ struct MovieCollectionRow: View {
     }
 
     var body: some View {
-        let fetchedMovies = LibraryCollectionRead.measure(kind, media: .movie) { movies }
+        let fetchedMovies = movies
         let items = Array(fetchedMovies.deduplicatedByTitle().prefix(collectionPreviewLimit))
         let collection = LibraryCollection(kind: kind, type: .vod)
         if let heroItemsSink {
@@ -230,7 +230,7 @@ struct SeriesCollectionRow: View {
     }
 
     var body: some View {
-        let fetchedSeries = LibraryCollectionRead.measure(kind, media: .series) { series }
+        let fetchedSeries = series
         let shown = SeriesWatchSplit.shown(fetchedSeries, for: kind, progress: progress)
         let items = Array(shown.deduplicatedByTitle().prefix(collectionPreviewLimit))
         let collection = LibraryCollection(kind: kind, type: .series)
