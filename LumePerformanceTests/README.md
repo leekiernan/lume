@@ -335,6 +335,70 @@ and lint pass. There are no reported runtime warnings in these runs; the build
 retains its existing `appStoreReceiptURL` deprecation warning. No further device
 speedup is claimed until the instrumented cold-start capture is inspected.
 
+### Living room replacement capture (19 October 2026, 13:04)
+
+This is a new single-run, 40.645-second capture from **Living room**, not the
+Bedroom device above. It is not a controlled before/after comparison. It reports
+a 265 ms microhang at 6.149 seconds and a 3.049-second severe hang at
+32.786–35.834 seconds, rather than the earlier Bedroom startup hang.
+
+| Movie Continue Watching | First visit | Second visit |
+|---|---:|---:|
+| Reads | 31 | 20 |
+| Median | 1.796 ms | 1.732 ms |
+| Longest | 178.537 ms | **2,910.519 ms** |
+
+The second visit's long synchronous getter is measured at 32.850549–35.761068
+seconds, inside the severe hang. Main-thread samples are absent from
+32.850358–35.759358; the returning stack is in the Movie collection's Core Data
+fetch. Thus the stall is inside a local reactive read, not a wait for a remote
+list or artwork request. The elapsed interval includes any connection/I/O wait;
+it does not establish that this query used 2.91 seconds of CPU or identify a
+blocking connection. The other second-visit reads take at most 6.865 ms.
+
+Sample boundaries put the first profile store-swap span near 13.549–14.119
+seconds (0.57 s), and the second at 24.741–30.582 seconds (5.84 s). In the second,
+the local-state read phase is sampled from 24.741–30.120 (about 5.38 s), export /
+reset / import follow around 30.123–30.188, and save around 30.189–30.579. These
+are **sampled spans**, not exact phase intervals or the whole user-facing switch
+including queueing. No hang is reported during that switch: its asynchronous
+blocking overlay and the subsequent Movies main-thread hang are distinct.
+
+The required post-switch reconcile is reading local movie state from samples
+at 31.275 through 35.760; series reads follow at 35.761. The main thread resumes
+just before the final movie-state sample. Two independent movie-genre tasks also
+overlap the stall, around 32.804–33.207, and an earlier EPG publication overlaps
+the start of the slow profile switch. These are competing catalogue consumers,
+not proof of an exclusive lock owner. The trace does not identify the genre
+requests' scopes, so identical/redundant requests are not yet established.
+Series Continue Watching still has an approximately 38 ms median across 18
+reads, a separate query-plan issue.
+
+**Instrumentation correction:** the previous diagnostic commit routed its new
+marks to `Performance`, while this Time Profiler template records only
+`PointsOfInterest`. Only the existing 69 rail intervals were captured; the new
+phase intervals and profile timing logs are absent. The earlier name-contract
+tests did not validate category routing. Diagnostic marks now declare their
+category beside their name and use the same facade as the working rail marks.
+Profile phases and movie/series genre reads are included. A recording metric
+checks actual PointsOfInterest delivery, not just the list of names. Existing
+Performance-category benchmarks retain their category. Query behaviour and
+scheduling are unchanged.
+
+Next, use the corrected per-predicate and count intervals (or the console's
+`Profile switch stores:` breakdown) to attribute the read phase before changing
+indexes or the projection algorithm. The existing store's actual indexes still
+matter; a fresh fixture's plan is not proof of the device's plan. Coalescing /
+cancelling repeated genre work is a candidate to measure, not an assumed fix.
+
+Validation of the diagnostic correction: the optimized iOS simulator build and
+four marker checks pass. The recording check produces a real PointsOfInterest
+duration sample; it uses one iteration and no timing baseline, so it is a
+delivery tripwire rather than a microsecond-variance gate. Twelve focused unit
+tests also pass for read-once/identity/order, rail queries, genre derivation and
+playlist ownership. Formatting/lint pass; no performance fix or device speedup
+is claimed by this instrumentation change.
+
 ## The browse path has two halves
 
 Import is not the only thing users wait on. A 284k-row catalog made every browse
