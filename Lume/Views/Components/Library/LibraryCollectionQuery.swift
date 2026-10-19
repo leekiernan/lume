@@ -164,10 +164,16 @@ enum SeriesCollectionQuery {
                         && $0.id.starts(with: prefix)
                         && (!filtersCategories || $0.categoryId == nil || !excluded.contains($0.categoryId))
                 },
+                // Two keys, both served by `[lastWatchedDate, id]`: the
+                // lexical `id` keeps the order total for paging and lets the
+                // index answer it. A third key (the localized `name` this
+                // once had) became four once @Query appended `Z_PK`, and
+                // SQLite then scanned and sorted every series per read.
+                // Rows and Show All share this order; it differs from the
+                // old one only between series watched at the same instant.
                 sortBy: [
                     SortDescriptor(\.lastWatchedDate, order: .reverse),
-                    SortDescriptor(\.name),
-                    SortDescriptor(\.id)
+                    SortDescriptor(\.id, comparator: .lexical, order: .reverse)
                 ]
             )
         case .favorites:

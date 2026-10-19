@@ -25,6 +25,13 @@ final class Series {
     // `[lastModified, categoryId, id]` serves Recently Added the way
     // `[added, categoryId, id]` does on `Movie`: the playlist and hidden-category
     // checks are answered from the index, not by reading each series' row.
+    // `[lastWatchedDate, id]` serves the Series tab's Continue Watching and
+    // Watch Again rows and their Show All grid, ordered newest first with a
+    // lexical `id` tie-break. With only `[lastWatchedDate]`, a third ORDER BY
+    // term — a mounted @Query appends `Z_PK` — made SQLite scan and sort the
+    // whole table on every read (~38 ms median on tvOS, on the main thread).
+    // `[indexedAt, categoryId]` lets the indexer's indexed-title count, with
+    // its hidden-category filter, read only the index instead of every row.
     #Index<Series>(
         [\.tmdbId],
         [\.isFavorite],
@@ -35,7 +42,9 @@ final class Series {
         [\.genre],
         [\.indexedAt],
         [\.lastModified],
-        [\.lastModified, \.categoryId, \.id]
+        [\.lastModified, \.categoryId, \.id],
+        [\.lastWatchedDate, \.id],
+        [\.indexedAt, \.categoryId]
     )
 
     @Attribute(.unique) var id: String
