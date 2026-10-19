@@ -2,6 +2,7 @@ import Foundation
 import SwiftData
 
 /// Watched/reset intent, shared by card menus, details and early player exits.
+/// A reset is total: progress, history and the trackers' paused places.
 /// Model mutations maintain recency/resume state; tracker queues keep their
 /// existing account/profile ownership. This is a discrete action, not playback
 /// clock persistence (which remains owned by `WatchProgressWriter`).
@@ -36,6 +37,8 @@ enum MediaWatchState {
         try? context.save()
         for tracker in trackers ?? [TraktService.shared, SimklService.shared] {
             tracker.syncWatched(movie: movie, watched: watched)
+            // History removal leaves the paused place behind.
+            if !watched { tracker.clearPausedProgress(movie: movie) }
         }
         deleteCompletedDownload(watched: watched, id: movie.id)
     }
@@ -48,6 +51,7 @@ enum MediaWatchState {
         try? context.save()
         for tracker in trackers ?? [TraktService.shared, SimklService.shared] {
             tracker.syncWatched(episode: episode, watched: watched)
+            if !watched { tracker.clearPausedProgress(episode: episode) }
         }
         deleteCompletedDownload(watched: watched, id: episode.id)
     }

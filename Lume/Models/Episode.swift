@@ -77,6 +77,16 @@ extension Episode {
         refreshSeriesRecency()
     }
 
+    /// Forgets that an unfinished episode was started: its place and date go,
+    /// its watched state and history stay.
+    func clearProgress() {
+        watchProgress = 0
+        lastWatchedDate = nil
+        ContentClearLedger.shared.record(id)
+        RecentResumePoints.record(0, for: .episode(id))
+        refreshSeriesRecency()
+    }
+
     /// The per-episode mutation, without rescanning the series relationship.
     /// Bulk actions do this for every changed episode, then derive recency once.
     private func applyWatched(_ watched: Bool) {

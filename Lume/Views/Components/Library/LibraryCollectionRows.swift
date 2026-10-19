@@ -183,9 +183,13 @@ struct MovieCollectionRow: View {
         }
     }
 
-    /// Unwatches a movie, every copy of its title (`WatchRailRemoval`).
+    /// The row's removal, on every copy of the title (`WatchRailRemoval`).
     private func forget(_ movie: Movie) {
-        WatchRailRemoval.remove(movie, in: modelContext)
+        if kind == .continueWatching {
+            WatchRailRemoval.removeFromContinueWatching(movie, in: modelContext)
+        } else {
+            WatchRailRemoval.removeFromRecentlyWatched(movie, in: modelContext)
+        }
     }
 }
 
@@ -271,9 +275,13 @@ struct SeriesCollectionRow: View {
         }
     }
 
-    /// Unwatches the episode a series' card continues with (`WatchRailRemoval`).
+    /// The row's removal, on every copy of the title (`WatchRailRemoval`).
     private func forget(_ series: Series) {
-        WatchRailRemoval.remove(series, continuing: progress.continuations[series.id], in: modelContext)
+        if kind == .continueWatching {
+            WatchRailRemoval.removeFromContinueWatching(series, continuing: progress.continuations[series.id], in: modelContext)
+        } else {
+            WatchRailRemoval.removeFromRecentlyWatched(series, in: modelContext)
+        }
     }
 }
 

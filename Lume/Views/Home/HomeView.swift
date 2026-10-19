@@ -467,7 +467,7 @@ private extension HomeView {
                 items: content.continueWatching,
                 series: seriesProgress,
                 onPlayLive: playChannel,
-                onRemove: removeFromRecentlyWatched,
+                onRemove: removeFromContinueWatching,
                 onStartMultiView: startMultiView,
                 animationNamespace: animationNamespace
             )

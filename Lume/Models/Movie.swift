@@ -13,6 +13,15 @@ extension Movie {
         }
         RecentResumePoints.record(watchProgress, for: .movie(id))
     }
+
+    /// Forgets that an unfinished movie was started: its place and date go,
+    /// its watched state and history stay.
+    func clearProgress() {
+        watchProgress = 0
+        lastWatchedDate = nil
+        ContentClearLedger.shared.record(id)
+        RecentResumePoints.record(0, for: .movie(id))
+    }
 }
 
 @Model
