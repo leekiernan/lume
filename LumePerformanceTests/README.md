@@ -626,6 +626,17 @@ their original `Performance` category. Historical captures above used the
 temporary `PointsOfInterest` routing; reproducing those fine-grained intervals
 would require adding probes again. No SQLDebug launch argument remains enabled.
 
+Cleanup validation: the iOS simulator app/test build and tvOS simulator build
+passed, as did the commit's format/lint hooks. The full `LumeTests` run on
+iPhone 17 Pro / iOS 27.0 reported **3,666 passing tests and five failures**.
+All five are unchanged `TextEmbedderTests` throwing `.modelUnavailable` from
+Apple's sentence-model lookup. An isolated rerun reproduced the same failures
+after 1.5 seconds, outside the full-suite load; it is not evidence of a query
+regression or merely a contention timeout. The embedding implementation is
+unchanged from main. The full suite is therefore **not green** in this simulator
+environment; none of its reported failures are in the changed paths. Result
+bundles are retained outside the repository.
+
 ## The browse path has two halves
 
 Import is not the only thing users wait on. A 284k-row catalog made every browse
