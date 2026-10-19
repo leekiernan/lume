@@ -17,6 +17,17 @@ nonisolated extension EnrichedTitle {
         return date
     }
 
+    /// The same gate for a view body, which must not fetch: the owner's source
+    /// comes from a map the caller built from playlists it already holds
+    /// (`LumeProxySource.snapshots(of:)`). Fetching the owner per title on
+    /// every render was the largest main-thread store read left on tvOS.
+    func effectiveTMDBArtworkDate(source: @autoclosure () -> LumeProxySource?) -> Date? {
+        let date = tmdbArtworkEnrichedAt ?? tmdbEnrichedAt
+        guard proxyMetadataData != nil else { return date }
+        guard hasFreshTMDBArtwork(source: source(), language: TMDBClient.preferredLanguageCode()) else { return nil }
+        return date
+    }
+
     /// Receipts are stored in the same transaction as the data they describe.
     /// A direct device fetch clears only the lane it actually replaced.
     func recordProxyReceipt(_ receipt: LumeMetadataReceipt?, fullDetails: Bool) {

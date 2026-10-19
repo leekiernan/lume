@@ -1,5 +1,14 @@
 import SwiftUI
 
+/// What a library screen hands each collection row: the playlist and
+/// restriction scope its query is built from, and every playlist's proxy
+/// source for Continue Watching's artwork check (`ContinueWatchingRow`).
+struct LibraryRowScope {
+    let playlistPrefix: String
+    let excludedCategoryIDs: Set<String>
+    let proxySources: [UUID: LumeProxySource]
+}
+
 /// Typed destinations and collection query owners for a VOD library surface.
 /// No AnyView, erased models, or universal media predicate is involved.
 @MainActor
@@ -11,7 +20,7 @@ protocol LibraryAreaKind: CatalogBrowseKind {
     static var playlistEmptyDescription: LocalizedStringKey { get }
     static var libraryEmptyDescription: LocalizedStringKey { get }
     static func heroItem(_ hero: HeroItem) -> Item?
-    static func collectionRow(_ kind: LibraryCollection.Kind, prefix: String, excluded: Set<String>, namespace: Namespace.ID, onLeadingLeft: @escaping () -> Void) -> CollectionRow
+    static func collectionRow(_ kind: LibraryCollection.Kind, scope: LibraryRowScope, namespace: Namespace.ID, onLeadingLeft: @escaping () -> Void) -> CollectionRow
     static func collectionPage(_ kind: LibraryCollection.Kind, prefix: String, namespace: Namespace.ID) -> CollectionPage
 }
 
@@ -28,8 +37,11 @@ extension MovieCatalog: LibraryAreaKind {
         hero.movie
     }
 
-    static func collectionRow(_ kind: LibraryCollection.Kind, prefix: String, excluded: Set<String>, namespace: Namespace.ID, onLeadingLeft: @escaping () -> Void) -> MovieCollectionRow {
-        MovieCollectionRow(kind: kind, playlistPrefix: prefix, excludedCategoryIDs: excluded, animationNamespace: namespace, onLeadingLeft: onLeadingLeft)
+    static func collectionRow(_ kind: LibraryCollection.Kind, scope: LibraryRowScope, namespace: Namespace.ID, onLeadingLeft: @escaping () -> Void) -> MovieCollectionRow {
+        MovieCollectionRow(
+            kind: kind, playlistPrefix: scope.playlistPrefix, excludedCategoryIDs: scope.excludedCategoryIDs,
+            proxySources: scope.proxySources, animationNamespace: namespace, onLeadingLeft: onLeadingLeft
+        )
     }
 
     static func collectionPage(_ kind: LibraryCollection.Kind, prefix: String, namespace: Namespace.ID) -> MovieCollectionView {
@@ -50,8 +62,11 @@ extension SeriesCatalog: LibraryAreaKind {
         hero.series
     }
 
-    static func collectionRow(_ kind: LibraryCollection.Kind, prefix: String, excluded: Set<String>, namespace: Namespace.ID, onLeadingLeft: @escaping () -> Void) -> SeriesCollectionRow {
-        SeriesCollectionRow(kind: kind, playlistPrefix: prefix, excludedCategoryIDs: excluded, animationNamespace: namespace, onLeadingLeft: onLeadingLeft)
+    static func collectionRow(_ kind: LibraryCollection.Kind, scope: LibraryRowScope, namespace: Namespace.ID, onLeadingLeft: @escaping () -> Void) -> SeriesCollectionRow {
+        SeriesCollectionRow(
+            kind: kind, playlistPrefix: scope.playlistPrefix, excludedCategoryIDs: scope.excludedCategoryIDs,
+            proxySources: scope.proxySources, animationNamespace: namespace, onLeadingLeft: onLeadingLeft
+        )
     }
 
     static func collectionPage(_ kind: LibraryCollection.Kind, prefix: String, namespace: Namespace.ID) -> SeriesCollectionView {

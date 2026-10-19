@@ -26,8 +26,8 @@ struct TMDBEnrichmentBoundaryTests {
             series.tmdbEnrichedAt = details
             #expect((feed.heroArtworkRequest(.movie(movie, backdropURL: nil, logoURL: nil, overview: "")) != nil) == requests)
             #expect((feed.heroArtworkRequest(.series(series, backdropURL: nil, logoURL: nil, overview: "")) != nil) == requests)
-            #expect((ContinueWatchingArtworkRequest(.movie(movie)) != nil) == requests)
-            #expect((ContinueWatchingArtworkRequest(.series(series)) != nil) == requests)
+            #expect((ContinueWatchingArtworkRequest(.movie(movie), sources: [:]) != nil) == requests)
+            #expect((ContinueWatchingArtworkRequest(.series(series), sources: [:]) != nil) == requests)
         }
     }
 
@@ -87,14 +87,14 @@ struct TMDBEnrichmentBoundaryTests {
         #expect(series.tmdbEnrichedAt == nil)
         #expect(!SectionFeed.heroNeedsArtwork(backdropPath: nil, posterPath: nil, posterCheckedAt: movie.posterCheckedAt,
                                               logoPath: nil, enrichedAt: movie.tmdbArtworkEnrichedAt))
-        #expect(ContinueWatchingArtworkRequest(.movie(movie)) == nil)
-        #expect(ContinueWatchingArtworkRequest(.series(series)) == nil)
+        #expect(ContinueWatchingArtworkRequest(.movie(movie), sources: [:]) == nil)
+        #expect(ContinueWatchingArtworkRequest(.series(series), sources: [:]) == nil)
         #expect(detailNeedsTMDBFetch(tmdbId: movie.tmdbId, enrichedAt: movie.tmdbEnrichedAt) == TMDBClient.shared.isConfigured)
 
         movie.tmdbArtworkEnrichedAt = .distantPast
         series.tmdbArtworkEnrichedAt = .distantPast
-        #expect(ContinueWatchingArtworkRequest(.movie(movie)) != nil)
-        #expect(ContinueWatchingArtworkRequest(.series(series)) != nil)
+        #expect(ContinueWatchingArtworkRequest(.movie(movie), sources: [:]) != nil)
+        #expect(ContinueWatchingArtworkRequest(.series(series), sources: [:]) != nil)
     }
 
     @Test func `poster only recovery does not imply backdrop and logo freshness`() {
@@ -102,7 +102,7 @@ struct TMDBEnrichmentBoundaryTests {
         movie.tmdbId = 123
         movie.posterPath = "/poster.jpg"
         movie.posterCheckedAt = .now
-        #expect(ContinueWatchingArtworkRequest(.movie(movie)) != nil)
+        #expect(ContinueWatchingArtworkRequest(.movie(movie), sources: [:]) != nil)
         #expect(SectionFeed.heroNeedsArtwork(backdropPath: nil, posterPath: movie.posterPath, posterCheckedAt: movie.posterCheckedAt,
                                              logoPath: nil, enrichedAt: movie.tmdbArtworkEnrichedAt))
     }

@@ -466,6 +466,7 @@ private extension HomeView {
             ContinueWatchingRow(
                 items: content.continueWatching,
                 series: seriesProgress,
+                proxySources: LumeProxySource.snapshots(of: playlists),
                 onPlayLive: playChannel,
                 onRemove: removeFromContinueWatching,
                 onStartMultiView: startMultiView,
