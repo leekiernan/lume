@@ -62,6 +62,9 @@ struct ContinueWatchingRow: View {
     /// Where each series continues, loaded by the screen for both of its
     /// watch rails.
     let series: ContinueWatchingLoader.Result
+    /// Each playlist's proxy source, from the screen's playlists query: the
+    /// artwork freshness check runs per card on every render.
+    let proxySources: [UUID: LumeProxySource]
     let onPlayLive: (LiveStream) -> Void
     /// The full collection behind "Show All" (Movies and Series pages).
     var showAll: LibraryCollection?
@@ -106,7 +109,7 @@ struct ContinueWatchingRow: View {
     // MARK: Artwork
 
     private var artworkKey: [String] {
-        items.compactMap { ContinueWatchingArtworkRequest($0)?.id }
+        items.compactMap { ContinueWatchingArtworkRequest($0, sources: proxySources)?.id }
     }
 
     /// Titles that reached the rail without TMDB artwork get it fetched, a few
@@ -114,7 +117,7 @@ struct ContinueWatchingRow: View {
     /// are kept here too: a model already on screen can stay stale after the
     /// background save.
     private func fetchMissingArtwork() async {
-        let requests = items.compactMap(ContinueWatchingArtworkRequest.init)
+        let requests = items.compactMap { ContinueWatchingArtworkRequest($0, sources: proxySources) }
             .filter { artwork[$0.id] == nil }
             .prefix(6)
         guard !requests.isEmpty else { return }
@@ -147,17 +150,18 @@ struct ContinueWatchingArtworkRequest {
     let kind: Kind
 
     /// A movie or series missing its backdrop or logo, that TMDB can be
-    /// asked about and hasn't been lately.
-    init?(_ item: HomeMediaItem) {
+    /// asked about and hasn't been lately. `sources` maps playlists to their
+    /// proxy source, so the freshness check reads no store from a view body.
+    init?(_ item: HomeMediaItem, sources: [UUID: LumeProxySource]) {
         switch item {
         case let .movie(movie):
             guard let tmdbId = movie.tmdbId,
-                  Self.needsArtwork(movie.backdropPath, movie.logoPath, enrichedAt: movie.effectiveTMDBArtworkDate)
+                  Self.needsArtwork(movie.backdropPath, movie.logoPath, enrichedAt: movie.effectiveTMDBArtworkDate(source: LumeProxySource.snapshot(contentID: movie.id, from: sources)))
             else { return nil }
             self.init(id: item.id, modelID: movie.id, tmdbId: tmdbId, kind: .movie)
         case let .series(show):
             guard let tmdbId = show.tmdbId,
-                  Self.needsArtwork(show.backdropPath, show.logoPath, enrichedAt: show.effectiveTMDBArtworkDate)
+                  Self.needsArtwork(show.backdropPath, show.logoPath, enrichedAt: show.effectiveTMDBArtworkDate(source: LumeProxySource.snapshot(contentID: show.id, from: sources)))
             else { return nil }
             self.init(id: item.id, modelID: show.id, tmdbId: tmdbId, kind: .series)
         case .live:

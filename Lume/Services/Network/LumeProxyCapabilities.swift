@@ -94,8 +94,13 @@ nonisolated struct LumeProxySource: Hashable {
 
     /// One read for a chunk, not one owner fetch per title (and per receipt).
     static func snapshots(in context: ModelContext) throws -> [UUID: Self] {
+        try snapshots(of: context.fetch(FetchDescriptor<Playlist>()))
+    }
+
+    /// For views that already hold their scene's playlists.
+    static func snapshots(of playlists: [Playlist]) -> [UUID: Self] {
         var sources: [UUID: Self] = [:]
-        for playlist in try context.fetch(FetchDescriptor<Playlist>()) {
+        for playlist in playlists {
             sources[playlist.id] = Self(playlist: playlist)
         }
         return sources

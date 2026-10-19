@@ -121,6 +121,8 @@ struct CollectionPreviewRow<Item: Identifiable & Hashable & WatchlistFavoritable
 struct MovieCollectionRow: View {
     @Environment(\.heroItemsSink) private var heroItemsSink
     let kind: LibraryCollection.Kind
+    /// For Continue Watching's artwork check — see `ContinueWatchingRow`.
+    let proxySources: [UUID: LumeProxySource]
     var animationNamespace: Namespace.ID?
     /// tvOS: pressing left on the row's first card — see `onLeadingEdgeLeft`.
     var onLeadingLeft: (() -> Void)?
@@ -134,10 +136,12 @@ struct MovieCollectionRow: View {
         kind: LibraryCollection.Kind,
         playlistPrefix: String,
         excludedCategoryIDs: Set<String>,
+        proxySources: [UUID: LumeProxySource],
         animationNamespace: Namespace.ID? = nil,
         onLeadingLeft: (() -> Void)? = nil
     ) {
         self.kind = kind
+        self.proxySources = proxySources
         self.animationNamespace = animationNamespace
         self.onLeadingLeft = onLeadingLeft
         _movies = Query(MovieCollectionQuery.rowDescriptor(
@@ -159,6 +163,7 @@ struct MovieCollectionRow: View {
             ContinueWatchingRow(
                 items: items.map(HomeMediaItem.movie),
                 series: ContinueWatchingLoader.Result(),
+                proxySources: proxySources,
                 onPlayLive: { _ in },
                 showAll: fetchedMovies.count > items.count ? collection : nil,
                 onRemove: { item in
@@ -204,6 +209,8 @@ typealias MovieCollectionView = CatalogCollectionView<MovieCatalog>
 struct SeriesCollectionRow: View {
     @Environment(\.heroItemsSink) private var heroItemsSink
     let kind: LibraryCollection.Kind
+    /// For Continue Watching's artwork check — see `ContinueWatchingRow`.
+    let proxySources: [UUID: LumeProxySource]
     var animationNamespace: Namespace.ID?
     /// tvOS: pressing left on the row's first card — see `onLeadingEdgeLeft`.
     var onLeadingLeft: (() -> Void)?
@@ -220,10 +227,12 @@ struct SeriesCollectionRow: View {
         kind: LibraryCollection.Kind,
         playlistPrefix: String,
         excludedCategoryIDs: Set<String>,
+        proxySources: [UUID: LumeProxySource],
         animationNamespace: Namespace.ID? = nil,
         onLeadingLeft: (() -> Void)? = nil
     ) {
         self.kind = kind
+        self.proxySources = proxySources
         self.animationNamespace = animationNamespace
         self.onLeadingLeft = onLeadingLeft
         _series = Query(SeriesCollectionQuery.rowDescriptor(
@@ -247,6 +256,7 @@ struct SeriesCollectionRow: View {
                 ContinueWatchingRow(
                     items: items.map(HomeMediaItem.series),
                     series: progress,
+                    proxySources: proxySources,
                     onPlayLive: { _ in },
                     showAll: shown.count > items.count ? collection : nil,
                     onRemove: { item in

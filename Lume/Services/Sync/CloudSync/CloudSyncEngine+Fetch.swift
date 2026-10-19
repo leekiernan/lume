@@ -170,7 +170,7 @@ extension CloudSyncEngine {
         let series: [Series] = try fetchAny([
             FetchDescriptor(predicate: #Predicate { $0.isFavorite == true }),
             CloudWatchlistQuery.series,
-            FetchDescriptor(predicate: #Predicate { $0.lastWatchedDate != nil }),
+            CloudHistoryQuery.series,
             FetchDescriptor(predicate: #Predicate { $0.recommendationVoteRaw > 0 }),
             FetchDescriptor(predicate: #Predicate { $0.recommendationVoteRaw < 0 })
         ])

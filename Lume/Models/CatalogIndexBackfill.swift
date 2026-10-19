@@ -74,6 +74,8 @@ nonisolated enum CatalogIndexBackfill {
         // ordered descriptor still has to scan the catalogue and sort.
         Index(name: "Z_Movie_SwiftDataIndexOnBinaryaddedToWatchlistDate", table: "ZMOVIE", columns: ["ZADDEDTOWATCHLISTDATE"]),
         Index(name: "Z_Series_SwiftDataIndexOnBinaryaddedToWatchlistDate", table: "ZSERIES", columns: ["ZADDEDTOWATCHLISTDATE"]),
+        // The same for the series history read, ordered by watch date.
+        Index(name: "Z_Series_SwiftDataIndexOnBinarylastWatchedDate", table: "ZSERIES", columns: ["ZLASTWATCHEDDATE"]),
         // The Live TV rail's two section gates and its virtual collections.
         // With only the single-column indexes present SQLite chose the
         // `isHidden` one — which matches ~54,000 of 56,895 channels — and never
@@ -129,6 +131,27 @@ nonisolated enum CatalogIndexBackfill {
             name: "Z_Series_SwiftDataIndexOnBinarylastModifiedcategoryIdid",
             table: "ZSERIES",
             columns: ["ZLASTMODIFIED", "ZCATEGORYID", "ZID"]
+        ),
+        // The Series tab's watch rows and their Show All grid, ordered by
+        // watch date then lexical id. Ending ORDER BY in a third term — a
+        // mounted @Query appends `Z_PK` — scanned and sorted the whole table
+        // on every read with only `[lastWatchedDate]`.
+        Index(
+            name: "Z_Series_SwiftDataIndexOnBinarylastWatchedDateid",
+            table: "ZSERIES",
+            columns: ["ZLASTWATCHEDDATE", "ZID"]
+        ),
+        // The indexer's indexed-title counts filter hidden categories too;
+        // with `categoryId` beside `indexedAt` the count never reads a row.
+        Index(
+            name: "Z_Movie_SwiftDataIndexOnBinaryindexedAtcategoryId",
+            table: "ZMOVIE",
+            columns: ["ZINDEXEDAT", "ZCATEGORYID"]
+        ),
+        Index(
+            name: "Z_Series_SwiftDataIndexOnBinaryindexedAtcategoryId",
+            table: "ZSERIES",
+            columns: ["ZINDEXEDAT", "ZCATEGORYID"]
         ),
         Index(
             name: "Z_EPGListing_SwiftDataIndexOnBinarychannelIdend",

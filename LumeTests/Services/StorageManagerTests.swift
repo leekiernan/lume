@@ -138,8 +138,8 @@ struct StorageManagerTests {
         untouched.backdropPath = "/provider.jpg"
         context.insert(untouched)
         try context.save()
-        #expect(ContinueWatchingArtworkRequest(.movie(movie)) == nil)
-        #expect(ContinueWatchingArtworkRequest(.series(series)) == nil)
+        #expect(ContinueWatchingArtworkRequest(.movie(movie), sources: [:]) == nil)
+        #expect(ContinueWatchingArtworkRequest(.series(series), sources: [:]) == nil)
 
         await StorageManager.clearMetadataEnrichment(container: container)
 
@@ -153,8 +153,8 @@ struct StorageManagerTests {
             #expect(title.posterPath == "/poster.jpg" && title.plot == "Provider plot")
         }
         #expect(storedMovie.isFavorite && storedMovie.watchProgress == 123)
-        #expect(ContinueWatchingArtworkRequest(.movie(storedMovie)) != nil)
-        #expect(ContinueWatchingArtworkRequest(.series(storedSeries)) != nil)
+        #expect(ContinueWatchingArtworkRequest(.movie(storedMovie), sources: [:]) != nil)
+        #expect(ContinueWatchingArtworkRequest(.series(storedSeries), sources: [:]) != nil)
         let storedProvider = try #require(verify.fetch(FetchDescriptor<Movie>(predicate: #Predicate { $0.id == "provider-only" })).first)
         #expect(storedProvider.backdropPath == "/provider.jpg")
     }

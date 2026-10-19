@@ -637,6 +637,65 @@ unchanged from main. The full suite is therefore **not green** in this simulator
 environment; none of its reported failures are in the changed paths. Result
 bundles are retained outside the repository.
 
+### Series history, Series watch rows and indexer counts (19 October 2026)
+
+The Living room capture above left three separately attributed reads, each
+mostly `pread` of wide rows. For each, the SQL Core Data actually emits was
+captured with `-com.apple.CoreData.SQLDebug 1` (a temporary scheme argument,
+since removed) and planned against the production schema on SQLite 3.54.0.
+
+| Read | Emitted SQL (abridged) | Before | After |
+|---|---|---|---|
+| Reconciler series history | `SELECT * … WHERE ZLASTWATCHEDDATE IS NOT NULL` | `SCAN t0` | `ORDER BY ZLASTWATCHEDDATE`: `SEARCH … lastWatchedDate` |
+| Series watch row (mounted) | `… ORDER BY ZLASTWATCHEDDATE DESC, ZNAME ⟨Finderlike⟩, ZID ⟨Finderlike⟩, Z_PK LIMIT 21` | `SCAN t0` + temp B-tree for the whole sort | `… ZID DESC, Z_PK`: `SEARCH … lastWatchedDateid` |
+| Series Show All page | same, without `Z_PK`, `LIMIT 60` | `SCAN t0` + temp B-tree | `SEARCH … lastWatchedDateid`, no sort |
+| Indexed-title counts | `COUNT … WHERE ZINDEXEDAT IS NOT NULL AND (ZCATEGORYID …)` | `SCAN t0` | `SEARCH USING COVERING INDEX … indexedAtcategoryId` |
+
+- **History** takes the watchlist fix's shape: `CloudHistoryQuery.series` keeps
+  the complete predicate and no limit, ordered by the existing date index. The
+  reconciler keys rows by content ID, so the order changes nothing it builds.
+- **The Series rows** had a third sort key, so the planner dropped the date
+  index even for a direct fetch; with the `Z_PK` a mounted @Query appends it
+  had four. With only a range predicate SQLite used the index for at most two
+  ORDER BY terms here. No index alone fixed it (a covering
+  `[lastWatchedDate, categoryId, id]` still scanned with the old sort). The rows
+  and Show All now share `[lastWatchedDate DESC, id lexical DESC]`, served by
+  a new `[lastWatchedDate, id]` index. Results and playlist/restriction filters
+  are unchanged; the order differs from the old one only between series
+  watched at the same instant (previously by localized name).
+- **Counts** gain a `[indexedAt, categoryId]` index on `Movie` and `Series`, so
+  the hidden-category filter is answered from the index. Total counts already
+  scanned only the covering `categoryId` index. The per-chunk pending fetch now
+  also uses the composite (`ZINDEXEDAT=?`). The initial count is **not** moved
+  behind the busy gate: with the count index-only, deferring it would only
+  delay the first progress display. Re-check that on device.
+
+The pre-open backfill creates all three indexes, and Series' existing
+`[lastWatchedDate]`, on older stores. Replanned after the backfill, an
+older-shape store matches a fresh one. Neighbouring reads that share a leading
+column keep their plans: Home's series row still seeks `[lastWatchedDate]`.
+
+`CatalogStateReadBenchmarks` measures each before/after pair on **40,000
+enriched rows** (plots and 2 KB embeddings), 97 categories with 10 hidden, one
+series in 100 watched and nine movies in ten indexed. "Before" drops the new
+index on the same store; each of five iterations reopens the container. Mac
+(this machine, `LUME_PERF_SIM=macos`), Benchmark configuration, means with
+ranges:
+
+| Read | Before | After |
+|---|---:|---:|
+| Series history (400 rows) | 16.7 ms (16.6–16.9) | **9.7 ms** (9.6–9.8) |
+| Series watch row, mounted | 10.4 ms (10.2–10.7) | **1.4 ms** (1.2–1.6) |
+| Series Show All page | 11.0 ms (10.9–11.2) | **1.8 ms** (1.8–1.9) |
+| Indexed-movie count | 13.0 ms (12.9–13.1) | **3.4 ms** (3.3–3.5) |
+
+These are warm filesystem-cache Mac timings, comparable only with each other.
+The device costs were reads from flash (0.984 s history, 5.128 s count), which
+these changes stop rather than speed up; device ratios need a new capture.
+`testSeriesRailResultsUnchanged` checks the old and new orders return the same
+rows. `LumeTests/Services/CatalogStateReadPlanTests.swift` pins the plans in
+the normal suite.
+
 ## The browse path has two halves
 
 Import is not the only thing users wait on. A 284k-row catalog made every browse

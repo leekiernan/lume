@@ -62,6 +62,9 @@ final class Movie {
     // of reading the movie's whole row (plot, embedding, metadata blobs). With
     // most categories hidden the old walk read every row on tvOS: 149 → 22 ms
     // warm on a 150k-row, 620 MB test table, far more from cold flash.
+    // `[indexedAt, categoryId]` covers the indexer's indexed-title count with
+    // its hidden-category filter. With only `[indexedAt]` SQLite scanned every
+    // movie's row for it — 5.1 s of the indexer's first counts on tvOS.
     #Index<Movie>(
         [\.tmdbId],
         [\.isFavorite],
@@ -75,7 +78,8 @@ final class Movie {
         [\.downloadStatusRaw],
         [\.added],
         [\.isWatched, \.lastWatchedDate],
-        [\.added, \.categoryId, \.id]
+        [\.added, \.categoryId, \.id],
+        [\.indexedAt, \.categoryId]
     )
 
     @Attribute(.unique) var id: String

@@ -33,7 +33,11 @@ struct CatalogIndexBackfillTests {
         ("Z_Movie_SwiftDataIndexOnBinaryisWatchedlastWatchedDate", "ZMOVIE"),
         ("Z_Episode_SwiftDataIndexOnBinaryisWatchedwatchProgress", "ZEPISODE"),
         ("Z_Movie_SwiftDataIndexOnBinaryaddedcategoryIdid", "ZMOVIE"),
-        ("Z_Series_SwiftDataIndexOnBinarylastModifiedcategoryIdid", "ZSERIES")
+        ("Z_Series_SwiftDataIndexOnBinarylastModifiedcategoryIdid", "ZSERIES"),
+        ("Z_Series_SwiftDataIndexOnBinarylastWatchedDate", "ZSERIES"),
+        ("Z_Series_SwiftDataIndexOnBinarylastWatchedDateid", "ZSERIES"),
+        ("Z_Movie_SwiftDataIndexOnBinaryindexedAtcategoryId", "ZMOVIE"),
+        ("Z_Series_SwiftDataIndexOnBinaryindexedAtcategoryId", "ZSERIES")
     ]
 
     /// Builds a real SQLite-backed catalog store and returns its URL. The

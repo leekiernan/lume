@@ -194,8 +194,11 @@ struct LibraryAreaView<Kind: LibraryAreaKind>: View {
             animationNamespace: animationNamespace,
             onRevealBrowse: { browse.isPresented = true },
             collectionRow: { kind in
-                Kind.collectionRow(kind, prefix: playlistPrefix, excluded: restriction.excludedCategoryIDs,
-                                   namespace: animationNamespace, onLeadingLeft: { browse.isPresented = true })
+                Kind.collectionRow(kind, scope: LibraryRowScope(
+                    playlistPrefix: playlistPrefix,
+                    excludedCategoryIDs: restriction.excludedCategoryIDs,
+                    proxySources: LumeProxySource.snapshots(of: playlists)
+                ), namespace: animationNamespace, onLeadingLeft: { browse.isPresented = true })
             }
         )
 
