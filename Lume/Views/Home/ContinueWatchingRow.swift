@@ -109,7 +109,9 @@ struct ContinueWatchingRow: View {
     // MARK: Artwork
 
     private var artworkKey: [String] {
-        items.compactMap { ContinueWatchingArtworkRequest($0, sources: proxySources)?.id }
+        ProfilingMarks.measure("ContinueWatchingArtworkKey") {
+            items.compactMap { ContinueWatchingArtworkRequest($0, sources: proxySources)?.id }
+        }
     }
 
     /// Titles that reached the rail without TMDB artwork get it fetched, a few
