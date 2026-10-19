@@ -253,7 +253,87 @@ it runs before the browsing/cloud-sync idle gate, unlike the per-chunk counts.
 Investigate that startup scheduling and the reconciler's concurrent reads
 separately, with waiting-thread evidence, before changing them. The Movie index
 fix is device-verified; no additional cache or loader change is justified by
-this capture. Temporary rail markers can now be removed before merge.
+this capture. Keep the temporary rail markers for the separate startup capture
+below, then remove the diagnostic markers before merge.
+
+### Independent startup and rail-plan verification (19 October 2026)
+
+The proposed startup diagnosis was checked against run 3, the production call
+paths, and newly captured Core Data SQL, rather than accepted as a lock trace.
+The initial movie-state samples span 2.638759–4.764759 seconds; the initial index
+counts span 1.853760–5.566759 seconds. The main thread resumes at **4.763759**,
+about 1 ms *before* the last movie-state sample, not between the movie and series
+reads. Both workers frequently sample in `pread` on different cores, supporting
+overlapping database I/O. This does not identify a connection, a lock owner, or
+the cause of the unsampled main-thread interval. Both helpers make several
+separate database calls; their sampled spans are not single connection holds.
+The resumed stack is executing fetch work above `_dispatch_sync_f_slow`, not
+recorded waiting inside it. That function also invokes the submitted work after
+its queue-wait path ([libdispatch implementation](https://github.com/apple-oss-distributions/libdispatch/blob/main/src/queue.c#L1670-L1705));
+its presence alone does not measure how long this caller waited.
+
+The artwork ownership fetch is real, but conditional: the freshness check only
+resolves the source when it has a fresh proxy receipt to validate. Home already
+holds playlists, so supplying a source snapshot can remove this extra render-
+side fetch without caching catalogue rows. Preserve receipt/account/language
+validation and strict playlist ownership. The first `currentCounts()` does run
+before the indexer's busy gate. Deferring it remains a candidate, not a measured
+fix; it would also delay the initial progress/completion status.
+There is an additional avoidable read: both Continue Watching and hero artwork
+requests evaluate `effectiveTMDBArtworkDate` eagerly, even when their path checks
+then decide no artwork is needed. A lazy freshness argument could avoid that
+subset of lookups; it would not replace source validation for incomplete art.
+
+A temporary probe captured all 15 production rail descriptors as direct fetches
+and mounted `@Query` reads, both with and without a hidden-category filter.
+`EXPLAIN QUERY PLAN` ran against the full emitted SELECTs on a fresh on-disk
+catalogue using the iOS simulator's SQLite **3.54.0**. These are plan checks, not
+Apple TV timings or a populated-catalogue benchmark. `@Query` appends `Z_PK`.
+
+| Query | Independently observed plan |
+|---|---|
+| Home's seven rails; Library Movie watch rails; Library favorites | Index searches, with partial/full sorting of candidates where needed |
+| Library Series Continue Watching / Watch Again | Table scan and sort, direct and mounted |
+| Library Recently Added, Movies and Series | Direct fetches search indexes; mounted filtered reads scan tables |
+| Unfiltered mounted Movie Recently Added | Index search with partial sort in this probe, **not** a table scan |
+
+There is no general SQLite rule that three sort keys force a scan. The filter,
+collation, index ordering and planner estimates matter. Replacing the Recently
+Added indexes with matching `(timestamp DESC, id ASC)` indexes removed the sort
+in this probe without changing the ORDER BY. Adding `(lastWatchedDate DESC, id)`
+and making the Series ID comparator lexical did **not** fix its mounted watch
+query: its intervening localized **name** sort remains. Removing that name sort
+would change tie ordering. For the alternative all-ascending `#Index` plus
+descending timestamp/ID descriptors, actual mounted SQL still appends ascending
+`Z_PK`: it searched the new index but retained a last-term sort. Before choosing
+either approach, benchmark populated/tied timestamps and 99%-hidden categories,
+including mounted Movie **and Series** queries and Show All ordering.
+
+The four indexing counts were captured too. With a hidden-category filter,
+the two **total** counts scan covering `categoryId` indexes, whereas the two
+**indexed-title** counts scan the tables. Without that filter, indexed counts
+search covering `indexedAt` indexes. Thus "the two total counts scan full wide
+rows" is not what these plans show. No additional index was changed or removed.
+
+For the next device capture, `PlaylistOwnerRead`, `CloudMovieStateRead`,
+`CloudSeriesStateRead` and nested `CloudStatePredicateRead` intervals separate
+the ownership lookup, state aggregation, and individual state predicates.
+`ContentIndexCounts` encloses four separately named movie/series total/indexed
+counts. While signposts are enabled, normal reconcile also logs its existing
+per-kind row-count/time breakdown; previously only profile switching logged it.
+These diagnostics contain no title IDs, URLs or credentials, and do not change
+fetches, ordering or scheduling. Include waiting-thread evidence if available.
+Success is an attributable measured interval, followed by an independently
+tested change and a repeat cold-device capture—not merely overlapping samples.
+The temporary SQL probe and global SQLDebug launch argument were removed.
+
+Diagnostic-build validation: the optimized iOS simulator app builds with no
+errors, both marker-contract checks pass, and 37 focused unit tests (40 cases
+including parameters) pass across playlist ownership, proxy receipt validation,
+cloud reconciliation, hidden-category indexing and indexing recovery. Formatting
+and lint pass. There are no reported runtime warnings in these runs; the build
+retains its existing `appStoreReceiptURL` deprecation warning. No further device
+speedup is claimed until the instrumented cold-start capture is inspected.
 
 ## The browse path has two halves
 
