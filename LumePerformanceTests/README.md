@@ -557,6 +557,62 @@ final 10-test watchlist/index-backfill pass. All five optimized benchmark/plan
 checks and the separate SQL-capture test pass. The iOS build and final tvOS
 simulator build succeed; formatting/lint pass. Device validation is still due.
 
+### Watchlist fix on device (19 October 2026, 14:12)
+
+The updated trace appends **run 3**, a 25.691-second launched-process capture on
+the same Living room Apple TV / tvOS 27.2. It includes cold launch, Movies,
+Series, two profile switches and a Movies revisit. Run 2 above is the before
+capture; this is one paired device observation, not a randomized benchmark or
+a promise about every future launch. Capture lengths, interaction timing and
+filesystem-cache conditions differ, so whole-run CPU/read totals are not
+directly comparable.
+
+| Measured interval | Before (run 2) | After (run 3) |
+|---|---:|---:|
+| First whole profile switch | 2.993 s | **0.230 s** |
+| Second whole profile switch | 5.714 s | **0.329 s** |
+| First switch: state-read phase | 2.814 s | **0.056 s** |
+| Second switch: state-read phase | 5.531 s | **0.148 s** |
+| Longest Movie Continue Watching read | 1,565.723 ms | **2.683 ms** |
+| Detected hangs over the 250 ms threshold | 1 (1.637 s) | **0** |
+
+All five movie watchlist predicate reads now take **0.143–0.407 ms**, versus
+486.893–4,425.665 ms before. All five series watchlist reads take
+**0.131–0.290 ms**, versus 27.166–1,035.551 ms. The 70 per-predicate intervals
+still pair with five movie and five series state aggregations, with unchanged
+predicate ordinals. These are elapsed fetch timings, not returned-row counts;
+state preservation is covered by the regression tests, not inferred from
+faster reads.
+
+The profile saves remain around 0.10 s each, as before. The improvement is in
+the intended state-read phase, rather than faster writes or an omitted profile
+operation. All 13 Movie Continue Watching reads are short: the first visit's
+seven peak at 2.354 ms, and the revisit's six at 2.683 ms. Initial indexing counts
+are still active during the first visit, yet its long synchronous rail stall
+does not recur. The >250 ms Hangs instrument reports none anywhere in this
+capture. This validates the targeted fix on device; it does not establish that
+all frame hitches or intermittent stalls are impossible.
+
+Remaining, separately attributable costs:
+
+- Initial index counts still take **5.660 s**, dominated by the indexed-movie
+  count at **5.128 s**. Samples are predominantly `pread` in the indexer's count
+  request. The initial busy gate / count-plan work remains a background-I/O
+  follow-up; the watchlist change did not fix or defer it.
+- The first cloud series aggregation takes 0.986 s, almost entirely its
+  **`lastWatchedDate != nil`** predicate (0.984 s), not the now-fast watchlist
+  predicate. Samples there are also predominantly `pread`. Later calls to that
+  history predicate take 31–120 ms. It is a candidate for the same indexed-date
+  investigation, not a reason to undo the watchlist fix.
+- The Library Series Continue Watching getter remains a main-thread repeat
+  cost: **38.291 ms median**, 92.168 ms maximum across 13 reads. This is the
+  previously observed, distinct rail scan/sort problem, not the cloud history
+  descriptor above. There are no detected hangs, but 38 ms can still miss a
+  frame budget.
+
+No further application changes were made for this capture review. The trace
+payload and temporary exports stay out of the repository.
+
 ## The browse path has two halves
 
 Import is not the only thing users wait on. A 284k-row catalog made every browse
