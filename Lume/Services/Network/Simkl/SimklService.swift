@@ -197,6 +197,18 @@ final class SimklService {
         mutations.enqueue(.history, .episode(showTMDBID: showTMDBID, season: episode.seasonNum, episode: episode.episodeNum), isPresent: watched)
     }
 
+    /// Queues removal of a movie's paused progress on Simkl, by TMDB id.
+    func clearPausedProgress(movie: Movie) {
+        guard let tmdbID = movie.tmdbId else { return }
+        mutations.enqueue(.playback, .movie(tmdbID: tmdbID), isPresent: false)
+    }
+
+    /// Queues removal of an episode's paused progress on Simkl.
+    func clearPausedProgress(episode: Episode) {
+        guard let showTMDBID = episode.series?.tmdbId else { return }
+        mutations.enqueue(.playback, .episode(showTMDBID: showTMDBID, season: episode.seasonNum, episode: episode.episodeNum), isPresent: false)
+    }
+
     /// Retries the connected account's durable mutations, oldest first.
     func retryPendingMutations() {
         mutations.retry()

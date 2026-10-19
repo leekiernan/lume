@@ -143,15 +143,15 @@ extension HomeView {
 
     // MARK: - Recently watched
 
-    /// Clears an item's watch timestamp — on every copy of its title — so it
-    /// drops out of the watch rails. The @Query-backed rows update
-    /// automatically once the change is saved.
+    /// Unwatches what the card stands for — the movie, or the episode a series
+    /// continues with — on every copy of the title (`WatchRailRemoval`). The
+    /// @Query-backed rows update automatically once the change is saved.
     func removeFromRecentlyWatched(_ item: HomeMediaItem) {
         switch item {
         case let .movie(movie):
             WatchRailRemoval.remove(movie, in: modelContext)
         case let .series(series):
-            WatchRailRemoval.remove(series, in: modelContext)
+            WatchRailRemoval.remove(series, continuing: seriesProgress.continuations[series.id], in: modelContext)
         case let .live(stream):
             // Shared with Live TV so the in-player rail and recall agree.
             LiveChannelHistory.removeFromRecents(stream, in: modelContext)

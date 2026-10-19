@@ -15,6 +15,9 @@ nonisolated struct TrackerMutation: Codable, Equatable, Identifiable {
     nonisolated enum Kind: String, Codable, Equatable {
         case history
         case watchlist
+        /// Paused progress, which trackers keep apart from history: removing a
+        /// play leaves its resume point behind. Only removal is queued.
+        case playback
     }
 
     nonisolated enum Target: Codable, Equatable, Hashable {

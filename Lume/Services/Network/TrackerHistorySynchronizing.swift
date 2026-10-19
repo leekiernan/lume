@@ -13,6 +13,9 @@ import SwiftData
 protocol TrackerHistorySynchronizing: AnyObject {
     func syncWatched(movie: Movie, watched: Bool)
     func syncWatched(episode: Episode, watched: Bool)
+    /// Removes the title's paused progress, which history removal leaves.
+    func clearPausedProgress(movie: Movie)
+    func clearPausedProgress(episode: Episode)
     func retryPendingMutations()
 }
 

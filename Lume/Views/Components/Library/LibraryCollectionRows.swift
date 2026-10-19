@@ -183,7 +183,7 @@ struct MovieCollectionRow: View {
         }
     }
 
-    /// Takes a movie — every copy of its title — out of both watch rails.
+    /// Unwatches a movie, every copy of its title (`WatchRailRemoval`).
     private func forget(_ movie: Movie) {
         WatchRailRemoval.remove(movie, in: modelContext)
     }
@@ -271,9 +271,9 @@ struct SeriesCollectionRow: View {
         }
     }
 
-    /// Takes a series — every copy of its title — out of both watch rails.
+    /// Unwatches the episode a series' card continues with (`WatchRailRemoval`).
     private func forget(_ series: Series) {
-        WatchRailRemoval.remove(series, in: modelContext)
+        WatchRailRemoval.remove(series, continuing: progress.continuations[series.id], in: modelContext)
     }
 }
 

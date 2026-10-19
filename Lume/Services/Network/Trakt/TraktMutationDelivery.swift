@@ -26,8 +26,24 @@ extension TraktClient {
             } else {
                 try await removeFromWatchlist(items, accessToken: accessToken)
             }
+        case .playback:
+            guard !mutation.isPresent else { return false }
+            try await removePausedProgress(of: mutation.target, accessToken: accessToken)
         }
         return true
+    }
+
+    /// Trakt deletes a paused entry by its own id, so look the title up first.
+    /// Every match goes: other apps can each leave one for the same title.
+    private func removePausedProgress(of target: TraktMutation.Target, accessToken: String) async throws {
+        let ids = try await playback(accessToken: accessToken).filter { $0.matches(target) }.compactMap(\.id)
+        for id in ids {
+            do {
+                try await removePlayback(id: id, accessToken: accessToken)
+            } catch TraktError.server(404) {
+                // Already removed, for example by another connected device.
+            }
+        }
     }
 
     private func historyItems(for target: TraktMutation.Target) -> TraktSyncItems? {

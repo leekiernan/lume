@@ -20,6 +20,8 @@ import SwiftData
 
 /// One paused item from `GET /sync/playback`.
 nonisolated struct TraktPlaybackItem: Decodable {
+    /// The entry's own id, for `DELETE /sync/playback/{id}`.
+    var id: Int64?
     /// Percent watched, 0...100.
     let progress: Double
     let pausedAt: String?
@@ -33,8 +35,20 @@ nonisolated struct TraktPlaybackItem: Decodable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case progress, movie, show, episode
+        case id, progress, movie, show, episode
         case pausedAt = "paused_at"
+    }
+
+    /// Whether this entry is the paused progress of `target`.
+    func matches(_ target: TrackerMutation.Target) -> Bool {
+        switch target {
+        case let .movie(tmdbID):
+            movie?.ids.tmdb == tmdbID
+        case let .episode(showTMDBID, season, number):
+            show?.ids.tmdb == showTMDBID && episode?.season == season && episode?.number == number
+        case .show:
+            false
+        }
     }
 }
 

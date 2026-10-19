@@ -189,6 +189,18 @@ final class TraktService {
         mutations.enqueue(.history, .episode(showTMDBID: showTMDBID, season: episode.seasonNum, episode: episode.episodeNum), isPresent: watched)
     }
 
+    /// Queues removal of a movie's paused progress on Trakt, by TMDB id.
+    func clearPausedProgress(movie: Movie) {
+        guard let tmdbID = movie.tmdbId else { return }
+        mutations.enqueue(.playback, .movie(tmdbID: tmdbID), isPresent: false)
+    }
+
+    /// Queues removal of an episode's paused progress on Trakt.
+    func clearPausedProgress(episode: Episode) {
+        guard let showTMDBID = episode.series?.tmdbId else { return }
+        mutations.enqueue(.playback, .episode(showTMDBID: showTMDBID, season: episode.seasonNum, episode: episode.episodeNum), isPresent: false)
+    }
+
     /// Retries the connected account's durable mutations. The oldest intent is
     /// always sent first; one failure stops the drain so later mutations cannot
     /// overtake it. Calling this while a drain is active is a no-op.
