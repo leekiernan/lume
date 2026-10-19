@@ -67,4 +67,40 @@ struct LiveTVHubFeedReuseTests {
         await load(LiveTVHubFeed(), key, in: container, calls: calls)
         #expect(calls.count == 2)
     }
+
+    @Test func `hiding and unhiding a channel invalidates reuse without a guide or sync change`() async throws {
+        let container = try container()
+        let context = container.mainContext
+        let prefix = "\(UUID().uuidString)-"
+        let key = key(prefix: prefix)
+        let calls = Calls()
+        let stations = [("BBC One", "BBCOne.uk"), ("ITV1", "ITV1.uk"), ("Channel 4", "Channel4.uk")]
+        for (index, station) in stations.enumerated() {
+            let stream = LiveStream(id: "\(prefix)live-\(index)", streamId: index, name: station.0)
+            stream.epgChannelId = station.1
+            context.insert(stream)
+        }
+        try context.save()
+        let stream = try #require(context.fetch(FetchDescriptor<LiveStream>()).first)
+        let original = LiveTVHubFeed()
+        await load(original, key, in: container, calls: calls)
+        #expect(original.snapshot.collections.flatMap(\.channels).contains { $0.id == stream.id })
+        stream.isHidden = true
+        try context.save()
+
+        let hidden = LiveTVHubFeed()
+        await load(hidden, key, in: container, calls: calls)
+        #expect(!hidden.snapshot.collections.flatMap(\.channels).contains { $0.id == stream.id })
+        #expect(calls.count == 2)
+        // The completed hidden snapshot remains reusable while unchanged.
+        await load(LiveTVHubFeed(), key, in: container, calls: calls)
+        #expect(calls.count == 2)
+
+        stream.isHidden = false
+        try context.save()
+        let restored = LiveTVHubFeed()
+        await load(restored, key, in: container, calls: calls)
+        #expect(restored.snapshot.collections.flatMap(\.channels).contains { $0.id == stream.id })
+        #expect(calls.count == 3)
+    }
 }

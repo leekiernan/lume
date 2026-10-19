@@ -87,11 +87,10 @@ final class LiveTVHubFeed {
     /// The last load that ran to completion, kept beyond any one hub view.
     /// tvOS builds only the selected tab, so every return to Live TV made a
     /// new feed and repeated ~1.3 s of discovery for an unchanged key. The key
-    /// already names everything that should reload — playlist, restrictions,
-    /// profile, sync, guide revision, the hour and the personal rails — so an
-    /// equal key reuses the result. Only a completed load is kept: a failed or
-    /// cancelled one retries next time.
-    private static var completed: (key: Key, snapshot: LiveTVHubSnapshot)?
+    /// names the guide/discovery scope. Channel visibility can change without
+    /// changing that key, so reuse also checks the current channel values off
+    /// main. Only a completed load is kept; failures and cancellations retry.
+    private static var completed: (key: Key, channels: [LiveTVHubChannel], snapshot: LiveTVHubSnapshot)?
     private var scope: String?
     private var request = RequestToken()
     private var epgRequest = RequestToken()
@@ -120,40 +119,46 @@ final class LiveTVHubFeed {
         request = token
         isLoading = false
         let scope = "\(key.prefix)-\(key.visibility)-\(key.profile)"
-        if let completed = Self.completed, completed.key == key {
-            // The guide still refreshes on its own per-minute task.
-            self.scope = scope
-            snapshot = completed.snapshot
-            return
-        }
         if self.scope != scope { snapshot = LiveTVHubSnapshot() }
         self.scope = scope
         isLoading = true
         defer { if request == token { isLoading = false } }
         do {
-            let initialTask = Task.detached(priority: .utility) {
+            let completed = Self.completed
+            let channelsTask = Task.detached(priority: .utility) {
                 let channels = try LiveTVHubLoader.channels(container: container, prefix: key.prefix, restriction: restriction)
+                return (channels, completed?.key == key && completed?.channels == channels)
+            }
+            let (channels, canReuse) = try await withTaskCancellationHandler { try await channelsTask.value } onCancel: { channelsTask.cancel() }
+            guard request == token, !Task.isCancelled else { return }
+            if canReuse, let completed {
+                // No guide scan or discovery work for unchanged channels.
+                // The per-minute task still refreshes now/next independently.
+                snapshot = completed.snapshot
+                return
+            }
+            let initialTask = Task.detached(priority: .utility) {
                 let collections = LiveTVChannelCollections.resolve(channels)
                 let wanted = Set(key.personalIDs + collections.flatMap { $0.channels.map(\.id) })
                 let epgIDs = channels.filter { wanted.contains($0.id) }.compactMap(\.epgID)
                 let epg = ChannelEPGLoader.load(container: container, channelIds: Array(Set(epgIDs)), now: now)
-                return (channels, LiveTVHubSnapshot(collections: collections, epg: epg))
+                return LiveTVHubSnapshot(collections: collections, epg: epg)
             }
-            let initial = try await withTaskCancellationHandler { try await initialTask.value } onCancel: { initialTask.cancel() }
+            let initial = await withTaskCancellationHandler { await initialTask.value } onCancel: { initialTask.cancel() }
             guard request == token, !Task.isCancelled else { return }
             // Keep discovery during a same-scope refresh; personal rails don't
             // wait for network, and a transient list failure won't erase them.
-            snapshot.collections = initial.1.collections
-            snapshot.epg = initial.1.epg
+            snapshot.collections = initial.collections
+            snapshot.epg = initial.epg
             let titles = try await discoveryTitles()
             guard request == token, !Task.isCancelled else { return }
             let discoveryTask = Task.detached(priority: .utility) {
-                try LiveTVHubLoader.discover(container: container, channels: initial.0, titles: titles, now: now)
+                try LiveTVHubLoader.discover(container: container, channels: channels, titles: titles, now: now)
             }
             let programmes = try await withTaskCancellationHandler { try await discoveryTask.value } onCancel: { discoveryTask.cancel() }
             guard request == token, !Task.isCancelled else { return }
             snapshot.programmes = programmes
-            Self.completed = (key, snapshot)
+            Self.completed = (key, channels, snapshot)
         } catch {
             guard request == token, !Task.isCancelled else { return }
             Logger.database.error("live hub discovery failed: \(error.localizedDescription, privacy: .public)")
