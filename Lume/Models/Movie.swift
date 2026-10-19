@@ -44,6 +44,9 @@ final class Movie {
     // every movie matches, read them all and sorted them for ten rows — the
     // 4.4 s main-thread hangs on tvOS each time Home's queries re-ran (twice
     // per profile switch). Equality column first, as for `LiveStream`.
+    // Do not also declare `[isWatched]`: @Query appends a primary-key sort
+    // tie-breaker, which makes SQLite prefer that redundant index and read
+    // every unwatched movie again. The composite serves either lookup.
     // `[added, categoryId, id]` serves Recently Added: it walks newest first
     // until 21 rows pass the playlist prefix and hidden-category checks, and
     // with those two columns in the index each step is tested there instead
@@ -54,7 +57,6 @@ final class Movie {
         [\.tmdbId],
         [\.isFavorite],
         [\.lastWatchedDate],
-        [\.isWatched],
         [\.addedToWatchlistDate],
         [\.watchProgress],
         [\.recommendationVoteRaw],

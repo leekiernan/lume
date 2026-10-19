@@ -35,6 +35,7 @@ Release would change what ships. Debug, Release and Sideload are untouched.
 | Microbenchmarks | `ParsingBenchmarks`, `PersistenceBenchmarks`, `M3UPersistenceBenchmarks` | Parser / import regressions |
 | Shared provider upserts | `CatalogUpsertBenchmarks` | Legacy/shared batch overhead, cold and unchanged |
 | Browse read path | `BrowseQueryBenchmarks`, `EPGQueryBenchmarks` | A browse fetch going back to scanning |
+| Cold library attribution | `ColdLibraryBenchmarks` | Cached list resolution, foreground model faults and bounded local rails over a reopened enriched SQLite catalogue |
 | Sports resolve | `SportsQueryBenchmarks` | The fixture→channel resolve going back to an unbounded guide scan |
 | Player navigation | `BrowseQueryBenchmarks+Navigation` | A previous/next lookup going back to reading the whole list |
 | End-to-end import | `M3UColdImportBenchmarks` | The whole production cold import, phase by phase |
@@ -64,6 +65,577 @@ External mode must leave `server` nil: until the follow-up review it constructed
 therefore not reader-only memory measurements and must not be corrected by
 arithmetic subtraction. Local mode remains useful for correctness/connection
 reuse, not for isolating reader memory. Stop the external server with Ctrl-C.
+
+## Cold library responsiveness investigation (18 October 2026)
+
+`ColdLibraryBenchmarks` isolates the data path behind a hero source and eight
+20-title rails. It generates 40,000 enriched movies on disk, reopens the
+container between measurements, and reads the scalar fields used by cards and
+heroes. The remote-preview case calls the production
+`SectionCollectionResolver`; its heartbeat records main-actor scheduling gaps.
+Separate probes compare individual faults, batch hydration and projections.
+Those isolated hydration probes deliberately **do not** prewarm rows with the
+background matcher, unlike the production path. A faster isolated batch is not
+evidence that the production resolver needs rewriting.
+
+The local-rail cases use the production descriptors, exclude 99 of 100
+categories, and include a variant with tied provider timestamps. Reopening
+clears the coordinator's row cache; it does **not** flush the OS filesystem
+cache. These are optimized iOS simulator attribution probes, not tvOS UI,
+remote-input latency or genuinely cold flash benchmarks.
+
+Observations across the initial and validation runs on the iPhone 17 Pro
+simulator (iOS 27, Benchmark):
+
+| Data path | Observed time |
+|---|---|
+| Nine production remote previews, 180 displayed titles | 34–73 ms total |
+| Longest main-actor heartbeat gap during those previews | 8–22 ms |
+| Four local rails, 99% of categories hidden | 5.3–7.4 ms total |
+| Same local rails with every `added` timestamp equal | 18–21 ms total |
+
+A temporary read-only probe also exercised a copied household catalogue:
+143,763 movies, 30,595 series, about 1 GB, with its actual saved membership IDs
+and hidden categories. Its first local reads took 13 ms for Recently Added,
+under 1 ms for empty Favorites and about 5 ms each for the two watch rails;
+nine cached lists took 1–33 ms each. The longest heartbeat gap was 27 ms.
+The catalogue passed SQLite's `quick_check`, its browse indexes were present,
+and the device's store/WAL modification times stayed unchanged during copying.
+No catalogue, credentials or household fixtures are committed. The temporary
+device-specific test is not retained.
+
+Validation: all six retained benchmarks pass together; the read-only real-store
+probe also passed. The Benchmark app/test build and strict formatting/lint
+checks pass. No production code, cache policy, schema, project configuration or
+localized strings changed in this investigation.
+
+Those measurements alone did not reproduce the reported Apple TV remote freeze.
+They exclude the live SwiftUI `@Query` lifecycle, focus updates and device flash.
+The device capture below identifies a missing boundary; the fast direct-fetch
+benchmark is not evidence that the on-device rail query is cheap. Do not add a
+second membership cache based on these results. Success still requires a
+targeted change and a comparable before/after device trace, with cached-first
+rendering and existing provider fallbacks preserved.
+
+### Bedroom device capture and temporary markers (19 October 2026)
+
+The supplied 32.246-second Time Profiler recording is from Bedroom, Apple TV 4K
+(3rd generation), tvOS 27.2. It includes nine detected hangs/microhangs.
+
+- Movies collection query reads (`MovieCollectionRow.movies.getter`) account for
+  **3.748 seconds of sampled main-thread weight**, Series reads for 0.423 seconds.
+  These are sample weights, not a sum of wall-clock hang durations.
+- The repeated blocking stack is the row's body → `@Query` getter → SwiftData /
+  Core Data fetch → `sqlite3_step` → `pread`. It occurs during graph updates and
+  remote focus-region traversal. The 414 ms stall at 12.840 seconds, for example,
+  contains 369 ms of Movie query samples out of 411 ms of main-thread samples.
+  This is synchronous local catalogue work, not waiting for custom-list HTTP.
+- The early 2.85-second severe hang (3.769–6.617 seconds) has a 2.811-second
+  sampling gap and only 31 main-thread samples inside it. Its full duration
+  cannot be attributed to the Movie query from this recording; keep it separate.
+- A private copy of this device's catalogue also passes `quick_check`, has the
+  expected indexes and stable store/WAL timestamps during copying. Reconstructed
+  SQL for the four movie descriptors uses those indexes and about 0–6,000 VM
+  steps to return at most 21 rows. This is **not** the SQL emitted by the live
+  SwiftUI query and does not establish why that path is slow.
+
+`LibraryCollectionRead` temporarily brackets each local rail's actual `@Query`
+getter with distinct `LibraryMovie{Continue,Watched,Favorites,Added}Read` and
+`LibrarySeries{Continue,Watched,Favorites,Added}Read` intervals. They use
+**PointsOfInterest**, which the supplied Time Profiler template already records,
+rather than requiring the app's broader Performance category to be enabled.
+Reads taking at least 100 ms also log `Slow library read: movie.recentlyAdded,
+21 rows, …` (or the corresponding kind). Only medium, kind, count and elapsed
+time are logged—no title names, IDs, account details or URLs.
+
+The query is read once per body evaluation and the same array supplies the
+cards, Show All and series resume input. Its predicate, order, limit, reactive
+updates and source/profile ownership are unchanged. Tests cover one read,
+unchanged model identity/order, unique marker names and the existing collection
+query contracts. These are diagnostic marks, **not a freeze fix**.
+
+Capture procedure: build this branch for Bedroom, use the same Time Profiler
+template, record a cold launch, first Movies open and directional presses during
+the stall. Compare the per-rail intervals, result sizes and read frequency. Keep
+the original trace unchanged; no household catalogue or trace data belongs in
+Git. Remove the temporary markers when the targeted fix has a comparable
+before/after capture.
+
+Diagnostic-build validation: 24 focused library/query/marker tests pass on the
+iOS 27 iPhone 17 Pro simulator; the optimized tvOS Release build succeeds.
+Strict formatting/lint checks pass. This is not device validation of a fix, and
+the full unit/performance suites were not rerun for the temporary markers.
+
+### Second Bedroom capture (19 October 2026)
+
+Run 2 of the supplied trace, recorded with the markers, lasts 20.949 seconds.
+It attributes the expensive reads specifically to **Movies Continue Watching**:
+34 synchronous reads occupy 6.363 seconds, including a 1.953-second first read
+and subsequent reads of 120–227 ms. Series Continue Watching is read 20 times,
+totalling 0.611 seconds, with a maximum of 38 ms. No other local rail markers
+appear in this run.
+
+The seven detected hangs overlap the first Movie read and the repeated reads
+that follow. The stacks again end in SQLite `pread` through the `@Query` getter.
+Reading once per body did not solve the problem. This prompted a comparison of
+the generated SQL rather than changes to caching, ordering or invalidation.
+
+### Targeted index fix
+
+A temporary SQL-debug probe on the iOS 27 simulator captured both production
+descriptor paths. `ModelContext.fetch` ends its ordering at `lastWatchedDate`,
+localized `name`, localized `id`; the same descriptor in a mounted SwiftUI
+`@Query` appends **`Z_PK`**. That hidden fourth sort key changes the SQLite plan:
+
+- Direct fetch: the `[isWatched, lastWatchedDate]` composite seeks dated movies.
+- Mounted query: the redundant `[isWatched]` index wins instead, reading every
+  unwatched movie's row and sorting the matches. Nearly every movie is unwatched.
+- Without that redundant index: the mounted query uses the composite and only
+  sorts the suffix within tied watch dates. Its filtering and order are unchanged.
+
+Fresh stores no longer declare `[isWatched]`. For existing stores, the pre-open
+index backfill retires it only after successfully creating the composite. This
+removes an index, not content or watch history; it does not require re-importing
+the catalogue. The composite also serves queries of its leading `isWatched`
+column. No new cache, async loader or invalidation mechanism is introduced.
+
+`testMountedContinueWatchingQuery` now mounts the real descriptor in a
+`UIHostingController` against the reopened, enriched 40,000-movie store. The
+optimized simulator benchmark fell from **34–38 ms** to **1.4–1.8 ms** across
+five measurements per run. All seven cold-library benchmarks pass. Normal unit
+tests cover fresh stores, existing-store retirement and its resulting SQL plan,
+unchanged row count, and retaining the old index if replacement creation fails.
+The temporary SQL-debug probe and launch arguments are removed.
+
+These are simulator measurements of a reproduced planner failure, not a
+measured Apple TV speedup. The per-rail markers remain for a comparable Bedroom
+capture. Verify that Movie Continue reads no longer take hundreds of milliseconds
+and directional input stays responsive; also keep the original capture's
+unattributed early stall separate rather than claiming every launch delay fixed.
+
+Validation of the index fix: 34 focused library/query/index/watch-removal tests
+pass in the normal Debug unit-test configuration; all seven cold-library
+benchmarks pass under Benchmark; the optimized tvOS Release build succeeds.
+Strict formatting/lint checks pass. The full unit and performance suites were
+not rerun for this targeted change.
+
+### Bedroom device verification (third capture, 19 October 2026)
+
+Run 3 lasts 30.753 seconds on the same Bedroom Apple TV. The board reports
+visibly improved responsiveness. The per-rail intervals confirm the Movies
+query improvement on device, not just in the simulator:
+
+| Movie Continue Watching reads | Before (run 2) | After (run 3) |
+|---|---:|---:|
+| Number of reads | 34 | 40 |
+| Total synchronous read time | 6.363 s | 73.220 ms |
+| First read | 1,953 ms | 1.540 ms |
+| Longest read | 1,953 ms | 4.603 ms |
+
+The new median is 1.730 ms and the 95th percentile is 2.803 ms. No read reaches
+50 ms. The seven repeated Movies-period hangs from run 2 do not recur; there
+are no detected hangs after the Movies reads begin at 6.216 seconds. Different
+run lengths and cache warmth mean these are observed capture results, not a
+universal cold-flash speedup ratio. Series Continue Watching remains unchanged
+at roughly 31 ms median, 38 ms maximum, across eight reads.
+
+One separate 2.027-second startup hang remains at 2.766–4.794 seconds, before
+the first Movie row read. There is a 1.985-second gap in main-thread samples,
+but other threads are sampled throughout it: `ContentIndexer.currentCounts`
+and the cloud reconciler's local movie reads account for 507 ms and 359 ms of
+sampled background weight. The main thread resumes in a catalogue fetch from
+`PlaylistOwner.playlist`, called by Continue Watching's artwork freshness key.
+This suggests shared-store contention, not a proven lock owner or wait chain;
+the Time Profiler recording does not sample waiting threads.
+
+A concrete follow-up is the initial `currentCounts()` in `ContentIndexer.run`:
+it runs before the browsing/cloud-sync idle gate, unlike the per-chunk counts.
+Investigate that startup scheduling and the reconciler's concurrent reads
+separately, with waiting-thread evidence, before changing them. The Movie index
+fix is device-verified; no additional cache or loader change is justified by
+this capture. Keep the temporary rail markers for the separate startup capture
+below, then remove the diagnostic markers before merge.
+
+### Independent startup and rail-plan verification (19 October 2026)
+
+The proposed startup diagnosis was checked against run 3, the production call
+paths, and newly captured Core Data SQL, rather than accepted as a lock trace.
+The initial movie-state samples span 2.638759–4.764759 seconds; the initial index
+counts span 1.853760–5.566759 seconds. The main thread resumes at **4.763759**,
+about 1 ms *before* the last movie-state sample, not between the movie and series
+reads. Both workers frequently sample in `pread` on different cores, supporting
+overlapping database I/O. This does not identify a connection, a lock owner, or
+the cause of the unsampled main-thread interval. Both helpers make several
+separate database calls; their sampled spans are not single connection holds.
+The resumed stack is executing fetch work above `_dispatch_sync_f_slow`, not
+recorded waiting inside it. That function also invokes the submitted work after
+its queue-wait path ([libdispatch implementation](https://github.com/apple-oss-distributions/libdispatch/blob/main/src/queue.c#L1670-L1705));
+its presence alone does not measure how long this caller waited.
+
+The artwork ownership fetch is real, but conditional: the freshness check only
+resolves the source when it has a fresh proxy receipt to validate. Home already
+holds playlists, so supplying a source snapshot can remove this extra render-
+side fetch without caching catalogue rows. Preserve receipt/account/language
+validation and strict playlist ownership. The first `currentCounts()` does run
+before the indexer's busy gate. Deferring it remains a candidate, not a measured
+fix; it would also delay the initial progress/completion status.
+There is an additional avoidable read: both Continue Watching and hero artwork
+requests evaluate `effectiveTMDBArtworkDate` eagerly, even when their path checks
+then decide no artwork is needed. A lazy freshness argument could avoid that
+subset of lookups; it would not replace source validation for incomplete art.
+
+A temporary probe captured all 15 production rail descriptors as direct fetches
+and mounted `@Query` reads, both with and without a hidden-category filter.
+`EXPLAIN QUERY PLAN` ran against the full emitted SELECTs on a fresh on-disk
+catalogue using the iOS simulator's SQLite **3.54.0**. These are plan checks, not
+Apple TV timings or a populated-catalogue benchmark. `@Query` appends `Z_PK`.
+
+| Query | Independently observed plan |
+|---|---|
+| Home's seven rails; Library Movie watch rails; Library favorites | Index searches, with partial/full sorting of candidates where needed |
+| Library Series Continue Watching / Watch Again | Table scan and sort, direct and mounted |
+| Library Recently Added, Movies and Series | Direct fetches search indexes; mounted filtered reads scan tables |
+| Unfiltered mounted Movie Recently Added | Index search with partial sort in this probe, **not** a table scan |
+
+There is no general SQLite rule that three sort keys force a scan. The filter,
+collation, index ordering and planner estimates matter. Replacing the Recently
+Added indexes with matching `(timestamp DESC, id ASC)` indexes removed the sort
+in this probe without changing the ORDER BY. Adding `(lastWatchedDate DESC, id)`
+and making the Series ID comparator lexical did **not** fix its mounted watch
+query: its intervening localized **name** sort remains. Removing that name sort
+would change tie ordering. For the alternative all-ascending `#Index` plus
+descending timestamp/ID descriptors, actual mounted SQL still appends ascending
+`Z_PK`: it searched the new index but retained a last-term sort. Before choosing
+either approach, benchmark populated/tied timestamps and 99%-hidden categories,
+including mounted Movie **and Series** queries and Show All ordering.
+
+The four indexing counts were captured too. With a hidden-category filter,
+the two **total** counts scan covering `categoryId` indexes, whereas the two
+**indexed-title** counts scan the tables. Without that filter, indexed counts
+search covering `indexedAt` indexes. Thus "the two total counts scan full wide
+rows" is not what these plans show. No additional index was changed or removed.
+
+For the next device capture, `PlaylistOwnerRead`, `CloudMovieStateRead`,
+`CloudSeriesStateRead` and nested `CloudStatePredicateRead` intervals separate
+the ownership lookup, state aggregation, and individual state predicates.
+`ContentIndexCounts` encloses four separately named movie/series total/indexed
+counts. While signposts are enabled, normal reconcile also logs its existing
+per-kind row-count/time breakdown; previously only profile switching logged it.
+These diagnostics contain no title IDs, URLs or credentials, and do not change
+fetches, ordering or scheduling. Include waiting-thread evidence if available.
+Success is an attributable measured interval, followed by an independently
+tested change and a repeat cold-device capture—not merely overlapping samples.
+The temporary SQL probe and global SQLDebug launch argument were removed.
+
+Diagnostic-build validation: the optimized iOS simulator app builds with no
+errors, both marker-contract checks pass, and 37 focused unit tests (40 cases
+including parameters) pass across playlist ownership, proxy receipt validation,
+cloud reconciliation, hidden-category indexing and indexing recovery. Formatting
+and lint pass. There are no reported runtime warnings in these runs; the build
+retains its existing `appStoreReceiptURL` deprecation warning. No further device
+speedup is claimed until the instrumented cold-start capture is inspected.
+
+### Living room replacement capture (19 October 2026, 13:04)
+
+This is a new single-run, 40.645-second capture from **Living room**, not the
+Bedroom device above. It is not a controlled before/after comparison. It reports
+a 265 ms microhang at 6.149 seconds and a 3.049-second severe hang at
+32.786–35.834 seconds, rather than the earlier Bedroom startup hang.
+
+| Movie Continue Watching | First visit | Second visit |
+|---|---:|---:|
+| Reads | 31 | 20 |
+| Median | 1.796 ms | 1.732 ms |
+| Longest | 178.537 ms | **2,910.519 ms** |
+
+The second visit's long synchronous getter is measured at 32.850549–35.761068
+seconds, inside the severe hang. Main-thread samples are absent from
+32.850358–35.759358; the returning stack is in the Movie collection's Core Data
+fetch. Thus the stall is inside a local reactive read, not a wait for a remote
+list or artwork request. The elapsed interval includes any connection/I/O wait;
+it does not establish that this query used 2.91 seconds of CPU or identify a
+blocking connection. The other second-visit reads take at most 6.865 ms.
+
+Sample boundaries put the first profile store-swap span near 13.549–14.119
+seconds (0.57 s), and the second at 24.741–30.582 seconds (5.84 s). In the second,
+the local-state read phase is sampled from 24.741–30.120 (about 5.38 s), export /
+reset / import follow around 30.123–30.188, and save around 30.189–30.579. These
+are **sampled spans**, not exact phase intervals or the whole user-facing switch
+including queueing. No hang is reported during that switch: its asynchronous
+blocking overlay and the subsequent Movies main-thread hang are distinct.
+
+The required post-switch reconcile is reading local movie state from samples
+at 31.275 through 35.760; series reads follow at 35.761. The main thread resumes
+just before the final movie-state sample. Two independent movie-genre tasks also
+overlap the stall, around 32.804–33.207, and an earlier EPG publication overlaps
+the start of the slow profile switch. These are competing catalogue consumers,
+not proof of an exclusive lock owner. The trace does not identify the genre
+requests' scopes, so identical/redundant requests are not yet established.
+Series Continue Watching still has an approximately 38 ms median across 18
+reads, a separate query-plan issue.
+
+**Instrumentation correction:** the previous diagnostic commit routed its new
+marks to `Performance`, while this Time Profiler template records only
+`PointsOfInterest`. Only the existing 69 rail intervals were captured; the new
+phase intervals and profile timing logs are absent. The earlier name-contract
+tests did not validate category routing. Diagnostic marks now declare their
+category beside their name and use the same facade as the working rail marks.
+Profile phases and movie/series genre reads are included. A recording metric
+checks actual PointsOfInterest delivery, not just the list of names. Existing
+Performance-category benchmarks retain their category. Query behaviour and
+scheduling are unchanged.
+
+Next, use the corrected per-predicate and count intervals (or the console's
+`Profile switch stores:` breakdown) to attribute the read phase before changing
+indexes or the projection algorithm. The existing store's actual indexes still
+matter; a fresh fixture's plan is not proof of the device's plan. Coalescing /
+cancelling repeated genre work is a candidate to measure, not an assumed fix.
+
+Validation of the diagnostic correction: the optimized iOS simulator build and
+four marker checks pass. The recording check produces a real PointsOfInterest
+duration sample; it uses one iteration and no timing baseline, so it is a
+delivery tripwire rather than a microsecond-variance gate. Twelve focused unit
+tests also pass for read-once/identity/order, rail queries, genre derivation and
+playlist ownership. Formatting/lint pass; no performance fix or device speedup
+is claimed by this instrumentation change.
+
+### Corrected Living room capture (19 October 2026, 13:35)
+
+The replacement trace preserves the preceding capture as run 1 and appends a
+**33.533-second run 2** on the same Living room Apple TV. Analyse run 2 for the
+corrected build. All the new diagnostic interval families are present, including
+the individual cloud predicates, index counts, profile phases and genre reads.
+This is attribution evidence, not a controlled before/after speed comparison:
+the intervening app changes only corrected instrumentation.
+
+**Profile switching is dominated by two watchlist-date fetches.** The individual
+`CloudStatePredicateRead` intervals are paired with their enclosing movie/series
+interval on the same thread, then identified by the fixed predicate order in
+`CloudSyncEngine+Fetch.swift`: movie predicate 4 and series predicate 2 are both
+`addedToWatchlistDate != nil`.
+
+| Measured phase | First switch | Second switch |
+|---|---:|---:|
+| Whole `ProfileSwitch` | 2.993 s | 5.714 s |
+| `ProfileSwitchFetch` | 2.814 s | 5.531 s |
+| Movie watchlist-date fetch | **2.727 s** | **4.426 s** |
+| Series watchlist-date fetch | 0.030 s | **1.036 s** |
+| Export + reset + import + save | 0.173 s | 0.178 s |
+
+The fetch phase accounts for 94.0% and 96.8% of the switches. Entry into
+`ProfileSwitchStores` follows the request within 0.06 ms, so queueing ahead of
+the store swap does not explain these delays. No main-thread hang is detected
+during either switch: the asynchronous switch overlay is waiting for the read
+phase, not slow profile application or a multi-second save.
+
+Across all five movie-state reads, the watchlist-date predicate takes 12.608 of
+12.680 seconds (99.4%). Across the five series-state reads, that predicate takes
+3.090 of 3.277 seconds. Other movie predicates, including progress and both vote
+ranges, are each below 13 ms. This narrows the earlier full-row/I/O hypothesis:
+it is not expensive hydration spread evenly across every state predicate.
+Samples inside the slow date fetches are predominantly `pread` beneath
+`sqlite3_step`; the trace alone still does not expose the device's actual SQL
+plan, schema or returned row count.
+
+**There is also one Movies main-thread stall**, at 5.356–6.992 seconds
+(1.637 s). The synchronous `LibraryMovieContinueRead` inside it lasts
+5.375216–6.940940 seconds (1.566 s), with a main-thread sample gap from
+5.375031–6.939031. On return, the stack is in the Movie collection's Core Data
+fetch and SQL generation, under `NSSQLiteConnection.performAndWait` and
+`_dispatch_sync_f_slow`. The cloud movie watchlist fetch spans 3.636606–6.938836
+and the indexed-movie count spans 2.301569–6.938900: both finish immediately
+before the rail returns. This strongly supports shared store/connection or I/O
+contention, but without waiting-thread samples it does not prove which worker
+held the resource or that the rail itself scanned the catalogue.
+
+All four initial index counts together take 6.037 seconds. The expensive ones
+are **indexed** movies (4.637 s) and series (0.967 s); total movies/series take
+0.346/0.085 s. Thus deferring initial counts behind the existing busy gate is
+still worth testing, but it is not a substitute for fixing recurring cloud
+reads. Keep the required post-profile-switch reconcile that rebuilds its shadow.
+
+Other measured work:
+
+- There are 695 `PlaylistOwnerRead` intervals: 0.249 ms median, 1.047 ms maximum,
+  190.495 ms total. These render-side queries are avoidable work, but **none is
+  the multi-second blocker in this capture**. The earlier Bedroom ownership
+  stall does not recur here.
+- The other 24 Movie Continue Watching reads take at most 7.092 ms. After the
+  second profile switch, the one recorded Movies revisit read takes 3.297 ms;
+  the preceding capture's 2.91-second revisit stall does not recur. One short
+  sample is not proof that the intermittent problem is fixed.
+- Series Continue Watching remains a separate repeat cost: 16 reads, 34.198 ms
+  median, 526.043 ms total. The previously observed scan/sort plan still needs
+  its own semantics-preserving fix and benchmark.
+- Two movie-genre intervals run concurrently on the revisit, at
+  30.274–30.737 and 30.287–30.742 seconds. Their scopes are not recorded; shared
+  inputs and redundant requests remain unproven.
+
+**Independent planner reproduction, not an assumed missing index:** a temporary
+optimized native macOS SwiftData probe used a synthetic model with an optional
+date, string payload and `#Index` on the date, in a fresh on-disk store with
+`cloudKitDatabase: .none`. SQLDebug confirmed that the same `date != nil`
+predicate emits `WHERE date IS NOT NULL`. The probe and a separate SQLite
+3.54.0 plan check both found that a full-row read with no ordering chooses a
+table scan **even with the date index present**. Adding a single date sort
+changed the plan to an index search and returned the same synthetic title:
+
+```sql
+-- With an existing date index; illustrative names.
+SELECT * FROM titles WHERE watchlistDate IS NOT NULL;
+-- SCAN titles
+SELECT * FROM titles WHERE watchlistDate IS NOT NULL ORDER BY watchlistDate;
+-- SEARCH titles USING INDEX date_index (watchlistDate>?)
+```
+
+This does not establish the Apple TV's plan, nor a universal rule for nullable
+predicates. It disproves the assumption that declaring an index guarantees this
+unsorted fetch uses it. The smallest next experiment is a date-ordered descriptor
+for the two sparse watchlist reads, with the same predicate and complete result
+set; cloud aggregation is keyed by content ID, not display order. Verify emitted
+SQL and plans against the **production models**, benchmark a populated cold
+store, and test profile export/reset/import and ordinary reconcile before
+shipping. Do not replace non-null with an arbitrary date cutoff (which could
+drop valid state), limit the rows, or remove the post-switch reconcile. Success
+is unchanged per-profile state and materially shorter measured date-read /
+switch intervals, with no detected Movies hang in a repeat device capture.
+
+This pass changes documentation only. The synthetic probe and trace exports
+are temporary; no household content, trace payload or global SQLDebug setting is
+added to the repository. No app speedup is claimed yet.
+
+### Indexed watchlist reads (implementation, 19 October 2026)
+
+`CloudWatchlistQuery` now supplies the movie and series watchlist descriptors to
+the cloud engine, ordered solely by `addedToWatchlistDate`. Their `!= nil`
+predicates, unlimited result sets and all other state predicates are unchanged.
+`fetchAny` accepts descriptors so this ordering applies only to those two reads;
+it still deduplicates by persistent ID. The existing pre-open index backfill
+also ensures older stores have the two date indexes already declared on the
+models. Missing indexes are created once; existing indexes are left alone.
+There are no new model fields/index declarations, schema migration, display
+ordering, profile-switch scheduling or post-switch reconciliation changes.
+
+`CloudWatchlistBenchmarks` compares the old unordered and new production
+descriptors over **40,000 titles per kind, 40 watchlisted**, with synthetic plots
+and 2 KB embedding blobs. Five iterations each reopen a container over the
+on-disk store, clearing Core Data's row cache but **not** the OS filesystem
+cache. Optimized `Benchmark` configuration, iPhone 17 Pro / iOS 27.0 simulator:
+
+| Watchlist read | Unordered mean | Ordered mean | Unordered range | Ordered range |
+|---|---:|---:|---:|---:|
+| Movies | 12.143 ms | **1.950 ms** | 11.421–13.989 ms | 1.822–2.294 ms |
+| Series | 15.852 ms | **2.759 ms** | 13.786–16.665 ms | 1.585–4.468 ms |
+
+Every ordered sample is faster than every unordered sample. Series has a noisy
+spread; these small simulator timings establish a query-level improvement, not
+an Apple TV speedup ratio or end-to-end profile-switch bound. There is no hard
+timing gate. The benchmark also checks the ordered full-row plans use the date
+index with no table scan or temporary sort.
+
+A separate **untimed** SQLDebug run of `testProductionWatchlistPlans` confirms
+both real model descriptors emit a full-row SELECT ending in
+`WHERE t0.ZADDEDTOWATCHLISTDATE IS NOT NULL ORDER BY t0.ZADDEDTOWATCHLISTDATE`,
+without a limit. Replaying those complete SELECTs against the captured schema
+and indexes on SQLite 3.54.0 produces a date-index search for each; removing just
+the ORDER BY produces a table scan. This checks the actual emitted projection,
+not merely the illustrative SQL above. The temporary test-plan logging argument
+was removed; timed runs have no SQL logging enabled.
+
+Normal-suite regression checks cover descriptor ordering/no limit, all non-null
+dates (including pre-reference dates, epoch zero, extremes and ties), exclusion
+of nil dates, more than 20 results, watchlist-only state, deduplication of
+overlapping state, repeated reconcile, and export/reset/import across a profile
+round trip. The two watchlist predicate ordinals and all diagnostic marker names
+are unchanged, so the next device capture can be compared without another
+instrumentation build. Initial index-count and Series rail costs remain
+separate follow-ups; the device's intermittent Movies freeze is not claimed
+fixed until a repeat capture verifies it.
+
+Validation: 78 focused sync/profile tests pass (79 cases including parameters), plus a
+final 10-test watchlist/index-backfill pass. All five optimized benchmark/plan
+checks and the separate SQL-capture test pass. The iOS build and final tvOS
+simulator build succeed; formatting/lint pass. Device validation is still due.
+
+### Watchlist fix on device (19 October 2026, 14:12)
+
+The updated trace appends **run 3**, a 25.691-second launched-process capture on
+the same Living room Apple TV / tvOS 27.2. It includes cold launch, Movies,
+Series, two profile switches and a Movies revisit. Run 2 above is the before
+capture; this is one paired device observation, not a randomized benchmark or
+a promise about every future launch. Capture lengths, interaction timing and
+filesystem-cache conditions differ, so whole-run CPU/read totals are not
+directly comparable.
+
+| Measured interval | Before (run 2) | After (run 3) |
+|---|---:|---:|
+| First whole profile switch | 2.993 s | **0.230 s** |
+| Second whole profile switch | 5.714 s | **0.329 s** |
+| First switch: state-read phase | 2.814 s | **0.056 s** |
+| Second switch: state-read phase | 5.531 s | **0.148 s** |
+| Longest Movie Continue Watching read | 1,565.723 ms | **2.683 ms** |
+| Detected hangs over the 250 ms threshold | 1 (1.637 s) | **0** |
+
+All five movie watchlist predicate reads now take **0.143–0.407 ms**, versus
+486.893–4,425.665 ms before. All five series watchlist reads take
+**0.131–0.290 ms**, versus 27.166–1,035.551 ms. The 70 per-predicate intervals
+still pair with five movie and five series state aggregations, with unchanged
+predicate ordinals. These are elapsed fetch timings, not returned-row counts;
+state preservation is covered by the regression tests, not inferred from
+faster reads.
+
+The profile saves remain around 0.10 s each, as before. The improvement is in
+the intended state-read phase, rather than faster writes or an omitted profile
+operation. All 13 Movie Continue Watching reads are short: the first visit's
+seven peak at 2.354 ms, and the revisit's six at 2.683 ms. Initial indexing counts
+are still active during the first visit, yet its long synchronous rail stall
+does not recur. The >250 ms Hangs instrument reports none anywhere in this
+capture. This validates the targeted fix on device; it does not establish that
+all frame hitches or intermittent stalls are impossible.
+
+Remaining, separately attributable costs:
+
+- Initial index counts still take **5.660 s**, dominated by the indexed-movie
+  count at **5.128 s**. Samples are predominantly `pread` in the indexer's count
+  request. The initial busy gate / count-plan work remains a background-I/O
+  follow-up; the watchlist change did not fix or defer it.
+- The first cloud series aggregation takes 0.986 s, almost entirely its
+  **`lastWatchedDate != nil`** predicate (0.984 s), not the now-fast watchlist
+  predicate. Samples there are also predominantly `pread`. Later calls to that
+  history predicate take 31–120 ms. It is a candidate for the same indexed-date
+  investigation, not a reason to undo the watchlist fix.
+- The Library Series Continue Watching getter remains a main-thread repeat
+  cost: **38.291 ms median**, 92.168 ms maximum across 13 reads. This is the
+  previously observed, distinct rail scan/sort problem, not the cloud history
+  descriptor above. There are no detected hangs, but 38 ms can still miss a
+  frame budget.
+
+No further application changes were made for this capture review. The trace
+payload and temporary exports stay out of the repository.
+
+### Profiling cleanup before merge (19 October 2026)
+
+The temporary rail, ownership, genre, count and cloud-predicate intervals and
+their slow-read logging have been removed after device validation. Their
+instrumentation-only helper and tests are removed too; each rail still reads
+its reactive query once per render. The query-plan, index-backfill and profile
+state regression tests and both on-disk benchmark suites remain.
+
+The existing production signposts, including profile-switch phases, retain
+their original `Performance` category. Historical captures above used the
+temporary `PointsOfInterest` routing; reproducing those fine-grained intervals
+would require adding probes again. No SQLDebug launch argument remains enabled.
+
+Cleanup validation: the iOS simulator app/test build and tvOS simulator build
+passed, as did the commit's format/lint hooks. The full `LumeTests` run on
+iPhone 17 Pro / iOS 27.0 reported **3,666 passing tests and five failures**.
+All five are unchanged `TextEmbedderTests` throwing `.modelUnavailable` from
+Apple's sentence-model lookup. An isolated rerun reproduced the same failures
+after 1.5 seconds, outside the full-suite load; it is not evidence of a query
+regression or merely a contention timeout. The embedding implementation is
+unchanged from main. The full suite is therefore **not green** in this simulator
+environment; none of its reported failures are in the changed paths. Result
+bundles are retained outside the repository.
 
 ## The browse path has two halves
 

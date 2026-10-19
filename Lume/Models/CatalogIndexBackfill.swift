@@ -44,6 +44,8 @@ nonisolated enum CatalogIndexBackfill {
         let name: String
         let table: String
         let columns: [String]
+        /// Retired only after this replacement exists.
+        var replaces: String?
 
         var createStatement: String {
             let cols = columns.map { "\($0) COLLATE BINARY ASC" }.joined(separator: ", ")
@@ -67,6 +69,11 @@ nonisolated enum CatalogIndexBackfill {
         // `COLLATE NSCollateFinderlike`, which no binary index can serve.
         Index(name: "Z_Movie_SwiftDataIndexOnBinaryadded", table: "ZMOVIE", columns: ["ZADDED"]),
         Index(name: "Z_Series_SwiftDataIndexOnBinarylastModified", table: "ZSERIES", columns: ["ZLASTMODIFIED"]),
+        // Cloud/profile watchlist reads now order by their existing date
+        // indexes. Ensure older stores have them too: otherwise even that
+        // ordered descriptor still has to scan the catalogue and sort.
+        Index(name: "Z_Movie_SwiftDataIndexOnBinaryaddedToWatchlistDate", table: "ZMOVIE", columns: ["ZADDEDTOWATCHLISTDATE"]),
+        Index(name: "Z_Series_SwiftDataIndexOnBinaryaddedToWatchlistDate", table: "ZSERIES", columns: ["ZADDEDTOWATCHLISTDATE"]),
         // The Live TV rail's two section gates and its virtual collections.
         // With only the single-column indexes present SQLite chose the
         // `isHidden` one — which matches ~54,000 of 56,895 channels — and never
@@ -99,7 +106,8 @@ nonisolated enum CatalogIndexBackfill {
         Index(
             name: "Z_Movie_SwiftDataIndexOnBinaryisWatchedlastWatchedDate",
             table: "ZMOVIE",
-            columns: ["ZISWATCHED", "ZLASTWATCHEDDATE"]
+            columns: ["ZISWATCHED", "ZLASTWATCHEDDATE"],
+            replaces: "Z_Movie_SwiftDataIndexOnBinaryisWatched"
         ),
         Index(
             name: "Z_Episode_SwiftDataIndexOnBinaryisWatchedwatchProgress",
@@ -166,6 +174,15 @@ nonisolated enum CatalogIndexBackfill {
             if sqlite3_exec(database, index.createStatement, nil, nil, nil) != SQLITE_OK {
                 let message = String(cString: sqlite3_errmsg(database))
                 Logger.database.debug("Catalog index backfill: \(index.name, privacy: .public) skipped — \(message, privacy: .public)")
+                continue
+            }
+            // @Query adds Z_PK to the rail's ORDER BY. With both indexes
+            // present SQLite then prefers the single-column watched index,
+            // reading the whole catalogue instead of just dated movies.
+            // The composite covers all uses of its leading column. Only drop
+            // the old index once its replacement was created successfully.
+            if let replaced = index.replaces {
+                sqlite3_exec(database, "DROP INDEX IF EXISTS \(replaced)", nil, nil, nil)
             }
         }
     }

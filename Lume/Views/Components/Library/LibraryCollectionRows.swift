@@ -148,7 +148,8 @@ struct MovieCollectionRow: View {
     }
 
     var body: some View {
-        let items = Array(movies.deduplicatedByTitle().prefix(collectionPreviewLimit))
+        let fetchedMovies = movies
+        let items = Array(fetchedMovies.deduplicatedByTitle().prefix(collectionPreviewLimit))
         let collection = LibraryCollection(kind: kind, type: .vod)
         if let heroItemsSink {
             // This row is the hero: no rail, just its titles for the feed.
@@ -159,7 +160,7 @@ struct MovieCollectionRow: View {
                 items: items.map(HomeMediaItem.movie),
                 series: ContinueWatchingLoader.Result(),
                 onPlayLive: { _ in },
-                showAll: movies.count > items.count ? collection : nil,
+                showAll: fetchedMovies.count > items.count ? collection : nil,
                 onRemove: { item in
                     guard case let .movie(movie) = item else { return }
                     forget(movie)
@@ -174,7 +175,7 @@ struct MovieCollectionRow: View {
                 items: items,
                 // Against the raw fetch: a title collapsed as a duplicate still
                 // means the full grid holds more than this row.
-                hasMore: movies.count > items.count,
+                hasMore: fetchedMovies.count > items.count,
                 animationNamespace: animationNamespace,
                 removeAction: kind == .recentlyWatched ? { forget($0) } : nil,
                 onLeadingLeft: onLeadingLeft,
@@ -229,7 +230,8 @@ struct SeriesCollectionRow: View {
     }
 
     var body: some View {
-        let shown = SeriesWatchSplit.shown(series, for: kind, progress: progress)
+        let fetchedSeries = series
+        let shown = SeriesWatchSplit.shown(fetchedSeries, for: kind, progress: progress)
         let items = Array(shown.deduplicatedByTitle().prefix(collectionPreviewLimit))
         let collection = LibraryCollection(kind: kind, type: .series)
         Group {
@@ -265,9 +267,9 @@ struct SeriesCollectionRow: View {
                 )
             }
         }
-        .task(id: SeriesWatchSplit.key(series, for: kind)) {
+        .task(id: SeriesWatchSplit.key(fetchedSeries, for: kind)) {
             guard SeriesWatchSplit.splits(kind) else { return }
-            progress = await ContinueWatchingLoader.load(series, in: modelContext)
+            progress = await ContinueWatchingLoader.load(fetchedSeries, in: modelContext)
         }
     }
 
