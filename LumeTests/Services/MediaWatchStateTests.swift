@@ -196,6 +196,10 @@ struct MediaWatchStateTests {
             episodeStates.append(watched)
         }
 
+        func clearPausedProgress(movie _: Movie) {}
+
+        func clearPausedProgress(episode _: Episode) {}
+
         func retryPendingMutations() {}
     }
 }

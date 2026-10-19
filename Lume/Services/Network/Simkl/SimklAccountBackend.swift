@@ -81,8 +81,15 @@ struct SimklAccountBackend: TrackerAccountBackend {
 
     /// Watchlist status changes never go through the history endpoints.
     func deliver(_ mutation: TrackerMutation, accessToken: String) async throws -> Bool {
-        if mutation.kind == .watchlist {
+        switch mutation.kind {
+        case .watchlist:
             return try await client.setWatchlist(mutation.target, watchlisted: mutation.isPresent, accessToken: accessToken)
+        case .playback:
+            guard !mutation.isPresent else { return false }
+            try await client.removePausedProgress(of: mutation.target, accessToken: accessToken)
+            return true
+        case .history:
+            break
         }
         let items: SimklSyncItems? = switch mutation.target {
         case let .movie(tmdbID):

@@ -225,6 +225,13 @@ nonisolated struct SimklClient {
         return try Self.decode(data)
     }
 
+    /// DELETEs a resource; Simkl answers 204 with no body.
+    func delete(_ path: String, accessToken: String) async throws {
+        let request = try makeRequest(path: path, method: "DELETE", accessToken: accessToken)
+        let (_, response) = try await send(request)
+        try Self.requireSuccess(response)
+    }
+
     private static func requireSuccess(_ response: HTTPURLResponse) throws {
         guard (200 ... 299).contains(response.statusCode) else {
             if response.statusCode == 401 {
