@@ -129,18 +129,15 @@ extension CloudSyncEngine {
         return (map, breakdown)
     }
 
-    /// The rows matching any of `predicates`, one fetch each, merged in order.
-    /// SQLite answers a single-column condition from that column's index, but
-    /// gives up on an OR of more than two and scans the whole table: on a large
-    /// provider catalogue, with plots and artwork in every row, that was ~10 s
-    /// of every profile switch and reconcile. Each fetch here returns only the
-    /// few rows carrying user state.
-    func fetchAny<Model: PersistentModel>(_ predicates: [Predicate<Model>]) throws -> [Model] {
+    /// Fetch each state condition separately and deduplicate overlapping rows.
+    /// The combined OR scanned a large catalogue; descriptors also let sparse
+    /// non-null dates keep the ordering that makes their index usable.
+    func fetchAny<Model: PersistentModel>(_ descriptors: [FetchDescriptor<Model>]) throws -> [Model] {
         var seen: Set<PersistentIdentifier> = []
         var rows: [Model] = []
-        for predicate in predicates {
+        for descriptor in descriptors {
             let fetched = try Perf.measure(.cloudStatePredicateRead) {
-                try catalogContext.fetch(FetchDescriptor<Model>(predicate: predicate))
+                try catalogContext.fetch(descriptor)
             }
             for row in fetched where seen.insert(row.persistentModelID).inserted {
                 rows.append(row)
@@ -154,12 +151,12 @@ extension CloudSyncEngine {
         defer { Perf.end(interval) }
         // `!= 0` can't use an index, so a vote is either side of zero.
         let movies: [Movie] = try fetchAny([
-            #Predicate { $0.isFavorite == true },
-            #Predicate { $0.watchProgress > 0 },
-            #Predicate { $0.isWatched == true },
-            #Predicate { $0.addedToWatchlistDate != nil },
-            #Predicate { $0.recommendationVoteRaw > 0 },
-            #Predicate { $0.recommendationVoteRaw < 0 }
+            FetchDescriptor(predicate: #Predicate { $0.isFavorite == true }),
+            FetchDescriptor(predicate: #Predicate { $0.watchProgress > 0 }),
+            FetchDescriptor(predicate: #Predicate { $0.isWatched == true }),
+            CloudWatchlistQuery.movies,
+            FetchDescriptor(predicate: #Predicate { $0.recommendationVoteRaw > 0 }),
+            FetchDescriptor(predicate: #Predicate { $0.recommendationVoteRaw < 0 })
         ])
         return movies.map { movie in
             (movie.id, LocalContentEntry(
@@ -182,11 +179,11 @@ extension CloudSyncEngine {
         let interval = Perf.begin(.cloudSeriesStateRead)
         defer { Perf.end(interval) }
         let series: [Series] = try fetchAny([
-            #Predicate { $0.isFavorite == true },
-            #Predicate { $0.addedToWatchlistDate != nil },
-            #Predicate { $0.lastWatchedDate != nil },
-            #Predicate { $0.recommendationVoteRaw > 0 },
-            #Predicate { $0.recommendationVoteRaw < 0 }
+            FetchDescriptor(predicate: #Predicate { $0.isFavorite == true }),
+            CloudWatchlistQuery.series,
+            FetchDescriptor(predicate: #Predicate { $0.lastWatchedDate != nil }),
+            FetchDescriptor(predicate: #Predicate { $0.recommendationVoteRaw > 0 }),
+            FetchDescriptor(predicate: #Predicate { $0.recommendationVoteRaw < 0 })
         ])
         return series.map { item in
             (item.id, LocalContentEntry(
@@ -258,9 +255,9 @@ extension CloudSyncEngine {
     /// non-profile-scoped channel — see `CloudSyncEngine+Parental`.
     func categoryEntries() throws -> [(String, LocalContentEntry)] {
         let categories: [Category] = try fetchAny([
-            #Predicate { $0.isHidden == true },
-            #Predicate { $0.customOrder != nil },
-            #Predicate { $0.epgEnrichmentEnabled != nil }
+            FetchDescriptor(predicate: #Predicate { $0.isHidden == true }),
+            FetchDescriptor(predicate: #Predicate { $0.customOrder != nil }),
+            FetchDescriptor(predicate: #Predicate { $0.epgEnrichmentEnabled != nil })
         ])
         return categories.map { category in
             (category.id, LocalContentEntry(
