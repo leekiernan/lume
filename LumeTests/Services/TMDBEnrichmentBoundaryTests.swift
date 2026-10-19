@@ -24,8 +24,8 @@ struct TMDBEnrichmentBoundaryTests {
             series.tmdbArtworkEnrichedAt = artwork
             movie.tmdbEnrichedAt = details
             series.tmdbEnrichedAt = details
-            #expect((feed.heroArtworkRequest(.movie(movie, backdropURL: nil, logoURL: nil, overview: "")) != nil) == requests)
-            #expect((feed.heroArtworkRequest(.series(series, backdropURL: nil, logoURL: nil, overview: "")) != nil) == requests)
+            #expect((feed.heroArtworkRequest(.movie(movie, backdropURL: nil, logoURL: nil, overview: ""), sources: [:]) != nil) == requests)
+            #expect((feed.heroArtworkRequest(.series(series, backdropURL: nil, logoURL: nil, overview: ""), sources: [:]) != nil) == requests)
             #expect((ContinueWatchingArtworkRequest(.movie(movie), sources: [:]) != nil) == requests)
             #expect((ContinueWatchingArtworkRequest(.series(series), sources: [:]) != nil) == requests)
         }

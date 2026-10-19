@@ -39,8 +39,8 @@ struct ProxyMetadataApplicationTests {
         #expect(movie.hasFreshTMDBArtwork(in: context, language: "en-GB"))
     }
 
-    /// Render paths resolve the owner's source from playlists they already
-    /// hold instead of fetching it per title; the answer must not change.
+    /// Render paths resolve the owner's source from a map built once instead
+    /// of fetching it per title; the answer must not change.
     @Test(arguments: ["unchanged", "account", "endpoint", "tmdb"])
     func `an in-memory source map gives the same artwork freshness as a fetch`(_ edit: String) throws {
         let (container, playlist, movie, details) = try fixture()
@@ -59,7 +59,8 @@ struct ProxyMetadataApplicationTests {
         #expect(movie.hasFreshTMDBArtwork(source: source, language: "en-GB") == movie.hasFreshTMDBArtwork(in: context, language: "en-GB"))
         #expect(movie.hasFreshTMDBArtwork(source: source, language: "en-GB") == (edit == "unchanged"))
         let mapped = movie.effectiveTMDBArtworkDate(source: source)
-        #expect(mapped == movie.effectiveTMDBArtworkDate)
+        let fetched = movie.effectiveTMDBArtworkDate(source: LumeProxySource.snapshot(contentID: movie.id, in: context))
+        #expect(mapped == fetched)
         // A title whose playlist is not in the map has no source, as when
         // its owner can't be fetched.
         #expect(movie.effectiveTMDBArtworkDate(source: LumeProxySource.snapshot(contentID: movie.id, from: [:])) == nil)

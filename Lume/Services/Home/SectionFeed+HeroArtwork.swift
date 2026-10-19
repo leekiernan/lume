@@ -57,7 +57,9 @@ extension SectionFeed {
         // On a clean catalog most candidates have only portrait provider art.
         // Build value-only requests before leaving the main actor; managed
         // models must never cross into the task-group children.
-        var requests = candidates.compactMap(heroArtworkRequest)
+        // One playlist read for the batch, not an owner fetch per candidate.
+        let sources = (try? LumeProxySource.snapshots(in: context.modelContext)) ?? [:]
+        var requests = candidates.compactMap { heroArtworkRequest($0, sources: sources) }
         requests.removeAll { request in
             !heroEnrichmentIDs.insert(request.id).inserted
         }
@@ -122,7 +124,8 @@ extension SectionFeed {
         }
     }
 
-    func heroArtworkRequest(_ hero: HeroItem) -> HeroArtworkRequest? {
+    /// `sources` maps playlists to their proxy source for the freshness check.
+    func heroArtworkRequest(_ hero: HeroItem, sources: [UUID: LumeProxySource]) -> HeroArtworkRequest? {
         // An override means this session already fetched the model's currently
         // stale fields; do not let a later feed loader issue the same request.
         guard heroPresentationOverrides[hero.id] == nil else { return nil }
@@ -133,7 +136,7 @@ extension SectionFeed {
                 posterPath: movie.posterPath,
                 posterCheckedAt: movie.posterCheckedAt,
                 logoPath: movie.logoPath,
-                enrichedAt: movie.effectiveTMDBArtworkDate
+                enrichedAt: movie.effectiveTMDBArtworkDate(source: LumeProxySource.snapshot(contentID: movie.id, from: sources))
             ), let tmdbId = movie.tmdbId else { return nil }
             return HeroArtworkRequest(
                 id: movie.id,
@@ -148,7 +151,7 @@ extension SectionFeed {
                 posterPath: series.posterPath,
                 posterCheckedAt: series.posterCheckedAt,
                 logoPath: series.logoPath,
-                enrichedAt: series.effectiveTMDBArtworkDate
+                enrichedAt: series.effectiveTMDBArtworkDate(source: LumeProxySource.snapshot(contentID: series.id, from: sources))
             ), let tmdbId = series.tmdbId else { return nil }
             return HeroArtworkRequest(
                 id: series.id,
