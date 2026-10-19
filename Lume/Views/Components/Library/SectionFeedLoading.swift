@@ -34,7 +34,8 @@ private struct SectionFeedLoading: ViewModifier {
     func body(content: Content) -> some View {
         let plan = SectionFeedLoadPlan(rows: configuration.orderedRows, hero: configuration.heroRef, customSections: configuration.customSections)
         let keys = SectionFeedLoadKeys(surface: feed.surface, catalog: configuration.catalogKey, sections: plan.customSections,
-                                       heroSelection: configuration.heroSelection, traktAccount: configuration.traktAccount)
+                                       heroSelection: configuration.heroSelection, traktAccount: configuration.traktAccount,
+                                       proxySourceIdentity: configuration.context.proxySourceIdentity)
         let traktKey = keys.watchlist(.trakt, account: WatchlistProvider.trakt.account)
         let simklKey = keys.watchlist(.simkl, account: WatchlistProvider.simkl.account)
         content

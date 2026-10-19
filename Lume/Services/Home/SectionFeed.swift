@@ -36,6 +36,9 @@ final class SectionFeed {
         /// the playlists itself — on the main actor, where that one read can
         /// queue behind a background catalogue fetch (160 ms on tvOS).
         let proxySources: [UUID: LumeProxySource]?
+        /// Only playlist IDs and account/endpoint digests enter task/cache
+        /// identities, never the source URLs that can carry credentials.
+        let proxySourceIdentity: String?
 
         init(
             modelContext: ModelContext, restriction: ContentRestriction, playlistPrefix: String?,
@@ -46,6 +49,10 @@ final class SectionFeed {
             self.playlistPrefix = playlistPrefix
             self.profileID = profileID
             self.proxySources = proxySources
+            proxySourceIdentity = proxySources.map { sources in
+                sources.sorted { $0.key.uuidString < $1.key.uuidString }
+                    .map { "\($0.key.uuidString):\($0.value.identity)" }.joined(separator: ",")
+            }
         }
 
         func belongsToActivePlaylist(_ id: String) -> Bool {
@@ -355,7 +362,8 @@ extension SectionFeed {
     }
 
     private func contextIdentity(_ context: Context) -> String {
-        "\(context.profileID?.uuidString ?? "*")|\(context.playlistPrefix ?? "*")|\(context.restriction.visibilityToken)"
+        let scope = "\(context.profileID?.uuidString ?? "*")|\(context.playlistPrefix ?? "*")|\(context.restriction.visibilityToken)"
+        return context.proxySourceIdentity.map { "\(scope)|sources:\($0)" } ?? scope
     }
 
     /// A session-cache key scoped to the catalog it was matched against. The

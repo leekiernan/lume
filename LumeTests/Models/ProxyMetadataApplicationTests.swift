@@ -78,6 +78,53 @@ struct ProxyMetadataApplicationTests {
         #expect(!movie.hasFreshTMDBDetails(in: context, language: "de-DE"))
     }
 
+    @Test(arguments: ["account", "password", "endpoint", "removed"])
+    func `an edited source replaces a retained feed snapshot and invalidates its work`(_ edit: String) throws {
+        let (container, playlist, movie, details) = try fixture()
+        applyMovieArtwork(details, to: movie)
+        let feed = SectionFeed(surface: .home)
+        func context(_ playlists: [Playlist]) -> SectionFeed.Context {
+            SectionFeed.Context(modelContext: container.mainContext, restriction: ContentRestriction(), playlistPrefix: playlist.contentIDPrefix,
+                                profileID: nil, proxySources: LumeProxySource.snapshots(of: playlists))
+        }
+        let original = context([playlist])
+        feed.update(context: original)
+        let request = feed.loadGate.begin(.custom)
+        #expect(movie.hasFreshTMDBArtwork(source: LumeProxySource.snapshot(contentID: movie.id, from: original.proxySources ?? [:]), language: "en-GB"))
+        switch edit {
+        case "account": playlist.username = "edited-viewer"
+        case "password": playlist.password = "edited-password"
+        case "endpoint": playlist.serverURL = "https://edited.example.com"
+        default: break
+        }
+        let updated = context(edit == "removed" ? [] : [playlist])
+        #expect(updated.proxySourceIdentity != original.proxySourceIdentity)
+        feed.update(context: updated)
+        #expect(!feed.loadGate.isCurrent(request, for: .custom))
+        let retained = try #require(feed.context?.proxySources)
+        #expect(!movie.hasFreshTMDBArtwork(source: LumeProxySource.snapshot(contentID: movie.id, from: retained), language: "en-GB"))
+        #expect(movie.posterPath == "/poster.jpg")
+        let identity = try #require(updated.proxySourceIdentity)
+        #expect(!identity.contains("edited-viewer") && !identity.contains("edited-password") && !identity.contains("example.com"))
+    }
+
+    @Test func `renaming a source preserves its feed identity and current work`() throws {
+        let (container, playlist, _, _) = try fixture()
+        func context() -> SectionFeed.Context {
+            SectionFeed.Context(modelContext: container.mainContext, restriction: ContentRestriction(), playlistPrefix: playlist.contentIDPrefix,
+                                profileID: nil, proxySources: LumeProxySource.snapshots(of: [playlist]))
+        }
+        let feed = SectionFeed(surface: .home)
+        let original = context()
+        feed.update(context: original)
+        let request = feed.loadGate.begin(.custom)
+        playlist.name = "Renamed"
+        let renamed = context()
+        #expect(renamed.proxySourceIdentity == original.proxySourceIdentity)
+        feed.update(context: renamed)
+        #expect(feed.loadGate.isCurrent(request, for: .custom))
+    }
+
     @Test(arguments: ["account", "endpoint", "tmdb"])
     func `edited identity cannot reuse local proxy completion`(_ field: String) throws {
         let (container, playlist, movie, details) = try fixture()
