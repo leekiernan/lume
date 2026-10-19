@@ -57,9 +57,10 @@ extension SectionFeed {
         // On a clean catalog most candidates have only portrait provider art.
         // Build value-only requests before leaving the main actor; managed
         // models must never cross into the task-group children.
-        // One playlist read for the batch, not an owner fetch per candidate.
+        // The screen's sources, or one playlist read for the batch — never an
+        // owner fetch per candidate.
         var requests = ProfilingMarks.measure("HeroArtworkRequests") {
-            let sources = (try? LumeProxySource.snapshots(in: context.modelContext)) ?? [:]
+            let sources = context.proxySources ?? (try? LumeProxySource.snapshots(in: context.modelContext)) ?? [:]
             return candidates.compactMap { heroArtworkRequest($0, sources: sources) }
         }
         requests.removeAll { request in
