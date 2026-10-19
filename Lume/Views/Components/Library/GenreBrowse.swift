@@ -31,6 +31,8 @@ enum GenreDerivation {
     static func movieGenres(in container: ModelContainer, playlistPrefix: String, restriction: ContentRestriction) async -> [String] {
         let excludedCategoryIDs = restriction.excludedCategoryIDs
         return await Task.detached(priority: .userInitiated) {
+            let interval = Perf.begin(.genreMovieRead)
+            defer { Perf.end(interval) }
             let descriptor = movieGenreSampleDescriptor(
                 playlistPrefix: playlistPrefix,
                 excludedCategoryIDs: excludedCategoryIDs
@@ -43,6 +45,8 @@ enum GenreDerivation {
     static func seriesGenres(in container: ModelContainer, playlistPrefix: String, restriction: ContentRestriction) async -> [String] {
         let excludedCategoryIDs = restriction.excludedCategoryIDs
         return await Task.detached(priority: .userInitiated) {
+            let interval = Perf.begin(.genreSeriesRead)
+            defer { Perf.end(interval) }
             let descriptor = seriesGenreSampleDescriptor(
                 playlistPrefix: playlistPrefix,
                 excludedCategoryIDs: excludedCategoryIDs

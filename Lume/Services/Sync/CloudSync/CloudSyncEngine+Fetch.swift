@@ -104,7 +104,7 @@ extension CloudSyncEngine {
 
     func fetchLocalContentValues() throws -> [String: LocalContentEntry] {
         let result = try fetchLocalContentValuesTimed()
-        if Perf.isEnabled {
+        if Perf.isEnabled(for: .cloudMovieStateRead) {
             Logger.sync.info("Local content reads: \(result.breakdown.joined(separator: ", "), privacy: .public)")
         }
         return result.values
