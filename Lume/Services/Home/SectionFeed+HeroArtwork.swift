@@ -59,10 +59,8 @@ extension SectionFeed {
         // models must never cross into the task-group children.
         // The screen's sources, or one playlist read for the batch — never an
         // owner fetch per candidate.
-        var requests = ProfilingMarks.measure("HeroArtworkRequests") {
-            let sources = context.proxySources ?? (try? LumeProxySource.snapshots(in: context.modelContext)) ?? [:]
-            return candidates.compactMap { heroArtworkRequest($0, sources: sources) }
-        }
+        let sources = context.proxySources ?? (try? LumeProxySource.snapshots(in: context.modelContext)) ?? [:]
+        var requests = candidates.compactMap { heroArtworkRequest($0, sources: sources) }
         requests.removeAll { request in
             !heroEnrichmentIDs.insert(request.id).inserted
         }
