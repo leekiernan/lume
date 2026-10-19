@@ -84,6 +84,14 @@ final class LiveTVHubFeed {
 
     private(set) var snapshot = LiveTVHubSnapshot()
     private(set) var isLoading = false
+    /// The last load that ran to completion, kept beyond any one hub view.
+    /// tvOS builds only the selected tab, so every return to Live TV made a
+    /// new feed and repeated ~1.3 s of discovery for an unchanged key. The key
+    /// already names everything that should reload — playlist, restrictions,
+    /// profile, sync, guide revision, the hour and the personal rails — so an
+    /// equal key reuses the result. Only a completed load is kept: a failed or
+    /// cancelled one retries next time.
+    private static var completed: (key: Key, snapshot: LiveTVHubSnapshot)?
     private var scope: String?
     private var request = RequestToken()
     private var epgRequest = RequestToken()
@@ -104,11 +112,20 @@ final class LiveTVHubFeed {
         snapshot.epg = epg
     }
 
-    func load(key: Key, restriction: ContentRestriction, container: ModelContainer, now: Date) async {
+    func load(
+        key: Key, restriction: ContentRestriction, container: ModelContainer, now: Date,
+        titles discoveryTitles: @escaping () async throws -> [TMDBListEntry] = { try await LiveTVDiscoveryTitles.shared.titles() }
+    ) async {
         let token = RequestToken()
         request = token
         isLoading = false
         let scope = "\(key.prefix)-\(key.visibility)-\(key.profile)"
+        if let completed = Self.completed, completed.key == key {
+            // The guide still refreshes on its own per-minute task.
+            self.scope = scope
+            snapshot = completed.snapshot
+            return
+        }
         if self.scope != scope { snapshot = LiveTVHubSnapshot() }
         self.scope = scope
         isLoading = true
@@ -128,7 +145,7 @@ final class LiveTVHubFeed {
             // wait for network, and a transient list failure won't erase them.
             snapshot.collections = initial.1.collections
             snapshot.epg = initial.1.epg
-            let titles = try await LiveTVDiscoveryTitles.shared.titles()
+            let titles = try await discoveryTitles()
             guard request == token, !Task.isCancelled else { return }
             let discoveryTask = Task.detached(priority: .utility) {
                 try LiveTVHubLoader.discover(container: container, channels: initial.0, titles: titles, now: now)
@@ -136,6 +153,7 @@ final class LiveTVHubFeed {
             let programmes = try await withTaskCancellationHandler { try await discoveryTask.value } onCancel: { discoveryTask.cancel() }
             guard request == token, !Task.isCancelled else { return }
             snapshot.programmes = programmes
+            Self.completed = (key, snapshot)
         } catch {
             guard request == token, !Task.isCancelled else { return }
             Logger.database.error("live hub discovery failed: \(error.localizedDescription, privacy: .public)")
