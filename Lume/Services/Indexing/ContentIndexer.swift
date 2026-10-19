@@ -506,20 +506,22 @@ actor ContentIndexer {
     /// sides: they are never indexed, so counting them in the total would
     /// leave the pass permanently short of complete.
     private func currentCounts() throws -> (indexed: Int, total: Int) {
+        let interval = Perf.begin(.contentIndexCounts)
+        defer { Perf.end(interval) }
         let context = ModelContext(modelContainer)
         let hidden = try Self.hiddenCategoryIDs(in: context)
-        let totalMovies = try context.fetchCount(
-            FetchDescriptor<Movie>(predicate: Self.visibleMoviePredicate(excluding: hidden))
-        )
-        let totalSeries = try context.fetchCount(
-            FetchDescriptor<Series>(predicate: Self.visibleSeriesPredicate(excluding: hidden))
-        )
-        let indexedMovies = try context.fetchCount(
-            FetchDescriptor<Movie>(predicate: Self.indexedMoviePredicate(excluding: hidden))
-        )
-        let indexedSeries = try context.fetchCount(
-            FetchDescriptor<Series>(predicate: Self.indexedSeriesPredicate(excluding: hidden))
-        )
+        let totalMovies = try Perf.measure(.contentIndexMovieTotal) {
+            try context.fetchCount(FetchDescriptor<Movie>(predicate: Self.visibleMoviePredicate(excluding: hidden)))
+        }
+        let totalSeries = try Perf.measure(.contentIndexSeriesTotal) {
+            try context.fetchCount(FetchDescriptor<Series>(predicate: Self.visibleSeriesPredicate(excluding: hidden)))
+        }
+        let indexedMovies = try Perf.measure(.contentIndexMovieIndexed) {
+            try context.fetchCount(FetchDescriptor<Movie>(predicate: Self.indexedMoviePredicate(excluding: hidden)))
+        }
+        let indexedSeries = try Perf.measure(.contentIndexSeriesIndexed) {
+            try context.fetchCount(FetchDescriptor<Series>(predicate: Self.indexedSeriesPredicate(excluding: hidden)))
+        }
         return (indexedMovies + indexedSeries, totalMovies + totalSeries)
     }
 

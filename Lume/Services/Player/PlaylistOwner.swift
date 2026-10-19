@@ -49,7 +49,9 @@ nonisolated enum PlaylistOwner {
     private static func playlist(withID id: UUID, in context: ModelContext) -> Playlist? {
         var descriptor = FetchDescriptor<Playlist>(predicate: #Predicate { $0.id == id })
         descriptor.fetchLimit = 1
-        return try? context.fetch(descriptor).first
+        return try? Perf.measure(.playlistOwnerRead) {
+            try context.fetch(descriptor).first
+        }
     }
 
     /// The UUID `id` starts with, or `nil` when it doesn't start with one.

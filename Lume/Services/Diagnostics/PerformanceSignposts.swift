@@ -122,6 +122,19 @@ nonisolated extension PerfSignpost {
     static let librarySeriesFavoritesRead = PerfSignpost("LibrarySeriesFavoritesRead")
     static let librarySeriesAddedRead = PerfSignpost("LibrarySeriesAddedRead")
 
+    // Startup contention probes. These measure synchronous call boundaries,
+    // not lock ownership. Keep the count lanes distinct: a total can scan a
+    // covering index while an indexed-title count scans the table itself.
+    static let playlistOwnerRead = PerfSignpost("PlaylistOwnerRead")
+    static let cloudMovieStateRead = PerfSignpost("CloudMovieStateRead")
+    static let cloudSeriesStateRead = PerfSignpost("CloudSeriesStateRead")
+    static let cloudStatePredicateRead = PerfSignpost("CloudStatePredicateRead")
+    static let contentIndexCounts = PerfSignpost("ContentIndexCounts")
+    static let contentIndexMovieTotal = PerfSignpost("ContentIndexMovieTotal")
+    static let contentIndexSeriesTotal = PerfSignpost("ContentIndexSeriesTotal")
+    static let contentIndexMovieIndexed = PerfSignpost("ContentIndexMovieIndexed")
+    static let contentIndexSeriesIndexed = PerfSignpost("ContentIndexSeriesIndexed")
+
     /// Sports
     /// The off-main batch fixture→channel resolve (`SportsChannelResolver`): two
     /// bounded catalog fetches plus the in-Swift match.

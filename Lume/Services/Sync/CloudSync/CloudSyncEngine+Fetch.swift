@@ -9,6 +9,7 @@
 //
 
 import Foundation
+import OSLog
 import SwiftData
 
 // MARK: - Fetch maps
@@ -102,7 +103,11 @@ extension CloudSyncEngine {
     }
 
     func fetchLocalContentValues() throws -> [String: LocalContentEntry] {
-        try fetchLocalContentValuesTimed().values
+        let result = try fetchLocalContentValuesTimed()
+        if Perf.isEnabled {
+            Logger.sync.info("Local content reads: \(result.breakdown.joined(separator: ", "), privacy: .public)")
+        }
+        return result.values
     }
 
     /// The same, with each kind's row count and fetch time ("channels 12 in
@@ -134,9 +139,10 @@ extension CloudSyncEngine {
         var seen: Set<PersistentIdentifier> = []
         var rows: [Model] = []
         for predicate in predicates {
-            for row in try catalogContext.fetch(FetchDescriptor<Model>(predicate: predicate))
-                where seen.insert(row.persistentModelID).inserted
-            {
+            let fetched = try Perf.measure(.cloudStatePredicateRead) {
+                try catalogContext.fetch(FetchDescriptor<Model>(predicate: predicate))
+            }
+            for row in fetched where seen.insert(row.persistentModelID).inserted {
                 rows.append(row)
             }
         }
@@ -144,6 +150,8 @@ extension CloudSyncEngine {
     }
 
     func movieEntries() throws -> [(String, LocalContentEntry)] {
+        let interval = Perf.begin(.cloudMovieStateRead)
+        defer { Perf.end(interval) }
         // `!= 0` can't use an index, so a vote is either side of zero.
         let movies: [Movie] = try fetchAny([
             #Predicate { $0.isFavorite == true },
@@ -171,6 +179,8 @@ extension CloudSyncEngine {
     }
 
     func seriesEntries() throws -> [(String, LocalContentEntry)] {
+        let interval = Perf.begin(.cloudSeriesStateRead)
+        defer { Perf.end(interval) }
         let series: [Series] = try fetchAny([
             #Predicate { $0.isFavorite == true },
             #Predicate { $0.addedToWatchlistDate != nil },
