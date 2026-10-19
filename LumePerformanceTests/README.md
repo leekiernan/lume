@@ -399,6 +399,111 @@ tests also pass for read-once/identity/order, rail queries, genre derivation and
 playlist ownership. Formatting/lint pass; no performance fix or device speedup
 is claimed by this instrumentation change.
 
+### Corrected Living room capture (19 October 2026, 13:35)
+
+The replacement trace preserves the preceding capture as run 1 and appends a
+**33.533-second run 2** on the same Living room Apple TV. Analyse run 2 for the
+corrected build. All the new diagnostic interval families are present, including
+the individual cloud predicates, index counts, profile phases and genre reads.
+This is attribution evidence, not a controlled before/after speed comparison:
+the intervening app changes only corrected instrumentation.
+
+**Profile switching is dominated by two watchlist-date fetches.** The individual
+`CloudStatePredicateRead` intervals are paired with their enclosing movie/series
+interval on the same thread, then identified by the fixed predicate order in
+`CloudSyncEngine+Fetch.swift`: movie predicate 4 and series predicate 2 are both
+`addedToWatchlistDate != nil`.
+
+| Measured phase | First switch | Second switch |
+|---|---:|---:|
+| Whole `ProfileSwitch` | 2.993 s | 5.714 s |
+| `ProfileSwitchFetch` | 2.814 s | 5.531 s |
+| Movie watchlist-date fetch | **2.727 s** | **4.426 s** |
+| Series watchlist-date fetch | 0.030 s | **1.036 s** |
+| Export + reset + import + save | 0.173 s | 0.178 s |
+
+The fetch phase accounts for 94.0% and 96.8% of the switches. Entry into
+`ProfileSwitchStores` follows the request within 0.06 ms, so queueing ahead of
+the store swap does not explain these delays. No main-thread hang is detected
+during either switch: the asynchronous switch overlay is waiting for the read
+phase, not slow profile application or a multi-second save.
+
+Across all five movie-state reads, the watchlist-date predicate takes 12.608 of
+12.680 seconds (99.4%). Across the five series-state reads, that predicate takes
+3.090 of 3.277 seconds. Other movie predicates, including progress and both vote
+ranges, are each below 13 ms. This narrows the earlier full-row/I/O hypothesis:
+it is not expensive hydration spread evenly across every state predicate.
+Samples inside the slow date fetches are predominantly `pread` beneath
+`sqlite3_step`; the trace alone still does not expose the device's actual SQL
+plan, schema or returned row count.
+
+**There is also one Movies main-thread stall**, at 5.356–6.992 seconds
+(1.637 s). The synchronous `LibraryMovieContinueRead` inside it lasts
+5.375216–6.940940 seconds (1.566 s), with a main-thread sample gap from
+5.375031–6.939031. On return, the stack is in the Movie collection's Core Data
+fetch and SQL generation, under `NSSQLiteConnection.performAndWait` and
+`_dispatch_sync_f_slow`. The cloud movie watchlist fetch spans 3.636606–6.938836
+and the indexed-movie count spans 2.301569–6.938900: both finish immediately
+before the rail returns. This strongly supports shared store/connection or I/O
+contention, but without waiting-thread samples it does not prove which worker
+held the resource or that the rail itself scanned the catalogue.
+
+All four initial index counts together take 6.037 seconds. The expensive ones
+are **indexed** movies (4.637 s) and series (0.967 s); total movies/series take
+0.346/0.085 s. Thus deferring initial counts behind the existing busy gate is
+still worth testing, but it is not a substitute for fixing recurring cloud
+reads. Keep the required post-profile-switch reconcile that rebuilds its shadow.
+
+Other measured work:
+
+- There are 695 `PlaylistOwnerRead` intervals: 0.249 ms median, 1.047 ms maximum,
+  190.495 ms total. These render-side queries are avoidable work, but **none is
+  the multi-second blocker in this capture**. The earlier Bedroom ownership
+  stall does not recur here.
+- The other 24 Movie Continue Watching reads take at most 7.092 ms. After the
+  second profile switch, the one recorded Movies revisit read takes 3.297 ms;
+  the preceding capture's 2.91-second revisit stall does not recur. One short
+  sample is not proof that the intermittent problem is fixed.
+- Series Continue Watching remains a separate repeat cost: 16 reads, 34.198 ms
+  median, 526.043 ms total. The previously observed scan/sort plan still needs
+  its own semantics-preserving fix and benchmark.
+- Two movie-genre intervals run concurrently on the revisit, at
+  30.274–30.737 and 30.287–30.742 seconds. Their scopes are not recorded; shared
+  inputs and redundant requests remain unproven.
+
+**Independent planner reproduction, not an assumed missing index:** a temporary
+optimized native macOS SwiftData probe used a synthetic model with an optional
+date, string payload and `#Index` on the date, in a fresh on-disk store with
+`cloudKitDatabase: .none`. SQLDebug confirmed that the same `date != nil`
+predicate emits `WHERE date IS NOT NULL`. The probe and a separate SQLite
+3.54.0 plan check both found that a full-row read with no ordering chooses a
+table scan **even with the date index present**. Adding a single date sort
+changed the plan to an index search and returned the same synthetic title:
+
+```sql
+-- With an existing date index; illustrative names.
+SELECT * FROM titles WHERE watchlistDate IS NOT NULL;
+-- SCAN titles
+SELECT * FROM titles WHERE watchlistDate IS NOT NULL ORDER BY watchlistDate;
+-- SEARCH titles USING INDEX date_index (watchlistDate>?)
+```
+
+This does not establish the Apple TV's plan, nor a universal rule for nullable
+predicates. It disproves the assumption that declaring an index guarantees this
+unsorted fetch uses it. The smallest next experiment is a date-ordered descriptor
+for the two sparse watchlist reads, with the same predicate and complete result
+set; cloud aggregation is keyed by content ID, not display order. Verify emitted
+SQL and plans against the **production models**, benchmark a populated cold
+store, and test profile export/reset/import and ordinary reconcile before
+shipping. Do not replace non-null with an arbitrary date cutoff (which could
+drop valid state), limit the rows, or remove the post-switch reconcile. Success
+is unchanged per-profile state and materially shorter measured date-read /
+switch intervals, with no detected Movies hang in a repeat device capture.
+
+This pass changes documentation only. The synthetic probe and trace exports
+are temporary; no household content, trace payload or global SQLDebug setting is
+added to the repository. No app speedup is claimed yet.
+
 ## The browse path has two halves
 
 Import is not the only thing users wait on. A 284k-row catalog made every browse
