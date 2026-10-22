@@ -66,7 +66,10 @@ struct OpenSubtitlesSessionTests {
         gate.finish(.success(()))
         await logout.value
         #expect(service.username == "viewer")
-        #expect(storage.saved == account)
+        // Kept with its password, so the day-long token can be renewed.
+        var signedIn = account
+        signedIn.password = "test"
+        #expect(storage.saved == signedIn)
     }
 
     @Test(arguments: [false, true]) func `logout rejects a download at either suspension point`(afterLink: Bool) async throws {
@@ -148,6 +151,62 @@ struct OpenSubtitlesSessionTests {
         #expect(service.signInError == nil)
     }
 
+    // MARK: - Expired tokens
+
+    /// `/login` tokens last about a day; the stored password renews them, and
+    /// the renewed session is what the keychain keeps.
+    @Test func `an expired token is renewed and the new session saved`() async throws {
+        let client = SubtitleTestClient()
+        var fresh = account
+        fresh.token = "fresh-token"
+        client.loginBody = { fresh }
+        client.linkForSession = { session in
+            guard session.token == "fresh-token" else { throw OpenSubtitlesError.notAuthenticated }
+            return OpenSubtitlesDownload(link: URL(string: "https://example.invalid/subtitle")!, fileName: "test.srt", remainingDownloads: 9)
+        }
+        client.fetchBody = { Data("subtitle".utf8) }
+        let storage = SubtitleTestStorage()
+        var stored = account
+        stored.password = "secret"
+        storage.saved = stored
+        let service = makeService(client, storage)
+        service.restore()
+        _ = try await service.download(Self.subtitle)
+        #expect(service.isSignedIn)
+        #expect(storage.saved?.token == "fresh-token")
+        #expect(storage.saved?.password == "secret")
+        #expect(service.remainingDownloads == 9)
+    }
+
+    /// Without a way to renew, the app stops claiming a sign-in the server no
+    /// longer honours — the "Sign in to download" while signed in.
+    @Test func `an expired token that cannot be renewed signs out`() async {
+        let client = SubtitleTestClient()
+        let storage = SubtitleTestStorage()
+        storage.saved = account // saved before passwords were kept
+        let service = makeService(client, storage)
+        service.restore()
+        await #expect(throws: OpenSubtitlesError.notAuthenticated) { try await service.download(Self.subtitle) }
+        #expect(!service.isSignedIn)
+        #expect(storage.saved == nil)
+    }
+
+    @Test func `search falls back to anonymous when the session cannot be renewed`() async throws {
+        let client = SubtitleTestClient()
+        client.searchBody = { token in
+            guard token == nil else { throw OpenSubtitlesError.notAuthenticated }
+            return [Self.subtitle]
+        }
+        let storage = SubtitleTestStorage()
+        storage.saved = account
+        let service = makeService(client, storage)
+        service.restore()
+        let results = try await service.search(OpenSubtitlesQuery(text: "Film"))
+        #expect(results.map(\.id) == ["1"])
+        #expect(client.searchTokens.last == .some(nil))
+        #expect(!service.isSignedIn)
+    }
+
     private func makeService(_ client: SubtitleTestClient, _ storage: SubtitleTestStorage) -> OpenSubtitlesService {
         OpenSubtitlesService(
             client: client,
@@ -183,6 +242,10 @@ private final class SubtitleTestClient: OpenSubtitlesProviding {
     var logoutBody: () async throws -> Void = {}
     var linkBody: () async throws -> OpenSubtitlesDownload = { throw OpenSubtitlesError.notAuthenticated }
     var fetchBody: () async throws -> Data = { throw OpenSubtitlesError.invalidResponse }
+    /// When set, answers `/download` per session — to tell expired tokens apart.
+    var linkForSession: ((OpenSubtitlesSession) async throws -> OpenSubtitlesDownload)?
+    var searchBody: (String?) async throws -> [OnlineSubtitle] = { _ in [] }
+    private(set) var searchTokens: [String?] = []
 
     func login(username _: String, password _: String, host _: String) async throws -> OpenSubtitlesSession {
         try await loginBody()
@@ -192,16 +255,18 @@ private final class SubtitleTestClient: OpenSubtitlesProviding {
         try await logoutBody()
     }
 
-    func search(_: OpenSubtitlesQuery, host _: String, token _: String?) async throws -> [OnlineSubtitle] {
-        []
+    func search(_: OpenSubtitlesQuery, host _: String, token: String?) async throws -> [OnlineSubtitle] {
+        searchTokens.append(token)
+        return try await searchBody(token)
     }
 
     func languages(host _: String) async throws -> [OpenSubtitlesLanguage] {
         []
     }
 
-    func downloadLink(for _: OnlineSubtitle, session _: OpenSubtitlesSession) async throws -> OpenSubtitlesDownload {
-        try await linkBody()
+    func downloadLink(for _: OnlineSubtitle, session: OpenSubtitlesSession) async throws -> OpenSubtitlesDownload {
+        if let linkForSession { return try await linkForSession(session) }
+        return try await linkBody()
     }
 
     func fetch(_: OpenSubtitlesDownload) async throws -> Data {

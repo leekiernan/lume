@@ -127,7 +127,8 @@ final class OpenSubtitlesService {
         guard let request = machine.beginSignIn() else { return }
 
         do {
-            let newSession = try await client.login(username: trimmed, password: password, host: OpenSubtitlesClient.defaultHost)
+            var newSession = try await client.login(username: trimmed, password: password, host: OpenSubtitlesClient.defaultHost)
+            newSession.password = password
             try Task.checkCancellation()
             guard machine.finishSignIn(request, session: newSession) else { return }
             persistence.save(newSession)
@@ -154,8 +155,18 @@ final class OpenSubtitlesService {
     func search(_ query: OpenSubtitlesQuery) async throws -> [OnlineSubtitle] {
         var query = query
         query.languages = preferredLanguages
-        let permit = machine.generation
-        let results = try await client.search(query, host: host, token: session?.token)
+        var permit = machine.generation
+        let results: [OnlineSubtitle]
+        do {
+            results = try await withSession(permit) { try await self.client.search(query, host: $0.host, token: $0.token) }
+        } catch OpenSubtitlesError.notAuthenticated {
+            // Searching doesn't need an account, so signed out — or a session
+            // that couldn't be renewed — searches anonymously. Ending an
+            // expired session starts a new generation; the anonymous answer
+            // belongs to that one.
+            permit = machine.generation
+            results = try await client.search(query, host: OpenSubtitlesClient.defaultHost, token: nil)
+        }
         try requireCurrent(permit)
         return results.sorted { $0.downloadCount > $1.downloadCount }
     }
@@ -178,16 +189,60 @@ final class OpenSubtitlesService {
     /// against the daily allowance.
     func download(_ subtitle: OnlineSubtitle) async throws -> URL {
         if let cached = cache.cachedFile(subtitle) { return cached }
-        guard let session else { throw OpenSubtitlesError.notAuthenticated }
         let permit = machine.generation
-
-        let download = try await client.downloadLink(for: subtitle, session: session)
+        let download = try await withSession(permit) { try await self.client.downloadLink(for: subtitle, session: $0) }
         try requireCurrent(permit)
         let data = try await client.fetch(download)
         try requireCurrent(permit)
         machine.recordDownload(download.remainingDownloads, permit: permit)
         Logger.player.info("OpenSubtitles: downloaded subtitle, \(download.remainingDownloads) left today")
         return try cache.store(data, subtitle)
+    }
+
+    /// Runs `request` with the current session. An expired token is renewed
+    /// once from the stored credentials; when that isn't possible the session
+    /// is dropped, so Settings stops claiming a sign-in the server no longer
+    /// honours ("Sign in to download" while signed in).
+    private func withSession<T>(_ permit: RequestToken, _ request: (OpenSubtitlesSession) async throws -> T) async throws -> T {
+        guard let session else { throw OpenSubtitlesError.notAuthenticated }
+        do {
+            let result = try await Self.performRenewing(
+                session: session,
+                login: { try await self.client.login(username: $0, password: $1, host: OpenSubtitlesClient.defaultHost) },
+                request: request
+            )
+            if let renewed = result.renewed, machine.renew(renewed, permit: permit) {
+                persistence.save(renewed)
+            }
+            return result.value
+        } catch OpenSubtitlesError.notAuthenticated {
+            if machine.endExpiredSession(permit: permit) { persistence.clear() }
+            throw OpenSubtitlesError.notAuthenticated
+        }
+    }
+
+    /// `request` against `session`, retried once on a fresh token when the
+    /// server rejects the stored one. Returns the renewed session, if any, for
+    /// the caller to persist. Throws `.notAuthenticated` when the token can't
+    /// be renewed: no stored password, or the account no longer accepts it.
+    static func performRenewing<T>(
+        session: OpenSubtitlesSession,
+        login: (String, String) async throws -> OpenSubtitlesSession,
+        request: (OpenSubtitlesSession) async throws -> T
+    ) async throws -> (value: T, renewed: OpenSubtitlesSession?) {
+        do {
+            return try await (request(session), nil)
+        } catch OpenSubtitlesError.notAuthenticated {
+            guard let password = session.password else { throw OpenSubtitlesError.notAuthenticated }
+            var renewed: OpenSubtitlesSession
+            do {
+                renewed = try await login(session.username, password)
+            } catch OpenSubtitlesError.invalidCredentials {
+                throw OpenSubtitlesError.notAuthenticated
+            }
+            renewed.password = password
+            return try await (request(renewed), renewed)
+        }
     }
 
     private func requireCurrent(_ permit: RequestToken) throws {
