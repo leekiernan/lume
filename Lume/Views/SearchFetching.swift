@@ -252,6 +252,7 @@ nonisolated func searchSeriesPredicate(scope: SearchScope) -> Predicate<Series> 
 
 /// Live channels also carry their own Content Management visibility, so a
 /// channel hidden individually is excluded here as well.
+/// One result per channel: a channel's other qualities are its Source menu's.
 nonisolated func searchLiveStreamPredicate(scope: SearchScope) -> Predicate<LiveStream> {
     let query = scope.query
     let excluded = scope.excludedOptional
@@ -260,6 +261,7 @@ nonisolated func searchLiveStreamPredicate(scope: SearchScope) -> Predicate<Live
         return #Predicate { stream in
             stream.name.localizedStandardContains(query)
                 && stream.isHidden == false
+                && stream.isVariantFollower == false
                 && (!filtersCategories || stream.categoryId == nil || !excluded.contains(stream.categoryId))
         }
     }
@@ -267,6 +269,7 @@ nonisolated func searchLiveStreamPredicate(scope: SearchScope) -> Predicate<Live
     return #Predicate { stream in
         stream.name.localizedStandardContains(query)
             && stream.isHidden == false
+            && stream.isVariantFollower == false
             && stream.id.starts(with: prefix)
             && (!filtersCategories || stream.categoryId == nil || !excluded.contains(stream.categoryId))
     }
@@ -290,6 +293,7 @@ nonisolated func programmeChannelPredicate(channelIDs: Set<String>, scope: Searc
         return #Predicate { stream in
             ids.contains(stream.epgChannelId)
                 && stream.isHidden == false
+                && stream.isVariantFollower == false
                 && (!filtersCategories || stream.categoryId == nil || !excluded.contains(stream.categoryId))
         }
     }
@@ -297,6 +301,7 @@ nonisolated func programmeChannelPredicate(channelIDs: Set<String>, scope: Searc
     return #Predicate { stream in
         ids.contains(stream.epgChannelId)
             && stream.isHidden == false
+            && stream.isVariantFollower == false
             && stream.id.starts(with: prefix)
             && (!filtersCategories || stream.categoryId == nil || !excluded.contains(stream.categoryId))
     }

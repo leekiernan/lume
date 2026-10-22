@@ -18,6 +18,9 @@ final class PlaybackSession {
 
     /// Carries out an effect. Installed by the host before the first event.
     @ObservationIgnored var perform: ((PlaybackSessionMachine.Effect) -> Void)?
+    /// Told every change of state, after its effects: the host's quality
+    /// step-down watches stalls this way (`LiveQualityStepDown`).
+    @ObservationIgnored var onTransition: ((PlaybackSessionMachine.State, PlaybackSessionMachine.State) -> Void)?
 
     var state: PlaybackSessionMachine.State {
         machine.state
@@ -32,6 +35,7 @@ final class PlaybackSession {
         for effect in effects {
             perform?(effect)
         }
+        if machine.state != before { onTransition?(before, machine.state) }
     }
 }
 

@@ -95,6 +95,15 @@ nonisolated enum CatalogIndexBackfill {
             table: "ZLIVESTREAM",
             columns: ["ZISHIDDEN", "ZLASTWATCHEDDATE"]
         ),
+        // A grouped channel's other qualities, looked up as a channel is
+        // tuned and when the player builds its Source menu. The column is new
+        // with grouping: on the first launch after the update the store has
+        // not migrated yet and this fails quietly, then lands on the next.
+        Index(
+            name: "Z_LiveStream_SwiftDataIndexOnBinaryvariantKey",
+            table: "ZLIVESTREAM",
+            columns: ["ZVARIANTKEY"]
+        ),
         // The in-player EPG lookups bound on `end > now`; the store only had
         // `[channelId, start]`. `TVPlayerContent.guideListings` has cited a
         // "channelId + end index" in a comment since it was written, without

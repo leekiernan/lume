@@ -29,7 +29,8 @@ extension HomeView {
     /// they only ever appear alongside other media.
     private func visibleChannels(_ streams: [LiveStream]) -> [LiveStream] {
         guard AppAreaSettings.isEnabled(.liveTV, disabledRaw: disabledAreasRaw) else { return [] }
-        return streams.filter { belongsToActivePlaylist($0.id) }.excludingRestricted(restriction)
+        // A channel watched or favourited in two qualities appears once.
+        return streams.filter { belongsToActivePlaylist($0.id) }.excludingRestricted(restriction).onePerChannel()
     }
 
     /// In-progress movies and series, and channels watched lately.

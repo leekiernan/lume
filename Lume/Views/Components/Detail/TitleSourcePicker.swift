@@ -85,15 +85,25 @@ struct TitleSourceHost<Page: View>: View {
 /// with what its stream is underneath; choosing one plays it.
 struct TitleSourceButton: View {
     let selection: TitleSourceSelection
+
+    var body: some View {
+        TitleSourceMenuButton(sources: selection.sources, current: selection.current) { selection.pick($0) }
+    }
+}
+
+/// The Source button itself, for any list of copies: a title's on its detail
+/// page, a live channel's qualities on its programme sheet.
+struct TitleSourceMenuButton: View {
+    let sources: [TitleSource]
+    let current: TitleSource
+    let choose: (TitleSource) -> Void
     @Environment(\.modelContext) private var modelContext
     /// Loaded with the page: a menu can't say when it opens.
     @State private var details = StreamDetailsLoader()
 
     var body: some View {
         Menu {
-            TitleSourceMenuItems(sources: selection.sources, current: selection.current.id, details: details) { source in
-                selection.pick(source)
-            }
+            TitleSourceMenuItems(sources: sources, current: current.id, details: details, choose: choose)
         } label: {
             Image(systemName: "square.stack")
             #if !os(tvOS)
@@ -110,9 +120,9 @@ struct TitleSourceButton: View {
         #else
             .buttonStyle(.bordered)
         #endif
-            .accessibilityLabel(Text("Source: \(selection.current.title)"))
+            .accessibilityLabel(Text("Source: \(current.title)"))
             .accessibilityHint(Text("Choose which copy to play"))
-            .task { await details.load(selection.sources, in: modelContext) }
+            .task { await details.load(sources, in: modelContext) }
     }
 }
 
@@ -144,9 +154,15 @@ struct TitleSourceMenuItems: View {
 }
 
 extension TitleSource {
-    /// The copy's name on the Source button: its category, else "Other".
+    /// The copy's name on the Source button: its category, else "Other". A
+    /// live channel's quality goes by its tag ("FHD 50FPS"), the way the
+    /// provider wrote it.
     var title: String {
-        categoryName ?? String(localized: "Other", comment: "A copy of a title whose category has no name")
+        if case let .live(stream) = copy {
+            return ChannelQuality.parsed(stream.name).tag
+                ?? String(localized: "Standard", comment: "A live channel's quality whose name carries no quality tag")
+        }
+        return categoryName ?? String(localized: "Other", comment: "A copy of a title whose category has no name")
     }
 
     /// The Source menu's facts after the stream's details: runtime, file type
@@ -157,6 +173,7 @@ extension TitleSource {
         if case let .movie(movie) = copy, let container = movie.containerExtension, !container.isEmpty {
             facts.append(container.uppercased())
         }
+        if case .live = copy, let categoryName { facts.append(categoryName) }
         if let playlistName { facts.append(playlistName) }
         return facts
     }

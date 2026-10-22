@@ -482,6 +482,7 @@ extension ContentSyncManager {
         }
 
         pruneLiveStreams(playlistId: playlistId, seenIds: seenIds, fetchedCount: seenIds.count)
+        LiveChannelVariants.reconcile(playlistID: playlistId, container: modelContainer)
         Logger.database.info("Stalker: synced \(totalCount) live channels")
         await progress?.complete(.liveStreams)
     }

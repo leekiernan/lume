@@ -37,7 +37,8 @@ extension FullScreenPlayerView {
     /// *before* awaiting, so a subsequent `clock.reset()` can't race the read.
     func persistProgressDetached(holdingLive: Bool = false) {
         guard let writer = progressWriter, writer.scope.isCurrent else { return }
-        let ref = activeMedia.contentRef
+        // A quality the player stepped down to stamps the viewer's pick.
+        let ref = activeMedia.progressRef
         // An explicit "next episode" already settled this stream at its full
         // duration. Recording the position it was skipped from would walk that
         // back to unwatched, so the completion stands and this flush stands down.

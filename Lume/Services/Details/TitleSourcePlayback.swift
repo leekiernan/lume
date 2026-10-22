@@ -27,6 +27,11 @@ enum TitleSourcePlayback {
             await fetchEpisodesIfNone(series, playlist: playlist, in: context)
             guard let episode = SeriesEpisodeProgress.nextEpisode(in: series.episodes, fallback: nil) else { return nil }
             return PlayableMedia.from(episode: episode, playlist: playlist)
+        case let .live(stream):
+            // A detail page never lists a channel's qualities; the player's
+            // Source menu does, and builds its own media.
+            guard let playlist = PlaylistOwner.playlist(forContentID: stream.id, in: playlists) else { return nil }
+            return PlayableMedia.from(stream: stream, playlist: playlist, choosingQuality: false)
         }
     }
 

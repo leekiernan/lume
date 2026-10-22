@@ -15,12 +15,14 @@ import SwiftUI
 
 enum SportsPlayback {
     /// The playable live stream a tapped channel points at, or `nil` when it is no
-    /// longer present in the viewer's playlists.
+    /// longer present in the viewer's playlists. Played as resolved: Sports
+    /// ranks a game's channels for this screen itself, and a channel picked
+    /// from its list is the viewer's choice (`SportsChannelPreference`).
     static func media(for channel: ResolvedChannel, in context: ModelContext) -> PlayableMedia? {
         guard let stream = PlayerContentLookup.liveStream(channel.stream.id, in: context),
               let playlist = LiveChannelNavigator.playlist(for: stream, in: context)
         else { return nil }
-        return PlayableMedia.from(stream: stream, playlist: playlist)
+        return PlayableMedia.from(stream: stream, playlist: playlist, choosingQuality: false)
     }
 
     /// A pay-per-view or event channel's stream, by id.

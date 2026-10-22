@@ -8,6 +8,11 @@
 //  archive window — whether it already finished or is still airing — offers
 //  catch-up alongside (or instead of) joining live; anything else is live only.
 //
+//  A channel listed in several qualities (`LiveChannelVariants`) has the
+//  Source button detail pages have beside Watch Live: choosing one is the
+//  viewer's pick, as in the player, so the channel opens in it now and next
+//  time. Catch-up replays from whichever quality has the archive.
+//
 
 import OSLog
 import SwiftData
@@ -22,6 +27,11 @@ struct EPGProgramDetailView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.contentRestriction) private var restriction
+    /// The channel's qualities, best for the screen first; empty when it has
+    /// one. `tunedQuality` is the one Watch Live plays.
+    @State private var qualities: [TitleSource] = []
+    @State private var tunedQuality: TitleSource?
     @State private var details: EPGProgrammeDetails?
     @State private var epgSync = EPGSyncService.shared
 
@@ -55,6 +65,7 @@ struct EPGProgramDetailView: View {
                 standardBody
             #endif
         }
+        .task(id: stream.id) { loadQualities() }
         .task(id: EPGProgrammeDetails.ReadKey(programmeID: cell.id, channelID: stream.epgChannelId, guideRevision: epgSync.readRevision)) {
             details = nil
             let container = modelContext.container
@@ -201,14 +212,20 @@ struct EPGProgramDetailView: View {
                                     dismiss()
                                 }
 
-                                TVPlayButton(title: "Watch Live", systemImage: "dot.radiowaves.left.and.right") {
-                                    onPlay()
-                                    dismiss()
+                                HStack(spacing: 20) {
+                                    TVPlayButton(title: "Watch Live", systemImage: "dot.radiowaves.left.and.right") {
+                                        onPlay()
+                                        dismiss()
+                                    }
+                                    qualityButton
                                 }
                             } else {
-                                TVPlayButton(title: "Watch Live", systemImage: "play.fill") {
-                                    onPlay()
-                                    dismiss()
+                                HStack(spacing: 20) {
+                                    TVPlayButton(title: "Watch Live", systemImage: "play.fill") {
+                                        onPlay()
+                                        dismiss()
+                                    }
+                                    qualityButton
                                 }
                             }
                         }
@@ -352,25 +369,57 @@ struct EPGProgramDetailView: View {
                     dismiss()
                 }
 
-                Button {
-                    onPlay()
-                    dismiss()
-                } label: {
-                    Label("Watch Live", systemImage: "dot.radiowaves.left.and.right")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
+                HStack(spacing: 10) {
+                    Button {
+                        onPlay()
+                        dismiss()
+                    } label: {
+                        Label("Watch Live", systemImage: "dot.radiowaves.left.and.right")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    qualityButton
                 }
-                .buttonStyle(.bordered)
             }
             .controlSize(.large)
             .padding(.top, 4)
         } else {
-            PrimaryPlayButton(title: "Watch Live") {
-                onPlay()
-                dismiss()
+            HStack(spacing: 10) {
+                PrimaryPlayButton(title: "Watch Live") {
+                    onPlay()
+                    dismiss()
+                }
+                qualityButton
             }
             .padding(.top, 4)
         }
+    }
+
+    /// The Source button for a channel with several qualities.
+    @ViewBuilder
+    private var qualityButton: some View {
+        if qualities.count > 1, let tunedQuality {
+            TitleSourceMenuButton(sources: qualities, current: tunedQuality, choose: playQuality)
+        }
+    }
+
+    private func loadQualities() {
+        guard stream.variantKey != nil, let playlist = LiveChannelNavigator.playlist(for: stream, in: modelContext) else { return }
+        qualities = PlayerSourceSwitch.liveQualities(of: stream, playlist: playlist, restriction: restriction, in: modelContext)
+        let tuned = LiveChannelVariants.tuning(stream, playlist: playlist).play.id
+        tunedQuality = qualities.first { $0.id == tuned }
+    }
+
+    /// The viewer's pick, made here as in the player: it becomes the quality
+    /// watched last, which is the one tuning the channel plays.
+    private func playQuality(_ source: TitleSource) {
+        if source.id != tunedQuality?.id, case let .live(quality) = source.copy {
+            quality.lastWatchedDate = .now
+            try? modelContext.save()
+        }
+        onPlay()
+        dismiss()
     }
 
     private func statusBadge(_ title: LocalizedStringKey, color: Color) -> some View {

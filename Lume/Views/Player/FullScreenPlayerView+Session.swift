@@ -35,5 +35,6 @@ extension FullScreenPlayerView {
                 fallBackToNextEngine()
             }
         }
+        session.onTransition = { previous, next in noteQualityTransition(from: previous, to: next) }
     }
 }

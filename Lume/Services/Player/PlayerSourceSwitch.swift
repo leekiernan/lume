@@ -8,6 +8,12 @@
 //  runtime only detects a known mismatch when carrying the playhead across.
 //  Missing or TMDB-estimated runtimes must not hide playable copies.
 //
+//  A live channel's copies are its other qualities (`LiveChannelVariants`):
+//  "Sky Sports F1 FHD" switches to its UHD or HD. Swapping quality is not
+//  changing channel — each choice is anchored to the row the viewer tuned
+//  (`PlayableMedia.channelAnchorID`), and the one watched last is the one the
+//  channel opens in next time, as with a film's copies.
+//
 //  The host publishes the result on `PlayerControlsBridge`; the switch itself
 //  goes through `switchMedia`, the one safe way to change stream.
 //
@@ -66,11 +72,13 @@ enum PlayerSourceSwitch {
     }
 
     static func media(for option: PlayerSourceOption, start: Start, position: TimeInterval) -> PlayableMedia {
-        option.media.resuming(at: start == .beginning ? 0 : position)
+        // A live stream has no position to carry: it joins at the live edge.
+        guard !option.media.isLive else { return option.media }
+        return option.media.resuming(at: start == .beginning ? 0 : position)
     }
 
-    /// The copies `media` can switch to, or nil when there are none: live
-    /// channels, a title with one copy, or no playable alternative.
+    /// The copies `media` can switch to, or nil when there are none: a title
+    /// or channel with one copy, or no playable alternative.
     static func sources(for media: PlayableMedia, restriction: ContentRestriction, in context: ModelContext) -> PlayerSources? {
         let playlists = (try? context.fetch(FetchDescriptor<Playlist>())) ?? []
         switch media.contentRef {
@@ -80,8 +88,49 @@ enum PlayerSourceSwitch {
         case let .episode(id):
             guard let episode = first(Episode.self, #Predicate { $0.id == id }, in: context) else { return nil }
             return episodeSources(episode, playlists: playlists, restriction: restriction, in: context)
-        case .live:
-            return nil
+        case let .live(id):
+            guard media.catchup == nil, let stream = PlayerContentLookup.liveStream(id, in: context) else { return nil }
+            return liveSources(stream, playing: media, playlists: playlists, restriction: restriction, in: context)
+        }
+    }
+
+    /// The playing channel's other qualities this viewer may see, best for
+    /// the screen first. Each plays as the Source menu's choice, anchored to
+    /// the row being watched.
+    private static func liveSources(
+        _ stream: LiveStream, playing media: PlayableMedia, playlists: [Playlist],
+        restriction: ContentRestriction, in context: ModelContext
+    ) -> PlayerSources? {
+        guard let playlist = PlaylistOwner.playlist(forContentID: stream.id, in: playlists) else { return nil }
+        let qualities = liveQualities(of: stream, playlist: playlist, restriction: restriction, in: context)
+        guard let current = qualities.first(where: { $0.id == stream.id }) else { return nil }
+        let anchor = media.channelRowID
+        let alternatives = qualities.compactMap { source -> PlayerSourceOption? in
+            guard source.id != stream.id, case let .live(member) = source.copy,
+                  let target = PlayableMedia.from(stream: member, playlist: playlist, scope: media.channelScope, choosingQuality: false)
+            else { return nil }
+            return PlayerSourceOption(source: source, media: target.asQuality(anchoredAt: anchor), runtime: nil)
+        }
+        return alternatives.isEmpty ? nil : PlayerSources(current: current, currentRuntime: nil, alternatives: alternatives)
+    }
+
+    /// Every quality of `stream`'s channel this viewer may see, `stream`
+    /// included, best for the screen first; empty when it has no others. A
+    /// quality in another category names it — the rest are this list's.
+    /// Shared by the player's Source menu and the programme sheet's.
+    static func liveQualities(
+        of stream: LiveStream, playlist: Playlist, restriction: ContentRestriction, in context: ModelContext
+    ) -> [TitleSource] {
+        guard stream.variantKey != nil else { return [] }
+        let members = LiveChannelVariants.members(of: stream, prefix: playlist.contentIDPrefix, in: context)
+            .filter { $0.id == stream.id || !restriction.hides(categoryID: $0.categoryId) }
+        guard members.count > 1 else { return [] }
+        let ids = Array(Set(members.compactMap(\.categoryId)))
+        let categories = (try? context.fetch(FetchDescriptor<Category>(predicate: #Predicate { ids.contains($0.id) }))) ?? []
+        let names = Dictionary(categories.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
+        return LiveChannelVariants.ranked(members).map { member in
+            let elsewhere = member.categoryId != stream.categoryId
+            return TitleSource(copy: .live(member), categoryName: elsewhere ? member.categoryId.flatMap { names[$0] } : nil, playlistName: nil)
         }
     }
 

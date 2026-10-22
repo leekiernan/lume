@@ -42,10 +42,16 @@ struct LiveChannelRowContent: View {
             logo
             VStack(alignment: .leading, spacing: isTV ? 6 : 4) {
                 if let categoryName { LiveCategoryLabel(name: categoryName) }
-                Text(stream.name)
+                Text(stream.displayName)
                     .font(isTV ? .system(size: 30, weight: .semibold) : .headline)
                     .foregroundStyle(isTV ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
                     .lineLimit(1)
+                if let qualities = stream.variantQualities {
+                    Text(verbatim: qualities)
+                        .font(timeFont.weight(.semibold))
+                        .foregroundStyle(secondary)
+                        .lineLimit(1)
+                }
                 programme
                 if stream.supportsCatchup {
                     if isTV {

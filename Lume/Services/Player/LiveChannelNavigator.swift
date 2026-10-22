@@ -157,7 +157,9 @@ nonisolated enum LiveChannelNavigator {
         restriction: ContentRestriction,
         in context: ModelContext
     ) -> PlayableMedia? {
-        guard case let .live(id) = media.contentRef else { return nil }
+        // Surf from the row the playing quality stands for, which is the one
+        // in the list.
+        guard let id = media.channelRowID else { return nil }
         var currentDescriptor = FetchDescriptor<LiveStream>(predicate: #Predicate { $0.id == id })
         currentDescriptor.fetchLimit = 1
         guard let current = try? context.fetch(currentDescriptor).first,
@@ -232,14 +234,18 @@ nonisolated enum LiveChannelNavigator {
                 predicate = #Predicate { stream in
                     stream.categoryId == categoryId
                         && stream.id.starts(with: prefix)
-                        && (stream.isHidden == false || stream.id == admitted)
+                        && !stream.isVariantFollower
+                        && (!stream.isHidden || stream.id == admitted)
                         && (!filters || !excluded.contains(stream.categoryId))
                 }
             } else {
+                // The browse list's rows: one per channel, whichever of its
+                // qualities is playing (`PlayableMedia.channelAnchorID`).
                 predicate = #Predicate { stream in
                     stream.categoryId == categoryId
                         && stream.id.starts(with: prefix)
-                        && stream.isHidden == false
+                        && !stream.isHidden
+                        && !stream.isVariantFollower
                         && (!filters || !excluded.contains(stream.categoryId))
                 }
             }
@@ -299,7 +305,9 @@ nonisolated enum LiveChannelNavigator {
             case let .positions(scope, count):
                 bisect(for: stream, scope: scope, count: count, in: context)
             case let .page(rows):
-                rows.firstIndex { $0.id == stream.id }
+                // Recently Watched lists a grouped channel as whichever quality
+                // was watched last, which needn't be the row it's surfed from.
+                rows.firstIndex { $0.id == stream.id || ($0.variantKey != nil && $0.variantKey == stream.variantKey) }
             }
         }
     }

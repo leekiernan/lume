@@ -36,6 +36,7 @@ extension ContentSyncManager {
             Perf.measure(.m3uPruneLive) {
                 pruneLiveStreams(playlistId: playlistId, seenHashes: state.seenLiveIds, importedCount: imported)
             }
+            LiveChannelVariants.reconcile(playlistID: playlistId, container: modelContainer)
         }
         state.seenLiveIds = []
         if areas.contains(.movies) {

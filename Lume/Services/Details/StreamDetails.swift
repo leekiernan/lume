@@ -210,6 +210,8 @@ final class StreamDetailsLoader {
         switch source.copy {
         case let .movie(movie): StreamDetails(name: movie.name)
         case let .series(series): StreamDetails(name: series.name)
+        // A channel quality is titled by its tag already.
+        case .live: StreamDetails()
         }
     }
 }
