@@ -74,6 +74,9 @@ struct DetailHero: View {
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             DetailBackdropArtwork(backdropURL: backdropURL, posterFallbackURL: posterFallbackURL, fallbackSymbol: fallbackSymbol)
+                // Bleed the artwork into a horizontal safe area (a landscape
+                // iPhone's sensor housing) rather than leaving it blank.
+                .backgroundExtensionEffectIfAvailable()
 
             LinearGradient(
                 colors: [.clear, .black.opacity(0.35), .black.opacity(0.92)],
@@ -109,9 +112,10 @@ struct DetailHero: View {
             .padding(.horizontal, DetailMetrics.contentPadding)
             .padding(.bottom, 16)
         }
+        // Not clipped: the backdrop's extension effect has to reach past this
+        // frame. `DetailBackdropArtwork` already clips its own artwork.
         .frame(maxWidth: .infinity)
         .frame(height: height)
-        .clipped()
     }
 }
 

@@ -17,6 +17,7 @@ struct HeroFeedLayout<Hero: View, Rows: View>: View {
             .padding(.bottom, PosterCardMetrics.sectionVerticalPadding)
         }
         .scrollIndicators(hidesScrollIndicators ? .hidden : .automatic)
+        .heroViewport()
         .background { LumeAmbientBackground() }
         .ignoresSafeArea(edges: reservesHero ? .top : [])
     }
