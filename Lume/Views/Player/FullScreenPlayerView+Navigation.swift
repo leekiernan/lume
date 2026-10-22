@@ -220,6 +220,7 @@ extension FullScreenPlayerView {
             // Ordered, not raced: whatever was already in flight for this
             // stream settles first, so the completion is the last word.
             await previous?.value
+            defer { WatchProgressBuffer.remove(ref: ref, profileID: writer.scope.profileID) }
             if let change = await writer.markWatched(ref: ref, duration: total, recordedAt: recordedAt) {
                 applyWatchedChange(change)
             }

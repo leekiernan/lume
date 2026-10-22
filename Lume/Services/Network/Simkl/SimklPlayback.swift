@@ -2,9 +2,9 @@
 //  SimklPlayback.swift
 //  Lume
 //
-//  The account's paused playback on Simkl. lume doesn't scrobble to Simkl or
-//  read these back; they're left by other apps. Taking a title out of
-//  Continue Watching removes them, so Simkl's resume rows agree with lume's.
+//  The account's paused playback on Simkl: left by lume's scrobbles
+//  (`SimklScrobble`) and other apps. Taking a title out of Continue Watching
+//  removes them, so Simkl's resume rows agree with lume's.
 //
 
 import Foundation
@@ -16,6 +16,13 @@ nonisolated struct SimklPlaybackSession: Decodable {
     let movie: SimklWatchedMedia?
     let show: SimklWatchedMedia?
     let episode: SimklPlaybackEpisode?
+    /// When it was paused (`paused_at`), so a newer pause from elsewhere wins.
+    let pausedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, movie, show, episode
+        case pausedAt = "paused_at"
+    }
 
     /// Whether this entry is the paused progress of `target`.
     func matches(_ target: TrackerMutation.Target) -> Bool {

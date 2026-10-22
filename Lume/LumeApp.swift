@@ -322,6 +322,13 @@ struct LumeApp: App {
                             await DownloadManager.shared.restoreBackgroundSession()
                         #endif
 
+                        // Commit watch progress a previous session buffered but
+                        // never saved — it crashed or was killed mid-playback —
+                        // before anything plays. The trackers hear about it once
+                        // their sessions are restored, below.
+                        let recoveredPlayback = Self.isUnitTestHost
+                            ? [] : await WatchProgressWriter.reconcilePending(container: catalogContainer)
+
                         // If the preferred language changed since last launch (e.g.
                         // via the per-app language override in iOS Settings), drop
                         // cached TMDB enrichment so detail views re-fetch text,
@@ -362,16 +369,25 @@ struct LumeApp: App {
                         // Import finished history and paused playback after restore,
                         // not just authorization: other devices' progress must reach
                         // Continue Watching without a trip to Settings.
+                        // Recovered positions are queued before the import, which
+                        // waits for queued changes: an older Trakt pause can't
+                        // overwrite the position that was just recovered.
                         Task {
                             let profileID = profileManager.activeProfileID
                             await TraktService.shared.restore()
                             guard !profileManager.isSwitching, profileManager.activeProfileID == profileID else { return }
+                            PlaybackRecovery.report(recoveredPlayback, to: [TraktService.shared], in: catalogContainer.mainContext)
                             await TraktService.shared.importWatched(into: catalogContainer.mainContext)
                         }
 
                         // Same for Simkl (a second tracker integration, AUTH V2
                         // device flow): refresh stale tokens, restore the username.
-                        Task { await SimklService.shared.restore() }
+                        Task {
+                            let profileID = profileManager.activeProfileID
+                            await SimklService.shared.restore()
+                            guard !profileManager.isSwitching, profileManager.activeProfileID == profileID else { return }
+                            PlaybackRecovery.report(recoveredPlayback, to: [SimklService.shared], in: catalogContainer.mainContext)
+                        }
 
                         // Restore the OpenSubtitles session (a keychain read, no
                         // network) so the in-player subtitle search can download

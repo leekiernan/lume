@@ -21,6 +21,22 @@ nonisolated enum TraktScrobbleAction: String, Equatable {
 nonisolated enum TraktScrobbleTarget: Equatable {
     case movie(tmdbID: Int)
     case episode(showTMDBID: Int, season: Int, episode: Int)
+
+    /// The playable form of a queued change's target; a whole show has none.
+    init?(_ target: TrackerMutation.Target) {
+        switch target {
+        case let .movie(tmdbID): self = .movie(tmdbID: tmdbID)
+        case let .episode(showTMDBID, season, episode): self = .episode(showTMDBID: showTMDBID, season: season, episode: episode)
+        case .show: return nil
+        }
+    }
+
+    var mutationTarget: TrackerMutation.Target {
+        switch self {
+        case let .movie(tmdbID): .movie(tmdbID: tmdbID)
+        case let .episode(showTMDBID, season, episode): .episode(showTMDBID: showTMDBID, season: season, episode: episode)
+        }
+    }
 }
 
 nonisolated struct TraktScrobbleEpisodePayload: Encodable {

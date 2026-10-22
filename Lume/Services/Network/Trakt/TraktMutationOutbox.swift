@@ -16,7 +16,8 @@ nonisolated struct TrackerMutation: Codable, Equatable, Identifiable {
         case history
         case watchlist
         /// Paused progress, which trackers keep apart from history: removing a
-        /// play leaves its resume point behind. Only removal is queued.
+        /// play leaves its resume point behind. Removal, or — for a position
+        /// recovered after a crash or kill — setting it (`progress`, `pausedAt`).
         case playback
     }
 
@@ -35,6 +36,10 @@ nonisolated struct TrackerMutation: Codable, Equatable, Identifiable {
     let enqueuedAt: Date
     var attemptCount: Int
     var lastAttemptAt: Date?
+    /// A playback set: the position, in percent, and when it was reached. A
+    /// tracker holding a newer pause for the title keeps that one.
+    var progress: Double?
+    var pausedAt: Date?
 
     init(
         id: UUID = UUID(),
@@ -43,7 +48,9 @@ nonisolated struct TrackerMutation: Codable, Equatable, Identifiable {
         isPresent: Bool,
         enqueuedAt: Date = Date(),
         attemptCount: Int = 0,
-        lastAttemptAt: Date? = nil
+        lastAttemptAt: Date? = nil,
+        progress: Double? = nil,
+        pausedAt: Date? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -52,6 +59,8 @@ nonisolated struct TrackerMutation: Codable, Equatable, Identifiable {
         self.enqueuedAt = enqueuedAt
         self.attemptCount = attemptCount
         self.lastAttemptAt = lastAttemptAt
+        self.progress = progress
+        self.pausedAt = pausedAt
     }
 
     /// Decode the history-only v1 shape as well as the generalized shape. This
@@ -66,6 +75,8 @@ nonisolated struct TrackerMutation: Codable, Equatable, Identifiable {
         enqueuedAt = try container.decode(Date.self, forKey: .enqueuedAt)
         attemptCount = try container.decode(Int.self, forKey: .attemptCount)
         lastAttemptAt = try container.decodeIfPresent(Date.self, forKey: .lastAttemptAt)
+        progress = try container.decodeIfPresent(Double.self, forKey: .progress)
+        pausedAt = try container.decodeIfPresent(Date.self, forKey: .pausedAt)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -77,10 +88,12 @@ nonisolated struct TrackerMutation: Codable, Equatable, Identifiable {
         try container.encode(enqueuedAt, forKey: .enqueuedAt)
         try container.encode(attemptCount, forKey: .attemptCount)
         try container.encodeIfPresent(lastAttemptAt, forKey: .lastAttemptAt)
+        try container.encodeIfPresent(progress, forKey: .progress)
+        try container.encodeIfPresent(pausedAt, forKey: .pausedAt)
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, kind, target, isPresent, watched, enqueuedAt, attemptCount, lastAttemptAt
+        case id, kind, target, isPresent, watched, enqueuedAt, attemptCount, lastAttemptAt, progress, pausedAt
     }
 
     var watched: Bool {
@@ -131,7 +144,9 @@ final class TrackerMutationOutbox {
         target: TrackerMutation.Target,
         isPresent: Bool,
         account: String,
-        now: Date = Date()
+        now: Date = Date(),
+        progress: Double? = nil,
+        pausedAt: Date? = nil
     ) -> TrackerMutation {
         let account = Self.normalize(account)
         var mutations = state.accounts[account] ?? []
@@ -140,7 +155,9 @@ final class TrackerMutationOutbox {
             kind: kind,
             target: target,
             isPresent: isPresent,
-            enqueuedAt: now
+            enqueuedAt: now,
+            progress: progress,
+            pausedAt: pausedAt
         )
         mutations.append(mutation)
         state.accounts[account] = mutations

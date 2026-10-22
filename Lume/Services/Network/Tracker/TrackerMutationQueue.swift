@@ -50,9 +50,12 @@ final class TrackerMutationQueue<Backend: TrackerAccountBackend> {
 
     /// Records the user's intent and starts sending it. A no-op until the
     /// account is known.
-    func enqueue(_ kind: TrackerMutation.Kind, _ target: TrackerMutation.Target, isPresent: Bool) {
+    func enqueue(
+        _ kind: TrackerMutation.Kind, _ target: TrackerMutation.Target, isPresent: Bool,
+        progress: Double? = nil, pausedAt: Date? = nil
+    ) {
         guard let account else { return }
-        outbox.enqueue(kind: kind, target: target, isPresent: isPresent, account: account)
+        outbox.enqueue(kind: kind, target: target, isPresent: isPresent, account: account, progress: progress, pausedAt: pausedAt)
         if kind == .watchlist {
             watchlist.reset(account: account)
             watchlist.apply(target, isPresent: isPresent)

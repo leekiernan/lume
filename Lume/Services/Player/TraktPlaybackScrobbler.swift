@@ -2,7 +2,8 @@
 //  TraktPlaybackScrobbler.swift
 //  Lume
 //
-//  Small playback-state machine that de-duplicates Trakt scrobble events.
+//  Small playback-state machine that de-duplicates scrobble events, for
+//  Trakt and Simkl alike: both take the same start, pause and stop.
 //
 
 import Foundation
@@ -24,6 +25,7 @@ final class TraktPlaybackScrobbler {
 
     init(send: @escaping Sender = { target, action, progress in
         TraktService.shared.scrobble(target, action: action, progress: progress)
+        SimklService.shared.scrobble(target, action: action, progress: progress)
     }) {
         self.send = send
     }

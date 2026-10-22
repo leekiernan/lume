@@ -85,8 +85,13 @@ struct SimklAccountBackend: TrackerAccountBackend {
         case .watchlist:
             return try await client.setWatchlist(mutation.target, watchlisted: mutation.isPresent, accessToken: accessToken)
         case .playback:
-            guard !mutation.isPresent else { return false }
-            try await client.removePausedProgress(of: mutation.target, accessToken: accessToken)
+            guard mutation.isPresent else {
+                try await client.removePausedProgress(of: mutation.target, accessToken: accessToken)
+                return true
+            }
+            guard let target = TraktScrobbleTarget(mutation.target), let progress = mutation.progress,
+                  let pausedAt = mutation.pausedAt else { return false }
+            try await client.recordPausedProgress(target, progress: progress, pausedAt: pausedAt, accessToken: accessToken)
             return true
         case .history:
             break

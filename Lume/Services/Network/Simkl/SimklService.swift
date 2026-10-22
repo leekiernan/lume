@@ -87,6 +87,7 @@ final class SimklService {
     private var importContext: ModelContext?
 
     private let client: SimklClient
+    private var scrobbleTask: Task<Void, Never>?
 
     init(client: SimklClient = .shared, outbox: TrackerMutationOutbox? = nil) {
         self.client = client
@@ -171,6 +172,8 @@ final class SimklService {
         watchlistTask?.cancel()
         watchlistTask = nil
         watchlistTaskID = nil
+        scrobbleTask?.cancel()
+        scrobbleTask = nil
         mutations.reset()
         await session.disconnect()
         // Parked watched state belongs to the account that was just signed out.
@@ -209,6 +212,21 @@ final class SimklService {
         mutations.enqueue(.playback, .episode(showTMDBID: showTMDBID, season: episode.seasonNum, episode: episode.episodeNum), isPresent: false)
     }
 
+    /// Queues a recovered position for Simkl. Durable, unlike a scrobble: it
+    /// waits for the account to connect and survives another relaunch.
+    func recordPausedProgress(movie: Movie, progress: Double, pausedAt: Date) {
+        guard let tmdbID = movie.tmdbId else { return }
+        mutations.enqueue(.playback, .movie(tmdbID: tmdbID), isPresent: true, progress: progress, pausedAt: pausedAt)
+    }
+
+    func recordPausedProgress(episode: Episode, progress: Double, pausedAt: Date) {
+        guard let showTMDBID = episode.series?.tmdbId else { return }
+        mutations.enqueue(
+            .playback, .episode(showTMDBID: showTMDBID, season: episode.seasonNum, episode: episode.episodeNum),
+            isPresent: true, progress: progress, pausedAt: pausedAt
+        )
+    }
+
     /// Retries the connected account's durable mutations, oldest first.
     func retryPendingMutations() {
         mutations.retry()
@@ -216,11 +234,37 @@ final class SimklService {
 
     // MARK: - Playback scrobbling
 
-    /// Simkl deliberately has no playback implementation yet. Keeping the
-    /// same API as Trakt lets a tracker dispatcher call both services without
-    /// claiming that old start/pause events are durable user intent.
+    /// Sends a start, pause or stop for the connected account, as Trakt's
+    /// does: transient, in order, under background time so the stop sent as
+    /// the app leaves the foreground still lands. Replaying an old lifecycle
+    /// event after relaunch would fake a "watching now" session, so these are
+    /// never queued; a crash-recovered position goes through the queue as a
+    /// pause instead (`recordPausedProgress`).
     func scrobble(_ target: TraktScrobbleTarget, action: TraktScrobbleAction, progress: Double) {
-        _ = (target, action, progress)
+        guard isConnected else { return }
+        let previous = scrobbleTask
+        let permit = session.operationPermit
+        let backgroundTime = ScrobbleBackgroundTime.begin()
+        scrobbleTask = Task { [weak self] in
+            defer { backgroundTime.end() }
+            await previous?.value
+            guard !Task.isCancelled, let self, permit.isCurrent else { return }
+            guard let accessToken = await permit.accessToken(using: session.operationAccessToken) else {
+                Logger.network.warning("Simkl scrobble \(action.rawValue, privacy: .public) dropped: no valid access token")
+                return
+            }
+            do {
+                let recorded = try await client.scrobble(target, action: action, progress: progress, accessToken: accessToken)
+                Logger.network.info(
+                    "Simkl scrobble \(action.rawValue, privacy: .public) at \(progress, format: .fixed(precision: 1))% → recorded \(recorded.action ?? "?", privacy: .public)"
+                )
+            } catch {
+                let detail = LogRedaction.describe(error)
+                Logger.network.warning(
+                    "Simkl scrobble \(action.rawValue, privacy: .public) at \(progress, format: .fixed(precision: 1))% failed: \(detail, privacy: .public)"
+                )
+            }
+        }
     }
 
     // MARK: - Watchlist

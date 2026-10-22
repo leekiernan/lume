@@ -97,6 +97,10 @@ struct PlaybackSessionMachine: Equatable {
         /// saving at once merged into the main context just as the next stream
         /// opened, re-running the Live TV queries under the player.
         case persistProgress(holdingLive: Bool)
+        /// Write the position to the crash-recovery buffer synchronously,
+        /// before the store save: leaving the foreground, tvOS may suspend and
+        /// then kill the app before that save runs (`WatchProgressBuffer`).
+        case stashProgress
         case fallBackToNextEngine
     }
 
@@ -160,7 +164,7 @@ struct PlaybackSessionMachine: Equatable {
     private mutating func leave(_ reason: Leave) -> [Effect] {
         switch reason {
         case .background:
-            return [.persistProgress(holdingLive: false)]
+            return [.stashProgress, .persistProgress(holdingLive: false)]
         case .swap:
             state = .idle
             settled = nil

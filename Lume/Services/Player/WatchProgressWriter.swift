@@ -70,6 +70,39 @@ actor WatchProgressWriter {
         self.save = save
     }
 
+    /// A position a crashed or killed session buffered but never saved, now
+    /// written; `change` is set when it crossed the watched line.
+    struct Recovered {
+        let ref: PlayableMedia.ContentRef
+        let progress: TimeInterval
+        let duration: TimeInterval
+        let recordedAt: Date
+        let change: WatchedChange?
+    }
+
+    /// Commits what `WatchProgressBuffer` still holds for the active profile —
+    /// left by a crash or a kill mid-playback — at the time it was sampled.
+    /// Runs once at launch, off the main thread, so its one store merge lands
+    /// before playback starts. Returns what was written, for the trackers.
+    static func reconcilePending(
+        container: ModelContainer, scope: ProfileScope = .current, defaults: UserDefaults = .standard
+    ) async -> [Recovered] {
+        let entries = WatchProgressBuffer.drain(profileID: scope.profileID, defaults: defaults)
+        guard !entries.isEmpty else { return [] }
+        let writer = WatchProgressWriter(container: container, scope: scope)
+        var recovered: [Recovered] = []
+        for entry in entries {
+            let change = await writer.record(
+                ref: entry.contentRef, progress: entry.progress, duration: entry.duration, recordedAt: entry.recordedAt
+            )
+            recovered.append(Recovered(
+                ref: entry.contentRef, progress: entry.progress, duration: entry.duration,
+                recordedAt: entry.recordedAt, change: change
+            ))
+        }
+        return recovered
+    }
+
     /// Write `progress` for `ref` and return a `WatchedChange` if the item just
     /// became watched (`WatchCompletion.threshold`) or a rewatch reopened it.
     @discardableResult

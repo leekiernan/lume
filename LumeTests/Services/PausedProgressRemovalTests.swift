@@ -8,9 +8,15 @@ private final nonisolated class PlaybackStub: URLProtocol {
     private nonisolated(unsafe) static var listing = "[]"
     private nonisolated(unsafe) static var missingID: String?
     private nonisolated(unsafe) static var requests: [URLRequest] = []
+    private nonisolated(unsafe) static var bodies: [Data] = []
 
     static func reset(listing: String, missingID: String? = nil) {
-        lock.withLock { Self.listing = listing; Self.missingID = missingID; requests = [] }
+        lock.withLock { Self.listing = listing; Self.missingID = missingID; requests = []; bodies = [] }
+    }
+
+    /// The JSON bodies sent, in order.
+    static var sentBodies: [[String: Any]] {
+        lock.withLock { bodies.compactMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } }
     }
 
     static var recorded: [String] {
@@ -30,13 +36,19 @@ private final nonisolated class PlaybackStub: URLProtocol {
     override func startLoading() {
         let (listing, missingID) = Self.lock.withLock { () -> (String, String?) in
             Self.requests.append(request)
+            if let body = request.bodyData { Self.bodies.append(body) }
             return (Self.listing, Self.missingID)
         }
         let isDelete = request.httpMethod == "DELETE"
-        let status = isDelete ? (request.url?.lastPathComponent == missingID ? 404 : 204) : 200
+        let isPost = request.httpMethod == "POST"
+        let status = isDelete ? (request.url?.lastPathComponent == missingID ? 404 : 204) : isPost ? 201 : 200
         let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-        if !isDelete { client?.urlProtocol(self, didLoad: Data(listing.utf8)) }
+        if isPost {
+            client?.urlProtocol(self, didLoad: Data(#"{"action":"pause","progress":42}"#.utf8))
+        } else if !isDelete {
+            client?.urlProtocol(self, didLoad: Data(listing.utf8))
+        }
         client?.urlProtocolDidFinishLoading(self)
     }
 
@@ -105,5 +117,67 @@ struct PausedProgressRemovalTests {
         let backend = SimklAccountBackend(client: SimklClient(session: session, clientID: "test"))
         #expect(try await backend.deliver(Self.movie, accessToken: "token"))
         #expect(PlaybackStub.recorded == ["GET /sync/playback"])
+    }
+
+    // MARK: - Recovered positions
+
+    private static func recovered(_ target: TrackerMutation.Target, pausedAt: Date) -> TrackerMutation {
+        TrackerMutation(kind: .playback, target: target, isPresent: true, progress: 42, pausedAt: pausedAt)
+    }
+
+    /// The listings above were paused in 2024 (Simkl) and 2026-10 (Trakt).
+    @Test func `a recovered position is sent to Trakt when its pause is older`() async throws {
+        PlaybackStub.reset(listing: Self.traktListing)
+        let client = TraktClient(session: session, clientID: "test", clientSecret: "test")
+        let target = TrackerMutation.Target.episode(showTMDBID: 1396, season: 1, episode: 5)
+        #expect(try await client.apply(Self.recovered(target, pausedAt: Date(timeIntervalSince1970: 1_900_000_000)), accessToken: "token"))
+        #expect(PlaybackStub.recorded.last == "POST /scrobble/pause")
+        #expect(PlaybackStub.sentBodies.last?["progress"] as? Double == 42)
+    }
+
+    @Test func `a newer Trakt pause from elsewhere is kept`() async throws {
+        PlaybackStub.reset(listing: Self.traktListing)
+        let client = TraktClient(session: session, clientID: "test", clientSecret: "test")
+        let target = TrackerMutation.Target.episode(showTMDBID: 1396, season: 1, episode: 5)
+        #expect(try await client.apply(Self.recovered(target, pausedAt: Date(timeIntervalSince1970: 1_700_000_000)), accessToken: "token"))
+        #expect(!PlaybackStub.recorded.contains { $0.hasPrefix("POST") })
+    }
+
+    @Test func `a recovered position is sent to Simkl when its pause is older`() async throws {
+        PlaybackStub.reset(listing: Self.simklListing)
+        let backend = SimklAccountBackend(client: SimklClient(session: session, clientID: "test"))
+        #expect(try await backend.deliver(Self.recovered(.movie(tmdbID: 27205), pausedAt: Date(timeIntervalSince1970: 1_900_000_000)), accessToken: "token"))
+        #expect(PlaybackStub.recorded == ["GET /sync/playback", "POST /scrobble/pause"])
+        let body = try #require(PlaybackStub.sentBodies.last)
+        #expect(body["progress"] as? Double == 42)
+        #expect((body["movie"] as? [String: Any]).flatMap { $0["ids"] as? [String: Int] }?["tmdb"] == 27205)
+    }
+
+    @Test func `a newer Simkl pause from elsewhere is kept`() async throws {
+        PlaybackStub.reset(listing: Self.simklListing)
+        let backend = SimklAccountBackend(client: SimklClient(session: session, clientID: "test"))
+        #expect(try await backend.deliver(Self.recovered(.movie(tmdbID: 27205), pausedAt: Date(timeIntervalSince1970: 1_600_000_000)), accessToken: "token"))
+        #expect(PlaybackStub.recorded == ["GET /sync/playback"])
+    }
+
+    /// Simkl's episodes are a show plus season and number, beside progress.
+    @Test func `a Simkl episode scrobble names the show and episode`() async throws {
+        PlaybackStub.reset(listing: "[]")
+        let client = SimklClient(session: session, clientID: "test")
+        try await client.scrobble(.episode(showTMDBID: 1396, season: 2, episode: 3), action: .start, progress: 12.345, accessToken: "token")
+        #expect(PlaybackStub.recorded == ["POST /scrobble/start"])
+        let body = try #require(PlaybackStub.sentBodies.last)
+        #expect(body["progress"] as? Double == 12.35)
+        #expect((body["episode"] as? [String: Int]) == ["season": 2, "number": 3])
+        #expect(body["movie"] == nil)
+    }
+
+    /// An abandoned start leaves no resume point: the stop Simkl keeps as a
+    /// pause below 80% is removed.
+    @Test func `a Simkl discard removes the pause its stop leaves`() async throws {
+        PlaybackStub.reset(listing: Self.simklListing)
+        let client = SimklClient(session: session, clientID: "test")
+        try await client.scrobble(.movie(tmdbID: 27205), action: .discard, progress: 0.5, accessToken: "token")
+        #expect(PlaybackStub.recorded == ["POST /scrobble/stop", "GET /sync/playback", "DELETE /sync/playback/124"])
     }
 }

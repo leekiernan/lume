@@ -29,6 +29,8 @@ extension FullScreenPlayerView {
                 }
             case let .persistProgress(holdingLive):
                 persistProgressDetached(holdingLive: holdingLive)
+            case .stashProgress:
+                bufferProgress(waitUntilWritten: true)
             case .fallBackToNextEngine:
                 fallBackToNextEngine()
             }

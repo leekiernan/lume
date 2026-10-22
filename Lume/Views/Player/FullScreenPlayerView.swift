@@ -364,9 +364,17 @@ struct FullScreenPlayerView: View {
             )
         }
         .task {
-            // No periodic sampling: progress is saved only at playback
-            // boundaries (see `persistProgressDetached`).
             progressWriter = WatchProgressWriter(container: modelContext.container)
+            // Sample into `WatchProgressBuffer` (UserDefaults), never SwiftData:
+            // a store save mid-playback makes the main context merge and re-run
+            // every mounted `@Query`, which hitched KSPlayer. The buffer is what
+            // a crash or kill leaves for the next launch to recover; the store
+            // is written at boundaries (`persistProgressDetached`).
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(Self.progressSampleInterval))
+                guard !Task.isCancelled else { break }
+                bufferProgress()
+            }
         }
         .onChange(of: scenePhase) { _, phase in
             // Leaving the foreground is a safe moment to flush; covers the user
@@ -531,54 +539,6 @@ struct FullScreenPlayerView: View {
         #else
             dismiss()
         #endif
-    }
-
-    /// Commit the current progress to SwiftData off the main thread. Progress is
-    /// saved only at playback boundaries — leaving the foreground, a stream
-    /// change, close — never on a timer, where even a background-context save
-    /// makes the main context merge and re-run every `@Query` on `Movie`/
-    /// `Episode`/`Series` mid-playback. So a crash loses the progress since the
-    /// last boundary; that is by design, to keep CPU off the playback path.
-    /// Captures the clock synchronously *before* awaiting, so a subsequent
-    /// `clock.reset()` can't race the read.
-    func persistProgressDetached(holdingLive: Bool = false) {
-        guard let writer = progressWriter, writer.scope.isCurrent else { return }
-        let ref = activeMedia.contentRef
-        // An explicit "next episode" already settled this stream at its full
-        // duration. Recording the position it was skipped from would walk that
-        // back to unwatched, so the completion stands and this flush stands down.
-        if ref == completedRef { return }
-        let now = clock.elapsed(fallback: activeMedia.startTime)
-        let total = clock.duration
-        let recordedAt = Date.now
-        let isExit = session.state == .closed || session.state == .idle
-        let discardEarly = isExit && PlaybackResumePolicy.discardsProgress(position: now, duration: total)
-        // What was written, so a resume point that looks wrong can be checked
-        // against a diagnostics report.
-        Logger.player.info("progress saved: \(now, format: .fixed(precision: 1))s of \(total, format: .fixed(precision: 0))s")
-        // The screen reopening this title reads a model that may not have
-        // caught up with the write below yet — see `RecentResumePoints`.
-        if discardEarly {
-            RecentResumePoints.record(0, for: ref, profileID: writer.scope.profileID)
-        } else if now > 0 {
-            RecentResumePoints.record(now, for: ref, profileID: writer.scope.profileID)
-        }
-        // Held so `endReviewSession` can await it: `writer` is an actor, so the
-        // await below suspends, and without the handle the review policy would
-        // read `completedTitles` before this task increments it — the third
-        // finished title would then only arm the *next* session.
-        let previous = pendingProgressWrite
-        pendingProgressWrite = Task { @MainActor in
-            await previous?.value
-            guard writer.scope.isCurrent else { return }
-            if discardEarly, MediaWatchState.discardEarlyProgress(ref: ref, position: now, duration: total, in: modelContext) {
-                Logger.player.info("early exit: resume progress cleared (below 1%)")
-                return
-            }
-            if let change = await writer.record(ref: ref, progress: now, duration: total, holdLive: holdingLive, recordedAt: recordedAt) {
-                applyWatchedChange(change)
-            }
-        }
     }
 }
 

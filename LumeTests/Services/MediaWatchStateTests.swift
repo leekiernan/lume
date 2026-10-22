@@ -200,6 +200,10 @@ struct MediaWatchStateTests {
 
         func clearPausedProgress(episode _: Episode) {}
 
+        func recordPausedProgress(movie _: Movie, progress _: Double, pausedAt _: Date) {}
+
+        func recordPausedProgress(episode _: Episode, progress _: Double, pausedAt _: Date) {}
+
         func retryPendingMutations() {}
     }
 }

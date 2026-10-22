@@ -165,7 +165,7 @@ struct PlaybackSessionMachineTests {
 
     @Test func `backgrounding saves progress and carries on`() {
         var machine = playingOnKS()
-        #expect(machine.handle(.leave(.background)) == [.persistProgress(holdingLive: false)])
+        #expect(machine.handle(.leave(.background)) == [.stashProgress, .persistProgress(holdingLive: false)])
         #expect(machine.state == .playing)
     }
 
