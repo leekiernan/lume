@@ -158,6 +158,8 @@ struct FullScreenPlayerView: View {
     /// can run several player scenes, which are genuinely independent.
     @State var mediaSwapper = PlayerMediaSwapper()
     @State var pendingSourceSwitch: PlayerSourceSwitch.Request?
+    /// When a grouped live channel drops to a lower quality on its own.
+    @State var qualityStepDown = LiveQualityStepDown()
 
     /// What the viewer may watch. Read in the host, not in each engine view:
     /// neighbours resolve once per stream.
