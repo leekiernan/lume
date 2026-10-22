@@ -40,9 +40,10 @@ struct HomeHeroCarousel: View {
 struct HomeHeroWarmStart: View {
     let backdropURL: URL?
     var posterURL: URL?
+    @Environment(\.heroViewportHeight) private var viewportHeight
 
     var body: some View {
-        HeroCarouselFrame(portraitComposition: true) {
+        HeroCarouselFrame(portraitComposition: true, viewportHeight: viewportHeight) {
             ZStack(alignment: .bottomLeading) {
                 HeroArtworkRegion(managesComposition: true) {
                     HeroBackdrop(url: backdropURL, posterURL: posterURL)

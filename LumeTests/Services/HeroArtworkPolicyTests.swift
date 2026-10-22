@@ -46,6 +46,18 @@ struct HeroArtworkPolicyTests {
         #expect(HeroArtworkPolicy.heroHeight(width: 1920, portraitComposition: true) == 800)
     }
 
+    @Test func `heroes never run past the scroll view that shows them`() {
+        // A closed iPhone Duo: 466 x 678 pt.
+        #expect(HeroArtworkPolicy.heroHeight(width: 466, portraitComposition: true, viewportHeight: 678) == 678)
+        // A landscape iPhone, which is wide enough for the 800 pt hero.
+        #expect(HeroArtworkPolicy.heroHeight(width: 874, viewportHeight: 402) == 402)
+        // A tall viewport changes nothing; an unmeasured one neither.
+        #expect(HeroArtworkPolicy.heroHeight(width: 390, portraitComposition: true, viewportHeight: 844) == 675)
+        #expect(HeroArtworkPolicy.heroHeight(width: 1024, viewportHeight: 0) == 800)
+        // Never so short that the title and buttons stop fitting.
+        #expect(HeroArtworkPolicy.heroHeight(width: 874, viewportHeight: 200) == HeroArtworkPolicy.minHeroHeight)
+    }
+
     @Test func `only narrow heroes select portrait artwork`() throws {
         let poster = try #require(URL(string: "https://image.tmdb.org/t/p/original/poster.jpg"))
         #expect(HeroArtworkPolicy.portraitURL(poster, width: 390) == poster)

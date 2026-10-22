@@ -247,6 +247,7 @@ struct SportsHubView: View {
             .padding(.top, carouselCandidates.isEmpty ? PosterCardMetrics.sectionVerticalPadding : 0)
             .padding(.bottom, PosterCardMetrics.sectionVerticalPadding)
         }
+        .heroViewport()
         .ignoresSafeArea(edges: carouselCandidates.isEmpty ? [] : .top)
         // All slides and the displayed highlights rail refresh with the rows;
         // later-week fixtures can gain a channel once the guide reaches them.

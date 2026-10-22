@@ -14,6 +14,7 @@ struct HeroCarousel<Item: Identifiable, Backdrop: View, Info: View>: View where 
     @State private var currentID: String?
     @State private var artworkSize: CGSize = .zero
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.heroViewportHeight) private var viewportHeight
     @State private var isInteracting = false
     /// False while the hero is scrolled out of view, so the carousel doesn't
     /// page (and animate the crossfade + loading bar) where nobody can see it.
@@ -77,7 +78,7 @@ struct HeroCarousel<Item: Identifiable, Backdrop: View, Info: View>: View where 
     }
 
     var body: some View {
-        HeroCarouselFrame(portraitComposition: portraitURL != nil) {
+        HeroCarouselFrame(portraitComposition: portraitURL != nil, viewportHeight: viewportHeight) {
             GeometryReader { proxy in
                 let width = proxy.size.width
                 let isCompact = HeroArtworkPolicy.isCompact(width: width)
@@ -110,8 +111,10 @@ struct HeroCarousel<Item: Identifiable, Backdrop: View, Info: View>: View where 
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     #endif
                 }
+                // Not clipped: the artwork's background extension has to reach
+                // past this frame into the safe area. The paging scroll view
+                // and each `HeroArtworkRegion` already clip their own artwork.
                 .frame(width: width, height: proxy.size.height)
-                .clipped()
                 .contentShape(Rectangle())
                 .animation(.easeInOut(duration: 0.35), value: currentItemID)
             }
@@ -187,6 +190,10 @@ struct HeroCarousel<Item: Identifiable, Backdrop: View, Info: View>: View where 
             .scrollTargetBehavior(.paging)
             .scrollPosition(id: $currentID)
             .scrollIndicators(.hidden)
+            // The scroll content stops at the safe area; extend the artwork
+            // under a landscape iPhone's sensor housing and an iPhone Duo's
+            // trailing status column.
+            .backgroundExtensionEffectIfAvailable()
             .onScrollPhaseChange { _, newPhase, _ in
                 // Only user-driven scrolling pauses auto-advance; `.animating` is
                 // our own programmatic paging, which once latched this `true` forever.
@@ -299,11 +306,15 @@ struct HeroCarousel<Item: Identifiable, Backdrop: View, Info: View>: View where 
 }
 
 /// Width-aware geometry without a measurement/update loop or first-frame jump.
+/// The viewport cap comes from the scroll view around the hero (`heroViewport()`),
+/// never from the hero's own size.
 struct HeroCarouselFrame: Layout {
     var portraitComposition = false
+    var viewportHeight: CGFloat = 0
     func sizeThatFits(proposal: ProposedViewSize, subviews _: Subviews, cache _: inout ()) -> CGSize {
         let width = proposal.width ?? HeroArtworkPolicy.compactWidthThreshold
-        return CGSize(width: width, height: HeroArtworkPolicy.heroHeight(width: width, portraitComposition: portraitComposition))
+        let height = HeroArtworkPolicy.heroHeight(width: width, portraitComposition: portraitComposition, viewportHeight: viewportHeight)
+        return CGSize(width: width, height: height)
     }
 
     func placeSubviews(in bounds: CGRect, proposal _: ProposedViewSize, subviews: Subviews, cache _: inout ()) {

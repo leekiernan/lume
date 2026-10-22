@@ -40,11 +40,24 @@ nonisolated enum HeroArtworkPolicy {
         return TMDBArtworkURL.resized(url, to: size)
     }
 
+    /// Below this the overlay's title and buttons no longer fit.
+    static let minHeroHeight: CGFloat = 320
+
     /// Stable from the first layout pass, including the warm-start placeholder.
-    static func heroHeight(width: CGFloat, portraitComposition: Bool = false) -> CGFloat {
-        guard isCompact(width: width) else { return 800 }
-        let baseline = max(540, width / landscapeRatio + 320)
-        return portraitComposition ? min(780, baseline * portraitZoom) : baseline
+    /// Never taller than the scroll view showing it (`viewportHeight`, 0 until
+    /// measured): a landscape iPhone or a closed iPhone Duo (678 pt) is shorter
+    /// than the width-derived height, which pushed the title and Play below
+    /// the fold.
+    static func heroHeight(width: CGFloat, portraitComposition: Bool = false, viewportHeight: CGFloat = 0) -> CGFloat {
+        let height: CGFloat
+        if isCompact(width: width) {
+            let baseline = max(540, width / landscapeRatio + 320)
+            height = portraitComposition ? min(780, baseline * portraitZoom) : baseline
+        } else {
+            height = 800
+        }
+        guard viewportHeight > 0 else { return height }
+        return max(min(height, viewportHeight), minHeroHeight)
     }
 
     /// Preserve the complete landscape composition above compact hero copy.
