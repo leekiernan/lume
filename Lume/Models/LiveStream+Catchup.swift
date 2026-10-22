@@ -26,17 +26,37 @@ nonisolated enum CatchupWindow {
 }
 
 extension LiveStream {
-    /// Whether the channel can serve catch-up at all: it advertises an archive
+    /// Whether this stream itself can serve catch-up: it advertises an archive
     /// and is an Xtream stream (catch-up URLs need credentials, so an m3u
     /// channel with a `directURL` can't be replayed even if it claims one).
-    var supportsCatchup: Bool {
+    /// Only building the catch-up URL asks this; everything the viewer sees
+    /// asks `supportsCatchup`.
+    var hasOwnArchive: Bool {
         tvArchive > 0 && directURL == nil
     }
 
-    /// How many days the archive reaches back. Providers sometimes advertise an
-    /// archive with a zero duration; treat that as one day, as playback does.
-    var catchupArchiveDays: Int {
+    /// How far this stream's own archive reaches back. Providers sometimes
+    /// advertise an archive with a zero duration; treat that as one day, as
+    /// playback does.
+    var ownArchiveDays: Int {
         max(1, tvArchiveDuration)
+    }
+
+    func ownArchiveContains(start: Date, now: Date) -> Bool {
+        hasOwnArchive && CatchupWindow.contains(start: start, archiveDays: ownArchiveDays, now: now)
+    }
+
+    /// Whether the channel can serve catch-up at all — through this stream,
+    /// or for a channel listed in several qualities, any of them
+    /// (`variantArchiveDays`): replaying plays the quality that has it.
+    var supportsCatchup: Bool {
+        hasOwnArchive || variantArchiveDays != nil
+    }
+
+    /// How many days the channel's archive reaches back: the longest of its
+    /// qualities'.
+    var catchupArchiveDays: Int {
+        max(hasOwnArchive ? ownArchiveDays : 1, variantArchiveDays ?? 1)
     }
 
     /// Whether a programme that started at `start` is replayable at `now`.

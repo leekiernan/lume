@@ -96,7 +96,8 @@ struct LiveChannelVariantsStoreTests {
         #expect(sources.current.title == "FHD 50FPS")
         #expect(sources.alternatives.map(\.source.title) == ["FHD", "HD", "UHD"])
         #expect(sources.alternatives.allSatisfy { $0.media.channelRowID == row.id })
-        #expect(sources.alternatives.allSatisfy(\.media.isLive))
+        let allLive = sources.alternatives.allSatisfy(\.media.isLive)
+        #expect(allLive)
     }
 
     @Test func `changing quality leaves recall on the channel before`() throws {
@@ -147,6 +148,56 @@ struct LiveChannelVariantsStoreTests {
         #expect(stepped.progressRef == .live(all[1].id))
         #expect(stepped.channelRowID == all[0].id)
         #expect(fhd.asQuality(anchoredAt: all[0].id).progressRef == .live(all[2].id))
+    }
+
+    /// Gives `names` a catch-up archive and regroups, as an import would.
+    private func archive(_ names: [String], days: Int, in world: World) throws {
+        let context = world.context()
+        for name in names {
+            let stream = try world.stream(name, in: context)
+            stream.tvArchive = 1
+            stream.tvArchiveDuration = days
+        }
+        try context.save()
+        LiveChannelVariants.reconcile(playlistID: world.playlist.id, container: world.container)
+    }
+
+    @Test func `a channel offers catch-up when any of its qualities has it`() throws {
+        let world = try makeWorld()
+        try archive(["Sky Sports F1 HD"], days: 7, in: world)
+        let row = try world.stream("Sky Sports F1 UHD", in: world.context())
+        #expect(row.supportsCatchup)
+        #expect(row.catchupArchiveDays == 7)
+        #expect(!row.hasOwnArchive)
+        let golf = try world.stream("Sky Sports Golf HD", in: world.context())
+        #expect(!golf.supportsCatchup)
+    }
+
+    @Test func `catch-up replays from a quality with the archive, anchored to the row`() throws {
+        let world = try makeWorld()
+        try archive(["Sky Sports F1 HD"], days: 7, in: world)
+        let row = try world.stream("Sky Sports F1 UHD", in: world.context())
+        let start = Date.now.addingTimeInterval(-3600)
+        let media = try #require(PlayableMedia.catchup(
+            stream: row, playlist: world.playlist, programTitle: "Qualifying", start: start, end: start.addingTimeInterval(3600)
+        ))
+        let archived = try world.stream("Sky Sports F1 HD", in: world.context())
+        #expect(media.contentRef == .live(archived.id))
+        #expect(media.channelRowID == row.id)
+    }
+
+    @Test func `catch-up keeps the channel's own pick when that quality has the archive`() throws {
+        let world = try makeWorld()
+        try archive(["Sky Sports F1 HD", "Sky Sports F1 FHD 50FPS"], days: 3, in: world)
+        let context = world.context()
+        let row = try world.stream("Sky Sports F1 UHD", in: context)
+        let start = Date.now.addingTimeInterval(-3600)
+        let media = PlayableMedia.catchup(
+            stream: row, playlist: world.playlist, programTitle: "Race", start: start, end: start.addingTimeInterval(3600)
+        )
+        #expect(media?.title == "Sky Sports F1 FHD 50FPS")
+        let tooOld = Date.now.addingTimeInterval(-5 * 86400)
+        #expect(!row.isCatchupAvailable(start: tooOld, now: .now))
     }
 
     @Test func `regrouping clears a channel that lost its other qualities`() throws {

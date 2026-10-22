@@ -114,6 +114,8 @@ extension FullScreenPlayerView {
             catchupRestartCount += 1
             return
         }
-        switchMedia(to: segment)
+        // Still the row the programme was opened from, when it replays from
+        // one of a channel's qualities.
+        switchMedia(to: activeMedia.channelAnchorID == nil ? segment : segment.asQuality(anchoredAt: activeMedia.channelAnchorID))
     }
 }

@@ -60560,6 +60560,7 @@
       }
     },
     "Standard" : {
+      "comment" : "A live channel's quality whose name carries no quality tag",
       "localizations" : {
         "de" : {
           "stringUnit" : {

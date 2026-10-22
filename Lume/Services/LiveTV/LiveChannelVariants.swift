@@ -32,7 +32,7 @@ import SwiftData
 nonisolated enum LiveChannelVariants {
     /// Bumped when the grouping rules change, so the launch backfill regroups
     /// stores grouped under the old ones.
-    static let version = 1
+    static let version = 2
 
     struct Member {
         let id: String
@@ -40,12 +40,15 @@ nonisolated enum LiveChannelVariants {
         let categoryID: String?
         let num: Int
         let isHidden: Bool
+        /// Days of catch-up archive this stream serves itself, nil for none.
+        var archiveDays: Int?
     }
 
     struct Assignment: Equatable {
         var key: String?
         var isFollower = false
         var qualities: String?
+        var archiveDays: Int?
 
         static let none = Assignment()
     }
@@ -74,10 +77,11 @@ nonisolated enum LiveChannelVariants {
         var result: [String: Assignment] = [:]
         for (key, group) in groups where Set(group.map(\.1.tagIdentity)).count > 1 {
             let qualities = badge(group.map(\.1.quality))
+            let archive = group.compactMap(\.0.archiveDays).max()
             for category in Dictionary(grouping: group, by: { $0.0.categoryID }).values {
                 let lead = category.min { precedes($0.0, $1.0) }?.0.id
                 for (member, _) in category {
-                    result[member.id] = Assignment(key: key, isFollower: member.id != lead, qualities: qualities)
+                    result[member.id] = Assignment(key: key, isFollower: member.id != lead, qualities: qualities, archiveDays: archive)
                 }
             }
         }
@@ -117,16 +121,19 @@ nonisolated enum LiveChannelVariants {
                 return
             }
             let assignments = assignments(for: streams.map {
-                Member(id: $0.id, name: $0.name, categoryID: $0.categoryId, num: $0.num, isHidden: $0.isHidden)
+                Member(id: $0.id, name: $0.name, categoryID: $0.categoryId, num: $0.num, isHidden: $0.isHidden,
+                       archiveDays: $0.hasOwnArchive ? $0.ownArchiveDays : nil)
             })
             var changed = 0
             for stream in streams {
                 let wanted = assignments[stream.id] ?? .none
                 guard stream.variantKey != wanted.key || stream.isVariantFollower != wanted.isFollower
-                    || stream.variantQualities != wanted.qualities else { continue }
+                    || stream.variantQualities != wanted.qualities || stream.variantArchiveDays != wanted.archiveDays
+                else { continue }
                 stream.variantKey = wanted.key
                 stream.isVariantFollower = wanted.isFollower
                 stream.variantQualities = wanted.qualities
+                stream.variantArchiveDays = wanted.archiveDays
                 changed += 1
             }
             if context.hasChanges { try? context.save() }
@@ -192,6 +199,22 @@ nonisolated extension LiveChannelVariants {
             ?? ranked(candidates).first
             ?? stream
         return Tuning(play: pick, anchorID: anchor)
+    }
+
+    /// The quality a programme starting at `start` replays from: the one the
+    /// channel opens in, if its archive reaches back that far; else `stream`
+    /// itself; else the best for the screen of those whose archive does.
+    /// Catch-up is one stream's archive, so the player offers no other
+    /// quality while it plays.
+    static func catchupSource(for stream: LiveStream, playlist: Playlist, start: Date, now: Date) -> Tuning {
+        guard stream.variantKey != nil, let context = stream.modelContext else { return Tuning(play: stream, anchorID: nil) }
+        let tuned = tuning(stream, playlist: playlist)
+        if tuned.play.ownArchiveContains(start: start, now: now) { return tuned }
+        if stream.ownArchiveContains(start: start, now: now) { return Tuning(play: stream, anchorID: tuned.anchorID) }
+        let members = members(of: stream, prefix: playlist.contentIDPrefix, in: context)
+        let blocked = blockedCategories(of: members, in: context)
+        let archived = members.filter { !blocked.contains($0.categoryId ?? "") && $0.ownArchiveContains(start: start, now: now) }
+        return Tuning(play: ranked(archived).first ?? stream, anchorID: tuned.anchorID)
     }
 
     /// Every visible quality of `stream`'s channel in its playlist, `stream`

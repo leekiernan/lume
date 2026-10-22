@@ -85,15 +85,25 @@ struct TitleSourceHost<Page: View>: View {
 /// with what its stream is underneath; choosing one plays it.
 struct TitleSourceButton: View {
     let selection: TitleSourceSelection
+
+    var body: some View {
+        TitleSourceMenuButton(sources: selection.sources, current: selection.current) { selection.pick($0) }
+    }
+}
+
+/// The Source button itself, for any list of copies: a title's on its detail
+/// page, a live channel's qualities on its programme sheet.
+struct TitleSourceMenuButton: View {
+    let sources: [TitleSource]
+    let current: TitleSource
+    let choose: (TitleSource) -> Void
     @Environment(\.modelContext) private var modelContext
     /// Loaded with the page: a menu can't say when it opens.
     @State private var details = StreamDetailsLoader()
 
     var body: some View {
         Menu {
-            TitleSourceMenuItems(sources: selection.sources, current: selection.current.id, details: details) { source in
-                selection.pick(source)
-            }
+            TitleSourceMenuItems(sources: sources, current: current.id, details: details, choose: choose)
         } label: {
             Image(systemName: "square.stack")
             #if !os(tvOS)
@@ -110,9 +120,9 @@ struct TitleSourceButton: View {
         #else
             .buttonStyle(.bordered)
         #endif
-            .accessibilityLabel(Text("Source: \(selection.current.title)"))
+            .accessibilityLabel(Text("Source: \(current.title)"))
             .accessibilityHint(Text("Choose which copy to play"))
-            .task { await details.load(selection.sources, in: modelContext) }
+            .task { await details.load(sources, in: modelContext) }
     }
 }
 

@@ -341,6 +341,10 @@ nonisolated extension PlayableMedia {
     /// scrubber rather than the live banner, and channel surfing stays disabled.
     /// Returns `nil` for m3u streams (catch-up needs Xtream credentials) or when
     /// the channel doesn't advertise an archive.
+    ///
+    /// A channel listed in several qualities replays from one whose archive
+    /// reaches `start` (`LiveChannelVariants.catchupSource`), anchored to the
+    /// row tuned; having watched it, that quality is the channel's pick.
     static func catchup(
         stream: LiveStream,
         playlist: Playlist,
@@ -348,7 +352,9 @@ nonisolated extension PlayableMedia {
         start: Date,
         end: Date
     ) -> PlayableMedia? {
-        catchup(stream: stream, playlist: playlist, programTitle: programTitle, start: start, end: end, segmentStart: start)
+        let source = LiveChannelVariants.catchupSource(for: stream, playlist: playlist, start: start, now: .now)
+        let media = catchup(stream: source.play, playlist: playlist, programTitle: programTitle, start: start, end: end, segmentStart: start)
+        return source.anchorID == nil ? media : media?.asQuality(anchoredAt: source.anchorID)
     }
 
     // The opening overload's five parameters, plus where to start.
@@ -368,7 +374,7 @@ nonisolated extension PlayableMedia {
         end: Date,
         segmentStart: Date
     ) -> PlayableMedia? {
-        guard stream.supportsCatchup else { return nil }
+        guard stream.hasOwnArchive else { return nil }
         let origin = CatchupTimeline.minuteFloor(start)
         let latest = max(origin, CatchupTimeline.minuteFloor(end.addingTimeInterval(-CatchupSeekPlanner.step)))
         let segment = min(max(CatchupTimeline.minuteFloor(segmentStart), origin), latest)

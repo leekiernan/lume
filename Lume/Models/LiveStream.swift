@@ -91,6 +91,10 @@ final class LiveStream {
     /// The qualities a grouped channel comes in, best first ("UHD · FHD · HD"),
     /// for the badge on the row that stands for them; nil when ungrouped.
     var variantQualities: String?
+    /// The longest catch-up archive among a grouped channel's qualities, in
+    /// days, so a row offers catch-up when any of them has it; nil when none
+    /// does, or the channel is ungrouped (`LiveStream.supportsCatchup`).
+    var variantArchiveDays: Int?
 
     init(
         id: String,

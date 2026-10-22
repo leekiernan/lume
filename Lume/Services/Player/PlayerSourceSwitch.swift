@@ -101,26 +101,37 @@ enum PlayerSourceSwitch {
         _ stream: LiveStream, playing media: PlayableMedia, playlists: [Playlist],
         restriction: ContentRestriction, in context: ModelContext
     ) -> PlayerSources? {
-        guard stream.variantKey != nil, let playlist = PlaylistOwner.playlist(forContentID: stream.id, in: playlists) else { return nil }
+        guard let playlist = PlaylistOwner.playlist(forContentID: stream.id, in: playlists) else { return nil }
+        let qualities = liveQualities(of: stream, playlist: playlist, restriction: restriction, in: context)
+        guard let current = qualities.first(where: { $0.id == stream.id }) else { return nil }
+        let anchor = media.channelRowID
+        let alternatives = qualities.compactMap { source -> PlayerSourceOption? in
+            guard source.id != stream.id, case let .live(member) = source.copy,
+                  let target = PlayableMedia.from(stream: member, playlist: playlist, scope: media.channelScope, choosingQuality: false)
+            else { return nil }
+            return PlayerSourceOption(source: source, media: target.asQuality(anchoredAt: anchor), runtime: nil)
+        }
+        return alternatives.isEmpty ? nil : PlayerSources(current: current, currentRuntime: nil, alternatives: alternatives)
+    }
+
+    /// Every quality of `stream`'s channel this viewer may see, `stream`
+    /// included, best for the screen first; empty when it has no others. A
+    /// quality in another category names it — the rest are this list's.
+    /// Shared by the player's Source menu and the programme sheet's.
+    static func liveQualities(
+        of stream: LiveStream, playlist: Playlist, restriction: ContentRestriction, in context: ModelContext
+    ) -> [TitleSource] {
+        guard stream.variantKey != nil else { return [] }
         let members = LiveChannelVariants.members(of: stream, prefix: playlist.contentIDPrefix, in: context)
             .filter { $0.id == stream.id || !restriction.hides(categoryID: $0.categoryId) }
-        guard members.count > 1 else { return nil }
+        guard members.count > 1 else { return [] }
         let ids = Array(Set(members.compactMap(\.categoryId)))
         let categories = (try? context.fetch(FetchDescriptor<Category>(predicate: #Predicate { ids.contains($0.id) }))) ?? []
         let names = Dictionary(categories.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
-        /// Only another category's copy says which: the rest are this list's.
-        func source(_ member: LiveStream) -> TitleSource {
+        return LiveChannelVariants.ranked(members).map { member in
             let elsewhere = member.categoryId != stream.categoryId
             return TitleSource(copy: .live(member), categoryName: elsewhere ? member.categoryId.flatMap { names[$0] } : nil, playlistName: nil)
         }
-        let anchor = media.channelRowID
-        let alternatives = LiveChannelVariants.ranked(members).compactMap { member -> PlayerSourceOption? in
-            guard member.id != stream.id,
-                  let target = PlayableMedia.from(stream: member, playlist: playlist, scope: media.channelScope, choosingQuality: false)
-            else { return nil }
-            return PlayerSourceOption(source: source(member), media: target.asQuality(anchoredAt: anchor), runtime: nil)
-        }
-        return alternatives.isEmpty ? nil : PlayerSources(current: source(stream), currentRuntime: nil, alternatives: alternatives)
     }
 
     private static func movieSources(_ movie: Movie, playlists: [Playlist], restriction: ContentRestriction, in context: ModelContext) -> PlayerSources? {
