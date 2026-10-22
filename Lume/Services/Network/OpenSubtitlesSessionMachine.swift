@@ -69,6 +69,23 @@ nonisolated struct OpenSubtitlesSessionMachine {
         return previous
     }
 
+    /// A token renewed by signing in again. Permits stay valid: the same
+    /// account is still connected, so in-flight work may publish into it.
+    @discardableResult
+    mutating func renew(_ session: OpenSubtitlesSession, permit: RequestToken) -> Bool {
+        guard accepts(permit), case let .idle(account?, error) = state else { return false }
+        state = .idle(Account(session: session, remainingDownloads: account.remainingDownloads), error: error)
+        return true
+    }
+
+    /// The server no longer honours the session and it can't be renewed.
+    @discardableResult
+    mutating func endExpiredSession(permit: RequestToken) -> Bool {
+        guard accepts(permit), case .idle(.some, _) = state else { return false }
+        restore(nil)
+        return true
+    }
+
     func accepts(_ permit: RequestToken) -> Bool {
         permit == generation
     }

@@ -6,7 +6,10 @@ import Testing
 /// A revisit to Live TV with nothing changed reuses the last completed hub
 /// instead of rerunning discovery; tvOS rebuilds the tab, and so the feed,
 /// on every visit. The title source stands in for discovery having run.
+/// Serialized: the app keeps one completed hub, so concurrent tests would
+/// replace each other's entry.
 @MainActor
+@Suite(.serialized)
 struct LiveTVHubFeedReuseTests {
     private let now = Date(timeIntervalSince1970: 1_800_000_000)
 
