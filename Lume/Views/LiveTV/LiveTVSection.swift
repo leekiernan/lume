@@ -144,8 +144,10 @@ nonisolated enum LiveChannelQuery {
         case let .channels(ids):
             return FetchDescriptor<LiveStream>(predicate: #Predicate { ids.contains($0.id) && !$0.isHidden })
         case let .category(categoryId):
+            // One row per channel: its other qualities are offered from the
+            // player's Source menu (`LiveChannelVariants`).
             return FetchDescriptor<LiveStream>(
-                predicate: #Predicate { $0.categoryId == categoryId && $0.isHidden == false },
+                predicate: #Predicate { $0.categoryId == categoryId && $0.isHidden == false && $0.isVariantFollower == false },
                 sortBy: sortDescriptors(for: scope, sort: sort)
             )
         case .favorites:
@@ -302,8 +304,11 @@ nonisolated enum LiveChannelQuery {
             return ids.compactMap { byID[$0] }
         case .category:
             return streams.excludingRestricted(restriction)
-        case .favorites, .recentlyWatched:
+        case .favorites:
             return streams.filter { isVisible($0, playlistPrefix: playlistPrefix, restriction: restriction) }
+        case .recentlyWatched:
+            // A channel watched in two qualities is listed once.
+            return streams.filter { isVisible($0, playlistPrefix: playlistPrefix, restriction: restriction) }.onePerChannel()
         }
     }
 

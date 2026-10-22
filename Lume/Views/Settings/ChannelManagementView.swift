@@ -32,6 +32,7 @@ struct ChannelManagementView: View {
     }
 
     @State private var showHideAllConfirmation = false
+    @Environment(\.modelContext) private var modelContext
 
     #if !os(tvOS)
         @State private var searchText = ""
@@ -46,6 +47,18 @@ struct ChannelManagementView: View {
             guard !searchText.isEmpty else { return streams }
             return streams.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
         #endif
+    }
+
+    /// A hidden quality leaves its channel's group, and a hidden row hands
+    /// the group to another quality (`LiveChannelVariants`), so leaving the
+    /// screen regroups the playlist with what was hidden or shown here.
+    private func regroupQualities() {
+        guard let playlistID = category.playlist?.id else { return }
+        try? modelContext.save()
+        let container = modelContext.container
+        Task.detached(priority: .utility) {
+            LiveChannelVariants.reconcile(playlistID: playlistID, container: container)
+        }
     }
 
     private func move(from source: IndexSet, to destination: Int) {
@@ -126,6 +139,7 @@ struct ChannelManagementView: View {
             .hideAllConfirmation("Hide All Channels?", isPresented: $showHideAllConfirmation) {
                 ContentOrganizer.hideAll(listedStreams)
             }
+            .onDisappear(perform: regroupQualities)
         }
     #else
         var body: some View {
@@ -182,6 +196,7 @@ struct ChannelManagementView: View {
                 .hideAllConfirmation("Hide All Channels?", isPresented: $showHideAllConfirmation) {
                     ContentOrganizer.hideAll(listedStreams)
                 }
+                .onDisappear(perform: regroupQualities)
         }
 
         private var footerText: String {

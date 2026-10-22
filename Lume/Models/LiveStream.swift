@@ -39,7 +39,8 @@ final class LiveStream {
         [\.categoryId, \.isHidden],
         [\.isHidden],
         [\.isFavorite, \.isHidden],
-        [\.isHidden, \.lastWatchedDate]
+        [\.isHidden, \.lastWatchedDate],
+        [\.variantKey]
     )
 
     @Attribute(.unique) var id: String
@@ -77,6 +78,19 @@ final class LiveStream {
     /// `customOrder` because a channel's place among its category's channels and
     /// its place in the Favorites list are independent.
     var favoriteOrder: Int?
+
+    /// The channel's quality-free name key when the playlist lists it in more
+    /// than one quality ("Sky Sports F1" for its UHD, FHD, HD and SD), else
+    /// nil. Written by `LiveChannelVariants` after each import, never by the
+    /// sync: the members are found by this key, across categories.
+    var variantKey: String?
+    /// Another quality of this channel stands for it in its category's list,
+    /// so the browse lists skip it. Its Quality menu entry and its watch
+    /// history are unaffected.
+    var isVariantFollower: Bool = false
+    /// The qualities a grouped channel comes in, best first ("UHD · FHD · HD"),
+    /// for the badge on the row that stands for them; nil when ungrouped.
+    var variantQualities: String?
 
     init(
         id: String,

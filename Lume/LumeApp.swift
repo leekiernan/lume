@@ -310,6 +310,10 @@ struct LumeApp: App {
                         if !Self.isUnitTestHost {
                             let container = catalogContainer
                             Task(priority: .utility) { await ProviderArtworkMaintenance.run(container: container) }
+                            LiveChannelVariants.displayIs4K = SportsChannelPreference.Context.current.displayIs4K
+                            // Channel qualities for playlists that haven't synced
+                            // since grouping arrived, or since its rules changed.
+                            Task(priority: .utility) { await LiveChannelVariants.backfill(container: container) }
                         }
 
                         // Give DownloadManager access to the model container so it

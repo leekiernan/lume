@@ -48,7 +48,9 @@ enum LiveChannelHistory {
         profileID: UUID? = ActiveProfileStore.current,
         defaults: UserDefaults = .standard
     ) {
-        guard case let .live(id) = media.contentRef else { return }
+        // A grouped channel's quality is recorded as its row, so changing
+        // quality leaves the recall pair alone.
+        guard let id = media.channelRowID else { return }
 
         let currentKey = key(currentKeyBase, profileID)
         let previousKey = key(previousKeyBase, profileID)
@@ -88,7 +90,9 @@ enum LiveChannelHistory {
             playlistPrefix: playlist.contentIDPrefix,
             restriction: restriction
         )
-        let others = recents.lazy.filter { $0.id != current.id }.prefix(recentsRailLimit - 1)
+        let others = recents.lazy.filter {
+            $0.id != current.id && ($0.variantKey == nil || $0.variantKey != current.variantKey)
+        }.prefix(recentsRailLimit - 1)
         return [current] + others
     }
 

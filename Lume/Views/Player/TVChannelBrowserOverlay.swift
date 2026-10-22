@@ -84,8 +84,7 @@
         }
 
         private var currentChannelID: String? {
-            if case let .live(id) = media.contentRef { return id }
-            return nil
+            media.channelRowID
         }
 
         /// The scope of the section whose channels are listed — handed to the
@@ -202,7 +201,7 @@
                 TVPlayerBrowserChannelLogo(url: URL(string: channel.streamIcon ?? ""))
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(channel.name)
+                    Text(channel.displayName)
                         .lineLimit(1)
                     if let nowTitle = channel.epgChannelId.flatMap({ nowTitles[$0] }) {
                         Text(nowTitle)

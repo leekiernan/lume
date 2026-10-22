@@ -144,9 +144,15 @@ struct TitleSourceMenuItems: View {
 }
 
 extension TitleSource {
-    /// The copy's name on the Source button: its category, else "Other".
+    /// The copy's name on the Source button: its category, else "Other". A
+    /// live channel's quality goes by its tag ("FHD 50FPS"), the way the
+    /// provider wrote it.
     var title: String {
-        categoryName ?? String(localized: "Other", comment: "A copy of a title whose category has no name")
+        if case let .live(stream) = copy {
+            return ChannelQuality.parsed(stream.name).tag
+                ?? String(localized: "Standard", comment: "A live channel's quality whose name carries no quality tag")
+        }
+        return categoryName ?? String(localized: "Other", comment: "A copy of a title whose category has no name")
     }
 
     /// The Source menu's facts after the stream's details: runtime, file type
@@ -157,6 +163,7 @@ extension TitleSource {
         if case let .movie(movie) = copy, let container = movie.containerExtension, !container.isEmpty {
             facts.append(container.uppercased())
         }
+        if case .live = copy, let categoryName { facts.append(categoryName) }
         if let playlistName { facts.append(playlistName) }
         return facts
     }

@@ -16,15 +16,19 @@
 import Foundation
 import SwiftData
 
-/// One copy of a title.
+/// One copy of a title: a film's or a show's, or one quality of a live
+/// channel (`LiveChannelVariants`), which the player's Source menu offers the
+/// same way.
 enum TitleCopy: Hashable {
     case movie(Movie)
     case series(Series)
+    case live(LiveStream)
 
     var id: String {
         switch self {
         case let .movie(movie): movie.id
         case let .series(series): series.id
+        case let .live(stream): stream.id
         }
     }
 
@@ -43,6 +47,7 @@ enum TitleCopy: Hashable {
         switch self {
         case let .movie(movie): movie.lastWatchedDate
         case let .series(series): series.lastWatchedDate
+        case let .live(stream): stream.lastWatchedDate
         }
     }
 
@@ -50,6 +55,7 @@ enum TitleCopy: Hashable {
         switch self {
         case let .movie(movie): movie.categoryId
         case let .series(series): series.categoryId
+        case let .live(stream): stream.categoryId
         }
     }
 }

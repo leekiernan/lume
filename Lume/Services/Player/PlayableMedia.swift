@@ -44,6 +44,15 @@ nonisolated struct PlayableMedia: Identifiable, Hashable, Codable {
     /// makes the player keep programme time on screen and answer seeks by
     /// opening a new segment — see `CatchupTimeline`.
     let catchup: CatchupTimeline?
+    /// For one quality of a grouped live channel (`LiveChannelVariants`): the
+    /// browse row that stands for the channel. Recall, surfing and the "now
+    /// playing" highlight follow the row, so changing quality is not changing
+    /// channel. `nil` for an ungrouped channel and everything else.
+    let channelAnchorID: String?
+    /// For a quality the player stepped down to on its own: the quality the
+    /// viewer was on, which keeps the watch stamp — and so stays the one a
+    /// channel opens in next time. `nil` when this quality is the choice.
+    let qualityPickID: String?
 
     nonisolated init(
         id: String,
@@ -57,7 +66,9 @@ nonisolated struct PlayableMedia: Identifiable, Hashable, Codable {
         channelScope: LiveChannelScope? = nil,
         httpHeaders: [String: String]? = nil,
         catchup: CatchupTimeline? = nil,
-        seriesPosterURL: URL? = nil
+        seriesPosterURL: URL? = nil,
+        channelAnchorID: String? = nil,
+        qualityPickID: String? = nil
     ) {
         self.id = id
         self.url = url
@@ -71,10 +82,37 @@ nonisolated struct PlayableMedia: Identifiable, Hashable, Codable {
         self.channelScope = channelScope
         self.httpHeaders = httpHeaders
         self.catchup = catchup
+        self.channelAnchorID = channelAnchorID
+        self.qualityPickID = qualityPickID
     }
 
     var isLive: Bool {
         kind == .live
+    }
+
+    /// The live channel's browse row: its anchor when one quality of a
+    /// grouped channel is playing, else the channel itself.
+    var channelRowID: String? {
+        guard case let .live(id) = contentRef else { return nil }
+        return channelAnchorID ?? id
+    }
+
+    /// What progress and the watch stamp are recorded against: the viewer's
+    /// pick, when the player stepped down from it.
+    var progressRef: ContentRef {
+        if let qualityPickID, case .live = contentRef { return .live(qualityPickID) }
+        return contentRef
+    }
+
+    /// This quality as one of a grouped channel's: anchored to the row the
+    /// viewer tuned, and either the viewer's choice or, with `pickID`, a step
+    /// down from that choice the player made itself.
+    func asQuality(anchoredAt anchorID: String?, pickID: String? = nil) -> PlayableMedia {
+        PlayableMedia(
+            id: id, url: url, title: title, subtitle: subtitle, posterURL: posterURL, kind: kind,
+            startTime: startTime, contentRef: contentRef, channelScope: channelScope, httpHeaders: httpHeaders,
+            catchup: catchup, seriesPosterURL: seriesPosterURL, channelAnchorID: anchorID, qualityPickID: pickID
+        )
     }
 
     var nowPlayingArtworkURL: URL? {
@@ -100,7 +138,9 @@ nonisolated struct PlayableMedia: Identifiable, Hashable, Codable {
             channelScope: channelScope,
             httpHeaders: httpHeaders,
             catchup: catchup,
-            seriesPosterURL: seriesPosterURL
+            seriesPosterURL: seriesPosterURL,
+            channelAnchorID: channelAnchorID,
+            qualityPickID: qualityPickID
         )
     }
 
@@ -123,7 +163,9 @@ nonisolated struct PlayableMedia: Identifiable, Hashable, Codable {
             channelScope: channelScope,
             httpHeaders: httpHeaders,
             catchup: catchup,
-            seriesPosterURL: seriesPosterURL
+            seriesPosterURL: seriesPosterURL,
+            channelAnchorID: channelAnchorID,
+            qualityPickID: qualityPickID
         )
     }
 }
@@ -238,11 +280,23 @@ nonisolated extension PlayableMedia {
     /// `scope` is the channel list the viewer picked this channel from; pass it
     /// wherever playback starts from a scoped list so in-player surfing stays
     /// inside that list.
+    ///
+    /// A channel listed in several qualities opens in the viewer's pick, else
+    /// the one that suits the screen (`LiveChannelVariants.tuning`), anchored
+    /// to the row tuned. `choosingQuality: false` plays `stream` itself — the
+    /// Source menu's own choice.
     static func from(
         stream: LiveStream,
         playlist: Playlist,
-        scope: LiveChannelScope? = nil
+        scope: LiveChannelScope? = nil,
+        choosingQuality: Bool = true
     ) -> PlayableMedia? {
+        guard choosingQuality, stream.variantKey != nil else { return single(stream: stream, playlist: playlist, scope: scope) }
+        let tuning = LiveChannelVariants.tuning(stream, playlist: playlist)
+        return single(stream: tuning.play, playlist: playlist, scope: scope)?.asQuality(anchoredAt: tuning.anchorID)
+    }
+
+    private static func single(stream: LiveStream, playlist: Playlist, scope: LiveChannelScope?) -> PlayableMedia? {
         let url: URL
         if playlist.sourceType == .stalker {
             guard let placeholder = stream.playbackLocator(source: .stalker)?.playerURL else { return nil }

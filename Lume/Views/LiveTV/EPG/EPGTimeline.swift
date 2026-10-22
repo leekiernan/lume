@@ -223,7 +223,7 @@ enum EPGGridBuilder {
             return EPGChannelRow(
                 id: stream.id,
                 stream: stream,
-                name: stream.name,
+                name: stream.displayName,
                 category: stream.categoryId.flatMap { categoryNames[$0] },
                 logoURL: URL(string: stream.streamIcon ?? ""),
                 catchupCapable: stream.supportsCatchup,

@@ -85,7 +85,9 @@ extension ContentSyncManager {
             switch endpoint {
             case .movies: pruneMovies(playlistId: playlistId, seenIds: seen, fetchedCount: count)
             case .series: pruneSeries(playlistId: playlistId, seenIds: seen, fetchedCount: count)
-            case .live: pruneLiveStreams(playlistId: playlistId, seenIds: seen, fetchedCount: count)
+            case .live:
+                pruneLiveStreams(playlistId: playlistId, seenIds: seen, fetchedCount: count)
+                LiveChannelVariants.reconcile(playlistID: playlistId, container: modelContainer)
             }
         }
     }

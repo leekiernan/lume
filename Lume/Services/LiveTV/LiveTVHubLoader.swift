@@ -13,7 +13,8 @@ nonisolated enum LiveTVHubLoader {
         guard !prefix.isEmpty else { return [] }
         let context = ModelContext(container)
         let descriptor = FetchDescriptor<LiveStream>(
-            predicate: #Predicate { $0.id.starts(with: prefix) && !$0.isHidden },
+            // One entry per channel, as the browse lists have it.
+            predicate: #Predicate { $0.id.starts(with: prefix) && !$0.isHidden && !$0.isVariantFollower },
             sortBy: [SortDescriptor(\.num), SortDescriptor(\.name), SortDescriptor(\.id)]
         )
         var result: [LiveTVHubChannel] = []

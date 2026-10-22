@@ -64,6 +64,8 @@ nonisolated extension PerfSignpost {
     static let xtreamFetchLiveStreams = PerfSignpost("XtreamFetchLiveStreams")
     static let xtreamDecodeLiveStreams = PerfSignpost("XtreamDecodeLiveStreams")
     static let upsertLiveStreams = PerfSignpost("UpsertLiveStreams")
+    /// Grouping a playlist's channel qualities after its live import.
+    static let groupLiveVariants = PerfSignpost("GroupLiveVariants")
     static let pruneLiveStreams = PerfSignpost("PruneLiveStreams")
 
     /// Only emitted when the sync actually has to wait between content phases
