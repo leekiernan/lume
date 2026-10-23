@@ -114,8 +114,31 @@ struct TrackerImportRunTests {
 
     @Test func `no token fails without fetching`() async {
         let live = Live()
-        guard case .failed = await run(live, token: nil) else { Issue.record("not failed"); return }
+        guard case .failed(.noAccessToken) = await run(live, token: nil) else { Issue.record("missing token reason lost"); return }
         #expect(live.fetches == 0)
+    }
+
+    @Test func `import failures preserve safe authentication and transport reasons`() async {
+        let errors: [any Error] = [
+            TraktError.notAuthenticated, SimklError.notAuthenticated, TraktError.server(429), SimklError.decoding,
+            NSError(domain: NSURLErrorDomain, code: -1001, userInfo: [
+                NSLocalizedDescriptionKey: "Timed out at https://example.test/?access_token=secret-token with Bearer secret-bearer"
+            ])
+        ]
+        for error in errors {
+            var applied = false
+            let outcome = await TrackerImportRun<Int, Int>(
+                permit: TrackerImportPermit(account: TrackerAccountLifetime()),
+                begin: { TrackerScope(account: "a", profileID: ActiveProfileStore.current) }, accessToken: { "fixture" },
+                fetch: { _ in throw error }, isCurrent: { _ in true },
+                apply: { items, _, _ in applied = true; return items }
+            ).perform()
+            guard case let .failed(failure) = outcome else { Issue.record("not failed"); continue }
+            #expect(failure == .request(LogRedaction.describe(error)))
+            #expect(!failure.logDescription.contains("secret-token"))
+            #expect(!failure.logDescription.contains("secret-bearer"))
+            #expect(!applied)
+        }
     }
 
     @Test func `returning to the same profile cannot revive fetched history`() async {

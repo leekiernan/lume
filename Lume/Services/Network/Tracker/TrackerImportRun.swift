@@ -55,11 +55,25 @@ enum TrackerImportOutcome<Summary> {
     /// the fetch: nothing was fetched.
     case deferred
     /// No token, or the fetch failed.
-    case failed
+    case failed(TrackerImportFailure)
     /// Fetched, but the account, profile, connection or outbox changed while
     /// it ran: the history describes something else now, so it isn't applied.
     case discarded
     case applied(Summary)
+}
+
+/// Preserve why the import failed without retaining a response body or token.
+/// Only a sanitized diagnostic crosses the import boundary.
+nonisolated enum TrackerImportFailure: Equatable {
+    case noAccessToken
+    case request(String)
+
+    var logDescription: String {
+        switch self {
+        case .noAccessToken: "no usable access token"
+        case let .request(reason): "history request failed: \(reason)"
+        }
+    }
 }
 
 /// The import sequence both trackers share: flush and take the scope, get a
@@ -80,13 +94,13 @@ struct TrackerImportRun<Items, Summary> {
         guard let scope = await begin(), !Task.isCancelled, permit.isCurrent else { return .deferred }
         let token = await accessToken()
         guard !Task.isCancelled, permit.isCurrent, isCurrent(scope) else { return .discarded }
-        guard let token else { return .failed }
+        guard let token else { return .failed(.noAccessToken) }
         do {
             let items = try await fetch(token)
             guard !Task.isCancelled, permit.isCurrent, isCurrent(scope) else { return .discarded }
             return await .applied(apply(items, scope, permit))
         } catch {
-            return .failed
+            return .failed(.request(LogRedaction.describe(error)))
         }
     }
 }
