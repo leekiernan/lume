@@ -8,6 +8,7 @@
 //
 
 import Foundation
+import OSLog
 
 extension SimklDeviceCode: TrackerDeviceCode {}
 extension SimklTokens: TrackerTokens {}
@@ -61,11 +62,11 @@ struct SimklAccountBackend: TrackerAccountBackend {
     func refresh(_ refreshToken: String) async -> TrackerRefreshOutcome<SimklTokens> {
         do {
             return try await .refreshed(client.refreshToken(refreshToken).tokens)
-        } catch SimklError.server(400) {
-            // A rejected refresh token comes back as an OAuth error envelope
-            // at 400; `postOAuth` never throws notAuthenticated.
-            return .rejected
         } catch {
+            Logger.network.warning("Simkl token refresh failed: \(LogRedaction.describe(error), privacy: .public)")
+            // Preserve the existing policy: OAuth 400 rejects the grant;
+            // client rejection and transport/server failures remain unavailable.
+            if case SimklError.server(400) = error { return .rejected }
             return .unavailable
         }
     }
@@ -75,8 +76,12 @@ struct SimklAccountBackend: TrackerAccountBackend {
     }
 
     func fetchIdentity(accessToken: String) async -> SimklAccountIdentity? {
-        guard let settings = try? await client.userSettings(accessToken: accessToken) else { return nil }
-        return SimklAccountIdentity(settings: settings)
+        do {
+            return try await SimklAccountIdentity(settings: client.userSettings(accessToken: accessToken))
+        } catch {
+            Logger.network.warning("Simkl account verification failed: \(LogRedaction.describe(error), privacy: .public)")
+            return nil
+        }
     }
 
     /// Watchlist status changes never go through the history endpoints.

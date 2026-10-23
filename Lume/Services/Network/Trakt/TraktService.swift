@@ -294,7 +294,13 @@ final class TraktService {
             guard let accessToken = await session.validAccessToken(), mutations.account == account else {
                 throw TraktError.notAuthenticated
             }
-            let items = try await client.watchlist(accessToken: accessToken)
+            let items: [TraktWatchlistItem]
+            do {
+                items = try await client.watchlist(accessToken: accessToken)
+            } catch {
+                Logger.network.warning("Trakt watchlist request failed: \(LogRedaction.describe(error), privacy: .public)")
+                throw error
+            }
             guard mutations.account == account, watchlistTaskID == id else { throw TraktError.notAuthenticated }
             let targets = Set(items.compactMap { item -> TrackerMutation.Target? in
                 if let id = item.movie?.ids.tmdb { return .movie(tmdbID: id) }
@@ -381,7 +387,8 @@ final class TraktService {
         switch outcome {
         case .deferred:
             Logger.network.info("Trakt history import deferred: pending local changes or changed scope")
-        case .failed:
+        case let .failed(failure):
+            Logger.network.warning("Trakt history import failed: \(failure.logDescription, privacy: .public)")
             lastImport = .failure
         case .discarded:
             Logger.network.info("Trakt history import discarded: account, profile or pending changes moved during the fetch")

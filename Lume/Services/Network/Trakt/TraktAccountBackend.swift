@@ -8,6 +8,7 @@
 //
 
 import Foundation
+import OSLog
 
 extension TraktDeviceCode: TrackerDeviceCode {}
 
@@ -68,11 +69,12 @@ struct TraktAccountBackend: TrackerAccountBackend {
     func refresh(_ refreshToken: String) async -> TrackerRefreshOutcome<TraktTokens> {
         do {
             return try await .refreshed(client.refreshToken(refreshToken).tokens)
-        } catch TraktError.server(400), TraktError.notAuthenticated {
-            // Trakt actually refused the token; anything else is transient.
-            return .rejected
         } catch {
-            return .unavailable
+            Logger.network.warning("Trakt token refresh failed: \(LogRedaction.describe(error), privacy: .public)")
+            switch error {
+            case TraktError.server(400), TraktError.notAuthenticated: return .rejected
+            default: return .unavailable
+            }
         }
     }
 
@@ -81,8 +83,12 @@ struct TraktAccountBackend: TrackerAccountBackend {
     }
 
     func fetchIdentity(accessToken: String) async -> TraktAccountIdentity? {
-        guard let user = try? await client.currentUser(accessToken: accessToken) else { return nil }
-        return TraktAccountIdentity(user: user)
+        do {
+            return try await TraktAccountIdentity(user: client.currentUser(accessToken: accessToken))
+        } catch {
+            Logger.network.warning("Trakt account verification failed: \(LogRedaction.describe(error), privacy: .public)")
+            return nil
+        }
     }
 
     func deliver(_ mutation: TrackerMutation, accessToken: String) async throws -> Bool {

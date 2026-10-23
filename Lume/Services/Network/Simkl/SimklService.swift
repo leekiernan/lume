@@ -324,7 +324,11 @@ final class SimklService {
         guard let account = mutations.account, let username, let accessToken = await session.validAccessToken(), mutations.account == account else { return [] }
         let revision = mutations.watchlist.revision
         var cache = SimklWatchlistStore.load(for: username) ?? SimklWatchlistCache(username: username)
-        guard let activities = try? await client.activities(accessToken: accessToken) else {
+        let activities: SimklActivities
+        do {
+            activities = try await client.activities(accessToken: accessToken)
+        } catch {
+            Logger.network.warning("Simkl watchlist activities failed; keeping \(cache.entries.count) cached entries: \(LogRedaction.describe(error), privacy: .public)")
             return cache.entries
         }
         let original = cache
@@ -335,7 +339,13 @@ final class SimklService {
             }
             // A failed bucket keeps its old copy and fingerprint, so the next
             // Home load retries it.
-            guard let entries = try? await client.planToWatch(bucket, accessToken: accessToken) else { continue }
+            let entries: [SimklWatchlistEntry]
+            do {
+                entries = try await client.planToWatch(bucket, accessToken: accessToken)
+            } catch {
+                Logger.network.warning("Simkl watchlist bucket request failed; keeping cached entries: \(LogRedaction.describe(error), privacy: .public)")
+                continue
+            }
             cache.buckets[bucket] = SimklWatchlistCache.Bucket(fingerprint: fingerprint, entries: entries)
         }
         // A disconnect mid-fetch already cleared the store; writing now would
@@ -374,7 +384,8 @@ final class SimklService {
         switch outcome {
         case .deferred:
             Logger.network.info("Simkl history import deferred: pending local changes or changed scope")
-        case .failed:
+        case let .failed(failure):
+            Logger.network.warning("Simkl history import failed: \(failure.logDescription, privacy: .public)")
             lastImport = .failure
         case .discarded:
             Logger.network.info("Simkl history import discarded: account, profile or pending changes moved during the fetch")

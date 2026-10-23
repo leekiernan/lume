@@ -179,3 +179,20 @@ nonisolated extension TraktError: DiagnosticErrorDescribing {
         }
     }
 }
+
+nonisolated extension SimklError: DiagnosticErrorDescribing {
+    var logDescription: String {
+        switch self {
+        case .notConfigured: "not configured"
+        case .invalidResponse: "invalid HTTP response"
+        case let .server(status): "HTTP \(status)"
+        case .decoding: "response decoding failed"
+        case .notAuthenticated: "not authenticated (HTTP 401)"
+        case .itemNotFound: "item not found"
+        case .authorizationPending: "authorization pending"
+        case .slowDown: "device authorization polling too quickly"
+        case .codeExpired: "device code expired"
+        case .invalidClient: "OAuth client rejected (HTTP 401)"
+        }
+    }
+}

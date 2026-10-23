@@ -198,7 +198,7 @@ final class PremiumManager {
                 return false
             }
         } catch {
-            Logger.premium.error("Purchase failed: \(error.localizedDescription, privacy: .public)")
+            Logger.premium.error("Purchase failed: \(LogRedaction.describe(error), privacy: .public)")
             return false
         }
     }
@@ -208,7 +208,11 @@ final class PremiumManager {
     func restore() async {
         guard let operation = checkout.beginRestore() else { return }
         defer { checkout.finish(operation) }
-        try? await AppStore.sync()
+        do {
+            try await AppStore.sync()
+        } catch {
+            Logger.premium.error("Restore StoreKit sync failed: \(LogRedaction.describe(error), privacy: .public)")
+        }
         await refreshEntitlements()
     }
 
