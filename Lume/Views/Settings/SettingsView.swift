@@ -299,6 +299,9 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.menu)
+                LabeledContent("Accent Color") {
+                    ThemeColorPicker()
+                }
             } header: {
                 Text("Appearance")
             } footer: {
@@ -483,6 +486,7 @@ struct SettingsView: View {
                         case .profiles: TVProfilesSettingsView()
                         case .library: tvLibraryDetail(proxy: proxy)
                         case .search: tvSearchDetail
+                        case .appearance: TVThemeColorSettings()
                         case .storage: StorageManagementView()
                         case .integrations: tvIntegrationsDetail
                         case .player:

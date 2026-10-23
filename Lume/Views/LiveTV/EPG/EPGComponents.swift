@@ -17,7 +17,9 @@ import SwiftUI
 /// "focused = solid white, dark text" idiom (mirroring `TVGlassButtonStyle`).
 enum EPGColors {
     /// Tint for the currently-airing programme (progress bar + live accents).
-    static let live = Color.lumeAccent
+    static var live: Color {
+        .lumeAccent
+    }
 }
 
 // MARK: - Metrics

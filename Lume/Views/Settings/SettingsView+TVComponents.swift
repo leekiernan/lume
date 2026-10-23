@@ -17,7 +17,7 @@ import SwiftUI
     enum SettingsCategory: String, CaseIterable, Identifiable {
         /// Content/Home/TV Guide/Sports are one "Library" category; TV Guide's
         /// sources live under Playlists instead of their own category.
-        case premium, playlists, profiles, library, search, integrations, player, storage, about
+        case premium, playlists, profiles, library, search, appearance, integrations, player, storage, about
 
         var id: String {
             rawValue
@@ -30,6 +30,7 @@ import SwiftUI
             case .profiles: "Profiles"
             case .library: "Library"
             case .search: "Search"
+            case .appearance: "Appearance"
             case .storage: "Storage"
             case .integrations: "Integrations"
             case .player: "Player"

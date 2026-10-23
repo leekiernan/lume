@@ -6,9 +6,14 @@
 
     /// Lume pink on a row's resting fill, pink deep once the row turns white:
     /// how the Settings boards mark an on value, a choice or a lifted row.
+    /// The colours are taken when the style is made, in the row's body, so
+    /// the row redraws with a new colour theme; read in `resolve` they wouldn't.
     struct TVSettingsAccentStyle: ShapeStyle {
+        var accent: Color = .lumeAccent
+        var deep: Color = .lumePinkDeep
+
         func resolve(in environment: EnvironmentValues) -> Color {
-            environment.isFocused ? .lumePinkDeep : .lumeAccent
+            environment.isFocused ? deep : accent
         }
     }
 
