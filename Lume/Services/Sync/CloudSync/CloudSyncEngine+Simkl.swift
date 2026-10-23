@@ -43,6 +43,9 @@ extension CloudSyncEngine {
             writeCloud: { applySimklToCloud($0, mirror: mirror) },
             recordShadow: shadow.setSimklCredentialShadow
         )
+        if let action = TrackerDiagnostics.mergeAction(verdict) {
+            Logger.sync.info("Simkl credential merge: \(action, privacy: .public); pushed=\(effects.pushed), pulled=\(effects.pulled), pending=\(effects.pending)")
+        }
         result.simklPushed += effects.pushed
         result.simklPulled += effects.pulled
         result.simklPending += effects.pending

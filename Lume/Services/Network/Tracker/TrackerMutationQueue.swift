@@ -184,7 +184,7 @@ final class TrackerMutationQueue<Backend: TrackerAccountBackend> {
                 }
             } catch {
                 outbox.recordFailure(id: mutation.id, account: account)
-                Logger.network.warning("\(Backend.name) \(mutation.kind.rawValue) mutation failed: \(LogRedaction.describe(error), privacy: .public)")
+                Logger.network.warning("\(Backend.name, privacy: .public) \(mutation.kind.rawValue, privacy: .public) mutation failed: \(LogRedaction.describe(error), privacy: .public)")
                 syncError = "Couldn't sync changes to \(Backend.name). Please try again."
                 // Replaced while its request was in flight, it is no longer the
                 // head: carry on with the newer intent. Otherwise keep strict

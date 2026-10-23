@@ -115,6 +115,25 @@ struct TrackerAccountSessionTests {
         #expect(session.isConnected)
     }
 
+    @Test func `restoring shared replacement credentials does not revoke or re-export them`() async {
+        let tracker = FakeTracker()
+        tracker.storedTokens = FakeTokens(accessToken: "shared-old", refreshToken: "shared-r", issuedAt: 1)
+        tracker.storedIdentity = alice
+        tracker.identityResponses = [alice, alice]
+        let session = makeSession(tracker)
+        #expect(await session.restore() == .ready)
+
+        tracker.storedTokens = FakeTokens(accessToken: "shared-new", refreshToken: "shared-new-r", issuedAt: 2)
+        #expect(await session.restore() == .ready)
+        #expect(await session.validAccessToken() == "shared-new")
+        #expect(session.isConnected)
+        #expect(tracker.refreshCalls == 0)
+        #expect(tracker.revoked.isEmpty)
+        #expect(tracker.credentialChanges == 0)
+        #expect(!tracker.disconnectRecorded)
+        #expect(!session.diagnosticSummary.contains("shared-"))
+    }
+
     @Test func `identity changes say whether queued work can go out`() async {
         let tracker = FakeTracker()
         tracker.storedTokens = FakeTokens(accessToken: "a", refreshToken: "r", issuedAt: 1)

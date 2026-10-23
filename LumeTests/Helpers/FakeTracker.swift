@@ -20,6 +20,7 @@ struct FakeTokens: TrackerTokens {
     var refreshToken: String
     var issuedAt: TimeInterval
     var needsRefresh = false
+    var expiresIn: TimeInterval = 604_800
 }
 
 struct FakeIdentity: TrackerAccountIdentity {

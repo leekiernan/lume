@@ -51,6 +51,9 @@ extension CloudSyncEngine {
             writeCloud: { applyTraktToCloud($0, mirror: mirror) },
             recordShadow: shadow.setTraktCredentialShadow
         )
+        if let action = TrackerDiagnostics.mergeAction(verdict) {
+            Logger.sync.info("Trakt credential merge: \(action, privacy: .public); pushed=\(effects.pushed), pulled=\(effects.pulled), pending=\(effects.pending)")
+        }
         result.traktPushed += effects.pushed
         result.traktPulled += effects.pulled
         result.traktPending += effects.pending

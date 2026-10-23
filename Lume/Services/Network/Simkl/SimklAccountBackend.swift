@@ -72,7 +72,12 @@ struct SimklAccountBackend: TrackerAccountBackend {
     }
 
     func revoke(accessToken: String) async {
-        try? await client.revokeToken(accessToken)
+        do {
+            try await client.revokeToken(accessToken)
+            Logger.network.info("Simkl revocation request succeeded")
+        } catch {
+            Logger.network.warning("Simkl revocation request failed: \(LogRedaction.describe(error), privacy: .public)")
+        }
     }
 
     func fetchIdentity(accessToken: String) async -> SimklAccountIdentity? {

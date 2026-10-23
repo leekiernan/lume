@@ -369,6 +369,7 @@ final class SimklService {
         isImporting = true
         lastImport = nil
         defer { isImporting = false }
+        Logger.network.info("Simkl history import started; pending=\(mutations.pendingCount); \(session.diagnosticSummary, privacy: .public)")
 
         // Same scope rule as Trakt: local changes go up first, and the history
         // is applied only to the account and profile it was fetched for.
@@ -383,7 +384,7 @@ final class SimklService {
         ).perform()
         switch outcome {
         case .deferred:
-            Logger.network.info("Simkl history import deferred: pending local changes or changed scope")
+            Logger.network.info("Simkl history import deferred: pending local changes or changed scope; pending=\(mutations.pendingCount)")
         case let .failed(failure):
             Logger.network.warning("Simkl history import failed: \(failure.logDescription, privacy: .public)")
             lastImport = .failure
@@ -391,6 +392,7 @@ final class SimklService {
             Logger.network.info("Simkl history import discarded: account, profile or pending changes moved during the fetch")
         case let .applied(summary):
             lastImport = summary
+            Logger.network.info("Simkl history imported: movies \(summary.moviesMarked), episodes \(summary.episodesMarked), failed \(summary.failed)")
         }
     }
 

@@ -18,6 +18,7 @@
 //
 
 import Foundation
+import OSLog
 
 // MARK: - Errors
 
@@ -188,7 +189,7 @@ nonisolated struct SimklClient {
             accessToken: accessToken
         )
         let (data, response) = try await send(request)
-        try Self.requireSuccess(response)
+        try Self.requireSuccess(response, body: data)
         // An account with nothing in any list answers `null`, which no Decodable
         // type can decode — read it as an empty library instead.
         let trimmed = data.trimmingJSONWhitespace()
@@ -207,7 +208,7 @@ nonisolated struct SimklClient {
     func get<T: Decodable>(_ path: String, query: [URLQueryItem] = [], accessToken: String) async throws -> T {
         let request = try makeRequest(path: path, method: "GET", query: query, accessToken: accessToken)
         let (data, response) = try await send(request)
-        try Self.requireSuccess(response)
+        try Self.requireSuccess(response, body: data)
         return try Self.decode(data)
     }
 
@@ -221,19 +222,21 @@ nonisolated struct SimklClient {
         let request = try makeRequest(path: path, method: "POST", accessToken: accessToken)
         let payload = try JSONEncoder().encode(body)
         let (data, response) = try await send(request, body: payload)
-        try Self.requireSuccess(response)
+        try Self.requireSuccess(response, body: data)
         return try Self.decode(data)
     }
 
     /// DELETEs a resource; Simkl answers 204 with no body.
     func delete(_ path: String, accessToken: String) async throws {
         let request = try makeRequest(path: path, method: "DELETE", accessToken: accessToken)
-        let (_, response) = try await send(request)
-        try Self.requireSuccess(response)
+        let (data, response) = try await send(request)
+        try Self.requireSuccess(response, body: data)
     }
 
-    private static func requireSuccess(_ response: HTTPURLResponse) throws {
+    private static func requireSuccess(_ response: HTTPURLResponse, body: Data) throws {
         guard (200 ... 299).contains(response.statusCode) else {
+            let code = (try? JSONDecoder().decode(SimklOAuthError.self, from: body))?.error
+            Logger.network.warning("Simkl API rejected request: HTTP \(response.statusCode), error=\(TrackerDiagnostics.simklErrorCode(code), privacy: .public)")
             if response.statusCode == 401 {
                 throw SimklError.notAuthenticated
             }
@@ -259,7 +262,12 @@ nonisolated struct SimklClient {
         let request = try makeRequest(path: path, method: "POST", accessToken: nil)
         let (data, response) = try await send(request, body: JSONEncoder().encode(body))
         guard (200 ... 299).contains(response.statusCode) else {
-            if let envelope = try? JSONDecoder().decode(SimklOAuthError.self, from: data) {
+            let envelope = try? JSONDecoder().decode(SimklOAuthError.self, from: data)
+            let code = envelope?.error
+            if code != "authorization_pending", code != "slow_down" {
+                Logger.network.warning("Simkl OAuth request failed: HTTP \(response.statusCode), error=\(TrackerDiagnostics.simklErrorCode(code), privacy: .public)")
+            }
+            if let envelope {
                 switch (response.statusCode, envelope.error) {
                 case (401, _):
                     throw SimklError.invalidClient
