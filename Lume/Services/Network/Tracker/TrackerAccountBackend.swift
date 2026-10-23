@@ -25,7 +25,6 @@ nonisolated protocol TrackerTokens: Equatable {
     /// When the pair was issued. Orders pairs from different devices: an older
     /// in-flight refresh must never overwrite a newer pair from iCloud.
     var issuedAt: TimeInterval { get }
-    var expiresIn: TimeInterval { get }
     var needsRefresh: Bool { get }
 }
 

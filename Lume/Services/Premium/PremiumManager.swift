@@ -70,9 +70,6 @@ final class PremiumManager {
     /// overlap each other. Their machines own those separate contracts.
     private var productLoad = PremiumProductLoadMachine()
     private var checkout = PremiumCheckoutMachine()
-    /// Correlates overlapping asynchronous reads in diagnostics; does not gate
-    /// or change which result is applied.
-    @ObservationIgnored private var entitlementReadSequence = 0
 
     /// True while a purchase or restore is in flight, for button spinners.
     var isWorking: Bool {
@@ -168,7 +165,6 @@ final class PremiumManager {
             let ids = Plan.purchasable.map(\.rawValue)
             let loaded = try await Product.products(for: ids)
             products = loaded.sorted { $0.price < $1.price }
-            Logger.premium.info("StoreKit product discovery: \(products.count) of \(ids.count) plans loaded")
             if products.count != ids.count {
                 let missing = Set(ids).subtracting(products.map(\.id))
                 Logger.premium.error("Missing products (not configured?): \(missing, privacy: .public)")
@@ -185,28 +181,20 @@ final class PremiumManager {
     func purchase(_ product: Product) async -> Bool {
         guard let operation = checkout.beginPurchase(productID: product.id) else { return false }
         defer { checkout.finish(operation) }
-        Logger.premium.info("Purchase started for \(product.id, privacy: .public)")
         do {
             let result = try await product.purchase()
             switch result {
             case let .success(verification):
-                Logger.premium.info("Purchase returned a transaction: \(PremiumDiagnostics.transaction(verification), privacy: .public)")
                 guard case let .verified(transaction) = verification else {
                     Logger.premium.error("Purchase verification failed for \(product.id, privacy: .public)")
                     return false
                 }
                 await refreshEntitlements()
                 await transaction.finish()
-                Logger.premium.info("Purchase completed; owned=\(purchasedProductIDs.count), pro=\(isPremium)")
                 return isPremium
-            case .userCancelled:
-                Logger.premium.info("Purchase cancelled")
-                return false
-            case .pending:
-                Logger.premium.info("Purchase pending; no entitlement granted yet")
+            case .userCancelled, .pending:
                 return false
             @unknown default:
-                Logger.premium.warning("Purchase returned an unrecognized result")
                 return false
             }
         } catch {
@@ -220,45 +208,25 @@ final class PremiumManager {
     func restore() async {
         guard let operation = checkout.beginRestore() else { return }
         defer { checkout.finish(operation) }
-        Logger.premium.info("Restore started")
         do {
             try await AppStore.sync()
-            Logger.premium.info("Restore StoreKit sync succeeded")
         } catch {
             Logger.premium.error("Restore StoreKit sync failed: \(LogRedaction.describe(error), privacy: .public)")
         }
         await refreshEntitlements()
-        Logger.premium.info("Restore completed; owned=\(purchasedProductIDs.count), pro=\(isPremium)")
-        // These bounded, read-only lookups distinguish recorded purchases from
-        // current entitlements. They never grant access or change transactions.
-        for plan in Plan.allCases {
-            if let result = await Transaction.latest(for: plan.rawValue) {
-                Logger.premium.info("Restore latest transaction: \(PremiumDiagnostics.transaction(result), privacy: .public)")
-            } else {
-                Logger.premium.info("Restore found no latest transaction for \(plan.rawValue, privacy: .public)")
-            }
-        }
     }
 
     /// Recompute `purchasedProductIDs` from the current entitlements, dropping any
     /// refunded / revoked transaction.
     func refreshEntitlements() async {
-        entitlementReadSequence += 1
-        let read = entitlementReadSequence
-        Logger.premium.info("Entitlement read \(read) started")
         var owned: Set<String> = []
-        var seen = 0
-        var unverified = 0
         for await result in Transaction.currentEntitlements {
-            seen += 1
-            Logger.premium.info("Entitlement read \(read): \(PremiumDiagnostics.transaction(result), privacy: .public)")
-            guard case let .verified(transaction) = result else { unverified += 1; continue }
+            guard case let .verified(transaction) = result else { continue }
             if transaction.revocationDate == nil {
                 owned.insert(transaction.productID)
             }
         }
         purchasedProductIDs = owned
-        Logger.premium.info("Entitlement read \(read) applied: seen=\(seen), unverified=\(unverified), owned=\(owned.count), pro=\(isPremium)")
         subscriptionStatus = owned.contains(Plan.monthly.rawValue) ? await loadSubscriptionStatus() : nil
     }
 
@@ -286,7 +254,6 @@ final class PremiumManager {
     }
 
     private func handle(_ result: VerificationResult<Transaction>) async {
-        Logger.premium.info("StoreKit transaction update: \(PremiumDiagnostics.transaction(result), privacy: .public)")
         guard case let .verified(transaction) = result else {
             // Unverified: clear it from the queue but grant nothing.
             if case let .unverified(transaction, _) = result {

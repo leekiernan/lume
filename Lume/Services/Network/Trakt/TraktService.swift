@@ -364,7 +364,6 @@ final class TraktService {
         isImporting = true
         lastImport = nil
         defer { isImporting = false }
-        Logger.network.info("Trakt history import started; pending=\(mutations.pendingCount); \(session.diagnosticSummary, privacy: .public)")
 
         let container = context.container
         let outcome = await TrackerImportRun(
@@ -387,7 +386,7 @@ final class TraktService {
         ).perform()
         switch outcome {
         case .deferred:
-            Logger.network.info("Trakt history import deferred: pending local changes or changed scope; pending=\(mutations.pendingCount)")
+            Logger.network.info("Trakt history import deferred: pending local changes or changed scope")
         case let .failed(failure):
             Logger.network.warning("Trakt history import failed: \(failure.logDescription, privacy: .public)")
             lastImport = .failure

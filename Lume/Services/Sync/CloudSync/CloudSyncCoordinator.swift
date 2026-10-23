@@ -214,11 +214,9 @@ final class CloudSyncCoordinator {
             // independently because fetching the username is a network request
             // and must not hold the next pass back.
             if result.traktPulled > 0 {
-                Logger.sync.info("Trakt credentials changed through iCloud; restoring held session")
                 Task { await TraktService.shared.restore() }
             }
             if result.simklPulled > 0 {
-                Logger.sync.info("Simkl credentials changed through iCloud; restoring held session")
                 Task { await SimklService.shared.restore() }
             }
             let outcome: ReconcileScheduleMachine.Outcome = if result.failed {

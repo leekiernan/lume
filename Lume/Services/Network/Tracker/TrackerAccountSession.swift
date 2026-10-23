@@ -89,10 +89,6 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
         machine.isConnected
     }
 
-    var diagnosticSummary: String {
-        tokens.map(TrackerDiagnostics.tokenSummary) ?? "no held credentials"
-    }
-
     var isConnecting: Bool {
         machine.isConnecting
     }
@@ -119,7 +115,6 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
     func restore() async -> TrackerRestoreOutcome {
         guard isConfigured else { return .signedOut }
         guard let stored = backend.loadTokens() else {
-            Logger.network.info("\(Backend.name, privacy: .public) restore: no readable stored credentials")
             deliveryLifetime.invalidate()
             invalidateSessionWork()
             tokens = nil
@@ -129,8 +124,6 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
             send(.tokensGone)
             return .signedOut
         }
-        let change = tokens == nil ? "initial" : tokens == stored ? "unchanged" : "replacement"
-        Logger.network.info("\(Backend.name, privacy: .public) restore: \(change, privacy: .public) credentials; \(TrackerDiagnostics.tokenSummary(stored), privacy: .public)")
         if tokens != stored {
             // An unknown identity cannot prove a same-account rotation.
             if identity?.scope == nil || identity?.scope != backend.loadIdentity()?.scope {
@@ -167,7 +160,6 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
     /// Revokes the token server-side (best effort) and clears the session,
     /// recording the user's decision so iCloud signs every device out.
     func disconnect() async {
-        Logger.network.info("\(Backend.name, privacy: .public) explicit disconnect requested; clearing shared authorization")
         let revokedToken = tokens?.accessToken
         deliveryLifetime.invalidate()
         invalidateSessionWork()
@@ -245,50 +237,37 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
     }
 
     private func refresh(_ current: Backend.Tokens, request: RequestToken) async -> String? {
-        Logger.network.info("\(Backend.name, privacy: .public) token refresh started; \(TrackerDiagnostics.tokenSummary(current), privacy: .public)")
         let result = await backend.refresh(current.refreshToken)
         guard generation == request, tokens?.refreshToken == current.refreshToken, !Task.isCancelled else {
-            Logger.network.info("""
-            \(Backend.name, privacy: .public) refresh result discarded: sessionChanged=\(generation != request), \
-            pairChanged=\(tokens?.refreshToken != current.refreshToken), cancelled=\(Task.isCancelled)
-            """)
             // A disconnect or account change landed while the server was
             // issuing this pair. Nothing will store it, but it would stay valid
             // until it expires, so it is revoked — in a task of its own, since
             // this one may be the cancelled refresh.
             if case let .refreshed(orphan) = result {
-                Logger.network.warning("\(Backend.name, privacy: .public) revoking discarded refresh result; \(TrackerDiagnostics.tokenSummary(orphan), privacy: .public)")
                 Task { [backend] in await backend.revoke(accessToken: orphan.accessToken) }
             }
             return nil
         }
         switch result {
         case let .refreshed(newTokens):
-            Logger.network.info("\(Backend.name, privacy: .public) token refresh succeeded; \(TrackerDiagnostics.tokenSummary(newTokens), privacy: .public)")
             apply(newTokens)
             return tokens?.accessToken
         case .rejected:
-            Logger.network.warning("\(Backend.name, privacy: .public) refresh rejected; retaining credentials and waiting for a replacement through iCloud")
             refreshFailedForToken = current.refreshToken
             return nil
         case .unavailable:
-            Logger.network.warning("\(Backend.name, privacy: .public) refresh unavailable; retaining credentials for retry")
             return nil
         }
     }
 
     private func apply(_ newTokens: Backend.Tokens) {
         if let current = tokens, current.issuedAt > newTokens.issuedAt {
-            Logger.network.info("\(Backend.name, privacy: .public) ignored older incoming credentials; \(TrackerDiagnostics.tokenSummary(newTokens), privacy: .public)")
             return
         }
         tokens = newTokens
         refreshFailedForToken = nil
         if backend.saveTokens(newTokens) {
-            Logger.network.info("\(Backend.name, privacy: .public) credentials saved locally; notifying iCloud sync")
             backend.credentialsDidChange()
-        } else {
-            Logger.network.error("\(Backend.name, privacy: .public) credential save did not succeed; iCloud notification skipped")
         }
     }
 

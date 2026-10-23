@@ -131,7 +131,6 @@ struct TrackerAccountSessionTests {
         #expect(tracker.revoked.isEmpty)
         #expect(tracker.credentialChanges == 0)
         #expect(!tracker.disconnectRecorded)
-        #expect(!session.diagnosticSummary.contains("shared-"))
     }
 
     @Test func `identity changes say whether queued work can go out`() async {
