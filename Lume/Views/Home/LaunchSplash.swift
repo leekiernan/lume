@@ -129,7 +129,7 @@ extension LumeLogo {
 
 /// The splash's layout: a 300-point mark over the wordmark's space, centred
 /// together.
-enum LaunchSplashMetrics {
+nonisolated enum LaunchSplashMetrics {
     /// The glows' fade in, over the mark's build.
     static let glowFade: TimeInterval = 0.8
     static let mark: CGFloat = 300
