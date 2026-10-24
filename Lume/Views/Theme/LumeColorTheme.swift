@@ -217,6 +217,10 @@ final class LumeThemeStore {
 /// switches to a bundled alternate and confirms it with an alert of its own,
 /// which no app can suppress. The Mac has no alternate icons: its Dock icon is
 /// redrawn while lume runs, and Finder keeps the bundle's pink one.
+///
+/// Out of reach: tvOS's app switcher keeps the primary icon whatever the
+/// alternate (checked on device, through a restart), and iOS's confirmation
+/// alert previews an icon of its own choosing. Both are the system's.
 enum LumeAppIcon {
     static func apply(_ choice: LumeIconChoice) {
         #if os(iOS) || os(tvOS)
