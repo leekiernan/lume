@@ -12883,6 +12883,58 @@
         }
       }
     },
+    "Color Themes" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Farbthemen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temas de color"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thèmes de couleur"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temi colore"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カラーテーマ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "색상 테마"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Temas de cor"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "颜色主题"
+          }
+        }
+      }
+    },
     "Combat Sports" : {
       "localizations" : {
         "de" : {
@@ -48989,6 +49041,58 @@
         }
       }
     },
+    "Recolor lume and its app icon in ice, live coral or lume green, beside heritage pink." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Färbe lume und sein App-Symbol in Eis, Live-Koralle oder lume-Grün – neben dem klassischen Pink."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambia el color de lume y de su icono a hielo, coral vivo o verde lume, además del rosa clásico."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recolorez lume et son icône en glace, corail vif ou vert lume, en plus du rose d’origine."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ricolora lume e la sua icona in ghiaccio, corallo vivo o verde lume, oltre al rosa originale."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "lume と App アイコンの色を、ヘリテージピンクに加えてアイス、ライブコーラル、lume グリーンに変更できます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "헤리티지 핑크 외에 아이스, 라이브 코랄, lume 그린으로 lume와 앱 아이콘의 색을 바꿀 수 있습니다."
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mude a cor do lume e do ícone para gelo, coral vivo ou verde lume, além do rosa clássico."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "除经典粉外，还可将 lume 及其图标换成冰蓝、活力珊瑚或 lume 绿。"
+          }
+        }
+      }
+    },
     "Red" : {
       "localizations" : {
         "de" : {
@@ -65434,54 +65538,54 @@
         }
       }
     },
-    "The color lume uses for progress, selection and highlights. The app icon stays pink." : {
+    "The color lume uses for progress, selection and highlights, and for its app icon." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Die Farbe, die lume für Fortschritt, Auswahl und Hervorhebungen verwendet. Das App-Symbol bleibt pink."
+            "value" : "Die Farbe, die lume für Fortschritt, Auswahl und Hervorhebungen sowie für sein App-Symbol verwendet."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "El color que usa lume para el progreso, la selección y los elementos destacados. El icono de la app sigue siendo rosa."
+            "value" : "El color que usa lume para el progreso, la selección y los elementos destacados, y para su icono."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La couleur utilisée par lume pour la progression, la sélection et les éléments mis en avant. L’icône de l’app reste rose."
+            "value" : "La couleur utilisée par lume pour la progression, la sélection et les éléments mis en avant, ainsi que pour son icône."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Il colore che lume usa per l’avanzamento, la selezione e gli elementi evidenziati. L’icona dell’app resta rosa."
+            "value" : "Il colore che lume usa per l’avanzamento, la selezione e gli elementi evidenziati, e per la sua icona."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "lume が進行状況、選択、ハイライトに使う色です。App アイコンはピンクのままです。"
+            "value" : "lume が進行状況、選択、ハイライト、そして App アイコンに使う色です。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "lume가 진행 상황, 선택 및 강조 표시에 사용하는 색상입니다. 앱 아이콘은 분홍색으로 유지됩니다."
+            "value" : "lume가 진행 상황, 선택, 강조 표시 및 앱 아이콘에 사용하는 색상입니다."
           }
         },
         "pt" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "A cor que o lume usa para progresso, seleção e destaques. O ícone do app continua rosa."
+            "value" : "A cor que o lume usa para progresso, seleção e destaques, e para o ícone do app."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "lume 用于进度、选中和高亮的颜色。App 图标保持粉色。"
+            "value" : "lume 用于进度、选中、高亮以及 App 图标的颜色。"
           }
         }
       }

@@ -9,13 +9,6 @@
 
 import SwiftUI
 
-extension LumePalette {
-    /// Each theme's roles, for drawing every swatch at once.
-    static let all: [LumeColorTheme: LumePalette] = Dictionary(
-        uniqueKeysWithValues: LumeColorTheme.allCases.map { ($0, LumePalette($0)) }
-    )
-}
-
 /// One theme's colour: its accent, in this appearance.
 struct ThemeSwatch: View {
     let theme: LumeColorTheme
@@ -23,13 +16,13 @@ struct ThemeSwatch: View {
 
     var body: some View {
         Circle()
-            .fill(LumePalette.all[theme]?.accent ?? .lumeAccent)
+            .fill(LumePalette.of(theme).accent)
             .frame(width: size, height: size)
     }
 }
 
 #if !os(tvOS)
-    /// The swatches, the one in use ringed and ticked.
+    /// The swatches, the one in use ringed and ticked. Shown with lume Pro only.
     struct ThemeColorPicker: View {
         @State private var store = LumeThemeStore.shared
 
@@ -43,7 +36,7 @@ struct ThemeSwatch: View {
                                 if isSelected {
                                     Image(systemName: "checkmark")
                                         .font(.caption.weight(.bold))
-                                        .foregroundStyle(Color.lumeOnAccent)
+                                        .foregroundStyle(LumePalette.of(theme).onAccent)
                                 }
                             }
                             .padding(3)
@@ -60,7 +53,8 @@ struct ThemeSwatch: View {
     }
 
 #else
-    /// tvOS: the themes as choices, each with its swatch.
+    /// tvOS: the themes as choices, each with its swatch. Its category is
+    /// shown with lume Pro only.
     struct TVThemeColorSettings: View {
         @State private var store = LumeThemeStore.shared
 
@@ -77,7 +71,7 @@ struct ThemeSwatch: View {
                     }
                     .buttonStyle(TVSettingsRowButtonStyle())
                 }
-                Text("The color lume uses for progress, selection and highlights. The app icon stays pink.")
+                Text("The color lume uses for progress, selection and highlights, and for its app icon.")
                     .tvSettingsFooter()
                     .padding(.top, 6)
             }

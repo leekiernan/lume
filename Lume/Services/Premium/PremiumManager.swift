@@ -66,6 +66,18 @@ final class PremiumManager {
     private(set) var purchasedProductIDs: Set<String> = []
     /// Renewal detail when Premium comes from the subscription, else nil.
     private(set) var subscriptionStatus: SubscriptionStatus?
+    /// Whether the entitlements have been read at least once this launch.
+    /// Until then `isPremium` is false for everyone, so anything that would
+    /// take a premium choice away — the colour theme, its app icon — waits
+    /// for this rather than flickering a subscriber's choice off at launch.
+    private(set) var hasResolvedEntitlements: Bool = {
+        #if SIDE_LOAD
+            true
+        #else
+            false
+        #endif
+    }()
+
     /// Product discovery can overlap a purchase safely; checkout operations cannot
     /// overlap each other. Their machines own those separate contracts.
     private var productLoad = PremiumProductLoadMachine()
@@ -228,6 +240,7 @@ final class PremiumManager {
         }
         purchasedProductIDs = owned
         subscriptionStatus = owned.contains(Plan.monthly.rawValue) ? await loadSubscriptionStatus() : nil
+        hasResolvedEntitlements = true
     }
 
     /// Renewal detail for the monthly plan. Requires the product to be loaded, so a

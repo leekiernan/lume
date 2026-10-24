@@ -474,6 +474,7 @@ struct LumeApp: App {
                     }
                     .observeArtworkAccounts()
                     .appAppearance(AppAppearance.resolve(appearanceRaw))
+                    .followsColorTheme()
             }
         }
         .modelContainer(catalogContainer)

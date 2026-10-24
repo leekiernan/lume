@@ -42,6 +42,24 @@ struct LumeColorThemeTests {
         #expect(LumeColorTheme.defaultValue == .pink)
     }
 
+    @Test func `once Pro is known to be gone the theme goes back to pink`() throws {
+        let defaults = try #require(UserDefaults(suiteName: "LumeColorThemeTests-\(UUID().uuidString)"))
+        let store = LumeThemeStore(defaults: defaults)
+        store.select(.coral)
+        // Entitlements not read yet: a subscriber's colour stands.
+        store.resetUnlessEntitled(resolved: false, isPremium: false)
+        #expect(store.theme == .coral)
+        store.resetUnlessEntitled(resolved: true, isPremium: true)
+        #expect(store.theme == .coral)
+        store.resetUnlessEntitled(resolved: true, isPremium: false)
+        #expect(store.theme == .pink)
+        #expect(LumeThemeStore(defaults: defaults).theme == .pink)
+    }
+
+    @Test func `colour themes are on the Pro list`() {
+        #expect(PremiumFeature.availableOnThisPlatform.contains(.colorThemes))
+    }
+
     @Test func `the choice persists and an unknown one falls back to pink`() throws {
         let defaults = try #require(UserDefaults(suiteName: "LumeColorThemeTests-\(UUID().uuidString)"))
         let store = LumeThemeStore(defaults: defaults)

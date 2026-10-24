@@ -106,34 +106,60 @@ struct LumePalette {
     }
 }
 
+extension LumePalette {
+    /// Each theme's roles, built once: for the theme in use and every swatch.
+    static let all: [LumeColorTheme: LumePalette] = Dictionary(
+        uniqueKeysWithValues: LumeColorTheme.allCases.map { ($0, LumePalette($0)) }
+    )
+
+    static func of(_ theme: LumeColorTheme) -> LumePalette {
+        all[theme] ?? LumePalette(theme)
+    }
+}
+
 /// The theme in use, observed: a view that draws a brand colour reads it
 /// through `Color.lumeAccent` and its siblings, so it redraws on a change.
+///
+/// Colour themes are a lume Pro feature (`PremiumFeature.colorThemes`), and
+/// only Pro shows the picker, so a free viewer's theme is simply pink. The app
+/// draws what is saved, with no entitlement check in the way: nothing to wait
+/// for at launch, so a subscriber's colour never blinks. Pro lapsing resets
+/// the saved theme to pink once (`resetUnlessEntitled`).
 @Observable
 final class LumeThemeStore {
     static let shared = LumeThemeStore()
 
     private(set) var theme: LumeColorTheme
-    private(set) var palette: LumePalette
     @ObservationIgnored private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        let theme = LumeColorTheme.resolve(defaults.string(forKey: LumeColorTheme.storageKey) ?? "")
-        self.theme = theme
-        palette = LumePalette(theme)
+        theme = LumeColorTheme.resolve(defaults.string(forKey: LumeColorTheme.storageKey) ?? "")
+    }
+
+    var palette: LumePalette {
+        .of(theme)
     }
 
     func select(_ theme: LumeColorTheme) {
         guard theme != self.theme else { return }
         defaults.set(theme.rawValue, forKey: LumeColorTheme.storageKey)
         self.theme = theme
-        palette = LumePalette(theme)
-        LumeAppIcon.apply(theme)
+    }
+
+    /// Back to pink once the entitlements are known not to include Pro. Until
+    /// they are known, nothing changes.
+    func resetUnlessEntitled(resolved: Bool, isPremium: Bool) {
+        guard resolved, !isPremium else { return }
+        select(.pink)
     }
 }
 
-/// The home-screen icon in the theme's colour. The system confirms each
-/// change with an alert of its own, which no app can suppress.
+/// The app icon in the theme's colour, kept in step with the theme from the
+/// app root (`followsColorTheme()`). On iPhone, iPad and Apple TV the system
+/// switches to a bundled alternate and confirms it with an alert of its own,
+/// which no app can suppress. The Mac has no alternate icons: its Dock icon is
+/// redrawn while lume runs, and Finder keeps the bundle's pink one.
 enum LumeAppIcon {
     static func apply(_ theme: LumeColorTheme) {
         #if os(iOS) || os(tvOS)
@@ -144,7 +170,33 @@ enum LumeAppIcon {
                     Logger.app.error("App icon: couldn't switch to \(theme.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 }
             }
+        #elseif os(macOS)
+            // nil restores the bundle's own icon.
+            NSApplication.shared.applicationIconImage = theme == .pink ? nil : MacDockIcon.image(for: theme)
         #endif
+    }
+}
+
+extension View {
+    /// Keeps the app icon on the theme, and the theme on what the viewer's
+    /// plan allows.
+    func followsColorTheme() -> some View {
+        modifier(ColorThemeFollower())
+    }
+}
+
+private struct ColorThemeFollower: ViewModifier {
+    @State private var store = LumeThemeStore.shared
+    @State private var premium = PremiumManager.shared
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: store.theme, initial: true) { _, theme in
+                LumeAppIcon.apply(theme)
+            }
+            .onChange(of: [premium.hasResolvedEntitlements, premium.isPremium], initial: true) { _, state in
+                store.resetUnlessEntitled(resolved: state[0], isPremium: state[1])
+            }
     }
 }
 

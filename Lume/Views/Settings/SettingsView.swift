@@ -299,8 +299,11 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.menu)
-                LabeledContent("Accent Color") {
-                    ThemeColorPicker()
+                // Colour themes are lume Pro; without it the app is pink.
+                if premium.isPremium {
+                    LabeledContent("Accent Color") {
+                        ThemeColorPicker()
+                    }
                 }
             } header: {
                 Text("Appearance")
@@ -458,7 +461,12 @@ struct SettingsView: View {
         /// credentials for at least one of them.
         var availableCategories: [SettingsCategory] {
             SettingsCategory.allCases.filter {
-                $0 != .integrations || hasAnyIntegration
+                switch $0 {
+                case .integrations: hasAnyIntegration
+                // Its only setting is the colour theme, a lume Pro feature.
+                case .appearance: premium.isPremium
+                default: true
+                }
             }
         }
 
