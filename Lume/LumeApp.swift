@@ -496,6 +496,7 @@ struct LumeApp: App {
                 .appAppearance(AppAppearance.resolve(appearanceRaw))
                 .lumeProgressViews()
                 .tint(.lumeAccent)
+                .followsColorTheme()
             }
             .modelContainer(catalogContainer)
             .environment(TraktService.shared)

@@ -27,7 +27,6 @@
 //  code runs and could show only one of them.
 //
 
-import OSLog
 import SwiftUI
 #if canImport(UIKit)
     import UIKit
@@ -187,6 +186,9 @@ final class LumeThemeStore {
     private(set) var logo: LumeLogo
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private var access = LumeThemeAccess.unresolved
+    /// The process-wide icon owner also receives unchanged selections, so a
+    /// viewer can explicitly retry an icon update that previously failed.
+    @ObservationIgnored var selectionDidCommit: ((LumeIconChoice) -> Void)?
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -229,56 +231,15 @@ final class LumeThemeStore {
             defaults.set(choice.logo.rawValue, forKey: LumeLogo.storageKey)
             logo = choice.logo
         }
-    }
-}
-
-/// The app icon in the theme's colour, kept in step with the theme from the
-/// app root (`followsColorTheme()`). On iPhone, iPad and Apple TV the system
-/// switches to a bundled alternate and confirms it with an alert of its own,
-/// which no app can suppress. The Mac has no alternate icons: its Dock icon is
-/// redrawn while lume runs, and Finder keeps the bundle's pink one.
-///
-/// Out of reach: tvOS's app switcher keeps the primary icon whatever the
-/// alternate (checked on device, through a restart), and iOS's confirmation
-/// alert previews an icon of its own choosing. Both are the system's.
-enum LumeAppIcon {
-    static func apply(_ choice: LumeIconChoice) {
-        #if os(iOS) || os(tvOS)
-            let app = UIApplication.shared
-            let name = choice.iconName
-            guard app.supportsAlternateIcons, app.alternateIconName != name else { return }
-            app.setAlternateIconName(name) { error in
-                if let error {
-                    Logger.app.error("App icon: couldn't switch to \(name ?? "primary", privacy: .public): \(error.localizedDescription, privacy: .public)")
-                }
-            }
-        #elseif os(macOS)
-            // nil restores the bundle's own icon.
-            NSApplication.shared.applicationIconImage = choice.iconName == nil ? nil : MacDockIcon.image(for: choice)
-        #endif
+        selectionDidCommit?(choice)
     }
 }
 
 extension View {
-    /// Keeps the app icon on the theme, and the theme on what the viewer's
-    /// plan allows.
+    /// Starts the process-wide theme and icon owner once. It outlives the
+    /// window, and observes entitlement changes even with no library open.
     func followsColorTheme() -> some View {
-        modifier(ColorThemeFollower())
-    }
-}
-
-private struct ColorThemeFollower: ViewModifier {
-    @State private var store = LumeThemeStore.shared
-    @State private var premium = PremiumManager.shared
-
-    func body(content: Content) -> some View {
-        content
-            .onChange(of: store.iconChoice, initial: true) { _, choice in
-                LumeAppIcon.apply(choice)
-            }
-            .onChange(of: LumeThemeAccess(resolved: premium.hasResolvedEntitlements, isPremium: premium.isPremium), initial: true) { _, access in
-                store.updateAccess(access)
-            }
+        onAppear { LumeAppIcon.shared.start() }
     }
 }
 

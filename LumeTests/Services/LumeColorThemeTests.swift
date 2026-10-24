@@ -93,6 +93,24 @@ struct LumeColorThemeTests {
         #expect(LumeIconChoice(theme: .ice, logo: .floodlight).iconName == "LumeFloodlightIce")
     }
 
+    @Test func `unchanged selections notify the icon owner and a reset publishes one final choice`() throws {
+        let suite = "LumeColorThemeTests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = LumeThemeStore(defaults: defaults)
+        var choices: [LumeIconChoice] = []
+        store.selectionDidCommit = { choices.append($0) }
+        store.select(.ice)
+        store.select(.ice)
+        #expect(choices.count == 2)
+        store.select(LumeLogo.floodlight)
+        choices.removeAll()
+        store.updateAccess(.free)
+        #expect(choices == [LumeIconChoice(theme: .pink, logo: .afterglow)])
+        store.select(.green)
+        #expect(choices.count == 1)
+    }
+
     @Test func `colour themes are on the Pro list`() {
         #expect(PremiumFeature.availableOnThisPlatform.contains(.colorThemes))
     }
