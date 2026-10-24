@@ -127,6 +127,16 @@ struct LumeIconChoice: Equatable {
     }
 }
 
+/// An unresolved StoreKit read must not erase a saved choice. A known free
+/// entitlement also prevents a stale settings action from restoring it.
+nonisolated enum LumeThemeAccess: Equatable {
+    case unresolved, free, premium
+
+    init(resolved: Bool, isPremium: Bool) {
+        self = isPremium ? .premium : resolved ? .free : .unresolved
+    }
+}
+
 /// The brand roles for one theme, built once per theme.
 struct LumePalette {
     let accent: Color
@@ -168,7 +178,7 @@ extension LumePalette {
 /// only Pro shows the picker, so a free viewer's theme is simply pink. The app
 /// draws what is saved, with no entitlement check in the way: nothing to wait
 /// for at launch, so a subscriber's colour never blinks. Pro lapsing resets
-/// the saved theme to pink once (`resetUnlessEntitled`).
+/// the saved theme to pink once (`updateAccess`).
 @Observable
 final class LumeThemeStore {
     static let shared = LumeThemeStore()
@@ -176,6 +186,7 @@ final class LumeThemeStore {
     private(set) var theme: LumeColorTheme
     private(set) var logo: LumeLogo
     @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private var access = LumeThemeAccess.unresolved
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -192,23 +203,32 @@ final class LumeThemeStore {
     }
 
     func select(_ theme: LumeColorTheme) {
-        guard theme != self.theme else { return }
-        defaults.set(theme.rawValue, forKey: LumeColorTheme.storageKey)
-        self.theme = theme
+        guard access != .free else { return }
+        store(LumeIconChoice(theme: theme, logo: logo))
     }
 
     func select(_ logo: LumeLogo) {
-        guard logo != self.logo else { return }
-        defaults.set(logo.rawValue, forKey: LumeLogo.storageKey)
-        self.logo = logo
+        guard access != .free else { return }
+        store(LumeIconChoice(theme: theme, logo: logo))
     }
 
     /// Back to Afterglow in pink once the entitlements are known not to
     /// include Pro. Until they are known, nothing changes.
-    func resetUnlessEntitled(resolved: Bool, isPremium: Bool) {
-        guard resolved, !isPremium else { return }
-        select(LumeColorTheme.pink)
-        select(LumeLogo.afterglow)
+    func updateAccess(_ access: LumeThemeAccess) {
+        self.access = access
+        guard access == .free else { return }
+        store(LumeIconChoice(theme: .pink, logo: .afterglow))
+    }
+
+    private func store(_ choice: LumeIconChoice) {
+        if choice.theme != theme {
+            defaults.set(choice.theme.rawValue, forKey: LumeColorTheme.storageKey)
+            theme = choice.theme
+        }
+        if choice.logo != logo {
+            defaults.set(choice.logo.rawValue, forKey: LumeLogo.storageKey)
+            logo = choice.logo
+        }
     }
 }
 
@@ -256,8 +276,8 @@ private struct ColorThemeFollower: ViewModifier {
             .onChange(of: store.iconChoice, initial: true) { _, choice in
                 LumeAppIcon.apply(choice)
             }
-            .onChange(of: [premium.hasResolvedEntitlements, premium.isPremium], initial: true) { _, state in
-                store.resetUnlessEntitled(resolved: state[0], isPremium: state[1])
+            .onChange(of: LumeThemeAccess(resolved: premium.hasResolvedEntitlements, isPremium: premium.isPremium), initial: true) { _, access in
+                store.updateAccess(access)
             }
     }
 }

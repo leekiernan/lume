@@ -418,6 +418,13 @@ struct SettingsView: View {
                 // tvOS rebuilds Settings for each arrangement of tabs; the
                 // instance on screen is the one that may move focus.
                 .onAppear { route.visibleInstance = instanceID }
+                .onChange(of: availableCategories, initial: true) { _, categories in
+                    guard !categories.contains(selectedCategory) else { return }
+                    selectedCategory = .premium
+                    if route.visibleInstance == instanceID {
+                        Task { focusedCategory = .premium }
+                    }
+                }
                 .tvSettingsBackground()
                 .paywall(isPresented: $showPaywall, highlight: paywallHighlight)
                 .defaultFocus($focusedCategory, selectedCategory)
@@ -494,7 +501,8 @@ struct SettingsView: View {
                             }
                         case .profiles: TVProfilesSettingsView()
                         case .library: tvLibraryDetail(proxy: proxy)
-                        case .appearance: TVThemeColorSettings()
+                        case .appearance:
+                            if premium.isPremium { TVThemeColorSettings() }
                         case .storage: StorageManagementView()
                         case .integrations: tvIntegrationsDetail
                         case .player:

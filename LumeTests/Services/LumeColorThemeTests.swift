@@ -47,11 +47,11 @@ struct LumeColorThemeTests {
         let store = LumeThemeStore(defaults: defaults)
         store.select(.coral)
         // Entitlements not read yet: a subscriber's colour stands.
-        store.resetUnlessEntitled(resolved: false, isPremium: false)
+        store.updateAccess(.unresolved)
         #expect(store.theme == .coral)
-        store.resetUnlessEntitled(resolved: true, isPremium: true)
+        store.updateAccess(.premium)
         #expect(store.theme == .coral)
-        store.resetUnlessEntitled(resolved: true, isPremium: false)
+        store.updateAccess(.free)
         #expect(store.theme == .pink)
         #expect(LumeThemeStore(defaults: defaults).theme == .pink)
     }
@@ -61,8 +61,26 @@ struct LumeColorThemeTests {
         let store = LumeThemeStore(defaults: defaults)
         store.select(LumeLogo.floodlight)
         #expect(LumeThemeStore(defaults: defaults).logo == .floodlight)
-        store.resetUnlessEntitled(resolved: true, isPremium: false)
+        store.updateAccess(.free)
         #expect(store.logo == .afterglow)
+    }
+
+    @Test func `stale picker actions cannot restore a theme after Pro ends`() throws {
+        let suite = "LumeColorThemeTests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = LumeThemeStore(defaults: defaults)
+        store.updateAccess(.premium)
+        store.select(.ice)
+        store.select(LumeLogo.floodlight)
+        store.updateAccess(.free)
+        store.select(.coral)
+        store.select(LumeLogo.floodlight)
+        #expect(store.iconChoice == LumeIconChoice(theme: .pink, logo: .afterglow))
+        #expect(LumeThemeStore(defaults: defaults).iconChoice == store.iconChoice)
+        store.updateAccess(.premium)
+        store.select(.green)
+        #expect(store.theme == .green)
     }
 
     @Test func `each colour and logo has its own icon, Afterglow in pink the primary`() {
