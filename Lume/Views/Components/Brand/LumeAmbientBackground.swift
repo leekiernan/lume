@@ -37,7 +37,7 @@ struct LumeAmbientBackground: View {
                     let isLight = colorScheme == .light
                     glow(Color.lumeViolet.opacity(isLight ? 0.14 : 0.38), width: 1200, height: 700, unit: unit)
                         .position(x: size.width * 0.85, y: -size.height * 0.1)
-                    glow(Color(red: 1, green: 0x88 / 255, blue: 0xD7 / 255).opacity(isLight ? 0.24 : 0.10),
+                    glow(Color.lumeAccentBright.opacity(isLight ? 0.24 : 0.10),
                          width: 900, height: 600, unit: unit)
                         .position(x: 0, y: size.height)
                 case .brand:

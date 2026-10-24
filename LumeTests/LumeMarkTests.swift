@@ -76,12 +76,14 @@ struct LumeMarkTests {
         #expect(LumeMarkFrame(motion: .trace, elapsed: 0.99 * LumeMarkFrame.tracePeriod).traceOpacity < 0.2)
     }
 
-    @Test func `launch starts on the static launch frame and rests with the wordmark in`() {
+    @Test func `launch builds from nothing, triangle then rings, and rests with the wordmark in`() {
+        // The launch screen is plain Ink: nothing of the mark shows yet.
         let first = LumeMarkFrame(motion: .launch, elapsed: 0)
-        // Matches the static launch screen: rings at rest, no wordmark yet.
-        #expect(first == LumeMarkFrame(motion: .still, elapsed: 0).withWordmark(0, rise: 14))
-        let glowing = LumeMarkFrame(motion: .launch, elapsed: 0.96)
-        #expect(abs(glowing.inner - 1) < 1e-6)
+        #expect(first.core == 0 && first.inner == 0 && first.outer == 0 && first.wordmark == 0)
+        #expect(first.coreScale == 0.6)
+        // The triangle is in before the rings start.
+        let grown = LumeMarkFrame(motion: .launch, elapsed: LumeMarkFrame.coreWindow.end)
+        #expect(abs(grown.core - 1) < 1e-6 && grown.inner == 0)
         let rested = LumeMarkFrame(motion: .launch, elapsed: 30)
         #expect(rested == LumeMarkFrame(motion: .still, elapsed: 0))
     }
@@ -107,7 +109,7 @@ struct LumeMarkLayerTests {
         #expect(keys(layer(.pulse)) == ["pulse", "pulse"])
         #expect(keys(layer(.emit)) == ["emit", "emit"])
         #expect(keys(layer(.trace)) == ["draw", "fade"])
-        #expect(keys(layer(.launch)) == ["launch", "launch"])
+        #expect(keys(layer(.launch)) == ["launch", "launch", "launch"])
     }
 
     @Test func `reduce motion rests the mark but keeps progress`() {
@@ -121,14 +123,5 @@ struct LumeMarkLayerTests {
         mark.motion = .progress(0.6)
         let trace = mark.sublayers?.compactMap { $0 as? CAShapeLayer }.first { $0.strokeEnd == 0.6 }
         #expect(trace?.animation(forKey: "fill") != nil)
-    }
-}
-
-private extension LumeMarkFrame {
-    func withWordmark(_ opacity: Double, rise: CGFloat) -> LumeMarkFrame {
-        var frame = self
-        frame.wordmark = opacity
-        frame.wordmarkRise = rise
-        return frame
     }
 }

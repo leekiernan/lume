@@ -1,6 +1,10 @@
 {
   "configurations": {
     "C67C02E52F880F2400842DBA": {
+      "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvos*]\"": "\"LumeIceTV LumeCoralTV LumeGreenTV LumeFloodlightPinkTV LumeFloodlightIceTV LumeFloodlightCoralTV LumeFloodlightGreenTV\";",
+      "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvsimulator*]\"": "\"LumeIceTV LumeCoralTV LumeGreenTV LumeFloodlightPinkTV LumeFloodlightIceTV LumeFloodlightCoralTV LumeFloodlightGreenTV\";",
+      "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=macosx*]\"": "\"\";",
+      "ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES": "\"LumeIce LumeCoral LumeGreen LumeFloodlightPink LumeFloodlightIce LumeFloodlightCoral LumeFloodlightGreen\";",
       "CODE_SIGN_IDENTITY": "\"Apple Development\";",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
@@ -12,6 +16,10 @@
       "PROVISIONING_PROFILE_SPECIFIER": "\"\";"
     },
     "C67C02E62F880F2400842DBA": {
+      "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvos*]\"": "\"LumeIceTV LumeCoralTV LumeGreenTV LumeFloodlightPinkTV LumeFloodlightIceTV LumeFloodlightCoralTV LumeFloodlightGreenTV\";",
+      "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvsimulator*]\"": "\"LumeIceTV LumeCoralTV LumeGreenTV LumeFloodlightPinkTV LumeFloodlightIceTV LumeFloodlightCoralTV LumeFloodlightGreenTV\";",
+      "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=macosx*]\"": "\"\";",
+      "ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES": "\"LumeIce LumeCoral LumeGreen LumeFloodlightPink LumeFloodlightIce LumeFloodlightCoral LumeFloodlightGreen\";",
       "CODE_SIGN_IDENTITY": "\"Apple Development\";",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
@@ -61,6 +69,10 @@
       "STRING_CATALOG_GENERATE_SYMBOLS": "YES;"
     },
     "C67C02F22F880F2400842DBA": {
+      "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvos*]\"": "\"LumeIceTV LumeCoralTV LumeGreenTV LumeFloodlightPinkTV LumeFloodlightIceTV LumeFloodlightCoralTV LumeFloodlightGreenTV\";",
+      "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvsimulator*]\"": "\"LumeIceTV LumeCoralTV LumeGreenTV LumeFloodlightPinkTV LumeFloodlightIceTV LumeFloodlightCoralTV LumeFloodlightGreenTV\";",
+      "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=macosx*]\"": "\"\";",
+      "ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES": "\"LumeIce LumeCoral LumeGreen LumeFloodlightPink LumeFloodlightIce LumeFloodlightCoral LumeFloodlightGreen\";",
       "CODE_SIGN_IDENTITY": "\"Apple Development\";",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
@@ -128,6 +140,10 @@
       "STRING_CATALOG_GENERATE_SYMBOLS": "YES;"
     },
     "C6BE110000000000000000B2": {
+      "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvos*]\"": "\"LumeIceTV LumeCoralTV LumeGreenTV LumeFloodlightPinkTV LumeFloodlightIceTV LumeFloodlightCoralTV LumeFloodlightGreenTV\";",
+      "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvsimulator*]\"": "\"LumeIceTV LumeCoralTV LumeGreenTV LumeFloodlightPinkTV LumeFloodlightIceTV LumeFloodlightCoralTV LumeFloodlightGreenTV\";",
+      "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=macosx*]\"": "\"\";",
+      "ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES": "\"LumeIce LumeCoral LumeGreen LumeFloodlightPink LumeFloodlightIce LumeFloodlightCoral LumeFloodlightGreen\";",
       "CODE_SIGN_IDENTITY": "\"Apple Development\";",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",

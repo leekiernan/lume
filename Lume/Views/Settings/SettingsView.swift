@@ -299,6 +299,13 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.menu)
+                // Colour themes are lume Pro; without it the app is pink.
+                if premium.isPremium {
+                    LabeledContent("Accent Color") {
+                        ThemeColorPicker()
+                    }
+                    ThemeLogoPicker()
+                }
             } header: {
                 Text("Appearance")
             } footer: {
@@ -455,7 +462,12 @@ struct SettingsView: View {
         /// credentials for at least one of them.
         var availableCategories: [SettingsCategory] {
             SettingsCategory.allCases.filter {
-                $0 != .integrations || hasAnyIntegration
+                switch $0 {
+                case .integrations: hasAnyIntegration
+                // Its only setting is the colour theme, a lume Pro feature.
+                case .appearance: premium.isPremium
+                default: true
+                }
             }
         }
 
@@ -482,7 +494,7 @@ struct SettingsView: View {
                             }
                         case .profiles: TVProfilesSettingsView()
                         case .library: tvLibraryDetail(proxy: proxy)
-                        case .search: tvSearchDetail
+                        case .appearance: TVThemeColorSettings()
                         case .storage: StorageManagementView()
                         case .integrations: tvIntegrationsDetail
                         case .player:
@@ -529,8 +541,10 @@ struct SettingsView: View {
             }
         }
 
-        private var tvSearchDetail: some View {
+        /// Shown under the playlists, beneath iCloud.
+        var tvSearchDetail: some View {
             VStack(alignment: .leading, spacing: 8) {
+                TVSettingsSectionLabel("Search")
                 TVOptionToggleRow(title: "Search All Playlists", isOn: $searchAllPlaylists)
                 Text("When off, search only finds content in the active playlist. Turn this on to search across all your playlists.")
                     .tvSettingsFooter()

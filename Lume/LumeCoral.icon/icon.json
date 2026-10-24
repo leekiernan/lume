@@ -1,0 +1,80 @@
+{
+  "fill" : {
+    "solid" : "extended-srgb:0.07843,0.06275,0.12157,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "blend-mode" : "normal",
+          "fill" : {
+            "solid" : "extended-srgb:1.00000,0.38431,0.27843,1.00000"
+          },
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "mark-core.svg",
+          "name" : "triangle",
+          "position" : {
+            "scale" : 3,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "blend-mode" : "normal",
+          "fill" : {
+            "solid" : "extended-srgb:1.00000,0.38431,0.27843,1.00000"
+          },
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "mark-inner.svg",
+          "name" : "inner-ring",
+          "opacity" : 0.6,
+          "position" : {
+            "scale" : 3,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "blend-mode" : "normal",
+          "fill" : {
+            "solid" : "extended-srgb:1.00000,0.38431,0.27843,1.00000"
+          },
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "mark-outer.svg",
+          "name" : "outer-ring",
+          "opacity" : 0.3,
+          "position" : {
+            "scale" : 3,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        }
+      ],
+      "lighting" : "individual",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

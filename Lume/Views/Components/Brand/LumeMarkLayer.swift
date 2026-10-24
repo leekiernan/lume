@@ -12,7 +12,16 @@
 import QuartzCore
 import SwiftUI
 
-final class LumeMarkLayer: CALayer {
+/// What the host view drives, whichever logo draws the mark.
+protocol LumeMarkAnimating: CALayer {
+    var motion: LumeMark.Motion { get set }
+    var reduceMotion: Bool { get set }
+    var color: CGColor { get set }
+    func resumeIfNeeded()
+}
+
+/// The Afterglow mark on Core Animation.
+final class LumeMarkLayer: CALayer, LumeMarkAnimating {
     var motion: LumeMark.Motion = .still {
         didSet { if motion != oldValue { applyMotion(from: oldValue) } }
     }
@@ -22,7 +31,7 @@ final class LumeMarkLayer: CALayer {
     }
 
     var color: CGColor = .init(srgbRed: 1, green: 0.533, blue: 0.843, alpha: 1) {
-        didSet { applyColor() }
+        didSet { if color != oldValue { applyColor() } }
     }
 
     private let core = CAShapeLayer()
@@ -61,8 +70,11 @@ final class LumeMarkLayer: CALayer {
         CATransaction.setDisableActions(true)
         let unit = min(bounds.width, bounds.height) / 240
         let centroid = CGPoint(x: bounds.midX - 10 * unit, y: bounds.midY)
-        core.frame = bounds
-        core.path = LumeMarkOutline(offset: LumeMarkOutline.triangle).path(in: bounds).cgPath
+        // The triangle grows in about its centroid at launch.
+        core.bounds = CGRect(origin: .zero, size: bounds.size)
+        core.anchorPoint = CGPoint(x: centroid.x / bounds.width, y: centroid.y / bounds.height)
+        core.position = centroid
+        core.path = LumeMarkOutline(offset: LumeMarkOutline.triangle).path(in: core.bounds).cgPath
         for (layer, offset) in [(inner, LumeMarkOutline.innerRing), (outer, LumeMarkOutline.outerRing),
                                 (trace, LumeMarkOutline.outerRing)]
         {
@@ -187,14 +199,22 @@ final class LumeMarkLayer: CALayer {
         trace.add(fade, forKey: "fade")
     }
 
-    /// Once, from the static launch screen's frame to rest.
+    /// Once, from nothing (`LumeMarkFrame`'s launch): the triangle grows in,
+    /// then each ring fades up to rest.
     private func startLaunch() {
-        let glow = keyframes("opacity", values: [0.6, 0.6, 1, 0.6], times: [0, 0.36, 0.96, 1.8].map { $0 / 1.8 },
-                             duration: 1.8, repeats: false)
-        inner.add(glow, forKey: "launch")
-        let outerGlow = keyframes("opacity", values: [0.3, 0.3, 0.85, 0.3],
-                                  times: [0, 0.84, 1.56, 2.52].map { $0 / 2.52 }, duration: 2.52, repeats: false)
-        outer.add(outerGlow, forKey: "launch")
+        let grow = CAAnimationGroup()
+        let coreEnd = LumeMarkFrame.coreWindow.end
+        grow.animations = [
+            keyframes("opacity", values: [0, 1], times: [0, 1], duration: coreEnd, repeats: false, timing: .easeOut),
+            keyframes("transform.scale", values: [0.6, 1], times: [0, 1], duration: coreEnd, repeats: false, timing: .easeOut)
+        ]
+        grow.duration = coreEnd
+        core.add(grow, forKey: "launch")
+        for (layer, window, rest) in [(inner, LumeMarkFrame.innerWindow, 0.6), (outer, LumeMarkFrame.outerWindow, 0.3)] {
+            let fade = keyframes("opacity", values: [0, 0, rest], times: [0, window.start / window.end, 1],
+                                 duration: window.end, repeats: false, timing: .easeOut)
+            layer.add(fade, forKey: "launch")
+        }
     }
 
     /// Loops run on the shared media clock rather than from when they were
@@ -205,12 +225,13 @@ final class LumeMarkLayer: CALayer {
     }
 
     private func keyframes(
-        _ keyPath: String, values: [Double], times: [Double], duration: TimeInterval, repeats: Bool = true
+        _ keyPath: String, values: [Double], times: [Double], duration: TimeInterval, repeats: Bool = true,
+        timing: CAMediaTimingFunctionName = .easeInEaseOut
     ) -> CAKeyframeAnimation {
         let animation = CAKeyframeAnimation(keyPath: keyPath)
         animation.values = values
         animation.keyTimes = times.map { NSNumber(value: $0) }
-        animation.timingFunctions = Array(repeating: CAMediaTimingFunction(name: .easeInEaseOut), count: max(values.count - 1, 1))
+        animation.timingFunctions = Array(repeating: CAMediaTimingFunction(name: timing), count: max(values.count - 1, 1))
         animation.duration = duration
         animation.repeatCount = repeats ? .infinity : 0
         animation.isRemovedOnCompletion = !repeats
@@ -225,29 +246,70 @@ final class LumeMarkLayer: CALayer {
     }
 }
 
+extension LumeLogo {
+    func makeMarkLayer() -> CALayer & LumeMarkAnimating {
+        switch self {
+        case .afterglow: LumeMarkLayer()
+        case .floodlight: FloodlightMarkLayer()
+        }
+    }
+}
+
+/// The host views' shared part: the mark layer for the logo, replaced when
+/// the logo changes, with the state the host last gave it.
+struct LumeMarkUpdate {
+    let motion: LumeMark.Motion
+    let color: CGColor
+    let logo: LumeLogo
+    let reduceMotion: Bool
+
+    /// Applies itself to `host`'s mark, first swapping in a layer for a new
+    /// logo; returns the layer now in place.
+    @discardableResult
+    func apply(
+        to mark: CALayer & LumeMarkAnimating, currentLogo: LumeLogo, replace: (CALayer & LumeMarkAnimating) -> Void
+    ) -> CALayer & LumeMarkAnimating {
+        var target = mark
+        if logo != currentLogo {
+            target = logo.makeMarkLayer()
+            target.frame = mark.frame
+            replace(target)
+        }
+        target.color = color
+        target.reduceMotion = reduceMotion
+        target.motion = motion
+        return target
+    }
+}
+
 #if os(macOS)
     import AppKit
 
     struct LumeMarkLayerView: NSViewRepresentable {
         let motion: LumeMark.Motion
         let color: Color
+        let logo: LumeLogo
 
         func makeNSView(context _: Context) -> LumeMarkHostView {
-            LumeMarkHostView()
+            LumeMarkHostView(logo: logo)
         }
 
         func updateNSView(_ view: LumeMarkHostView, context: Context) {
-            view.mark.color = color.resolve(in: context.environment).cgColor
-            view.mark.reduceMotion = context.environment.accessibilityReduceMotion
-            view.mark.motion = motion
+            view.update(LumeMarkUpdate(
+                motion: motion, color: color.resolve(in: context.environment).cgColor, logo: logo,
+                reduceMotion: context.environment.accessibilityReduceMotion
+            ))
         }
     }
 
     final class LumeMarkHostView: NSView {
-        let mark = LumeMarkLayer()
+        private(set) var mark: CALayer & LumeMarkAnimating
+        private var logo: LumeLogo
 
-        override init(frame: NSRect) {
-            super.init(frame: frame)
+        init(logo: LumeLogo) {
+            self.logo = logo
+            mark = logo.makeMarkLayer()
+            super.init(frame: .zero)
             wantsLayer = true
             layer?.isGeometryFlipped = true
             layer?.addSublayer(mark)
@@ -256,6 +318,11 @@ final class LumeMarkLayer: CALayer {
         @available(*, unavailable)
         required init?(coder _: NSCoder) {
             fatalError("init(coder:) has not been implemented")
+        }
+
+        func update(_ update: LumeMarkUpdate) {
+            mark = update.apply(to: mark, currentLogo: logo) { layer?.replaceSublayer(mark, with: $0) }
+            logo = update.logo
         }
 
         override func layout() {
@@ -274,23 +341,28 @@ final class LumeMarkLayer: CALayer {
     struct LumeMarkLayerView: UIViewRepresentable {
         let motion: LumeMark.Motion
         let color: Color
+        let logo: LumeLogo
 
         func makeUIView(context _: Context) -> LumeMarkHostView {
-            LumeMarkHostView()
+            LumeMarkHostView(logo: logo)
         }
 
         func updateUIView(_ view: LumeMarkHostView, context: Context) {
-            view.mark.color = color.resolve(in: context.environment).cgColor
-            view.mark.reduceMotion = context.environment.accessibilityReduceMotion
-            view.mark.motion = motion
+            view.update(LumeMarkUpdate(
+                motion: motion, color: color.resolve(in: context.environment).cgColor, logo: logo,
+                reduceMotion: context.environment.accessibilityReduceMotion
+            ))
         }
     }
 
     final class LumeMarkHostView: UIView {
-        let mark = LumeMarkLayer()
+        private(set) var mark: CALayer & LumeMarkAnimating
+        private var logo: LumeLogo
 
-        override init(frame: CGRect) {
-            super.init(frame: frame)
+        init(logo: LumeLogo) {
+            self.logo = logo
+            mark = logo.makeMarkLayer()
+            super.init(frame: .zero)
             isUserInteractionEnabled = false
             backgroundColor = .clear
             layer.addSublayer(mark)
@@ -299,6 +371,11 @@ final class LumeMarkLayer: CALayer {
         @available(*, unavailable)
         required init?(coder _: NSCoder) {
             fatalError("init(coder:) has not been implemented")
+        }
+
+        func update(_ update: LumeMarkUpdate) {
+            mark = update.apply(to: mark, currentLogo: logo) { layer.replaceSublayer(mark, with: $0) }
+            logo = update.logo
         }
 
         override func layoutSubviews() {

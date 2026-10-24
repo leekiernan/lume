@@ -19,6 +19,9 @@ import SwiftUI
             VStack(alignment: .leading, spacing: 36) {
                 tvPlaylistsList
                 TVCloudSyncSection()
+                // Search across playlists lives with the playlists rather
+                // than in a category of its own.
+                tvSearchDetail
             }
         }
 
