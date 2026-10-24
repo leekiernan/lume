@@ -271,11 +271,7 @@ final class LumeMarkLayer: CALayer, LumeMarkAnimating {
 
 extension LumeLogo {
     func makeMarkLayer() -> CALayer & LumeMarkAnimating {
-        switch self {
-        case .afterglow: LumeMarkLayer(mark: .afterglow)
-        case .signal: LumeMarkLayer(mark: .signal)
-        case .floodlight: FloodlightMarkLayer()
-        }
+        design.makeMarkLayer()
     }
 }
 

@@ -93,11 +93,7 @@ enum LumeLogo: String, CaseIterable, Identifiable {
 
     /// The design's names, which are the marks' names.
     var title: String {
-        switch self {
-        case .afterglow: "Afterglow"
-        case .signal: "Signal"
-        case .floodlight: "Floodlight"
-        }
+        design.title
     }
 
     static func resolve(_ raw: String) -> LumeLogo {
@@ -115,12 +111,7 @@ struct LumeIconChoice: Equatable {
     /// an Icon Composer file on iPhone and iPad, a `…TV` image stack on Apple
     /// TV.
     var iconName: String? {
-        let name: String? = switch (logo, theme) {
-        case (.afterglow, .pink): nil
-        case (.afterglow, _): "Lume" + theme.iconSuffix
-        case (.signal, _): "LumeSignal" + theme.iconSuffix
-        case (.floodlight, _): "LumeFloodlight" + theme.iconSuffix
-        }
+        let name: String? = logo == .afterglow && theme == .pink ? nil : logo.design.iconPrefix + theme.iconSuffix
         #if os(tvOS)
             return name.map { $0 + "TV" }
         #else
