@@ -106,7 +106,7 @@ nonisolated enum LaunchSplashPhase: Int, Comparable {
     /// wordmark rises in when the board brings it (at once with Reduce
     /// Motion); the wait pulse once the mark has rested.
     static func timeline(for logo: LumeLogo, reduceMotion: Bool) -> [Step] {
-        let launch = logo.launch
+        let launch = logo.design.launch
         let wordmarkLength = launch.wordmark.end - launch.wordmark.start
         return [
             Step(seconds: 0, phase: .launching, animation: .easeInOut(duration: LaunchSplashMetrics.glowFade)),
@@ -114,16 +114,6 @@ nonisolated enum LaunchSplashPhase: Int, Comparable {
                  animation: reduceMotion ? nil : .easeOut(duration: wordmarkLength)),
             Step(seconds: launch.duration + 0.4, phase: .waiting, animation: nil)
         ]
-    }
-}
-
-extension LumeLogo {
-    /// Its launch's timings: when the wordmark arrives, and when it rests.
-    nonisolated var launch: (wordmark: (start: Double, end: Double), duration: Double) {
-        switch self {
-        case .afterglow: (LumeMarkFrame.wordmarkWindow, LumeMarkFrame.launchDuration)
-        case .floodlight: (FloodlightFrame.wordmarkWindow, FloodlightFrame.launchDuration)
-        }
     }
 }
 

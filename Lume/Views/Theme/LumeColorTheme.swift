@@ -4,8 +4,8 @@
 //
 //  The brand colour the app is drawn in: heritage pink, or one of the design
 //  artefacts' other colourways — ice #62DEFF, live coral #FF6247 and lume
-//  green #CCFF4D — named as the design names them; and the logo, Afterglow or
-//  Floodlight (`LumeLogo`). A theme is three colours, and every brand role
+//  green #CCFF4D — named as the design names them; and the logo, Afterglow,
+//  Signal or Floodlight (`LumeLogo`). A theme is three colours, and every brand role
 //  derives from them the way the pink's always have (`LumeTheme.swift` has
 //  the roles):
 //
@@ -78,10 +78,11 @@ enum LumeColorTheme: String, CaseIterable, Identifiable {
     }
 }
 
-/// The mark the app is drawn with: the Afterglow triangle in its rings, or
-/// Floodlight's six lights. Every motion has a form in each (`LumeMark`).
+/// The mark the app is drawn with: the Afterglow triangle in its rings,
+/// Signal's wedge and arcs, or Floodlight's six lights. Every motion has a
+/// form in each (`LumeMark`).
 enum LumeLogo: String, CaseIterable, Identifiable {
-    case afterglow, floodlight
+    case afterglow, signal, floodlight
 
     static let storageKey = "app.logo"
     static let defaultValue: LumeLogo = .afterglow
@@ -92,10 +93,7 @@ enum LumeLogo: String, CaseIterable, Identifiable {
 
     /// The design's names, which are the marks' names.
     var title: String {
-        switch self {
-        case .afterglow: "Afterglow"
-        case .floodlight: "Floodlight"
-        }
+        design.title
     }
 
     static func resolve(_ raw: String) -> LumeLogo {
@@ -113,11 +111,7 @@ struct LumeIconChoice: Equatable {
     /// an Icon Composer file on iPhone and iPad, a `…TV` image stack on Apple
     /// TV.
     var iconName: String? {
-        let name: String? = switch (logo, theme) {
-        case (.afterglow, .pink): nil
-        case (.afterglow, _): "Lume" + theme.iconSuffix
-        case (.floodlight, _): "LumeFloodlight" + theme.iconSuffix
-        }
+        let name: String? = logo == .afterglow && theme == .pink ? nil : logo.design.iconPrefix + theme.iconSuffix
         #if os(tvOS)
             return name.map { $0 + "TV" }
         #else

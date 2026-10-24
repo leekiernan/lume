@@ -17316,54 +17316,54 @@
         }
       }
     },
-    "Draw lume and its app icon with the Afterglow or Floodlight logo, in heritage pink, ice, live coral or lume green." : {
+    "Draw lume and its app icon with the Afterglow, Signal or Floodlight logo, in heritage pink, ice, live coral or lume green." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gestalte lume und sein App-Symbol mit dem Afterglow- oder Floodlight-Logo, in klassischem Pink, Eis, Live-Koralle oder lume-Grün."
+            "value" : "Gestalte lume und sein App-Symbol mit dem Afterglow-, Signal- oder Floodlight-Logo, in klassischem Pink, Eis, Live-Koralle oder lume-Grün."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Muestra lume y su icono con el logotipo Afterglow o Floodlight, en rosa clásico, hielo, coral vivo o verde lume."
+            "value" : "Muestra lume y su icono con el logotipo Afterglow, Signal o Floodlight, en rosa clásico, hielo, coral vivo o verde lume."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Affichez lume et son icône avec le logo Afterglow ou Floodlight, en rose d’origine, glace, corail vif ou vert lume."
+            "value" : "Affichez lume et son icône avec le logo Afterglow, Signal ou Floodlight, en rose d’origine, glace, corail vif ou vert lume."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mostra lume e la sua icona con il logo Afterglow o Floodlight, in rosa originale, ghiaccio, corallo vivo o verde lume."
+            "value" : "Mostra lume e la sua icona con il logo Afterglow, Signal o Floodlight, in rosa originale, ghiaccio, corallo vivo o verde lume."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "lume と App アイコンを Afterglow または Floodlight のロゴで、ヘリテージピンク、アイス、ライブコーラル、lume グリーンから選んで表示できます。"
+            "value" : "lume と App アイコンを Afterglow、Signal、Floodlight のいずれか のロゴで、ヘリテージピンク、アイス、ライブコーラル、lume グリーンから選んで表示できます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "lume와 앱 아이콘을 Afterglow 또는 Floodlight 로고로, 헤리티지 핑크, 아이스, 라이브 코랄, lume 그린 중에서 골라 표시합니다."
+            "value" : "lume와 앱 아이콘을 Afterglow, Signal 또는 Floodlight 로고로, 헤리티지 핑크, 아이스, 라이브 코랄, lume 그린 중에서 골라 표시합니다."
           }
         },
         "pt" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mostre o lume e o ícone com o logotipo Afterglow ou Floodlight, em rosa clássico, gelo, coral vivo ou verde lume."
+            "value" : "Mostre o lume e o ícone com o logotipo Afterglow, Signal ou Floodlight, em rosa clássico, gelo, coral vivo ou verde lume."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "用 Afterglow 或 Floodlight 标志，以经典粉、冰蓝、活力珊瑚或 lume 绿显示 lume 及其图标。"
+            "value" : "用 Afterglow、Signal 或 Floodlight 标志，以经典粉、冰蓝、活力珊瑚或 lume 绿显示 lume 及其图标。"
           }
         }
       }

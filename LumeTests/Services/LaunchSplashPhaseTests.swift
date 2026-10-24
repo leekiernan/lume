@@ -13,7 +13,7 @@ struct LaunchSplashPhaseTests {
     func `the glows come in with the mark, then the wordmark at the logo's time, then the wait pulse`(logo: LumeLogo) {
         let steps = LaunchSplashPhase.timeline(for: logo, reduceMotion: false)
         #expect(steps.map(\.phase) == [.launching, .branded, .waiting])
-        #expect(steps[1].seconds == logo.launch.wordmark.start)
+        #expect(steps[1].seconds == logo.design.launch.wordmark.start)
         #expect(LaunchSplashPhase.launching.showsGlows && !LaunchSplashPhase.launching.showsWordmark)
         #expect(LaunchSplashPhase.waiting.markMotion == .pulse)
     }
