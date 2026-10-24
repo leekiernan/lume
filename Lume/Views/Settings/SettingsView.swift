@@ -485,7 +485,6 @@ struct SettingsView: View {
                             }
                         case .profiles: TVProfilesSettingsView()
                         case .library: tvLibraryDetail(proxy: proxy)
-                        case .search: tvSearchDetail
                         case .appearance: TVThemeColorSettings()
                         case .storage: StorageManagementView()
                         case .integrations: tvIntegrationsDetail
@@ -533,8 +532,10 @@ struct SettingsView: View {
             }
         }
 
-        private var tvSearchDetail: some View {
+        /// Shown under the playlists, beneath iCloud.
+        var tvSearchDetail: some View {
             VStack(alignment: .leading, spacing: 8) {
+                TVSettingsSectionLabel("Search")
                 TVOptionToggleRow(title: "Search All Playlists", isOn: $searchAllPlaylists)
                 Text("When off, search only finds content in the active playlist. Turn this on to search across all your playlists.")
                     .tvSettingsFooter()
