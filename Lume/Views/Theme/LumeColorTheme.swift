@@ -4,8 +4,8 @@
 //
 //  The brand colour the app is drawn in: heritage pink, or one of the design
 //  artefacts' other colourways — ice #62DEFF, live coral #FF6247 and lume
-//  green #CCFF4D — named as the design names them; and the logo, Afterglow or
-//  Floodlight (`LumeLogo`). A theme is three colours, and every brand role
+//  green #CCFF4D — named as the design names them; and the logo, Afterglow,
+//  Signal or Floodlight (`LumeLogo`). A theme is three colours, and every brand role
 //  derives from them the way the pink's always have (`LumeTheme.swift` has
 //  the roles):
 //
@@ -78,10 +78,11 @@ enum LumeColorTheme: String, CaseIterable, Identifiable {
     }
 }
 
-/// The mark the app is drawn with: the Afterglow triangle in its rings, or
-/// Floodlight's six lights. Every motion has a form in each (`LumeMark`).
+/// The mark the app is drawn with: the Afterglow triangle in its rings,
+/// Signal's wedge and arcs, or Floodlight's six lights. Every motion has a
+/// form in each (`LumeMark`).
 enum LumeLogo: String, CaseIterable, Identifiable {
-    case afterglow, floodlight
+    case afterglow, signal, floodlight
 
     static let storageKey = "app.logo"
     static let defaultValue: LumeLogo = .afterglow
@@ -94,6 +95,7 @@ enum LumeLogo: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .afterglow: "Afterglow"
+        case .signal: "Signal"
         case .floodlight: "Floodlight"
         }
     }
@@ -116,6 +118,7 @@ struct LumeIconChoice: Equatable {
         let name: String? = switch (logo, theme) {
         case (.afterglow, .pink): nil
         case (.afterglow, _): "Lume" + theme.iconSuffix
+        case (.signal, _): "LumeSignal" + theme.iconSuffix
         case (.floodlight, _): "LumeFloodlight" + theme.iconSuffix
         }
         #if os(tvOS)

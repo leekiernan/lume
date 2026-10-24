@@ -121,7 +121,8 @@ extension LumeLogo {
     /// Its launch's timings: when the wordmark arrives, and when it rests.
     nonisolated var launch: (wordmark: (start: Double, end: Double), duration: Double) {
         switch self {
-        case .afterglow: (LumeMarkFrame.wordmarkWindow, LumeMarkFrame.launchDuration)
+        // Signal's board launches on Afterglow's windows.
+        case .afterglow, .signal: (LumeMarkFrame.wordmarkWindow, LumeMarkFrame.launchDuration)
         case .floodlight: (FloodlightFrame.wordmarkWindow, FloodlightFrame.launchDuration)
         }
     }

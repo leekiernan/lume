@@ -20,8 +20,10 @@ protocol LumeMarkAnimating: CALayer {
     func resumeIfNeeded()
 }
 
-/// The Afterglow mark on Core Animation.
+/// A ring mark — Afterglow or Signal (`RingMark`) — on Core Animation.
 final class LumeMarkLayer: CALayer, LumeMarkAnimating {
+    let mark: RingMark
+
     var motion: LumeMark.Motion = .still {
         didSet { if motion != oldValue { applyMotion(from: oldValue) } }
     }
@@ -41,19 +43,28 @@ final class LumeMarkLayer: CALayer, LumeMarkAnimating {
     private let emits = [CAShapeLayer(), CAShapeLayer()]
     private var laidOutBounds: CGRect = .null
 
-    override init() {
+    init(mark: RingMark = .afterglow) {
+        self.mark = mark
         super.init()
         for layer in [outer, trace, inner] + emits {
             layer.fillColor = nil
+            layer.lineCap = mark.roundsRingEnds ? .round : .butt
             addSublayer(layer)
         }
         addSublayer(core)
         trace.lineCap = .round
+        core.lineJoin = .round
         applyColor()
         applyMotion(from: .still)
     }
 
+    /// Core Animation's own `init`, should anything call it: Afterglow.
+    override convenience init() {
+        self.init(mark: .afterglow)
+    }
+
     override init(layer: Any) {
+        mark = (layer as? LumeMarkLayer)?.mark ?? .afterglow
         super.init(layer: layer)
     }
 
@@ -69,36 +80,44 @@ final class LumeMarkLayer: CALayer, LumeMarkAnimating {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         let unit = min(bounds.width, bounds.height) / 240
-        let centroid = CGPoint(x: bounds.midX - 10 * unit, y: bounds.midY)
-        // The triangle grows in about its centroid at launch.
-        core.bounds = CGRect(origin: .zero, size: bounds.size)
-        core.anchorPoint = CGPoint(x: centroid.x / bounds.width, y: centroid.y / bounds.height)
-        core.position = centroid
-        core.path = LumeMarkOutline(offset: LumeMarkOutline.triangle).path(in: core.bounds).cgPath
-        for (layer, offset) in [(inner, LumeMarkOutline.innerRing), (outer, LumeMarkOutline.outerRing),
-                                (trace, LumeMarkOutline.outerRing)]
+        /// An artboard point in this layer's bounds.
+        func place(_ point: CGPoint) -> CGPoint {
+            CGPoint(x: bounds.midX + (point.x - 120) * unit, y: bounds.midY + (point.y - 120) * unit)
+        }
+        // The core grows in about its origin at launch.
+        pin(core, at: place(mark.coreOrigin))
+        core.path = mark.corePath(in: core.bounds).cgPath
+        core.lineWidth = (mark.coreStroke ?? 0) * unit
+        for (layer, path) in [(inner, mark.innerPath(in: bounds)), (outer, mark.outerPath(in: bounds)),
+                              (trace, mark.outerPath(in: bounds))]
         {
             layer.frame = bounds
-            layer.path = LumeMarkOutline(offset: offset).path(in: bounds).cgPath
-            layer.lineWidth = LumeMarkOutline.ringWidth * unit
+            layer.path = path.cgPath
+            layer.lineWidth = mark.ringWidth * unit
         }
-        // Emit rings scale about the triangle's centroid.
+        // Cast copies scale about their origin.
         for layer in emits {
-            layer.bounds = CGRect(origin: .zero, size: bounds.size)
-            layer.anchorPoint = CGPoint(x: centroid.x / bounds.width, y: centroid.y / bounds.height)
-            layer.position = centroid
-            layer.path = LumeMarkOutline(offset: LumeMarkOutline.triangle).path(in: layer.bounds).cgPath
-            layer.lineWidth = LumeMarkOutline.ringWidth * unit
+            pin(layer, at: place(mark.castOrigin))
+            layer.path = mark.castPath(in: layer.bounds).cgPath
+            layer.lineWidth = mark.ringWidth * unit
         }
         CATransaction.commit()
         // Line widths are animated in points; restart against the new size.
         if case .emit = motion { applyMotion(from: motion) }
     }
 
+    /// Fills the bounds, scaling about `point`.
+    private func pin(_ layer: CALayer, at point: CGPoint) {
+        layer.bounds = CGRect(origin: .zero, size: bounds.size)
+        layer.anchorPoint = CGPoint(x: point.x / bounds.width, y: point.y / bounds.height)
+        layer.position = point
+    }
+
     private func applyColor() {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         core.fillColor = color
+        core.strokeColor = mark.coreStroke == nil ? nil : color
         for layer in [inner, outer, trace] + emits {
             layer.strokeColor = color
         }
@@ -138,7 +157,7 @@ final class LumeMarkLayer: CALayer, LumeMarkAnimating {
         }
         // Finite animations disappear on completion; the model must already
         // contain their final values, rather than the invisible opening frame.
-        let frame = LumeMarkFrame(motion: motion, elapsed: motion == .launch ? LumeMarkFrame.launchDuration : 0)
+        let frame = LumeMarkFrame(motion: motion, elapsed: motion == .launch ? LumeMarkFrame.launchDuration : 0, mark: mark)
         core.opacity = 1
         inner.opacity = Float(frame.inner)
         outer.opacity = Float(frame.outer)
@@ -162,32 +181,41 @@ final class LumeMarkLayer: CALayer, LumeMarkAnimating {
     }
 
     private func startPulse() {
-        let pulse = keyframes("opacity", values: [0.14, 0.8, 0.14], times: [0, 0.35, 1],
-                              duration: LumeMarkFrame.pulsePeriod)
-        inner.opacity = 0.14
-        outer.opacity = 0.14
-        pulse.timeOffset = Self.phase(LumeMarkFrame.pulsePeriod)
+        let spec = mark.pulse
+        let pulse = keyframes("opacity", values: spec.stops.map(\.1), times: spec.stops.map(\.0), duration: spec.period)
+        inner.opacity = Float(spec.low)
+        outer.opacity = Float(spec.low)
+        pulse.timeOffset = Self.phase(spec.period)
         inner.add(pulse, forKey: "pulse")
-        // The outer ring runs 1.3 s ahead (the board's -1.3 s delay).
-        pulse.timeOffset += 1.3
+        // The outer ring runs ahead (the board's negative delay).
+        pulse.timeOffset += spec.outerLead
         outer.add(pulse, forKey: "pulse")
     }
 
     private func startEmit() {
         let unit = min(bounds.width, bounds.height) / 240
+        let cast = mark.cast
+        let curve = CAMediaTimingFunction(controlPoints: Float(cast.curve.first.x), Float(cast.curve.first.y),
+                                          Float(cast.curve.second.x), Float(cast.curve.second.y))
+        func eased(_ keyPath: String, _ stops: [(Double, Double)]) -> CAKeyframeAnimation {
+            let animation = CAKeyframeAnimation(keyPath: keyPath)
+            animation.values = stops.map(\.1)
+            animation.keyTimes = stops.map { NSNumber(value: $0.0) }
+            animation.timingFunctions = Array(repeating: curve, count: stops.count - 1)
+            return animation
+        }
         for (index, layer) in emits.enumerated() {
             let group = CAAnimationGroup()
             group.animations = [
-                basic("transform.scale", from: 1, end: 2.2),
-                basic("opacity", from: 0.8, end: 0),
-                // Drawn width shrinks as the ring grows, as on the board.
-                basic("lineWidth", from: 12 * unit, end: 5.5 * unit)
+                eased("transform.scale", [(0, cast.scale.from), (1, cast.scale.to)]),
+                eased("opacity", cast.opacity),
+                // Drawn width shrinks as the copy grows, as on the board.
+                eased("lineWidth", [(0, cast.lineWidth.from * unit), (1, cast.lineWidth.to * unit)])
             ]
-            group.duration = LumeMarkFrame.emitPeriod
-            group.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.6, 0.4, 1)
+            group.duration = cast.period
             group.repeatCount = .infinity
             group.isRemovedOnCompletion = false
-            group.timeOffset = Self.phase(LumeMarkFrame.emitPeriod) + Double(index)
+            group.timeOffset = Self.phase(cast.period) + Double(index) * cast.lead
             layer.add(group, forKey: "emit")
         }
     }
@@ -201,8 +229,8 @@ final class LumeMarkLayer: CALayer, LumeMarkAnimating {
         trace.add(fade, forKey: "fade")
     }
 
-    /// Once, from nothing (`LumeMarkFrame`'s launch): the triangle grows in,
-    /// then each ring fades up to rest.
+    /// Once, from nothing (`LumeMarkFrame`'s launch): the core grows in, then
+    /// each ring fades up to rest.
     private func startLaunch() {
         let grow = CAAnimationGroup()
         let coreEnd = LumeMarkFrame.coreWindow.end
@@ -212,7 +240,7 @@ final class LumeMarkLayer: CALayer, LumeMarkAnimating {
         ]
         grow.duration = coreEnd
         core.add(grow, forKey: "launch")
-        for (layer, window, rest) in [(inner, LumeMarkFrame.innerWindow, 0.6), (outer, LumeMarkFrame.outerWindow, 0.3)] {
+        for (layer, window, rest) in [(inner, LumeMarkFrame.innerWindow, mark.rest.inner), (outer, LumeMarkFrame.outerWindow, mark.rest.outer)] {
             let fade = keyframes("opacity", values: [0, 0, rest], times: [0, window.start / window.end, 1],
                                  duration: window.end, repeats: false, timing: .easeOut)
             layer.add(fade, forKey: "launch")
@@ -239,19 +267,13 @@ final class LumeMarkLayer: CALayer, LumeMarkAnimating {
         animation.isRemovedOnCompletion = !repeats
         return animation
     }
-
-    private func basic(_ keyPath: String, from start: CGFloat, end: CGFloat) -> CABasicAnimation {
-        let animation = CABasicAnimation(keyPath: keyPath)
-        animation.fromValue = start
-        animation.toValue = end
-        return animation
-    }
 }
 
 extension LumeLogo {
     func makeMarkLayer() -> CALayer & LumeMarkAnimating {
         switch self {
-        case .afterglow: LumeMarkLayer()
+        case .afterglow: LumeMarkLayer(mark: .afterglow)
+        case .signal: LumeMarkLayer(mark: .signal)
         case .floodlight: FloodlightMarkLayer()
         }
     }

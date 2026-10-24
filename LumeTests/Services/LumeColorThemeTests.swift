@@ -89,7 +89,8 @@ struct LumeColorThemeTests {
         }
         #expect(names.count(where: { $0 == nil }) == 1)
         #expect(LumeIconChoice(theme: .pink, logo: .afterglow).iconName == nil)
-        #expect(Set(names.compactMap(\.self)).count == 7)
+        #expect(Set(names.compactMap(\.self)).count == 11)
+        #expect(LumeIconChoice(theme: .coral, logo: .signal).iconName == "LumeSignalCoral")
         #expect(LumeIconChoice(theme: .ice, logo: .floodlight).iconName == "LumeFloodlightIce")
     }
 

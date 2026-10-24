@@ -3,7 +3,7 @@
 //  Lume
 //
 //  The Mac's Dock icon in a colour theme and logo, drawn from the marks'
-//  geometry (`LumeMarkOutline`, `FloodlightGeometry`): macOS has no alternate
+//  geometry (`RingMark`, `FloodlightGeometry`): macOS has no alternate
 //  app icons, so while lume runs the Dock shows this, and Finder keeps the
 //  bundle's pink Afterglow. Flat, without the Icon Composer icon's glass: the
 //  system renders that only for a bundled icon.
@@ -30,6 +30,7 @@
                 Group {
                     switch choice.logo {
                     case .afterglow: afterglow(bright)
+                    case .signal: signal(bright)
                     case .floodlight: floodlight(bright)
                     }
                 }
@@ -49,6 +50,19 @@
                     .fill(bright.opacity(0.6))
                 LumeMarkOutline(offset: LumeMarkOutline.triangle)
                     .fill(bright)
+            }
+        }
+
+        private static func signal(_ bright: Color) -> some View {
+            Canvas { context, size in
+                let rect = CGRect(origin: .zero, size: size)
+                let unit = min(size.width, size.height) / 240
+                let wedge = RingMark.signal.corePath(in: rect)
+                context.fill(wedge, with: .color(bright))
+                context.stroke(wedge, with: .color(bright), style: StrokeStyle(lineWidth: SignalGeometry.wedgeStroke * unit, lineJoin: .round))
+                for arc in [RingMark.signal.innerPath(in: rect), RingMark.signal.outerPath(in: rect)] {
+                    context.stroke(arc, with: .color(bright), style: StrokeStyle(lineWidth: SignalGeometry.arcWidth * unit, lineCap: .round))
+                }
             }
         }
 

@@ -5,8 +5,8 @@
 //  The Afterglow mark — a rounded play triangle inside two fading rings — and
 //  the motions it carries for load states. Geometry and timings come from the
 //  redesign's brand boards (a 240-unit artboard, CSS keyframes). `LumeMark`
-//  draws the viewer's logo: this one, or Floodlight (`FloodlightMark.swift`),
-//  each with the same motions.
+//  draws the viewer's logo: this one, Signal (`RingMark.swift`) or Floodlight
+//  (`FloodlightMark.swift`), each with the same motions.
 //
 
 import SwiftUI
@@ -85,9 +85,9 @@ struct LumeMark: View {
     var color: Color = .lumeAccent
     var logo: LumeLogo = LumeThemeStore.shared.logo
 
-    /// Drawn and animated by Core Animation (`LumeMarkLayer`,
-    /// `FloodlightMarkLayer`), so the motion runs off the main thread and
-    /// needs no per-frame body updates.
+    /// Drawn and animated by Core Animation (`LumeMarkLayer` for Afterglow and
+    /// Signal, `FloodlightMarkLayer`), so the motion runs off the main thread
+    /// and needs no per-frame body updates.
     var body: some View {
         LumeMarkLayerView(motion: motion, color: color, logo: logo)
             .aspectRatio(1, contentMode: .fit)
@@ -96,7 +96,8 @@ struct LumeMark: View {
 
 /// The mark's layer state at a moment of a motion: a pure function of time,
 /// ported from the brand board's keyframes (CSS easing per segment). The
-/// specification `LumeMarkLayer` animates, and the splash wordmark's timing.
+/// specification `LumeMarkLayer` animates, and the splash wordmark's timing,
+/// for either ring mark (`RingMark`): Afterglow unless told otherwise.
 nonisolated struct LumeMarkFrame: Equatable {
     struct Emit: Equatable {
         var scale: CGFloat
@@ -107,8 +108,8 @@ nonisolated struct LumeMarkFrame: Equatable {
     var core = 1.0
     /// The triangle's scale about its centroid: it grows in at launch.
     var coreScale: CGFloat = 1
-    var inner = 0.6
-    var outer = 0.3
+    var inner: Double
+    var outer: Double
     var trace: CGFloat?
     var traceOpacity = 1.0
     var emits: [Emit] = []
@@ -117,50 +118,54 @@ nonisolated struct LumeMarkFrame: Equatable {
     var wordmark = 1.0
     var wordmarkRise: CGFloat = 0
 
-    static let pulsePeriod = 1.6
-    static let emitPeriod = 2.0
+    static let pulsePeriod = RingMark.afterglow.pulse.period
+    static let emitPeriod = RingMark.afterglow.cast.period
     static let tracePeriod = 2.8
     /// The launch intro's length; it rests afterwards.
     static let launchDuration = 1.6
 
-    init(motion: LumeMark.Motion, elapsed: TimeInterval) {
+    init(motion: LumeMark.Motion, elapsed: TimeInterval, mark: RingMark = .afterglow) {
+        (inner, outer) = mark.rest
         switch motion {
         case .still:
             break
         case .pulse:
-            let pulse = Keyframes([(0, 0.14), (0.35, 0.8), (1, 0.14)], easing: .easeInOut)
-            inner = pulse.value(at: Self.phase(elapsed, Self.pulsePeriod))
-            // The outer ring runs 1.3 s ahead (the board's -1.3 s delay).
-            outer = pulse.value(at: Self.phase(elapsed + 1.3, Self.pulsePeriod))
+            let pulse = Keyframes(mark.pulse.stops, easing: .easeInOut)
+            inner = pulse.value(at: Self.phase(elapsed, mark.pulse.period))
+            // The outer ring runs ahead (the board's negative delay).
+            outer = pulse.value(at: Self.phase(elapsed + mark.pulse.outerLead, mark.pulse.period))
         case .emit:
             inner = 0
             outer = 0
-            let curve = CubicBezier(0.2, 0.6, 0.4, 1)
-            emits = [0.0, 1.0].map { lead in
-                let eased = curve.value(at: Self.phase(elapsed + lead, Self.emitPeriod))
-                return Emit(scale: 1 + 1.2 * eased, opacity: 0.8 * (1 - eased),
-                            lineWidth: 12 + (5.5 - 12) * eased)
+            let cast = mark.cast
+            emits = [0, cast.lead].map { lead in
+                let phase = Self.phase(elapsed + lead, cast.period)
+                let eased = cast.curve.value(at: phase)
+                return Emit(scale: cast.scale.from + (cast.scale.to - cast.scale.from) * eased,
+                            opacity: Keyframes(cast.opacity, easing: cast.curve).value(at: phase),
+                            lineWidth: cast.lineWidth.from + (cast.lineWidth.to - cast.lineWidth.from) * eased)
             }
         case .trace:
-            outer = 0.15
+            outer = mark.traceTrack
             let phase = Self.phase(elapsed, Self.tracePeriod)
             trace = Keyframes([(0, 0), (0.7, 1), (1, 1)], easing: .easeInOut).value(at: phase)
             traceOpacity = Keyframes([(0, 1), (0.86, 1), (1, 0)], easing: .easeInOut).value(at: phase)
         case let .progress(fraction):
-            outer = 0.15
+            outer = mark.traceTrack
             trace = CGFloat(min(max(fraction, 0), 1))
         case .launch:
             // The logo board's launch, from nothing — the launch screen is
-            // plain Ink — played once to its resting hold: the triangle grows
-            // in, then each ring fades up, then the wordmark arrives.
+            // plain Ink — played once to its resting hold: the core grows in,
+            // then each ring fades up, then the wordmark arrives. Signal's
+            // board has the same windows.
             let seconds = min(elapsed, Self.launchDuration)
             func value(_ stops: [(Double, Double)]) -> Double {
                 Keyframes(stops, easing: .easeOut).value(at: seconds / Self.launchCycle, scale: Self.launchCycle)
             }
             core = value([(0, 0), (Self.coreWindow.end, 1)])
             coreScale = 0.6 + 0.4 * core
-            inner = value([(0, 0), (Self.innerWindow.start, 0), (Self.innerWindow.end, 0.6)])
-            outer = value([(0, 0), (Self.outerWindow.start, 0), (Self.outerWindow.end, 0.3)])
+            inner = value([(0, 0), (Self.innerWindow.start, 0), (Self.innerWindow.end, mark.rest.inner)])
+            outer = value([(0, 0), (Self.outerWindow.start, 0), (Self.outerWindow.end, mark.rest.outer)])
             let arrival = value([(0, 0), (Self.wordmarkWindow.start, 0), (Self.wordmarkWindow.end, 1)])
             wordmark = arrival
             wordmarkRise = 14 * (1 - arrival)

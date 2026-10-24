@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate lume's app icon in each colour theme and logo (`LumeColorTheme`,
-`LumeLogo`): Afterglow in each colour but pink (the primary), and Floodlight
-in all four.
+`LumeLogo`): Afterglow in each colour but pink (the primary), and Signal and
+Floodlight in all four.
 
 The Afterglow mark from the logo design board (240-unit artboard, centroid at
 110,120): a solid play triangle, an inner ring at 60% and an outer ring at
@@ -56,6 +56,15 @@ TRIANGLE = "M-12 -48.5L48 -13.86A16 16 0 0 1 48 13.86L-12 48.5A16 16 0 0 1 -36 3
 INNER = "M-2 -65.82L58 -31.18A36 36 0 0 1 58 31.18L-2 65.82A36 36 0 0 1 -56 34.64L-56 -34.64A36 36 0 0 1 -2 -65.82Z"
 OUTER = "M11 -88.33L71 -53.69A62 62 0 0 1 71 53.69L11 88.33A62 62 0 0 1 -82 34.64L-82 -34.64A62 62 0 0 1 11 -88.33Z"
 
+# Signal's shapes, as its board draws them inside translate(228 120): the
+# wedge (filled, with a 20-unit rounded edge) and the two arcs (24 wide,
+# round ends).
+SIGNAL = {
+    "wedge": '<path d="M-20 0L-96.39 -44.1A106 106 0 0 0 -96.39 44.1Z" fill="{c}" stroke="{c}" stroke-width="20" stroke-linejoin="round"/>',
+    "arc-inner": '<path d="M-132.01 -62.37A146 146 0 0 0 -132.01 62.37" fill="none" stroke="{c}" stroke-width="24" stroke-linecap="round"/>',
+    "arc-outer": '<path d="M-168.49 -83.42A188 188 0 0 0 -168.49 83.42" fill="none" stroke="{c}" stroke-width="24" stroke-linecap="round"/>',
+}
+
 # Each stack's sizes, as the shipped `Lume.brandassets` has them.
 STACKS = {
     "App Icon": [(400, 240, "1x"), (800, 480, "2x")],
@@ -80,6 +89,12 @@ def floodlight_svg(width, height, bright, column):
     circles = "".join(f'<circle cx="{x}" cy="{y}" r="27" fill="{bright}"/>' for x, y in FLOODLIGHT_COLUMNS[column])
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">'
             f'<g transform="{floodlight_transform(width, height)}">{circles}</g></svg>')
+
+
+def signal_svg(width, height, bright, part):
+    shape = SIGNAL[part].format(c=bright)
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">'
+            f'<g transform="{floodlight_transform(width, height)}"><g transform="translate(228 120)">{shape}</g></g></svg>')
 
 
 def front_svg(width, height, bright):
@@ -122,12 +137,17 @@ def write_json(path, value):
 
 def stack_layers(logo, bright, glow):
     """A logo's parallax layers, front to back, each a function of size.
-    Afterglow: the triangle, the rings, the ground. Floodlight: the tip, the
-    middle column, the back column, the ground — the triangle gains depth as
-    the icon tilts."""
+    Afterglow: the triangle, the rings, the ground. Signal: the wedge, the
+    inner arc, the outer arc, the ground. Floodlight: the tip, the middle
+    column, the back column, the ground — each mark gains depth as the icon
+    tilts."""
     ground = ("Back", lambda w, h: back_svg(w, h, bright, glow))
     if logo == "Afterglow":
         return [("Front", lambda w, h: front_svg(w, h, bright)), ("Middle", lambda w, h: middle_svg(w, h, bright)), ground]
+    if logo == "Signal":
+        return [("Front", lambda w, h: signal_svg(w, h, bright, "wedge")),
+                ("Middle", lambda w, h: signal_svg(w, h, bright, "arc-inner")),
+                ("Rear", lambda w, h: signal_svg(w, h, bright, "arc-outer")), ground]
     return [("Front", lambda w, h: floodlight_svg(w, h, bright, 2)), ("Middle", lambda w, h: floodlight_svg(w, h, bright, 1)),
             ("Rear", lambda w, h: floodlight_svg(w, h, bright, 0)), ground]
 
@@ -174,20 +194,28 @@ def write_icon(name, bright, logo):
     shutil.rmtree(target, ignore_errors=True)
     shutil.copytree(source, target)
     icon = json.loads((source / "icon.json").read_text())
-    if logo == "Floodlight":
+    if logo != "Afterglow":
         for svg in (target / "Assets").glob("*.svg"):
             svg.unlink()
-        for column, title in enumerate(["back", "middle", "tip"]):
-            circles = "".join(f'<circle cx="{x}" cy="{y}" r="27" fill="#FFFFFF"/>' for x, y in FLOODLIGHT_COLUMNS[column])
-            (target / "Assets" / f"floodlight-{title}.svg").write_text(
-                f'<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">\n{circles}\n</svg>\n')
+        if logo == "Floodlight":
+            # Front to back: the tip, the middle column, the back column.
+            parts = {}
+            for column, title in zip([2, 1, 0], ["tip", "middle", "back"]):
+                parts[f"floodlight-{title}"] = "".join(
+                    f'<circle cx="{x}" cy="{y}" r="27" fill="#FFFFFF"/>' for x, y in FLOODLIGHT_COLUMNS[column])
+        else:
+            parts = {f"signal-{part}": f'<g transform="translate(228 120)">{SIGNAL[part].format(c="#FFFFFF")}</g>'
+                     for part in ["wedge", "arc-inner", "arc-outer"]}
+        for title, body in parts.items():
+            (target / "Assets" / f"{title}.svg").write_text(
+                f'<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">\n{body}\n</svg>\n')
         group = icon["groups"][0]
         template = group["layers"][0]
         group["layers"] = []
-        for title in ["tip", "middle", "back"]:
+        for title in parts:
             layer = {key: value for key, value in template.items() if key != "opacity"}
-            layer["image-name"] = f"floodlight-{title}.svg"
-            layer["name"] = title
+            layer["image-name"] = f"{title}.svg"
+            layer["name"] = title.split("-", 1)[1]
             group["layers"].append(layer)
     for group in icon["groups"]:
         for layer in group["layers"]:
@@ -219,11 +247,11 @@ def main():
         # Antialiasing alone differs by under 3%; a misplaced or recoloured
         # layer by far more.
         sys.exit(0 if check() < 0.03 else 1)
-    for logo in ["Afterglow", "Floodlight"]:
+    for logo in ["Afterglow", "Signal", "Floodlight"]:
         for colour, (bright, glow) in COLOURS.items():
             if logo == "Afterglow" and colour == "Pink":
                 continue  # the primary icon
-            name = ("Lume" if logo == "Afterglow" else "LumeFloodlight") + colour
+            name = ("Lume" if logo == "Afterglow" else f"Lume{logo}") + colour
             write_tv_alternate(name, stack_layers(logo, bright, glow))
             write_icon(name, bright, logo)
             print(f"wrote {name}.icon and {name}TV.imagestack")
