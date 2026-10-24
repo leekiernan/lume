@@ -23,7 +23,11 @@ import SwiftUI
         /// moves into the detail pane.
         var selectedCategory: SettingsCategory {
             get { route.category }
-            nonmutating set { route.category = newValue }
+            nonmutating set {
+                // A removed row can still deliver focus or a queued action
+                // while the outgoing Settings instance is being dismantled.
+                route.category = availableCategories.contains(newValue) ? newValue : .premium
+            }
         }
 
         /// Which area the Library category is configuring. The rows pane is

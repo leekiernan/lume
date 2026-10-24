@@ -136,7 +136,9 @@ final class LumeMarkLayer: CALayer, LumeMarkAnimating {
         for layer in [core, inner, outer, trace] + emits {
             layer.removeAllAnimations()
         }
-        let frame = LumeMarkFrame(motion: motion, elapsed: 0)
+        // Finite animations disappear on completion; the model must already
+        // contain their final values, rather than the invisible opening frame.
+        let frame = LumeMarkFrame(motion: motion, elapsed: motion == .launch ? LumeMarkFrame.launchDuration : 0)
         core.opacity = 1
         inner.opacity = Float(frame.inner)
         outer.opacity = Float(frame.outer)

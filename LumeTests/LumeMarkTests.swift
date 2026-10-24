@@ -124,4 +124,19 @@ struct LumeMarkLayerTests {
         let trace = mark.sublayers?.compactMap { $0 as? CAShapeLayer }.first { $0.strokeEnd == 0.6 }
         #expect(trace?.animation(forKey: "fill") != nil)
     }
+
+    @Test(arguments: LumeLogo.allCases)
+    func `completed launch animations leave either logo at rest`(logo: LumeLogo) {
+        let mark = logo.makeMarkLayer()
+        mark.frame = CGRect(x: 0, y: 0, width: 240, height: 240)
+        mark.layoutIfNeeded()
+        mark.motion = .launch
+        // Finite animations are removed on completion. Inspect the state left
+        // behind without depending on the render server's clock.
+        for layer in mark.sublayers ?? [] {
+            layer.removeAllAnimations()
+        }
+        let resting = logo.makeMarkLayer()
+        #expect((mark.sublayers ?? []).map(\.opacity) == (resting.sublayers ?? []).map(\.opacity))
+    }
 }

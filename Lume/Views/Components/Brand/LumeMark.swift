@@ -58,7 +58,7 @@ nonisolated struct LumeMarkOutline: Shape {
 
 /// The mark, still or in one of its load-state motions.
 struct LumeMark: View {
-    enum Motion: Equatable {
+    nonisolated enum Motion: Equatable {
         /// The resting mark.
         case still
         /// Buffering: the two rings brighten outwards in turn.
