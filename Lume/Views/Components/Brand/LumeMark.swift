@@ -4,7 +4,9 @@
 //
 //  The Afterglow mark — a rounded play triangle inside two fading rings — and
 //  the motions it carries for load states. Geometry and timings come from the
-//  redesign's brand boards (a 240-unit artboard, CSS keyframes).
+//  redesign's brand boards (a 240-unit artboard, CSS keyframes). `LumeMark`
+//  draws the viewer's logo: this one, or Floodlight (`FloodlightMark.swift`),
+//  each with the same motions.
 //
 
 import SwiftUI
@@ -81,14 +83,13 @@ struct LumeMark: View {
 
     var motion: Motion = .still
     var color: Color = .lumeAccent
-    /// How long a change of `color` fades over, in seconds: the launch
-    /// splash's grey turning to the theme's colour.
-    var colorFade: TimeInterval = 0
+    var logo: LumeLogo = LumeThemeStore.shared.logo
 
-    /// Drawn and animated by Core Animation (`LumeMarkLayer`), so the motion
-    /// runs off the main thread and needs no per-frame body updates.
+    /// Drawn and animated by Core Animation (`LumeMarkLayer`,
+    /// `FloodlightMarkLayer`), so the motion runs off the main thread and
+    /// needs no per-frame body updates.
     var body: some View {
-        LumeMarkLayerView(motion: motion, color: color, colorFade: colorFade)
+        LumeMarkLayerView(motion: motion, color: color, logo: logo)
             .aspectRatio(1, contentMode: .fit)
     }
 }
@@ -104,6 +105,8 @@ nonisolated struct LumeMarkFrame: Equatable {
     }
 
     var core = 1.0
+    /// The triangle's scale about its centroid: it grows in at launch.
+    var coreScale: CGFloat = 1
     var inner = 0.6
     var outer = 0.3
     var trace: CGFloat?
@@ -118,7 +121,7 @@ nonisolated struct LumeMarkFrame: Equatable {
     static let emitPeriod = 2.0
     static let tracePeriod = 2.8
     /// The launch intro's length; it rests afterwards.
-    static let launchDuration = 2.8
+    static let launchDuration = 1.6
 
     init(motion: LumeMark.Motion, elapsed: TimeInterval) {
         switch motion {
@@ -147,19 +150,32 @@ nonisolated struct LumeMarkFrame: Equatable {
             outer = 0.15
             trace = CGFloat(min(max(fraction, 0), 1))
         case .launch:
-            // The board's 6 s loop, played once to its resting hold. The core
-            // is already up: the static launch screen shows it.
+            // The logo board's launch, from nothing — the launch screen is
+            // plain Ink — played once to its resting hold: the triangle grows
+            // in, then each ring fades up, then the wordmark arrives.
             let seconds = min(elapsed, Self.launchDuration)
-            inner = Keyframes([(0, 0.6), (0.36, 0.6), (0.96, 1), (1.8, 0.6), (6, 0.6)], easing: .easeInOut)
-                .value(at: seconds / 6, scale: 6)
-            outer = Keyframes([(0, 0.3), (0.84, 0.3), (1.56, 0.85), (2.52, 0.3), (6, 0.3)], easing: .easeInOut)
-                .value(at: seconds / 6, scale: 6)
-            let arrival = Keyframes([(0, 0), (1.92, 0), (2.76, 1), (6, 1)], easing: .easeOut)
-                .value(at: seconds / 6, scale: 6)
+            func value(_ stops: [(Double, Double)]) -> Double {
+                Keyframes(stops, easing: .easeOut).value(at: seconds / Self.launchCycle, scale: Self.launchCycle)
+            }
+            core = value([(0, 0), (Self.coreWindow.end, 1)])
+            coreScale = 0.6 + 0.4 * core
+            inner = value([(0, 0), (Self.innerWindow.start, 0), (Self.innerWindow.end, 0.6)])
+            outer = value([(0, 0), (Self.outerWindow.start, 0), (Self.outerWindow.end, 0.3)])
+            let arrival = value([(0, 0), (Self.wordmarkWindow.start, 0), (Self.wordmarkWindow.end, 1)])
             wordmark = arrival
             wordmarkRise = 14 * (1 - arrival)
         }
     }
+
+    /// The logo board's launch cycle, in seconds; it holds at rest after 84%.
+    static let launchCycle = 3.6
+    /// The board's 0–12%: the triangle grows in.
+    static let coreWindow = (start: 0.0, end: 0.12 * launchCycle)
+    /// The board's 12–24% and 22–34%: each ring fades up.
+    static let innerWindow = (start: 0.12 * launchCycle, end: 0.24 * launchCycle)
+    static let outerWindow = (start: 0.22 * launchCycle, end: 0.34 * launchCycle)
+    /// The board's 30–42%: the wordmark arrives.
+    static let wordmarkWindow = (start: 0.30 * launchCycle, end: 0.42 * launchCycle)
 
     private static func phase(_ elapsed: TimeInterval, _ period: TimeInterval) -> Double {
         let value = elapsed.truncatingRemainder(dividingBy: period) / period
@@ -204,6 +220,7 @@ nonisolated struct CubicBezier {
 
     static let easeInOut = CubicBezier(0.42, 0, 0.58, 1)
     static let easeOut = CubicBezier(0, 0, 0.58, 1)
+    static let linear = CubicBezier(0, 0, 1, 1)
 
     func value(at progress: Double) -> Double {
         let target = min(max(progress, 0), 1)

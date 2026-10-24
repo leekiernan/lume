@@ -4,8 +4,10 @@
 //
 //  The brand colour the app is drawn in: heritage pink, or one of the design
 //  artefacts' other colourways — ice #62DEFF, live coral #FF6247 and lume
-//  green #CCFF4D — named as the design names them. A theme is three colours, and every brand role derives from
-//  them the way the pink's always have (`LumeTheme.swift` has the roles):
+//  green #CCFF4D — named as the design names them; and the logo, Afterglow or
+//  Floodlight (`LumeLogo`). A theme is three colours, and every brand role
+//  derives from them the way the pink's always have (`LumeTheme.swift` has
+//  the roles):
 //
 //  - bright — the accent on dark and on tvOS, and Ink text on an accent fill;
 //  - deep — the accent in light appearance, fills carrying a white glyph,
@@ -18,10 +20,11 @@
 //  (`LumeColorThemeTests`); coral is the lowest, at 6.3:1 under Ink. The
 //  neutrals — Night, Ink, Day and the text greys — stay as they are.
 //
-//  The choice is per device, like the appearance override. On iPhone, iPad
-//  and Apple TV the app icon follows it (`LumeAppIcon`), from alternates made
-//  by `Scripts/generate-icon-colourways.py`; the Mac keeps the pink icon, and
-//  the launch screen stays pink everywhere, as it is drawn before any code runs.
+//  The choices are per device, like the appearance override. On iPhone, iPad
+//  and Apple TV the app icon follows them (`LumeAppIcon`), from alternates
+//  made by `Scripts/generate-icon-colourways.py`; the Mac's Dock icon follows
+//  while lume runs. The launch screen is plain Ink, as it is drawn before any
+//  code runs and could show only one of them.
 //
 
 import OSLog
@@ -61,25 +64,66 @@ enum LumeColorTheme: String, CaseIterable, Identifiable {
         }
     }
 
-    /// The alternate app icon drawn in this theme; nil for the primary, pink.
-    /// Registered in `ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES`: an Icon
-    /// Composer file on iPhone and iPad, a `…TV` image stack on Apple TV.
+    /// The colour's part of an alternate icon's name.
+    var iconSuffix: String {
+        switch self {
+        case .pink: "Pink"
+        case .ice: "Ice"
+        case .coral: "Coral"
+        case .green: "Green"
+        }
+    }
+
+    static func resolve(_ raw: String) -> LumeColorTheme {
+        LumeColorTheme(rawValue: raw) ?? defaultValue
+    }
+}
+
+/// The mark the app is drawn with: the Afterglow triangle in its rings, or
+/// Floodlight's six lights. Every motion has a form in each (`LumeMark`).
+enum LumeLogo: String, CaseIterable, Identifiable {
+    case afterglow, floodlight
+
+    static let storageKey = "app.logo"
+    static let defaultValue: LumeLogo = .afterglow
+
+    var id: String {
+        rawValue
+    }
+
+    /// The design's names, which are the marks' names.
+    var title: String {
+        switch self {
+        case .afterglow: "Afterglow"
+        case .floodlight: "Floodlight"
+        }
+    }
+
+    static func resolve(_ raw: String) -> LumeLogo {
+        LumeLogo(rawValue: raw) ?? defaultValue
+    }
+}
+
+/// A colour and a logo: what the app icon shows.
+struct LumeIconChoice: Equatable {
+    var theme: LumeColorTheme
+    var logo: LumeLogo
+
+    /// The alternate app icon for this pair; nil for the primary, Afterglow
+    /// in pink. Registered in `ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES`:
+    /// an Icon Composer file on iPhone and iPad, a `…TV` image stack on Apple
+    /// TV.
     var iconName: String? {
-        let name: String? = switch self {
-        case .pink: nil
-        case .ice: "LumeIce"
-        case .coral: "LumeCoral"
-        case .green: "LumeGreen"
+        let name: String? = switch (logo, theme) {
+        case (.afterglow, .pink): nil
+        case (.afterglow, _): "Lume" + theme.iconSuffix
+        case (.floodlight, _): "LumeFloodlight" + theme.iconSuffix
         }
         #if os(tvOS)
             return name.map { $0 + "TV" }
         #else
             return name
         #endif
-    }
-
-    static func resolve(_ raw: String) -> LumeColorTheme {
-        LumeColorTheme(rawValue: raw) ?? defaultValue
     }
 }
 
@@ -130,11 +174,17 @@ final class LumeThemeStore {
     static let shared = LumeThemeStore()
 
     private(set) var theme: LumeColorTheme
+    private(set) var logo: LumeLogo
     @ObservationIgnored private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         theme = LumeColorTheme.resolve(defaults.string(forKey: LumeColorTheme.storageKey) ?? "")
+        logo = LumeLogo.resolve(defaults.string(forKey: LumeLogo.storageKey) ?? "")
+    }
+
+    var iconChoice: LumeIconChoice {
+        LumeIconChoice(theme: theme, logo: logo)
     }
 
     var palette: LumePalette {
@@ -147,11 +197,18 @@ final class LumeThemeStore {
         self.theme = theme
     }
 
-    /// Back to pink once the entitlements are known not to include Pro. Until
-    /// they are known, nothing changes.
+    func select(_ logo: LumeLogo) {
+        guard logo != self.logo else { return }
+        defaults.set(logo.rawValue, forKey: LumeLogo.storageKey)
+        self.logo = logo
+    }
+
+    /// Back to Afterglow in pink once the entitlements are known not to
+    /// include Pro. Until they are known, nothing changes.
     func resetUnlessEntitled(resolved: Bool, isPremium: Bool) {
         guard resolved, !isPremium else { return }
-        select(.pink)
+        select(LumeColorTheme.pink)
+        select(LumeLogo.afterglow)
     }
 }
 
@@ -161,18 +218,19 @@ final class LumeThemeStore {
 /// which no app can suppress. The Mac has no alternate icons: its Dock icon is
 /// redrawn while lume runs, and Finder keeps the bundle's pink one.
 enum LumeAppIcon {
-    static func apply(_ theme: LumeColorTheme) {
+    static func apply(_ choice: LumeIconChoice) {
         #if os(iOS) || os(tvOS)
             let app = UIApplication.shared
-            guard app.supportsAlternateIcons, app.alternateIconName != theme.iconName else { return }
-            app.setAlternateIconName(theme.iconName) { error in
+            let name = choice.iconName
+            guard app.supportsAlternateIcons, app.alternateIconName != name else { return }
+            app.setAlternateIconName(name) { error in
                 if let error {
-                    Logger.app.error("App icon: couldn't switch to \(theme.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                    Logger.app.error("App icon: couldn't switch to \(name ?? "primary", privacy: .public): \(error.localizedDescription, privacy: .public)")
                 }
             }
         #elseif os(macOS)
             // nil restores the bundle's own icon.
-            NSApplication.shared.applicationIconImage = theme == .pink ? nil : MacDockIcon.image(for: theme)
+            NSApplication.shared.applicationIconImage = choice.iconName == nil ? nil : MacDockIcon.image(for: choice)
         #endif
     }
 }
@@ -191,8 +249,8 @@ private struct ColorThemeFollower: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .onChange(of: store.theme, initial: true) { _, theme in
-                LumeAppIcon.apply(theme)
+            .onChange(of: store.iconChoice, initial: true) { _, choice in
+                LumeAppIcon.apply(choice)
             }
             .onChange(of: [premium.hasResolvedEntitlements, premium.isPremium], initial: true) { _, state in
                 store.resetUnlessEntitled(resolved: state[0], isPremium: state[1])

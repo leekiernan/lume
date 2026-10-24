@@ -52,7 +52,7 @@ enum PremiumFeature: String, CaseIterable, Identifiable {
         case .recommendations: "For You Recommendations"
         case .multiView: "Multi-View"
         case .sportsHub: "Sports Hub"
-        case .colorThemes: "Color Themes"
+        case .colorThemes: "Themes"
         }
     }
 
@@ -67,7 +67,7 @@ enum PremiumFeature: String, CaseIterable, Identifiable {
         case .recommendations: "Get an on-device \"For You\" row tuned to your taste from your library and what you watch."
         case .multiView: "Watch up to four live channels side by side. Each tile can come from a different playlist, which helps if your provider allows only one connection per account."
         case .sportsHub: "Follow your leagues and teams — fixtures, live scores, standings and one tap to the channel that's carrying the game."
-        case .colorThemes: "Recolor lume and its app icon in ice, live coral or lume green, beside heritage pink."
+        case .colorThemes: "Draw lume and its app icon with the Afterglow or Floodlight logo, in heritage pink, ice, live coral or lume green."
         }
     }
 

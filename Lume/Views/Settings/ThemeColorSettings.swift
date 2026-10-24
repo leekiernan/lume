@@ -52,6 +52,20 @@ struct ThemeSwatch: View {
         }
     }
 
+    /// The logo, as a menu like the appearance override's.
+    struct ThemeLogoPicker: View {
+        @State private var store = LumeThemeStore.shared
+
+        var body: some View {
+            Picker("Logo", selection: Binding(get: { store.logo }, set: { store.select($0) })) {
+                ForEach(LumeLogo.allCases) { logo in
+                    Text(verbatim: logo.title).tag(logo)
+                }
+            }
+            .pickerStyle(.menu)
+        }
+    }
+
 #else
     /// tvOS: the themes as choices, each with its swatch. Its category is
     /// shown with lume Pro only.
@@ -60,6 +74,21 @@ struct ThemeSwatch: View {
 
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
+                TVSettingsSectionLabel("Logo")
+                ForEach(LumeLogo.allCases) { logo in
+                    Button { store.select(logo) } label: {
+                        TVSettingsChoiceLabel(isSelected: store.logo == logo) {
+                            HStack(spacing: 20) {
+                                LumeMark(logo: logo)
+                                    .frame(width: 40, height: 40)
+                                Text(verbatim: logo.title)
+                            }
+                        }
+                    }
+                    .buttonStyle(TVSettingsRowButtonStyle())
+                }
+                TVSettingsSectionLabel("Color")
+                    .padding(.top, 20)
                 ForEach(LumeColorTheme.allCases) { theme in
                     Button { store.select(theme) } label: {
                         TVSettingsChoiceLabel(isSelected: store.theme == theme) {
@@ -71,7 +100,7 @@ struct ThemeSwatch: View {
                     }
                     .buttonStyle(TVSettingsRowButtonStyle())
                 }
-                Text("The color lume uses for progress, selection and highlights, and for its app icon.")
+                Text("The logo and color lume uses for progress, selection and highlights, and for its app icon.")
                     .tvSettingsFooter()
                     .padding(.top, 6)
             }

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Generate lume's app icon in each colour theme (`LumeColorTheme`).
+"""Generate lume's app icon in each colour theme and logo (`LumeColorTheme`,
+`LumeLogo`): Afterglow in each colour but pink (the primary), and Floodlight
+in all four.
 
 The Afterglow mark from the logo design board (240-unit artboard, centroid at
 110,120): a solid play triangle, an inner ring at 60% and an outer ring at
@@ -34,13 +36,21 @@ APP = ROOT / "Lume"
 CATALOG = APP / "Assets.xcassets"
 
 INK = "#14101F"
-# name: (bright, glow) — the theme's bright shade and its ambient glow hue.
-THEMES = {
-    "Lume": ("#FF88D7", "#7000B4"),
-    "LumeIce": ("#62DEFF", "#0B3FA8"),
-    "LumeCoral": ("#FF6247", "#8A1240"),
-    "LumeGreen": ("#CCFF4D", "#0A6B4F"),
+# The colour's part of an icon's name: (bright, glow) — the theme's bright
+# shade and its ambient glow hue. Keep in step with `LumeColorTheme`.
+COLOURS = {
+    "Pink": ("#FF88D7", "#7000B4"),
+    "Ice": ("#62DEFF", "#0B3FA8"),
+    "Coral": ("#FF6247", "#8A1240"),
+    "Green": ("#CCFF4D", "#0A6B4F"),
 }
+# Floodlight's six lights (240-unit artboard, radius 27) by column: back,
+# middle, tip.
+FLOODLIGHT_COLUMNS = [
+    [(59.65, 48), (59.65, 120), (59.65, 192)],
+    [(122, 84), (122, 156)],
+    [(184.35, 120)],
+]
 
 TRIANGLE = "M-12 -48.5L48 -13.86A16 16 0 0 1 48 13.86L-12 48.5A16 16 0 0 1 -36 34.64L-36 -34.64A16 16 0 0 1 -12 -48.5Z"
 INNER = "M-2 -65.82L58 -31.18A36 36 0 0 1 58 31.18L-2 65.82A36 36 0 0 1 -56 34.64L-56 -34.64A36 36 0 0 1 -2 -65.82Z"
@@ -58,6 +68,18 @@ def mark_transform(width, height):
     left of centre as on the artboard."""
     scale = width / 640
     return f"translate({width / 2 - 10 * scale} {height / 2}) scale({scale})"
+
+
+def floodlight_transform(width, height):
+    """Floodlight in the same 300-point box, centred as its artboard is."""
+    scale = width / 640
+    return f"translate({width / 2 - 120 * scale} {height / 2 - 120 * scale}) scale({scale})"
+
+
+def floodlight_svg(width, height, bright, column):
+    circles = "".join(f'<circle cx="{x}" cy="{y}" r="27" fill="{bright}"/>' for x, y in FLOODLIGHT_COLUMNS[column])
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">'
+            f'<g transform="{floodlight_transform(width, height)}">{circles}</g></svg>')
 
 
 def front_svg(width, height, bright):
@@ -98,35 +120,44 @@ def write_json(path, value):
     path.write_text(json.dumps(value, indent=2) + "\n")
 
 
-def write_stack(stack_dir, sizes, bright, glow):
-    """One parallax image stack: Front, Middle and Back layers."""
+def stack_layers(logo, bright, glow):
+    """A logo's parallax layers, front to back, each a function of size.
+    Afterglow: the triangle, the rings, the ground. Floodlight: the tip, the
+    middle column, the back column, the ground — the triangle gains depth as
+    the icon tilts."""
+    ground = ("Back", lambda w, h: back_svg(w, h, bright, glow))
+    if logo == "Afterglow":
+        return [("Front", lambda w, h: front_svg(w, h, bright)), ("Middle", lambda w, h: middle_svg(w, h, bright)), ground]
+    return [("Front", lambda w, h: floodlight_svg(w, h, bright, 2)), ("Middle", lambda w, h: floodlight_svg(w, h, bright, 1)),
+            ("Rear", lambda w, h: floodlight_svg(w, h, bright, 0)), ground]
+
+
+def write_stack(stack_dir, sizes, layers):
+    """One parallax image stack from `stack_layers`."""
     stack_dir.mkdir(parents=True)
-    layers = ["Front", "Middle", "Back"]
     write_json(stack_dir / "Contents.json", {"info": {"author": "xcode", "version": 1},
-                                             "layers": [{"filename": f"{layer}.imagestacklayer"} for layer in layers]})
-    for layer in layers:
-        layer_dir = stack_dir / f"{layer}.imagestacklayer"
+                                             "layers": [{"filename": f"{name}.imagestacklayer"} for name, _ in layers]})
+    for name, draw in layers:
+        layer_dir = stack_dir / f"{name}.imagestacklayer"
         content = layer_dir / "Content.imageset"
         content.mkdir(parents=True)
         write_json(layer_dir / "Contents.json", {"info": {"author": "xcode", "version": 1}})
         images = []
         for width, height, scale in sizes:
-            filename = f"{layer.lower()}_{width}.png"
-            svg = {"Front": front_svg(width, height, bright), "Middle": middle_svg(width, height, bright),
-                   "Back": back_svg(width, height, bright, glow)}[layer]
-            render(svg, content / filename)
+            filename = f"{name.lower()}_{width}.png"
+            render(draw(width, height), content / filename)
             images.append({"filename": filename, "idiom": "tv", "scale": scale})
         write_json(content / "Contents.json", {"images": images, "info": {"author": "xcode", "version": 1}})
 
 
-def write_tv_alternate(name, bright, glow):
+def write_tv_alternate(name, layers):
     """tvOS takes an alternate icon as a top-level image stack, not brand
     assets, and only the home-screen sizes: the App Store icon is the
     primary's. Suffixed `TV`, as actool would otherwise take the same-named
     `.icon` for it."""
     stack = CATALOG / f"{name}TV.imagestack"
     shutil.rmtree(stack, ignore_errors=True)
-    write_stack(stack, STACKS["App Icon"], bright, glow)
+    write_stack(stack, STACKS["App Icon"], layers)
 
 
 def extended_srgb(hex_colour):
@@ -134,12 +165,30 @@ def extended_srgb(hex_colour):
     return "extended-srgb:" + ",".join(f"{value:.5f}" for value in channels) + ",1.00000"
 
 
-def write_icon(name, bright):
+def write_icon(name, bright, logo):
+    """A copy of `Lume.icon` in `bright`. Floodlight's three layers are its
+    columns — tip, middle, back — in place of the triangle and rings, at full
+    opacity, keeping the primary's glass and lighting."""
     source = APP / "Lume.icon"
     target = APP / f"{name}.icon"
     shutil.rmtree(target, ignore_errors=True)
     shutil.copytree(source, target)
     icon = json.loads((source / "icon.json").read_text())
+    if logo == "Floodlight":
+        for svg in (target / "Assets").glob("*.svg"):
+            svg.unlink()
+        for column, title in enumerate(["back", "middle", "tip"]):
+            circles = "".join(f'<circle cx="{x}" cy="{y}" r="27" fill="#FFFFFF"/>' for x, y in FLOODLIGHT_COLUMNS[column])
+            (target / "Assets" / f"floodlight-{title}.svg").write_text(
+                f'<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">\n{circles}\n</svg>\n')
+        group = icon["groups"][0]
+        template = group["layers"][0]
+        group["layers"] = []
+        for title in ["tip", "middle", "back"]:
+            layer = {key: value for key, value in template.items() if key != "opacity"}
+            layer["image-name"] = f"floodlight-{title}.svg"
+            layer["name"] = title
+            group["layers"].append(layer)
     for group in icon["groups"]:
         for layer in group["layers"]:
             layer["fill"] = {"solid": extended_srgb(bright)}
@@ -148,11 +197,11 @@ def write_icon(name, bright):
 
 def check():
     """Re-render pink and measure it against the shipped `Lume.brandassets`."""
-    bright, glow = THEMES["Lume"]
+    bright, glow = COLOURS["Pink"]
     shipped_assets = CATALOG / "Lume.brandassets"
     with tempfile.TemporaryDirectory() as scratch:
         for stack, sizes in STACKS.items():
-            write_stack(Path(scratch) / f"{stack}.imagestack", sizes, bright, glow)
+            write_stack(Path(scratch) / f"{stack}.imagestack", sizes, stack_layers("Afterglow", bright, glow))
         worst = 0.0
         for png in sorted(Path(scratch).rglob("*.png")):
             shipped = shipped_assets / png.relative_to(scratch)
@@ -170,12 +219,14 @@ def main():
         # Antialiasing alone differs by under 3%; a misplaced or recoloured
         # layer by far more.
         sys.exit(0 if check() < 0.03 else 1)
-    for name, (bright, glow) in THEMES.items():
-        if name == "Lume":
-            continue
-        write_tv_alternate(name, bright, glow)
-        write_icon(name, bright)
-        print(f"wrote {name}.icon and {name}TV.imagestack")
+    for logo in ["Afterglow", "Floodlight"]:
+        for colour, (bright, glow) in COLOURS.items():
+            if logo == "Afterglow" and colour == "Pink":
+                continue  # the primary icon
+            name = ("Lume" if logo == "Afterglow" else "LumeFloodlight") + colour
+            write_tv_alternate(name, stack_layers(logo, bright, glow))
+            write_icon(name, bright, logo)
+            print(f"wrote {name}.icon and {name}TV.imagestack")
 
 
 if __name__ == "__main__":

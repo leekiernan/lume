@@ -304,6 +304,7 @@ struct SettingsView: View {
                     LabeledContent("Accent Color") {
                         ThemeColorPicker()
                     }
+                    ThemeLogoPicker()
                 }
             } header: {
                 Text("Appearance")

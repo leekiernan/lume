@@ -56,6 +56,25 @@ struct LumeColorThemeTests {
         #expect(LumeThemeStore(defaults: defaults).theme == .pink)
     }
 
+    @Test func `once Pro is known to be gone the logo goes back to Afterglow`() throws {
+        let defaults = try #require(UserDefaults(suiteName: "LumeColorThemeTests-\(UUID().uuidString)"))
+        let store = LumeThemeStore(defaults: defaults)
+        store.select(LumeLogo.floodlight)
+        #expect(LumeThemeStore(defaults: defaults).logo == .floodlight)
+        store.resetUnlessEntitled(resolved: true, isPremium: false)
+        #expect(store.logo == .afterglow)
+    }
+
+    @Test func `each colour and logo has its own icon, Afterglow in pink the primary`() {
+        let names = LumeColorTheme.allCases.flatMap { theme in
+            LumeLogo.allCases.map { LumeIconChoice(theme: theme, logo: $0).iconName }
+        }
+        #expect(names.count(where: { $0 == nil }) == 1)
+        #expect(LumeIconChoice(theme: .pink, logo: .afterglow).iconName == nil)
+        #expect(Set(names.compactMap(\.self)).count == 7)
+        #expect(LumeIconChoice(theme: .ice, logo: .floodlight).iconName == "LumeFloodlightIce")
+    }
+
     @Test func `colour themes are on the Pro list`() {
         #expect(PremiumFeature.availableOnThisPlatform.contains(.colorThemes))
     }

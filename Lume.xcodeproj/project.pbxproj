@@ -526,9 +526,9 @@
 		C67C02E52F880F2400842DBA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "LumeIce LumeCoral LumeGreen";
-				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvos*]" = "LumeIceTV LumeCoralTV LumeGreenTV";
-				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvsimulator*]" = "LumeIceTV LumeCoralTV LumeGreenTV";
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "LumeIce LumeCoral LumeGreen LumeFloodlightPink LumeFloodlightIce LumeFloodlightCoral LumeFloodlightGreen";
+				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvos*]" = "LumeIceTV LumeCoralTV LumeGreenTV LumeFloodlightPinkTV LumeFloodlightIceTV LumeFloodlightCoralTV LumeFloodlightGreenTV";
+				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvsimulator*]" = "LumeIceTV LumeCoralTV LumeGreenTV LumeFloodlightPinkTV LumeFloodlightIceTV LumeFloodlightCoralTV LumeFloodlightGreenTV";
 				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=macosx*]" = "";
 				ASSETCATALOG_COMPILER_APPICON_NAME = Lume;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -593,9 +593,9 @@
 		C67C02E62F880F2400842DBA /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "LumeIce LumeCoral LumeGreen";
-				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvos*]" = "LumeIceTV LumeCoralTV LumeGreenTV";
-				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvsimulator*]" = "LumeIceTV LumeCoralTV LumeGreenTV";
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "LumeIce LumeCoral LumeGreen LumeFloodlightPink LumeFloodlightIce LumeFloodlightCoral LumeFloodlightGreen";
+				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvos*]" = "LumeIceTV LumeCoralTV LumeGreenTV LumeFloodlightPinkTV LumeFloodlightIceTV LumeFloodlightCoralTV LumeFloodlightGreenTV";
+				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvsimulator*]" = "LumeIceTV LumeCoralTV LumeGreenTV LumeFloodlightPinkTV LumeFloodlightIceTV LumeFloodlightCoralTV LumeFloodlightGreenTV";
 				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=macosx*]" = "";
 				ASSETCATALOG_COMPILER_APPICON_NAME = Lume;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -946,9 +946,9 @@
 		C67C02F22F880F2400842DBA /* Sideload */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "LumeIce LumeCoral LumeGreen";
-				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvos*]" = "LumeIceTV LumeCoralTV LumeGreenTV";
-				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvsimulator*]" = "LumeIceTV LumeCoralTV LumeGreenTV";
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "LumeIce LumeCoral LumeGreen LumeFloodlightPink LumeFloodlightIce LumeFloodlightCoral LumeFloodlightGreen";
+				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvos*]" = "LumeIceTV LumeCoralTV LumeGreenTV LumeFloodlightPinkTV LumeFloodlightIceTV LumeFloodlightCoralTV LumeFloodlightGreenTV";
+				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvsimulator*]" = "LumeIceTV LumeCoralTV LumeGreenTV LumeFloodlightPinkTV LumeFloodlightIceTV LumeFloodlightCoralTV LumeFloodlightGreenTV";
 				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=macosx*]" = "";
 				ASSETCATALOG_COMPILER_APPICON_NAME = Lume;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -1357,9 +1357,9 @@
 		C6BE110000000000000000B2 /* Benchmark */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "LumeIce LumeCoral LumeGreen";
-				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvos*]" = "LumeIceTV LumeCoralTV LumeGreenTV";
-				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvsimulator*]" = "LumeIceTV LumeCoralTV LumeGreenTV";
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "LumeIce LumeCoral LumeGreen LumeFloodlightPink LumeFloodlightIce LumeFloodlightCoral LumeFloodlightGreen";
+				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvos*]" = "LumeIceTV LumeCoralTV LumeGreenTV LumeFloodlightPinkTV LumeFloodlightIceTV LumeFloodlightCoralTV LumeFloodlightGreenTV";
+				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvsimulator*]" = "LumeIceTV LumeCoralTV LumeGreenTV LumeFloodlightPinkTV LumeFloodlightIceTV LumeFloodlightCoralTV LumeFloodlightGreenTV";
 				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=macosx*]" = "";
 				ASSETCATALOG_COMPILER_APPICON_NAME = Lume;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
