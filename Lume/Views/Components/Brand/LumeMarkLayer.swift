@@ -22,8 +22,13 @@ final class LumeMarkLayer: CALayer {
     }
 
     var color: CGColor = .init(srgbRed: 1, green: 0.533, blue: 0.843, alpha: 1) {
-        didSet { applyColor() }
+        // Only a real change: re-setting the same colour mid-fade would
+        // replace the running fade with one that lands at once.
+        didSet { if color != oldValue { applyColor() } }
     }
+
+    /// How long a change of `color` fades over; 0 changes it at once.
+    var colorFade: TimeInterval = 0
 
     private let core = CAShapeLayer()
     private let inner = CAShapeLayer()
@@ -85,7 +90,11 @@ final class LumeMarkLayer: CALayer {
 
     private func applyColor() {
         CATransaction.begin()
-        CATransaction.setDisableActions(true)
+        // The shape layers are this layer's own, not a view's, so a colour
+        // change animates as an implicit action when actions are on.
+        CATransaction.setDisableActions(colorFade == 0)
+        CATransaction.setAnimationDuration(colorFade)
+        CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeInEaseOut))
         core.fillColor = color
         for layer in [inner, outer, trace] + emits {
             layer.strokeColor = color
@@ -231,13 +240,17 @@ final class LumeMarkLayer: CALayer {
     struct LumeMarkLayerView: NSViewRepresentable {
         let motion: LumeMark.Motion
         let color: Color
+        let colorFade: TimeInterval
 
         func makeNSView(context _: Context) -> LumeMarkHostView {
             LumeMarkHostView()
         }
 
         func updateNSView(_ view: LumeMarkHostView, context: Context) {
+            // The first colour lands at once: only a change fades.
+            view.mark.colorFade = view.hasDrawn ? colorFade : 0
             view.mark.color = color.resolve(in: context.environment).cgColor
+            view.hasDrawn = true
             view.mark.reduceMotion = context.environment.accessibilityReduceMotion
             view.mark.motion = motion
         }
@@ -245,6 +258,8 @@ final class LumeMarkLayer: CALayer {
 
     final class LumeMarkHostView: NSView {
         let mark = LumeMarkLayer()
+        /// Whether the mark has had its first colour.
+        var hasDrawn = false
 
         override init(frame: NSRect) {
             super.init(frame: frame)
@@ -274,13 +289,17 @@ final class LumeMarkLayer: CALayer {
     struct LumeMarkLayerView: UIViewRepresentable {
         let motion: LumeMark.Motion
         let color: Color
+        let colorFade: TimeInterval
 
         func makeUIView(context _: Context) -> LumeMarkHostView {
             LumeMarkHostView()
         }
 
         func updateUIView(_ view: LumeMarkHostView, context: Context) {
+            // The first colour lands at once: only a change fades.
+            view.mark.colorFade = view.hasDrawn ? colorFade : 0
             view.mark.color = color.resolve(in: context.environment).cgColor
+            view.hasDrawn = true
             view.mark.reduceMotion = context.environment.accessibilityReduceMotion
             view.mark.motion = motion
         }
@@ -288,6 +307,8 @@ final class LumeMarkLayer: CALayer {
 
     final class LumeMarkHostView: UIView {
         let mark = LumeMarkLayer()
+        /// Whether the mark has had its first colour.
+        var hasDrawn = false
 
         override init(frame: CGRect) {
             super.init(frame: frame)

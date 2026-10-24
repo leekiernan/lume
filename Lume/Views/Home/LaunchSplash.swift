@@ -29,37 +29,105 @@ final class LaunchSplashModel {
 /// hand-over doesn't show. The rings glow outwards and the wordmark arrives
 /// (the brand board's launch); if Home is still not ready after that, the mark
 /// pulses as the wait indicator.
+///
+/// The static launch screen can't follow the colour theme (`Info.plist` names
+/// one image), so it is the grey mark on plain Ink. The splash takes over
+/// exactly so, then fades the mark to the theme's colour and the ambient
+/// glows in together, as the rings glow.
 struct LaunchSplashView: View {
-    @State private var isWaiting = false
-    @State private var wordmarkArrived = false
+    @State private var phase = LaunchSplashPhase.handOver
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
+            // The launch screen's plain Ink, the glows fading in over it.
+            Color.lumeInk.ignoresSafeArea()
             LumeAmbientBackground(style: .brand)
+                .opacity(phase.showsGlows ? 1 : 0)
             VStack(spacing: LaunchSplashMetrics.gap) {
-                LumeMark(motion: isWaiting ? .pulse : .launch)
+                LumeMark(motion: phase.markMotion, color: phase.isColoured ? .lumeAccent : LaunchSplashMetrics.staticGrey,
+                         colorFade: LaunchSplashMetrics.colorFade)
                     .frame(width: LaunchSplashMetrics.mark, height: LaunchSplashMetrics.mark)
                 LumeWordmark(size: LaunchSplashMetrics.wordmark, color: Color(white: 0.96))
                     // The board's line-height: 1, so the mark sits where the
                     // static launch image puts it.
                     .frame(height: LaunchSplashMetrics.wordmark)
-                    .opacity(wordmarkArrived ? 1 : 0)
-                    .offset(y: wordmarkArrived ? 0 : 14)
+                    .opacity(phase.showsWordmark ? 1 : 0)
+                    .offset(y: phase.showsWordmark ? 0 : 14)
             }
         }
         .task {
-            // The board's launch: the wordmark rises in at 1.92 s, over 0.84 s.
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.84).delay(1.92)) { wordmarkArrived = true }
-            try? await Task.sleep(for: .seconds(LumeMarkFrame.launchDuration + 0.4))
-            isWaiting = true
+            var elapsed = 0.0
+            for step in LaunchSplashPhase.timeline(reduceMotion: reduceMotion) {
+                try? await Task.sleep(for: .seconds(step.seconds - elapsed))
+                guard !Task.isCancelled else { return }
+                elapsed = step.seconds
+                withAnimation(step.animation) { phase = step.phase }
+            }
         }
+    }
+}
+
+/// Where the splash is in the brand board's launch. Only moves forward; what
+/// each part of the splash shows follows from it.
+nonisolated enum LaunchSplashPhase: Int, Comparable {
+    /// The static launch screen's frame: grey mark, plain Ink.
+    case handOver
+    /// The mark turns to the theme's colour and the glows fade in.
+    case colouring
+    /// The wordmark has risen in.
+    case branded
+    /// Home still isn't ready: the mark pulses as the wait indicator.
+    case waiting
+
+    static func < (lhs: Self, rhs: Self) -> Bool {
+        lhs.rawValue < rhs.rawValue
+    }
+
+    var isColoured: Bool {
+        self >= .colouring
+    }
+
+    var showsGlows: Bool {
+        self >= .colouring
+    }
+
+    var showsWordmark: Bool {
+        self >= .branded
+    }
+
+    var markMotion: LumeMark.Motion {
+        self == .waiting ? .pulse : .launch
+    }
+
+    struct Step {
+        /// Seconds after the splash appears.
+        let seconds: TimeInterval
+        let phase: LaunchSplashPhase
+        let animation: Animation?
+    }
+
+    /// The board's launch: colour and glows at once, over `colorFade`; the
+    /// wordmark rising in at 1.92 s over 0.84 s (at once with Reduce Motion);
+    /// the wait pulse once the intro has rested.
+    static func timeline(reduceMotion: Bool) -> [Step] {
+        [
+            Step(seconds: 0, phase: .colouring, animation: .easeInOut(duration: LaunchSplashMetrics.colorFade)),
+            Step(seconds: reduceMotion ? 0 : 1.92, phase: .branded, animation: reduceMotion ? nil : .easeOut(duration: 0.84)),
+            Step(seconds: LumeMarkFrame.launchDuration + 0.4, phase: .waiting, animation: nil)
+        ]
     }
 }
 
 /// Matches `LaunchMark` (the static launch screen): a 300-point mark over the
 /// wordmark's space, centred together.
 enum LaunchSplashMetrics {
+    /// `LaunchMark`'s grey: heritage pink's own greyscale value, so the mark
+    /// reads as itself with the colour taken out.
+    static let staticGrey = Color.lumeRGB(0xA7A7A7)
+    /// The grey's fade to the theme, and the glows' fade in, over the inner
+    /// ring's first glow.
+    static let colorFade: TimeInterval = 0.8
     static let mark: CGFloat = 300
     static let gap: CGFloat = 12
     static let wordmark: CGFloat = 88

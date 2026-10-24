@@ -81,11 +81,14 @@ struct LumeMark: View {
 
     var motion: Motion = .still
     var color: Color = .lumeAccent
+    /// How long a change of `color` fades over, in seconds: the launch
+    /// splash's grey turning to the theme's colour.
+    var colorFade: TimeInterval = 0
 
     /// Drawn and animated by Core Animation (`LumeMarkLayer`), so the motion
     /// runs off the main thread and needs no per-frame body updates.
     var body: some View {
-        LumeMarkLayerView(motion: motion, color: color)
+        LumeMarkLayerView(motion: motion, color: color, colorFade: colorFade)
             .aspectRatio(1, contentMode: .fit)
     }
 }
