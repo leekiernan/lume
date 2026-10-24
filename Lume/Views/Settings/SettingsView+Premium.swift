@@ -150,8 +150,13 @@ extension SettingsView {
 #if os(tvOS)
 
     extension SettingsView {
-        /// The tvOS Premium pane: status, the full benefits list, and upgrade /
-        /// restore actions for free users.
+        /// The tvOS Premium pane: status, the upgrade / restore / manage
+        /// actions, then the full benefits list.
+        ///
+        /// The actions lead and every feature is a focusable row: a tvOS scroll
+        /// view only moves with focus, so a list of plain text below or above
+        /// the only buttons couldn't be read to its end — and a subscriber, with
+        /// no buttons at all, couldn't scroll it.
         var tvPremiumDetail: some View {
             VStack(alignment: .leading, spacing: 28) {
                 VStack(alignment: .leading, spacing: 8) {
@@ -161,48 +166,84 @@ extension SettingsView {
                     )
                 }
 
-                VStack(alignment: .leading, spacing: 16) {
-                    TVSettingsSectionLabel(premium.isPremium ? "Included" : "Premium Features")
-                    ForEach(PremiumFeature.availableOnThisPlatform) { feature in
-                        HStack(alignment: .top, spacing: 18) {
-                            Image(systemName: feature.systemImage)
-                                .font(.system(size: 26))
-                                .foregroundStyle(.tint)
-                                .frame(width: 40)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(feature.title).font(.system(size: 24, weight: .semibold))
-                                Text(feature.subtitle)
-                                    .font(.system(size: 20))
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.horizontal, TVSettingsMetrics.rowHPadding)
-                    }
-                }
-
                 if premium.hasManageableSubscription {
                     ManageSubscriptionRow()
                         .padding(.horizontal, TVSettingsMetrics.rowHPadding)
                 }
 
                 if !premium.isPremium {
-                    Button {
-                        presentPaywall(nil)
-                    } label: {
-                        Label("Upgrade to Premium", systemImage: "crown")
-                            .labelStyle(TVSettingsIconLabelStyle())
-                    }
-                    .buttonStyle(TVSettingsRowButtonStyle())
+                    VStack(alignment: .leading, spacing: 8) {
+                        Button {
+                            presentPaywall(nil)
+                        } label: {
+                            Label("Upgrade to Premium", systemImage: "crown")
+                                .labelStyle(TVSettingsIconLabelStyle())
+                        }
+                        .buttonStyle(TVSettingsRowButtonStyle())
 
-                    Button {
-                        Task { await premium.restore() }
-                    } label: {
-                        Label("Restore Purchases", systemImage: "arrow.clockwise")
-                            .labelStyle(TVSettingsIconLabelStyle())
+                        Button {
+                            Task { await premium.restore() }
+                        } label: {
+                            Label("Restore Purchases", systemImage: "arrow.clockwise")
+                                .labelStyle(TVSettingsIconLabelStyle())
+                        }
+                        .buttonStyle(TVSettingsRowButtonStyle())
                     }
-                    .buttonStyle(TVSettingsRowButtonStyle())
                 }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    TVSettingsSectionLabel(premium.isPremium ? "Included" : "Premium Features")
+                    ForEach(PremiumFeature.availableOnThisPlatform) { feature in
+                        TVPremiumFeatureRow(feature: feature, isPremium: premium.isPremium) {
+                            presentPaywall(feature)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// One benefit: a button to the paywall on that feature for a free user,
+    /// a focusable row for a subscriber so the list still scrolls.
+    private struct TVPremiumFeatureRow: View {
+        let feature: PremiumFeature
+        let isPremium: Bool
+        let showPaywall: () -> Void
+        @FocusState private var isFocused: Bool
+
+        var body: some View {
+            if isPremium {
+                label
+                    .padding(.horizontal, TVSettingsMetrics.rowHPadding)
+                    .padding(.vertical, TVSettingsMetrics.rowVPadding)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: TVSettingsMetrics.rowCornerRadius, style: .continuous)
+                            .fill(isFocused ? .white.opacity(0.14) : .clear)
+                    )
+                    .accessibilityElement(children: .combine)
+                    .focusable()
+                    .focused($isFocused)
+                    .animation(.easeOut(duration: 0.15), value: isFocused)
+            } else {
+                Button(action: showPaywall) { label }
+                    .buttonStyle(TVSettingsRowButtonStyle())
+            }
+        }
+
+        private var label: some View {
+            HStack(alignment: .top, spacing: 18) {
+                Image(systemName: feature.systemImage)
+                    .font(.system(size: 26))
+                    .foregroundStyle(TVSettingsAccentStyle())
+                    .frame(width: 40)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(feature.title).font(.system(size: 24, weight: .semibold))
+                    Text(feature.subtitle)
+                        .font(.system(size: 20))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
             }
         }
     }
