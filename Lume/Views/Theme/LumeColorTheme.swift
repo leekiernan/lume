@@ -18,10 +18,13 @@
 //  (`LumeColorThemeTests`); coral is the lowest, at 6.3:1 under Ink. The
 //  neutrals — Night, Ink, Day and the text greys — stay as they are.
 //
-//  The choice is per device, like the appearance override, and the app icon
-//  and launch screen stay pink: neither can change while the app runs.
+//  The choice is per device, like the appearance override. On iPhone, iPad
+//  and Apple TV the app icon follows it (`LumeAppIcon`), from alternates made
+//  by `Scripts/generate-icon-colourways.py`; the Mac keeps the pink icon, and
+//  the launch screen stays pink everywhere, as it is drawn before any code runs.
 //
 
+import OSLog
 import SwiftUI
 #if canImport(UIKit)
     import UIKit
@@ -56,6 +59,23 @@ enum LumeColorTheme: String, CaseIterable, Identifiable {
         case .coral: (0xFF6247, 0xC41D00, 0x8A1240)
         case .green: (0xCCFF4D, 0x4E6E00, 0x0A6B4F)
         }
+    }
+
+    /// The alternate app icon drawn in this theme; nil for the primary, pink.
+    /// Registered in `ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES`: an Icon
+    /// Composer file on iPhone and iPad, a `…TV` image stack on Apple TV.
+    var iconName: String? {
+        let name: String? = switch self {
+        case .pink: nil
+        case .ice: "LumeIce"
+        case .coral: "LumeCoral"
+        case .green: "LumeGreen"
+        }
+        #if os(tvOS)
+            return name.map { $0 + "TV" }
+        #else
+            return name
+        #endif
     }
 
     static func resolve(_ raw: String) -> LumeColorTheme {
@@ -108,6 +128,23 @@ final class LumeThemeStore {
         defaults.set(theme.rawValue, forKey: LumeColorTheme.storageKey)
         self.theme = theme
         palette = LumePalette(theme)
+        LumeAppIcon.apply(theme)
+    }
+}
+
+/// The home-screen icon in the theme's colour. The system confirms each
+/// change with an alert of its own, which no app can suppress.
+enum LumeAppIcon {
+    static func apply(_ theme: LumeColorTheme) {
+        #if os(iOS) || os(tvOS)
+            let app = UIApplication.shared
+            guard app.supportsAlternateIcons, app.alternateIconName != theme.iconName else { return }
+            app.setAlternateIconName(theme.iconName) { error in
+                if let error {
+                    Logger.app.error("App icon: couldn't switch to \(theme.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        #endif
     }
 }
 
