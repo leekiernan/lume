@@ -20,6 +20,14 @@ struct PlaybackPolicyTests {
         #expect(PlaybackPolicy.startupTimeout(quick: true) < PlaybackPolicy.liveStallTimeout)
     }
 
+    /// A movie's rebuffer fills a deeper buffer than live's, so it waits
+    /// longer before rebuilding; both outlast the quick startup window.
+    @Test func `a stalled stream is rebuilt after its kind's window`() {
+        #expect(PlaybackPolicy.stallTimeout(isLive: true) == 30)
+        #expect(PlaybackPolicy.stallTimeout(isLive: false) == 45)
+        #expect(PlaybackPolicy.stallTimeout(isLive: true) < PlaybackPolicy.stallTimeout(isLive: false))
+    }
+
     @Test func `tile windows remain shorter without changing full screen deadlines`() {
         #expect(PlaybackPolicy.tileStartupTimeout(quick: true) == 12)
         #expect(PlaybackPolicy.tileStartupTimeout(quick: false) == 25)

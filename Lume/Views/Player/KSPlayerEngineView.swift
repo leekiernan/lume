@@ -118,11 +118,12 @@ struct KSPlayerEngineView: View {
     /// `startupTimeout`. Covers a stream that hangs in `.preparing`/`.buffering`
     /// forever without ever emitting `.error` (so the reconnector never engages).
     @State var startup = PlaybackStartupSupervisor()
-    /// Fires a reconnect (`recoverWedgedStream`) if a live stream sits in `.buffering` for
-    /// `stallTimeout` after playback had started. A mid-stream decode failure
-    /// wedges KSPlayer in `.buffering` forever without ever emitting `.error`
-    /// (so the reconnector never engages, and the startup watchdog is already
-    /// disarmed). See `handleState`.
+    /// Fires a reconnect (`recoverWedgedStream`) if a stream sits in `.buffering` for
+    /// `stallTimeout` after playback had started. A mid-stream decode failure,
+    /// or a VOD connection dropped while paused, wedges KSPlayer in
+    /// `.buffering` forever without ever emitting `.error` (so the reconnector
+    /// never engages, and the startup watchdog is already disarmed). See
+    /// `handleState`.
     @State var stallWatchdog: Task<Void, Never>?
     @State var chrome = PlayerChromeController()
     var isControlsVisible: Bool {
@@ -203,10 +204,10 @@ struct KSPlayerEngineView: View {
         PlaybackPolicy.startupTimeout(quick: usesQuickStartupTimeout)
     }
 
-    /// How long a live stream may sit in `.buffering` mid-playback before the
-    /// stall watchdog rebuilds it — see `PlaybackPolicy.liveStallTimeout`.
+    /// How long a stream may sit in `.buffering` mid-playback before the
+    /// stall watchdog rebuilds it — see `PlaybackPolicy.stallTimeout(isLive:)`.
     var stallTimeout: TimeInterval {
-        PlaybackPolicy.liveStallTimeout
+        PlaybackPolicy.stallTimeout(isLive: media.isLive)
     }
 
     var body: some View {

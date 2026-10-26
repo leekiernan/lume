@@ -21,6 +21,15 @@ nonisolated enum PlaybackPolicy {
     /// How long a live stream may sit buffering after it started before it is
     /// rebuilt. A healthy rebuffer only has to refill a few seconds.
     static let liveStallTimeout: TimeInterval = 30
+    /// The same for a movie or episode, whose rebuffer fills a deeper buffer.
+    /// One that never recovers is typically a connection the provider dropped
+    /// while paused: the token URL it was opened on has expired, so retrying
+    /// the read can't succeed and only a fresh open can.
+    static let vodStallTimeout: TimeInterval = 45
+
+    static func stallTimeout(isLive: Bool) -> TimeInterval {
+        isLive ? liveStallTimeout : vodStallTimeout
+    }
 
     static func startupTimeout(quick: Bool) -> TimeInterval {
         quick ? quickStartupTimeout : startupTimeout

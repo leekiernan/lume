@@ -124,9 +124,9 @@ extension KSPlayerEngineView {
     /// so it is left alone.
     func handleState(_ state: KSPlayerState) {
         // The stall watchdog lives exactly as long as a mid-playback `.buffering`
-        // window on a live stream; any other state means the engine moved on.
-        // Startup buffering is excluded — `startupTimeout` already covers it.
-        if state == .buffering, hasStartedPlayback, media.isLive {
+        // window; any other state means the engine moved on. Startup buffering
+        // is excluded — `startupTimeout` already covers it.
+        if state == .buffering, hasStartedPlayback {
             startStallWatchdog()
         } else {
             cancelStallWatchdog()
@@ -187,7 +187,7 @@ extension KSPlayerEngineView {
 
     // MARK: - Mid-stream stall watchdog
 
-    /// Rebuild a live stream that buffers without ever recovering.
+    /// Rebuild a stream that buffers without ever recovering.
     ///
     /// A decode error mid-stream (one corrupt packet after a network stall is
     /// enough) kills KSPlayer's decode thread for that track; with no frames
@@ -198,13 +198,22 @@ extension KSPlayerEngineView {
     /// live rebuffer only has to refill a few seconds of buffer, so a stall
     /// outliving `stallTimeout` means the pipeline is wedged: rebuild in place
     /// (`retryPlayback` re-prepares the input and rejoins the live edge).
+    ///
+    /// A movie or episode wedges the same way when the provider drops its
+    /// connection during a long pause: KSPlayer retries the read on the token
+    /// URL it opened, which has expired ("Stream ends prematurely"), and stays
+    /// buffering. Its rebuild resolves a fresh redirect and resumes at the
+    /// playhead.
     func startStallWatchdog() {
         guard stallWatchdog == nil else { return }
         stallWatchdog = Task { @MainActor in
             try? await Task.sleep(nanoseconds: UInt64(stallTimeout * 1_000_000_000))
             guard !Task.isCancelled else { return }
             stallWatchdog = nil
-            Logger.player.error("stall watchdog: live stream stuck buffering for \(stallTimeout, format: .fixed(precision: 0), privacy: .public)s, rebuilding stream")
+            let kind = media.isLive ? "live" : "VOD"
+            Logger.player.error(
+                "stall watchdog: \(kind, privacy: .public) stream stuck buffering for \(stallTimeout, format: .fixed(precision: 0), privacy: .public)s, rebuilding stream"
+            )
             recoverWedgedStream()
         }
     }
@@ -274,7 +283,7 @@ extension KSPlayerEngineView {
     /// the same reconnect budget as a dropped stream; the budget resets once the
     /// rebuilt stream is ready, and an exhausted one raises the failure overlay.
     private func recoverWedgedStream() {
-        reconnector.scheduleRetry { reconnect() }
+        reconnector.scheduleRetry { reconnect(rebuilding: true) }
         if reconnector.hasGivenUp { failPlayback() }
     }
 
@@ -399,7 +408,11 @@ extension KSPlayerEngineView {
     /// Always rebuilding a live stream from a fresh input (see `rebuildStream`)
     /// re-creates the HLS session from scratch so we correctly rejoin the live
     /// edge in both the `.error` and `.playedToTheEnd` cases.
-    func reconnect() {
+    ///
+    /// `rebuilding` is for a stream wedged in `.buffering` rather than in
+    /// `.error`: `play()` re-prepares only an errored layer, so a direct VOD
+    /// stream is rebuilt instead.
+    func reconnect(rebuilding: Bool = false) {
         guard let layer = coordinator.playerLayer else { return }
         // Reset session gates so stale callbacks from the previous session don't
         // prematurely clear the spinner or reset the reconnect budget. Whether
@@ -417,6 +430,8 @@ extension KSPlayerEngineView {
             rebuildStream(on: layer)
         } else if opensThroughRedirect {
             rebuildFromFreshRedirect(on: layer)
+        } else if rebuilding {
+            rebuildStream(on: layer)
         } else {
             layer.play()
         }
