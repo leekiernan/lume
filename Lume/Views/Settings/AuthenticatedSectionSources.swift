@@ -45,7 +45,7 @@ struct AuthenticatedSectionSources: View {
 
     private func sourceRow(_ source: AuthenticatedHomeList) -> some View {
         let title = title(source)
-        return HStack {
+        return HStack(spacing: 14) {
             #if os(tvOS)
                 Button { beginEditing(source) } label: {
                     Label(title, systemImage: "list.bullet.rectangle")
@@ -53,6 +53,8 @@ struct AuthenticatedSectionSources: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(TVSettingsRowButtonStyle())
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
             #else
                 Label(title, systemImage: "list.bullet.rectangle")
                 Spacer(minLength: 12)
@@ -62,12 +64,14 @@ struct AuthenticatedSectionSources: View {
                 Image(systemName: "pencil")
             }
             .accessibilityLabel("Edit \(title)")
+            .fixedSize()
 
             Button { add(source) } label: {
                 Image(systemName: "plus")
             }
             .accessibilityLabel("Add \(title)")
             .disabled(existing(source) != nil || sections.count >= CustomHomeSections.maximumCount)
+            .fixedSize()
         }
         #if os(tvOS)
         .buttonStyle(TVContentIconButtonStyle())

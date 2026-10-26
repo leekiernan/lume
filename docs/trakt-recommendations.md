@@ -1,7 +1,7 @@
 # Trakt recommendation sections
 
-Library layout settings offer **Trakt Recommendations** beneath the custom-list
-URL editor while Trakt is connected. Its pencil edits the title; its plus adds
+Library layout settings offer **Trakt Recommendations** under **Custom Sections**,
+above **Add Section**, while Trakt is connected. Its pencil edits the title; its plus adds
 one ordinary custom section to the current area. Each profile and area keeps its
 own title and layout. Once added, the usual reorder, visibility, hero and
 tvOS Top Shelf controls apply in the Sections list.
