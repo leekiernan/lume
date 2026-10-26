@@ -28,6 +28,10 @@ nonisolated enum HomeListError: LocalizedError, Equatable {
     case listNotShared
     case serverError(Int)
     case emptyList
+    /// A section that needs the connected Trakt account has no usable sign-in.
+    case accountRequired
+    /// Trakt refused, or had nothing, for this account's recommendations.
+    case recommendationsUnavailable
     case network(String)
 
     var errorDescription: String? {
@@ -46,6 +50,10 @@ nonisolated enum HomeListError: LocalizedError, Equatable {
             String(localized: "The list provider returned an error (\(code)).")
         case .emptyList:
             String(localized: "That list is empty.")
+        case .accountRequired:
+            String(localized: "Connect your Trakt account in Settings to see this section.")
+        case .recommendationsUnavailable:
+            String(localized: "Trakt didn't return recommendations for your account. Try again later.")
         case let .network(message):
             message
         }
