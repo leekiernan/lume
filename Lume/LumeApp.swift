@@ -393,6 +393,14 @@ struct LumeApp: App {
                             PlaybackRecovery.report(recoveredPlayback, to: [SimklService.shared], in: catalogContainer.mainContext)
                         }
 
+                        // And MDBList, the third tracker on the same device flow.
+                        Task {
+                            let profileID = profileManager.activeProfileID
+                            await MDBListService.shared.restore()
+                            guard !profileManager.isSwitching, profileManager.activeProfileID == profileID else { return }
+                            PlaybackRecovery.report(recoveredPlayback, to: [MDBListService.shared], in: catalogContainer.mainContext)
+                        }
+
                         // Restore the OpenSubtitles session (a keychain read, no
                         // network) so the in-player subtitle search can download
                         // without sending the viewer to Settings first.

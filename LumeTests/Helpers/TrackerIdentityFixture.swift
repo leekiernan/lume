@@ -5,7 +5,7 @@ import Testing
 /// Real importer/store tests use a known account, independent of the installed
 /// app. The identity is restored even if assertions throw; no token is written.
 nonisolated struct TrackerIdentityFixture: TestTrait, SuiteTrait, TestScoping {
-    enum Provider { case trakt, simkl }
+    enum Provider { case trakt, simkl, mdblist }
     let provider: Provider
     var isRecursive: Bool {
         true
@@ -31,6 +31,13 @@ nonisolated struct TrackerIdentityFixture: TestTrait, SuiteTrait, TestScoping {
                     if let old { SimklAccountIdentityStore.save(old) } else { SimklAccountIdentityStore.clear() }
                 }
                 SimklAccountIdentityStore.save(.init(username: "fixture", scope: "simkl:fixture"))
+                try await function()
+            case .mdblist:
+                let old = MDBListAccountIdentityStore.load()
+                defer {
+                    if let old { MDBListAccountIdentityStore.save(old) } else { MDBListAccountIdentityStore.clear() }
+                }
+                MDBListAccountIdentityStore.save(.init(username: "fixture", scope: "mdblist:fixture"))
                 try await function()
             }
         }

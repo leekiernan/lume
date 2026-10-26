@@ -122,7 +122,7 @@ struct LibrarySectionsView<CollectionRow: View>: View {
                 Text("Trending Series"), feed.items(for: .builtin(section)),
                 section: .builtin(section), collectionTitle: String(localized: "Trending Series")
             )
-        case .traktWatchlist, .simklWatchlist:
+        case .traktWatchlist, .simklWatchlist, .mdblistWatchlist:
             if let provider = WatchlistProvider(section: section) {
                 rail(
                     Text(provider.rowTitle), feed.items(for: .builtin(section)),

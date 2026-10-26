@@ -12,7 +12,7 @@ nonisolated enum SimklHistoryPage {
         return pages.isEmpty ? [.movies([])] : pages
     }
 
-    func apply(in context: ModelContext, scope: TrackerScope) -> SimklImportSummary {
+    func apply(in context: ModelContext, scope: TrackerScope) -> TrackerWatchedImportSummary {
         switch self {
         case let .movies(items): SimklWatchedImporter.apply(movies: items, shows: [], in: context, pendingScope: scope)
         case let .shows(items): SimklWatchedImporter.apply(movies: [], shows: items, in: context, pendingScope: scope)

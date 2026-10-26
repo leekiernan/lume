@@ -3,25 +3,26 @@ import Foundation
 import Testing
 
 struct MediaFavoriteStateTests {
-    @Test(arguments: 0 ..< 8)
-    func `one heart combines all three lists`(bits: Int) {
-        let local = bits & 1 != 0
-        let trakt = bits & 2 != 0
-        let simkl = bits & 4 != 0
-        let state = MediaFavoriteState(local: local, trakt: trakt, simkl: simkl)
-        let present = local || trakt || simkl
+    @Test(arguments: MediaFavoriteDestinationTests.combinations)
+    func `one heart combines every list`(bits: Int) {
+        let state = MediaFavoriteDestinationTests.state(bits)
+        let present = state.local || state.trackers.values.contains(true)
         #expect(state.isFavorite == present)
         #expect(state.toggled == !present)
-        #expect(state.traktIntent == (!present || trakt ? !present : nil))
-        #expect(state.simklIntent == (!present || simkl ? !present : nil))
+        for provider in WatchlistProvider.allCases {
+            let member = state.trackers[provider] == true
+            #expect(state.intent(for: provider) == (!present || member ? !present : nil))
+        }
     }
 
     @Test func `disconnected trackers receive no intent`() {
         for local in [false, true] {
-            let state = MediaFavoriteState(local: local, trakt: nil, simkl: nil)
+            let state = MediaFavoriteState(local: local)
             #expect(state.isFavorite == local)
-            #expect(state.traktIntent == nil)
-            #expect(state.simklIntent == nil)
+            for provider in WatchlistProvider.allCases {
+                #expect(state.intent(for: provider) == nil)
+            }
+            #expect(state.toggleChange.trackers.isEmpty)
         }
     }
 }

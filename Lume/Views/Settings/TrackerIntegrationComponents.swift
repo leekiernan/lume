@@ -5,6 +5,7 @@ import SwiftUI
 enum TrackerIntegrationPresentation: CaseIterable {
     case trakt
     case simkl
+    case mdblist
 
     var supportsInProgressImport: Bool {
         self == .trakt
@@ -14,6 +15,7 @@ enum TrackerIntegrationPresentation: CaseIterable {
         switch self {
         case .trakt: "trakt.tv/activate"
         case .simkl: "simkl.com/pin"
+        case .mdblist: "mdblist.com/oauth/device"
         }
     }
 
@@ -21,6 +23,7 @@ enum TrackerIntegrationPresentation: CaseIterable {
         switch self {
         case .trakt: "Enter this code at trakt.tv/activate"
         case .simkl: "Enter this code at simkl.com/pin"
+        case .mdblist: "Enter this code at mdblist.com/oauth/device"
         }
     }
 
@@ -28,6 +31,7 @@ enum TrackerIntegrationPresentation: CaseIterable {
         switch self {
         case .trakt: "Open trakt.tv/activate"
         case .simkl: "Open simkl.com/pin"
+        case .mdblist: "Open mdblist.com/oauth/device"
         }
     }
 
@@ -35,6 +39,7 @@ enum TrackerIntegrationPresentation: CaseIterable {
         switch self {
         case .trakt: "Couldn't import from Trakt. Please try again."
         case .simkl: "Couldn't import from Simkl. Please try again."
+        case .mdblist: "Couldn't import from MDBList. Please try again."
         }
     }
 }

@@ -43,7 +43,7 @@ struct LibraryCollection: Hashable {
             case .recentlyWatched: self = .recentlyWatched
             case .favorites: self = .favorites
             case .recentlyAdded: self = .recentlyAdded
-            case .forYou, .trendingMovies, .trendingSeries, .traktWatchlist, .simklWatchlist, .sports: return nil
+            case .forYou, .trendingMovies, .trendingSeries, .traktWatchlist, .simklWatchlist, .mdblistWatchlist, .sports: return nil
             }
         }
 

@@ -99,3 +99,11 @@ if [ -n "$SIMKL_CLIENT_ID" ]; then
 else
     echo "warning: SIMKL_CLIENT_ID not set in .env — Simkl integration will be hidden"
 fi
+
+MDBLIST_CLIENT_ID="$(read_env MDBLIST_CLIENT_ID)"
+if [ -n "$MDBLIST_CLIENT_ID" ]; then
+    set_plist MDBListClientID "$MDBLIST_CLIENT_ID"
+    echo "Injected MDBList client id into Info.plist"
+else
+    echo "warning: MDBLIST_CLIENT_ID not set in .env — MDBList sync will be hidden"
+fi

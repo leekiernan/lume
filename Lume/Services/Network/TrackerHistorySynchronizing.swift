@@ -24,5 +24,44 @@ protocol TrackerHistorySynchronizing: AnyObject {
     func retryPendingMutations()
 }
 
-extension TraktService: TrackerHistorySynchronizing {}
-extension SimklService: TrackerHistorySynchronizing {}
+/// Playback start, pause and stop, which every tracker takes the same way.
+/// Transient, unlike history: see `TraktPlaybackScrobbler`.
+@MainActor
+protocol TrackerScrobbling: AnyObject {
+    func scrobble(_ target: TraktScrobbleTarget, action: TraktScrobbleAction, progress: Double)
+}
+
+extension TraktService: TrackerHistorySynchronizing, TrackerScrobbling {}
+extension SimklService: TrackerHistorySynchronizing, TrackerScrobbling {}
+extension MDBListService: TrackerHistorySynchronizing, TrackerScrobbling {}
+
+/// A tracker watchlist the heart adds to and removes from, and Home's watchlist
+/// rows read — see `MediaFavorites` and `WatchlistProvider.service`. Every
+/// tracker gets it from its queue (`TrackerQueueOwning`).
+@MainActor
+protocol TrackerWatchlistSyncing: AnyObject {
+    var isConnected: Bool { get }
+    /// The account membership belongs to, once known.
+    var watchlistAccount: String? { get }
+    func isWatchlisted(_ target: TrackerMutation.Target) -> Bool
+    func refreshWatchlistIfNeeded() async
+    /// The watchlist in the tracker's order. Falls back to the last good read
+    /// when the tracker can't be reached; throws when there is none.
+    func watchlistEntries() async throws -> [TrackerWatchlistEntry]
+    func syncWatchlist(movie: Movie, watchlisted: Bool)
+    func syncWatchlist(series: Series, watchlisted: Bool)
+}
+
+extension TraktService: TrackerQueueOwning {}
+extension SimklService: TrackerQueueOwning {}
+extension MDBListService: TrackerQueueOwning {}
+
+/// Every tracker integration, listed once: watched sync, scrobbles and rail
+/// removal fan out to these, so a new service is one entry here. Each
+/// service no-ops while it isn't connected.
+@MainActor
+enum MediaTrackers {
+    static var all: [any TrackerHistorySynchronizing & TrackerScrobbling] {
+        [TraktService.shared, SimklService.shared, MDBListService.shared]
+    }
+}

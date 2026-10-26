@@ -52,13 +52,17 @@ struct PremiumPlanTests {
     }
 
     /// The benefits lists only advertise what the platform offers: Apple TV has
-    /// no offline downloads, everywhere else has every feature.
+    /// no offline downloads, everywhere else has every feature. MDBList is
+    /// listed only when the build carries its client id.
     @Test func `benefits list only this platform's features`() {
+        let mdblist = MDBListSyncClient.shared.isConfigured
+        #expect(PremiumFeature.availableOnThisPlatform.contains(.mdblist) == mdblist)
+        let offered = PremiumFeature.allCases.filter { $0 != .mdblist || mdblist }
         #if os(tvOS)
             #expect(!PremiumFeature.availableOnThisPlatform.contains(.downloads))
-            #expect(PremiumFeature.availableOnThisPlatform.count == PremiumFeature.allCases.count - 1)
+            #expect(PremiumFeature.availableOnThisPlatform == offered.filter { $0 != .downloads })
         #else
-            #expect(PremiumFeature.availableOnThisPlatform == PremiumFeature.allCases)
+            #expect(PremiumFeature.availableOnThisPlatform == offered)
         #endif
     }
 }

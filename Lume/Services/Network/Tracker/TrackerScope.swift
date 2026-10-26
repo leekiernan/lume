@@ -14,6 +14,10 @@ nonisolated struct TrackerScope: Equatable {
         Self(profileID: ActiveProfileStore.current, accountID: SimklAccountIdentityStore.load()?.scope)
     }
 
+    static var mdblist: Self {
+        Self(profileID: ActiveProfileStore.current, accountID: MDBListAccountIdentityStore.load()?.scope)
+    }
+
     func matches(_ current: Self) -> Bool {
         guard let accountID, !accountID.isEmpty else { return false }
         return self == current

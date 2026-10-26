@@ -1,47 +1,53 @@
 import Foundation
 
-/// Nil means unavailable; remote membership and the local flag share one heart.
+/// Remote membership and the local flag share one heart. A tracker absent from
+/// `trackers` is unavailable: not connected, or the title has no TMDB id.
 nonisolated struct MediaFavoriteState: Equatable {
-    enum Destination: CaseIterable {
-        case local, trakt, simkl
+    enum Destination: Hashable, CaseIterable {
+        case local
+        case tracker(WatchlistProvider)
+
+        static var allCases: [Self] {
+            [.local] + WatchlistProvider.allCases.map(tracker)
+        }
     }
 
-    /// Nil leaves that destination untouched, including its metadata/history.
+    /// Nil, or a tracker left out, leaves that destination untouched,
+    /// including its metadata/history.
     struct Change: Equatable {
         var local: Bool?
-        var trakt: Bool?
-        var simkl: Bool?
+        var trackers: [WatchlistProvider: Bool] = [:]
     }
 
     let local: Bool
-    let trakt: Bool?
-    let simkl: Bool?
+    let trackers: [WatchlistProvider: Bool]
+
+    init(local: Bool, trackers: [WatchlistProvider: Bool] = [:]) {
+        self.local = local
+        self.trackers = trackers
+    }
 
     var isFavorite: Bool {
-        local || trakt == true || simkl == true
+        local || trackers.values.contains(true)
     }
 
     var toggled: Bool {
         !isFavorite
     }
 
-    var traktIntent: Bool? {
-        intent(for: trakt)
-    }
-
-    var simklIntent: Bool? {
-        intent(for: simkl)
+    /// What a heart tap asks of `provider`, if anything.
+    func intent(for provider: WatchlistProvider) -> Bool? {
+        intent(forMembership: trackers[provider])
     }
 
     var toggleChange: Change {
-        Change(local: toggled, trakt: traktIntent, simkl: simklIntent)
+        Change(local: toggled, trackers: trackers.compactMapValues { intent(forMembership: $0) })
     }
 
     func membership(in destination: Destination) -> Bool? {
         switch destination {
         case .local: local
-        case .trakt: trakt
-        case .simkl: simkl
+        case let .tracker(provider): trackers[provider]
         }
     }
 
@@ -50,12 +56,11 @@ nonisolated struct MediaFavoriteState: Equatable {
         guard membership(in: destination) != nil else { return nil }
         switch destination {
         case .local: return Change(local: isPresent)
-        case .trakt: return Change(trakt: isPresent)
-        case .simkl: return Change(simkl: isPresent)
+        case let .tracker(provider): return Change(trackers: [provider: isPresent])
         }
     }
 
-    private func intent(for membership: Bool?) -> Bool? {
+    private func intent(forMembership membership: Bool?) -> Bool? {
         guard let membership else { return nil }
         return toggled || membership ? toggled : nil
     }

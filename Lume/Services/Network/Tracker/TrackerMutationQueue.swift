@@ -12,6 +12,11 @@
 //  knows who the tokens belong to — and a remembered identity queues them,
 //  while only a confirmed one (fetched with a working token) sends them.
 //
+//  It also reads the account's watchlist for Home and the heart
+//  (`watchlistEntries()`): the tracker supplies the fetch, and everything
+//  around it — sharing a read, rejecting one a change has overtaken, the saved
+//  copy behind an offline launch — is the same for every tracker.
+//
 
 import Foundation
 import OSLog
@@ -24,13 +29,18 @@ final class TrackerMutationQueue<Backend: TrackerAccountBackend> {
     private(set) var isSyncing = false
     private(set) var syncError: String?
     let watchlist = TrackerWatchlistMembership()
-    @ObservationIgnored var refreshWatchlist: (() -> Void)?
+    /// The tracker's own watchlist request, newest first or in the tracker's
+    /// order, given a valid access token. Set once by the service.
+    @ObservationIgnored var fetchWatchlist: ((String) async throws -> [TrackerWatchlistEntry])?
     @ObservationIgnored var didDeliverMutation: (() -> Void)?
 
     @ObservationIgnored private let session: TrackerAccountSession<Backend>
     @ObservationIgnored private let outbox: TrackerMutationOutbox
     @ObservationIgnored private var drainTask: Task<Void, Never>?
     @ObservationIgnored private var drainID: UUID?
+    /// The watchlist read in flight, and the account and membership revision
+    /// it began under: only a caller at the same revision may share it.
+    @ObservationIgnored private var watchlistRead: (account: String, revision: UUID, id: UUID, task: Task<[TrackerWatchlistEntry], Error>)?
 
     /// Takes over the session's `identityDidChange` hook: identity is what
     /// scopes and releases the queue.
@@ -57,7 +67,7 @@ final class TrackerMutationQueue<Backend: TrackerAccountBackend> {
         guard let account else { return }
         outbox.enqueue(kind: kind, target: target, isPresent: isPresent, account: account, progress: progress, pausedAt: pausedAt)
         if kind == .watchlist {
-            watchlist.reset(account: account)
+            prepareWatchlist()
             watchlist.apply(target, isPresent: isPresent)
         }
         refreshStatus()
@@ -110,6 +120,9 @@ final class TrackerMutationQueue<Backend: TrackerAccountBackend> {
     /// queued changes stay, partitioned under its scope.
     func reset() {
         watchlist.reset(account: nil)
+        watchlistRead?.task.cancel()
+        watchlistRead = nil
+        TrackerWatchlistStore.clear(Backend.name)
         drainTask?.cancel()
         drainTask = nil
         drainID = nil
@@ -126,10 +139,10 @@ final class TrackerMutationQueue<Backend: TrackerAccountBackend> {
             }
         }
         refreshStatus()
-        watchlist.reset(account: account)
+        prepareWatchlist()
         if confirmed {
             retry()
-            refreshWatchlist?()
+            refreshWatchlistSoon()
         }
     }
 
@@ -148,6 +161,76 @@ final class TrackerMutationQueue<Backend: TrackerAccountBackend> {
             if mutation.isPresent { targets.insert(mutation.target) } else { targets.remove(mutation.target) }
         }
         watchlist.replace(with: targets, account: account, revision: revision)
+    }
+
+    // MARK: - Watchlist reads
+
+    /// Points membership at the connected account. A launch, or a switch to
+    /// another account, starts from that account's saved read, still due a
+    /// refresh, so the heart is right before — or without — the network.
+    private func prepareWatchlist() {
+        let previous = watchlist.account
+        watchlist.reset(account: account)
+        guard let account, watchlist.account != previous,
+              let saved = TrackerWatchlistStore.load(Backend.name, account: account) else { return }
+        watchlist.seed(Set(saved.map(\.target)))
+    }
+
+    private func refreshWatchlistSoon() {
+        Task { [weak self] in await self?.refreshWatchlistIfNeeded() }
+    }
+
+    /// Reads the watchlist unless a recent read still stands. A change
+    /// delivered while the read ran retires it; read once more if so.
+    func refreshWatchlistIfNeeded() async {
+        guard let account else { return }
+        prepareWatchlist()
+        guard watchlist.needsRefresh else { return }
+        let revision = watchlist.revision
+        _ = try? await watchlistEntries()
+        if self.account == account, watchlist.revision != revision, watchlist.needsRefresh {
+            _ = try? await watchlistEntries()
+        }
+    }
+
+    /// The watchlist, read through the tracker's `fetchWatchlist`. Concurrent
+    /// callers share one read — but only one begun at the current membership
+    /// revision, since a read a change has overtaken can't update membership.
+    /// When the tracker can't be reached, the last good read stands in.
+    func watchlistEntries() async throws -> [TrackerWatchlistEntry] {
+        guard let account, let fetchWatchlist else { throw TrackerWatchlistError.notConnected }
+        prepareWatchlist()
+        let revision = watchlist.revision
+        if let read = watchlistRead, read.account == account, read.revision == revision {
+            return try await read.task.value
+        }
+        let id = UUID()
+        let task = Task { [weak self] () throws -> [TrackerWatchlistEntry] in
+            guard let self else { throw TrackerWatchlistError.notConnected }
+            defer {
+                if watchlistRead?.id == id { watchlistRead = nil }
+            }
+            guard let accessToken = await session.validAccessToken(), self.account == account else {
+                throw TrackerWatchlistError.notConnected
+            }
+            let entries: [TrackerWatchlistEntry]
+            do {
+                entries = try await fetchWatchlist(accessToken)
+            } catch {
+                Logger.network.warning("\(Backend.name, privacy: .public) watchlist request failed: \(LogRedaction.describe(error), privacy: .public)")
+                guard let saved = TrackerWatchlistStore.load(Backend.name, account: account) else { throw error }
+                return saved
+            }
+            guard self.account == account else { throw TrackerWatchlistError.notConnected }
+            updateWatchlist(Set(entries.map(\.target)), account: account, revision: revision)
+            // Only a read nothing has overtaken describes the account now.
+            if watchlist.revision == revision {
+                TrackerWatchlistStore.save(Backend.name, account: account, entries: entries)
+            }
+            return entries
+        }
+        watchlistRead = (account, revision, id, task)
+        return try await task.value
     }
 
     private func drain(account: String, id: UUID) async {
@@ -180,7 +263,7 @@ final class TrackerMutationQueue<Backend: TrackerAccountBackend> {
                 if self.account == account {
                     didDeliverMutation?()
                     watchlist.invalidate()
-                    refreshWatchlist?()
+                    refreshWatchlistSoon()
                 }
             } catch {
                 outbox.recordFailure(id: mutation.id, account: account)

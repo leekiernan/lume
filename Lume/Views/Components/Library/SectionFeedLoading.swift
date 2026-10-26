@@ -36,8 +36,6 @@ private struct SectionFeedLoading: ViewModifier {
         let keys = SectionFeedLoadKeys(surface: feed.surface, catalog: configuration.catalogKey, sections: plan.customSections,
                                        heroSelection: configuration.heroSelection, traktAccount: configuration.traktAccount,
                                        proxySourceIdentity: configuration.context.proxySourceIdentity)
-        let traktKey = keys.watchlist(.trakt, account: WatchlistProvider.trakt.account)
-        let simklKey = keys.watchlist(.simkl, account: WatchlistProvider.simkl.account)
         content
             .task(id: FeedLoadID(catalog: keys.catalog, customTask: keys.customTask, rows: plan.rows)) {
                 guard !Task.isCancelled else { return }
@@ -46,17 +44,19 @@ private struct SectionFeedLoading: ViewModifier {
                 feed.configure(plan: plan, context: configuration.context)
                 await feed.load(plan: plan, keys: keys)
             }
-            // Keyed by account: Trakt connects a moment after launch, which
-            // must reload its watchlist, not the page's whole cold load.
-            .task(id: WatchlistLoadID(cacheKey: traktKey, rows: plan.rows)) {
-                // Either task may run first; a watchlist can be the hero.
-                feed.heroRef = configuration.heroRef
-                await feed.loadWatchlistIfPlanned(.trakt, cacheKey: traktKey, plan: plan, context: configuration.context)
-            }
-            .task(id: WatchlistLoadID(cacheKey: simklKey, rows: plan.rows)) {
-                // Either task may run first; a watchlist can be the hero.
-                feed.heroRef = configuration.heroRef
-                await feed.loadWatchlistIfPlanned(.simkl, cacheKey: simklKey, plan: plan, context: configuration.context)
+            // One task per watchlist, keyed by its account: Trakt connects a
+            // moment after launch, which must reload its watchlist, not the
+            // page's whole cold load.
+            .background {
+                ForEach(WatchlistProvider.allCases, id: \.self) { provider in
+                    let cacheKey = keys.watchlist(provider, account: provider.account)
+                    Color.clear
+                        .task(id: WatchlistLoadID(cacheKey: cacheKey, rows: plan.rows)) {
+                            // Either task may run first; a watchlist can be the hero.
+                            feed.heroRef = configuration.heroRef
+                            await feed.loadWatchlistIfPlanned(provider, cacheKey: cacheKey, plan: plan, context: configuration.context)
+                        }
+                }
             }
     }
 }

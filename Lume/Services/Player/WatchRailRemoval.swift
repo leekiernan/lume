@@ -11,7 +11,7 @@
 //
 //  The two rails mean different things:
 //  - Continue Watching forgets that an unfinished title was started: local
-//    progress, and the paused place Trakt and Simkl keep. Watched history
+//    progress, and the paused place the trackers keep. Watched history
 //    stays — clearing an unfinished title isn't unwatching it.
 //  - Recently Watched unwatches a finished movie (`MediaWatchState`), here
 //    and on linked trackers.
@@ -91,7 +91,7 @@ enum WatchRailRemoval {
     // MARK: - Copies
 
     private static var defaultTrackers: [any TrackerHistorySynchronizing] {
-        [TraktService.shared, SimklService.shared]
+        MediaTrackers.all
     }
 
     /// `movie` and the other started copies of its title.

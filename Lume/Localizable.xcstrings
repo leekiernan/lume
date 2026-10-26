@@ -1854,6 +1854,154 @@
         }
       }
     },
+    "%lld MDBList changes waiting to sync." : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld MDBList-Änderung wartet auf die Synchronisierung."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld MDBList-Änderungen warten auf die Synchronisierung."
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld MDBList change waiting to sync."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld MDBList changes waiting to sync."
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld cambio de MDBList pendiente de sincronizar."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld cambios de MDBList pendientes de sincronizar."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld modification MDBList en attente de synchronisation."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld modifications MDBList en attente de synchronisation."
+                }
+              }
+            }
+          }
+        },
+        "it" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld modifica di MDBList in attesa di sincronizzazione."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld modifiche di MDBList in attesa di sincronizzazione."
+                }
+              }
+            }
+          }
+        },
+        "ja" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "同期待ちのMDBListの変更が%lld件あります。"
+                }
+              }
+            }
+          }
+        },
+        "ko" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "동기화 대기 중인 MDBList 변경 사항 %lld개."
+                }
+              }
+            }
+          }
+        },
+        "pt" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld alteração do MDBList aguardando sincronização."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld alterações do MDBList aguardando sincronização."
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld项 MDBList 更改等待同步。"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld more on your channels" : {
       "comment" : "tvOS Sports hub hero, beside the Watch button: further channels carrying the game. The argument is the count.",
       "extractionState" : "manual",
@@ -13254,6 +13402,58 @@
         }
       }
     },
+    "Connect MDBList Account" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBList-Konto verbinden"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectar cuenta de MDBList"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecter un compte MDBList"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collega account MDBList"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBListアカウントを接続"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBList 계정 연결"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectar Conta do MDBList"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接MDBList账户"
+          }
+        }
+      }
+    },
     "Connect Simkl Account" : {
       "localizations" : {
         "de" : {
@@ -13937,6 +14137,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无法连接到 Stalker 门户。请检查门户 URL 和 MAC 地址。"
+          }
+        }
+      }
+    },
+    "Couldn't import from MDBList. Please try again." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import von MDBList fehlgeschlagen. Bitte versuche es erneut."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se ha podido importar desde MDBList. Inténtalo de nuevo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible d’importer depuis MDBList. Veuillez réessayer."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile importare da MDBList. Riprova."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBListからインポートできませんでした。もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBList에서 가져올 수 없습니다. 다시 시도하세요."
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível importar do MDBList. Tente novamente."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法从MDBList导入。请重试。"
           }
         }
       }
@@ -20467,6 +20719,58 @@
         }
       }
     },
+    "Enter this code at mdblist.com/oauth/device" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gib diesen Code auf mdblist.com/oauth/device ein"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introduce este código en mdblist.com/oauth/device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saisissez ce code sur mdblist.com/oauth/device"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inserisci questo codice su mdblist.com/oauth/device"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mdblist.com/oauth/deviceでこのコードを入力"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mdblist.com/oauth/device에서 이 코드를 입력하세요"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Insira este código em mdblist.com/oauth/device"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在mdblist.com/oauth/device输入此代码"
+          }
+        }
+      }
+    },
     "Enter this code at simkl.com/pin" : {
       "localizations" : {
         "de" : {
@@ -25253,6 +25557,58 @@
         }
       }
     },
+    "From Your MDBList Watchlist" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aus deiner MDBList-Watchlist"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De tu lista de seguimiento de MDBList"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Depuis votre liste de suivi MDBList"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dalla tua watchlist di MDBList"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBListのウォッチリストから"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBList 시청 목록에서"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Da Sua Lista do MDBList"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来自您的MDBList待看列表"
+          }
+        }
+      }
+    },
     "From Your Simkl Watchlist" : {
       "localizations" : {
         "de" : {
@@ -28896,6 +29252,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "图片缓存"
+          }
+        }
+      }
+    },
+    "Import Watched from MDBList" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Angesehenes von MDBList importieren"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importar lo visto de MDBList"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importer les contenus vus depuis MDBList"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importa i contenuti visti da MDBList"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBListから視聴済みをインポート"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBList에서 시청함 가져오기"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importar Assistidos do MDBList"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从MDBList导入已观看记录"
           }
         }
       }
@@ -35919,6 +36327,162 @@
         }
       }
     },
+    "MDBList" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBList"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBList"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBList"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBList"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBList"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBList"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBList"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBList"
+          }
+        }
+      }
+    },
+    "MDBList Integration" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBList-Integration"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Integración con MDBList"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Intégration MDBList"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Integrazione MDBList"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBList連携"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBList 연동"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Integração com o MDBList"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBList集成"
+          }
+        }
+      }
+    },
+    "MDBList Watchlist" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBList-Watchlist"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lista de seguimiento de MDBList"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liste de suivi MDBList"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Watchlist di MDBList"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBListウォッチリスト"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBList 시청 목록"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lista do MDBList"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBList待看列表"
+          }
+        }
+      }
+    },
     "Media Server" : {
       "localizations" : {
         "de" : {
@@ -42375,6 +42939,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打开详情"
+          }
+        }
+      }
+    },
+    "Open mdblist.com/oauth/device" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mdblist.com/oauth/device öffnen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir mdblist.com/oauth/device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir mdblist.com/oauth/device"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri mdblist.com/oauth/device"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mdblist.com/oauth/deviceを開く"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mdblist.com/oauth/device 열기"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir mdblist.com/oauth/device"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开mdblist.com/oauth/device"
           }
         }
       }
@@ -52061,6 +52677,58 @@
         }
       }
     },
+    "Retry Pending MDBList Changes" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ausstehende MDBList-Änderungen erneut senden"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reintentar cambios pendientes de MDBList"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réessayer les modifications MDBList en attente"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riprova le modifiche MDBList in sospeso"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留中のMDBListの変更を再試行"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "대기 중인 MDBList 변경 사항 다시 시도"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tentar Novamente Alterações Pendentes do MDBList"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重试待同步的MDBList更改"
+          }
+        }
+      }
+    },
     "Retry Pending Simkl Changes" : {
       "localizations" : {
         "de" : {
@@ -53874,6 +54542,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "记录您观看的内容，并在主页上展示您的Trakt待看列表。"
+          }
+        }
+      }
+    },
+    "Scrobble what you watch to MDBList, import your MDBList history and surface your MDBList watchlist on Home." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Übertrage, was du ansiehst, an MDBList, importiere deinen MDBList-Verlauf und zeige deine MDBList-Watchlist auf der Startseite."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registra lo que ves en MDBList, importa tu historial de MDBList y muestra tu lista de seguimiento de MDBList en Inicio."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scrobblez ce que vous regardez vers MDBList, importez votre historique MDBList et affichez votre liste de suivi MDBList sur l’écran d’accueil."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esegui lo scrobble di ciò che guardi su MDBList, importa la tua cronologia di MDBList e mostra la tua watchlist di MDBList nella Home."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "視聴した内容をMDBListにスクロブルし、MDBListの履歴をインポートして、MDBListのウォッチリストをホームに表示します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "시청 내역을 MDBList에 스크로블하고, MDBList 기록을 가져오며, 홈에 MDBList 시청 목록을 표시하세요."
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Faça scrobble do que você assiste no MDBList, importe seu histórico do MDBList e mostre sua lista do MDBList na Tela Inicial."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将您观看的内容记录到MDBList，导入您的MDBList历史记录，并在主页上展示您的MDBList待看列表。"
           }
         }
       }
@@ -57772,6 +58492,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "显示“体育”标签。首页的赛事横排遵循首页布局设置。"
+          }
+        }
+      }
+    },
+    "Show your MDBList watchlist on Home." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeige deine MDBList-Watchlist auf dem Startbildschirm."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muestra tu lista de seguimiento de MDBList en Inicio."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Affichez votre liste de suivi MDBList sur l'écran d'accueil."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra la tua watchlist di MDBList nella Home."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MDBListのウォッチリストをホームに表示します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "홈에 MDBList 시청 목록을 표시하세요."
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostre sua lista do MDBList na Tela Inicial."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在主页上显示您的 MDBList 待看列表。"
           }
         }
       }
@@ -63760,6 +64532,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "同步播放列表"
+          }
+        }
+      }
+    },
+    "Sync the movies and episodes you watch to MDBList, and surface your MDBList watchlist on Home." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Synchronisiere die Filme und Episoden, die du ansiehst, mit MDBList und zeige deine MDBList-Watchlist auf dem Startbildschirm."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sincroniza con MDBList las películas y los episodios que ves, y muestra tu lista de seguimiento de MDBList en Inicio."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Synchronisez les films et les épisodes que vous regardez avec MDBList, et affichez votre liste de suivi MDBList sur l’écran d’accueil."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sincronizza i film e gli episodi che guardi con MDBList e mostra la tua watchlist di MDBList nella Home."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "視聴した映画やエピソードをMDBListに同期し、MDBListのウォッチリストをホームに表示します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "시청한 영화와 에피소드를 MDBList에 동기화하고, 홈에 MDBList 시청 목록을 표시하세요."
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sincronize os filmes e episódios que você assiste com o MDBList e mostre sua lista do MDBList na Tela Inicial."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将您观看的电影和剧集同步到MDBList，并在主页上展示您的MDBList待看列表。"
           }
         }
       }
@@ -73818,6 +74642,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已观看"
+          }
+        }
+      }
+    },
+    "Watched movies and episodes sync to your MDBList history. Import marks titles you've already watched on MDBList as watched here." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gesehene Filme und Episoden werden mit deinem MDBList-Verlauf synchronisiert. Beim Import werden Titel, die du auf MDBList bereits gesehen hast, hier als gesehen markiert."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las películas y los episodios vistos se sincronizan con tu historial de MDBList. La importación marca aquí como vistos los títulos que ya has visto en MDBList."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les films et épisodes vus se synchronisent avec votre historique MDBList. L’importation marque ici comme vus les titres que vous avez déjà regardés sur MDBList."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I film e gli episodi visti si sincronizzano con la tua cronologia di MDBList. L'importazione contrassegna come visti qui i titoli che hai già visto su MDBList."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "視聴済みの映画やエピソードがMDBListの履歴に同期されます。インポートすると、MDBListですでに視聴済みのタイトルがここでも視聴済みになります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "시청한 영화와 에피소드가 MDBList 기록에 동기화됩니다. 가져오기를 하면 MDBList에서 이미 시청한 제목이 여기에서도 시청함으로 표시됩니다."
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filmes e episódios assistidos são sincronizados com seu histórico do MDBList. A importação marca como assistidos aqui os títulos que você já assistiu no MDBList."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已观看的电影和剧集会同步到您的MDBList历史记录。导入会将您已在MDBList上观看的标题在此处标为已观看。"
           }
         }
       }

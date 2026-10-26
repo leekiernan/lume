@@ -319,7 +319,7 @@ struct HomeView: View {
                     Text("Trending Series"), feed.items(for: .builtin(section)),
                     section: .builtin(section), title: String(localized: "Trending Series")
                 )
-            case .traktWatchlist, .simklWatchlist:
+            case .traktWatchlist, .simklWatchlist, .mdblistWatchlist:
                 if let provider = WatchlistProvider(section: section) {
                     rail(
                         Text(provider.rowTitle), feed.items(for: .builtin(section)),
@@ -356,7 +356,7 @@ struct HomeView: View {
         case .trendingSeries:
             AppAreaSettings.isEnabled(.series, disabledRaw: disabledAreasRaw)
                 && HomeLayoutSettings.isEnabled(.builtin(section), disabledRaw: disabledSectionsRaw)
-        case .traktWatchlist, .simklWatchlist:
+        case .traktWatchlist, .simklWatchlist, .mdblistWatchlist:
             vodAvailable && HomeLayoutSettings.isEnabled(.builtin(section), disabledRaw: disabledSectionsRaw)
         default:
             HomeLayoutSettings.isEnabled(.builtin(section), disabledRaw: disabledSectionsRaw)

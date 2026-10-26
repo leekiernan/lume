@@ -219,7 +219,7 @@ struct MediaFavoritesTests {
         context.insert(series)
         try context.save()
 
-        for destination in [MediaFavoriteState.Destination.trakt, .simkl] {
+        for destination in WatchlistProvider.allCases.map(MediaFavoriteState.Destination.tracker) {
             MediaFavorites.set(false, in: destination, for: series, context: context)
         }
         #expect(series.isFavorite)

@@ -106,7 +106,7 @@ extension HomeView {
         case .recentlyWatched: content.recentlyWatched
         case .favorites: content.favorites
         case .forYou: recommendations
-        case .recentlyAdded, .trendingMovies, .trendingSeries, .traktWatchlist, .simklWatchlist, .sports: []
+        case .recentlyAdded, .trendingMovies, .trendingSeries, .traktWatchlist, .simklWatchlist, .mdblistWatchlist, .sports: []
         }
     }
 

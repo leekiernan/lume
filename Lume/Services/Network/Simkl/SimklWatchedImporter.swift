@@ -2,49 +2,21 @@
 //  SimklWatchedImporter.swift
 //  Lume
 //
-//  Applies the watched history fetched from Simkl onto the local catalog: marks
-//  matching movies and episodes as watched. The reverse direction of the
-//  fire-and-forget scrobbling in `SimklService`, run on connect and on demand
-//  from the Simkl settings screen.
-//
-//  Matching is by TMDB id (the only external id the library carries), so titles
-//  without a resolved `tmdbId` are skipped. Already-watched items are left
-//  untouched so the import is idempotent and the returned counts reflect only
-//  what actually changed.
-//
-//  Series need one extra step. Xtream and Stalker episodes are fetched lazily by
-//  the series detail screen, so a show the user has never opened has a `Series`
-//  row but no `Episode` rows — nothing for the import to mark. Rather than pull
-//  every watched show's episodes here (one ~250 KB provider request each), the
-//  import parks that state in `SimklPendingWatchedStore` and
-//  `Series.insertEpisodes` applies it when the detail screen fetches the
-//  episodes anyway. The series' `lastWatchedDate` is stamped immediately either
-//  way, so Home's Recently Watched row is right the moment the import finishes.
+//  Reads Simkl's `/sync/all-items/` library as a watched history for the
+//  shared `TrackerWatchedImporter`, which marks the catalog and parks what it
+//  can't mark yet in `SimklPendingWatchedStore`. The reverse direction of the
+//  durable watched sync in `SimklService`.
 //
 
 import Foundation
 import SwiftData
 
-/// The outcome of an import, surfaced in the settings UI.
-nonisolated struct SimklImportSummary: Equatable, TrackerPagedSummary {
-    var moviesMarked = 0
-    var episodesMarked = 0
-    /// Shows whose watched episodes were parked because the catalog has no
-    /// episodes for them yet. They are applied on first open of the series.
-    var showsQueued = 0
-    var failed = false
-
-    static let failure = SimklImportSummary(failed: true)
-
-    var markedNothing: Bool {
-        !failed && moviesMarked == 0 && episodesMarked == 0 && showsQueued == 0
-    }
-}
-
 nonisolated enum SimklWatchedImporter {
+    private typealias Importer = TrackerWatchedImporter<SimklPendingWatchedStore>
+
     /// Marks the local movies and episodes that Simkl reports as watched,
     /// writing through the given catalog context. Returns what changed.
-    static func apply(items: SimklAllItems, in context: ModelContext, pendingScope: TrackerScope = .simkl) -> SimklImportSummary {
+    static func apply(items: SimklAllItems, in context: ModelContext, pendingScope: TrackerScope = .simkl) -> TrackerWatchedImportSummary {
         apply(movies: items.movies, shows: items.shows, in: context, pendingScope: pendingScope)
     }
 
@@ -55,198 +27,35 @@ nonisolated enum SimklWatchedImporter {
         shows: [SimklWatchedShow],
         in context: ModelContext,
         pendingScope: TrackerScope = .simkl
-    ) -> SimklImportSummary {
-        let moviesMarked = importMovies(movies, in: context, profileID: pendingScope.profileID)
-        let shows = importShows(shows, in: context, pendingScope: pendingScope)
-
-        if context.hasChanges {
-            do {
-                try context.save()
-            } catch {
-                return SimklImportSummary(
-                    moviesMarked: moviesMarked,
-                    episodesMarked: shows.marked,
-                    showsQueued: shows.queued,
-                    failed: true
-                )
-            }
-        }
-        return SimklImportSummary(
-            moviesMarked: moviesMarked,
-            episodesMarked: shows.marked,
-            showsQueued: shows.queued,
-            failed: false
-        )
+    ) -> TrackerWatchedImportSummary {
+        Importer.apply(history(movies: movies, shows: shows), in: context, pendingScope: pendingScope)
     }
 
-    // MARK: - Movies
-
-    private static func importMovies(_ watched: [SimklWatchedMovie], in context: ModelContext, profileID: UUID?) -> Int {
-        var watchedIDs = Set<Int>()
-        var dates: [Int: Date] = [:]
-        for item in watched where item.isWatched {
-            guard let tmdb = item.movie.ids.tmdb else { continue }
-            watchedIDs.insert(tmdb)
-            if let date = parse(item.lastWatchedAt) {
-                dates[tmdb] = date
-            }
-        }
-        guard !watchedIDs.isEmpty else { return 0 }
-
-        let candidates = TrackerCatalogLookup.movies(tmdbIDs: watchedIDs, in: context)
-
-        var count = 0
-        for movie in candidates where !movie.isWatched {
-            guard let tmdb = movie.tmdbId, watchedIDs.contains(tmdb) else { continue }
-            guard WatchHistoryClears.shared.allows(dates[tmdb], for: movie.id, profileID: profileID) else { continue }
-            // A rewatch or local unwatched decision made after the remote play
-            // must survive the import, as on Trakt.
-            if let local = movie.lastWatchedDate, (dates[tmdb] ?? .distantPast) <= local { continue }
-            movie.isWatched = true
-            movie.watchProgress = Double(movie.durationSecs ?? 0)
-            if let date = dates[tmdb] {
-                movie.lastWatchedDate = date
-            }
-            count += 1
-        }
-        return count
-    }
-
-    // MARK: - Shows
-
-    struct SeasonEpisode: Hashable {
-        let season: Int
-        let episode: Int
-    }
-
-    private static func importShows(
-        _ watched: [SimklWatchedShow],
-        in context: ModelContext,
-        pendingScope: TrackerScope
-    ) -> (marked: Int, queued: Int) {
-        var showsByTMDB: [Int: SimklWatchedShow] = [:]
-        for show in watched {
-            // A show Simkl reports without any season progress has nothing to
-            // apply, now or later.
-            guard let tmdb = show.show.ids.tmdb, !show.seasons.isEmpty else { continue }
-            showsByTMDB[tmdb] = show
-        }
-        guard !showsByTMDB.isEmpty else { return (0, 0) }
-
-        let candidates = TrackerCatalogLookup.series(tmdbIDs: Set(showsByTMDB.keys), in: context)
-
-        var pending = SimklPendingWatchedStore.load(scope: pendingScope)
-        var pendingChanged = false
-        var marked = 0
-        var queued = 0
-
-        for series in candidates {
-            guard let tmdb = series.tmdbId, let show = showsByTMDB[tmdb] else { continue }
-            let progress = Progress(show: show)
-
-            // Home's Recently Watched row queries this column, and playback
-            // stamps it too (`WatchProgressWriter`). Set it whether or not the
-            // episodes exist yet, so an imported show surfaces right away.
-            if series.episodes.isEmpty, let newest = progress.newest, newest > (series.lastWatchedDate ?? .distantPast) {
-                series.lastWatchedDate = newest
-            }
-
-            if series.episodes.isEmpty {
-                // Nothing to mark yet. Park it for `Series.insertEpisodes`, which
-                // runs when the detail screen fetches the episodes anyway.
-                let updated = progress.parked
-                if pending[tmdb] != updated {
-                    pending[tmdb] = updated
-                    pendingChanged = true
-                }
-                queued += 1
-            } else {
-                marked += markEpisodes(of: series, using: progress, profileID: pendingScope.profileID)
-                series.refreshWatchRecency(onlyAdvancing: true)
-                // Episodes are present, so anything parked by an earlier import
-                // has just been superseded.
-                if pending[tmdb] != nil {
-                    pending[tmdb] = nil
-                    pendingChanged = true
-                }
-            }
-        }
-
-        if pendingChanged {
-            SimklPendingWatchedStore.save(pending)
-        }
-        return (marked, queued)
-    }
-
-    // MARK: - Simkl-side progress
-
-    /// One show's watched episodes, in both the form the marking loop wants and
-    /// the form that gets parked on disk.
-    struct Progress {
-        var dates: [SeasonEpisode: Date?] = [:]
-        var newest: Date?
-
-        init(show: SimklWatchedShow) {
-            for season in show.seasons {
-                for episode in season.episodes {
-                    let key = SeasonEpisode(season: season.number, episode: episode.number)
-                    let date = parse(episode.lastWatchedAt)
-                    dates[key] = date
-                    if let date, date > (newest ?? .distantPast) {
-                        newest = date
-                    }
-                }
-            }
-        }
-
-        init(parked: SimklPendingShow) {
-            for (key, seconds) in parked.episodes {
-                let parts = key.split(separator: "x")
-                guard parts.count == 2, let season = Int(parts[0]), let episode = Int(parts[1]) else { continue }
-                let date = seconds.map { Date(timeIntervalSince1970: TimeInterval($0)) }
-                dates[SeasonEpisode(season: season, episode: episode)] = date
-                if let date, date > (newest ?? .distantPast) {
-                    newest = date
-                }
-            }
-        }
-
-        var parked: SimklPendingShow {
-            var episodes: [String: Int?] = [:]
-            for (key, date) in dates {
-                episodes[SimklPendingShow.key(season: key.season, episode: key.episode)] =
-                    date.map { Int($0.timeIntervalSince1970) }
-            }
-            return SimklPendingShow(episodes: episodes)
-        }
-    }
-
-    /// Applies parked Simkl progress to episodes that have just been fetched
-    /// from the provider, and drops the entry once it has been used. Called
-    /// from `Series.insertEpisodes`, the single place episodes ever materialize.
+    /// Applies parked Simkl progress to a series whose episodes just arrived.
     @discardableResult
     static func applyPending(to series: Series) -> Int {
-        guard let tmdb = series.tmdbId, !series.episodes.isEmpty else { return 0 }
-        let pending = SimklPendingWatchedStore.load()
-        guard let parked = pending[tmdb] else { return 0 }
-
-        let progress = Progress(parked: parked)
-        let marked = markEpisodes(of: series, using: progress, profileID: ActiveProfileStore.current)
-        series.refreshWatchRecency(onlyAdvancing: true)
-        SimklPendingWatchedStore.clear(tmdbID: tmdb)
-        return marked
+        Importer.applyPending(to: series)
     }
 
-    /// Marks the episodes of `series` that Simkl reports watched, returning how
-    /// many changed.
-    private static func markEpisodes(of series: Series, using progress: Progress, profileID: UUID?) -> Int {
-        var count = 0
-        for episode in series.episodes {
-            let key = SeasonEpisode(season: episode.seasonNum, episode: episode.episodeNum)
-            guard let date = progress.dates[key] else { continue }
-            if TrackerEpisodeHistory.applyCompletion(date, to: episode, profileID: profileID) { count += 1 }
-        }
-        return count
+    /// Only completed movies count, and a show Simkl reports without any
+    /// season progress has nothing to apply, now or later.
+    static func history(movies: [SimklWatchedMovie], shows: [SimklWatchedShow]) -> TrackerWatchedHistory {
+        TrackerWatchedHistory(
+            movies: movies.compactMap { item in
+                guard item.isWatched, let tmdb = item.movie.ids.tmdb else { return nil }
+                return TrackerWatchedHistory.WatchedMovie(tmdbID: tmdb, watchedAt: parse(item.lastWatchedAt))
+            },
+            shows: shows.compactMap { show in
+                guard let tmdb = show.show.ids.tmdb, !show.seasons.isEmpty else { return nil }
+                var episodes: [TrackerEpisodeKey: Date?] = [:]
+                for season in show.seasons {
+                    for episode in season.episodes {
+                        episodes[TrackerEpisodeKey(season: season.number, episode: episode.number)] = parse(episode.lastWatchedAt)
+                    }
+                }
+                return TrackerWatchedHistory.WatchedShow(tmdbID: tmdb, episodes: episodes)
+            }
+        )
     }
 
     // MARK: - Dates

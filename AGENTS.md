@@ -238,6 +238,7 @@ SwiftFormat + SwiftLint run as errors. Notable: `String(decoding:)` is banned; `
 |---------|------|-------|
 | TMDB | Bearer token (`.env`) | Metadata, artwork, trailers |
 | MDBList | API key (`.env`) | IMDb / RT / Metacritic / Trakt / Letterboxd ratings |
+| MDBList sync | Device OAuth (Keychain, `MDBLIST_CLIENT_ID`) | Third tracker beside Trakt/Simkl; tokens stay per device (no iCloud credential sync) |
 | Trakt | Device OAuth (Keychain) | Scrobbling; no web view — works on tvOS |
 
 ---

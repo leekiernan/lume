@@ -68,12 +68,3 @@ nonisolated extension TraktImportSummary {
         failed = failed || page.failed
     }
 }
-
-nonisolated extension SimklImportSummary {
-    mutating func add(_ page: Self) {
-        moviesMarked += page.moviesMarked
-        episodesMarked += page.episodesMarked
-        showsQueued += page.showsQueued
-        failed = failed || page.failed
-    }
-}

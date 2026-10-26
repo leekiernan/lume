@@ -2,18 +2,19 @@
 //  WatchlistProvider.swift
 //  Lume
 //
-//  The tracker services that can back a watchlist row on a section surface.
-//  Each names its row, the connected account and how its watchlist reads as
-//  catalog-matchable entries; `SectionFeed` runs one load, cache and failure
-//  path for all of them, so a new service is a case here rather than a second
-//  copy of the pipeline.
+//  The tracker services that can back a watchlist row on a section surface,
+//  and the heart's membership. Each names its row, the connected account and
+//  how its watchlist reads as catalog-matchable entries; `SectionFeed` runs
+//  one load, cache and failure path for all of them, and `MediaFavorites` one
+//  heart, so a new service is a case here rather than a second copy of either.
 //
 
 import SwiftUI
 
-enum WatchlistProvider: CaseIterable, Hashable {
+nonisolated enum WatchlistProvider: CaseIterable, Hashable {
     case trakt
     case simkl
+    case mdblist
 
     /// The service behind a watchlist row; nil for every other row.
     init?(section: HomeSection) {
@@ -25,6 +26,7 @@ enum WatchlistProvider: CaseIterable, Hashable {
         switch self {
         case .trakt: .traktWatchlist
         case .simkl: .simklWatchlist
+        case .mdblist: .mdblistWatchlist
         }
     }
 
@@ -34,6 +36,7 @@ enum WatchlistProvider: CaseIterable, Hashable {
         switch self {
         case .trakt: "From Your Trakt Watchlist"
         case .simkl: "From Your Simkl Watchlist"
+        case .mdblist: "From Your MDBList Watchlist"
         }
     }
 
@@ -42,52 +45,67 @@ enum WatchlistProvider: CaseIterable, Hashable {
         switch self {
         case .trakt: String(localized: "From Your Trakt Watchlist")
         case .simkl: String(localized: "From Your Simkl Watchlist")
+        case .mdblist: String(localized: "From Your MDBList Watchlist")
+        }
+    }
+
+    /// The service's name, as the favourite menus show it.
+    var name: String {
+        switch self {
+        case .trakt: "Trakt"
+        case .simkl: "Simkl"
+        case .mdblist: "MDBList"
+        }
+    }
+
+    /// The template image marking the service beside the heart. MDBList has
+    /// no published mark, so a symbol stands in.
+    var mark: Image {
+        switch self {
+        case .trakt: Image("TraktMark")
+        case .simkl: Image("SimklMark")
+        case .mdblist: Image(systemName: "list.star")
+        }
+    }
+
+    /// The service that holds this watchlist and receives the heart's changes.
+    @MainActor
+    var service: any TrackerWatchlistSyncing {
+        switch self {
+        case .trakt: TraktService.shared
+        case .simkl: SimklService.shared
+        case .mdblist: MDBListService.shared
         }
     }
 
     /// The connected account, or nil when signed out. Part of every load key,
     /// so connecting, disconnecting or switching account reloads the row.
+    @MainActor
     var account: String? {
         switch self {
         case .trakt: TraktService.shared.username
         case .simkl: SimklService.shared.username
+        case .mdblist: MDBListService.shared.username
         }
     }
 
+    @MainActor
     var isConnected: Bool {
         account != nil
     }
 
-    /// The watchlist in the service's own order. Trakt throws on a transport
-    /// failure, so a stale row survives it; Simkl already falls back to its
-    /// on-disk copy (see `SimklService.fetchWatchlist`) and never throws.
+    /// The watchlist in the service's own order. Every tracker reads it the
+    /// same way (`TrackerMutationQueue.watchlistEntries()`): an unreachable
+    /// tracker answers with its last good read, and throws only when it has
+    /// none, so a stale row survives a failure.
+    @MainActor
     func entries() async throws -> [HomeListEntry] {
-        switch self {
-        case .trakt:
-            try await TraktService.shared.watchlistItems().compactMap(Self.entry)
-        case .simkl:
-            await SimklService.shared.fetchWatchlist().map(Self.entry)
-        }
-    }
-
-    private static func entry(_ item: TraktWatchlistItem) -> HomeListEntry? {
-        switch item.type {
-        case "movie":
-            guard let media = item.movie, let tmdbId = media.ids.tmdb else { return nil }
-            return HomeListEntry(tmdbId: tmdbId, mediaType: .movie, title: media.title ?? "")
-        case "show":
-            guard let media = item.show, let tmdbId = media.ids.tmdb else { return nil }
-            return HomeListEntry(tmdbId: tmdbId, mediaType: .series, title: media.title ?? "")
-        default:
-            return nil
-        }
-    }
-
-    /// Simkl's watchlist carries no titles — only what the catalog matches on.
-    private static func entry(_ item: SimklWatchlistEntry) -> HomeListEntry {
-        switch item.kind {
-        case .movie: HomeListEntry(tmdbId: item.tmdbID, mediaType: .movie, title: "")
-        case .show: HomeListEntry(tmdbId: item.tmdbID, mediaType: .series, title: "")
+        try await service.watchlistEntries().compactMap { entry in
+            switch entry.target {
+            case let .movie(tmdbID): HomeListEntry(tmdbId: tmdbID, mediaType: .movie, title: entry.title)
+            case let .show(tmdbID): HomeListEntry(tmdbId: tmdbID, mediaType: .series, title: entry.title)
+            case .episode: nil
+            }
         }
     }
 }

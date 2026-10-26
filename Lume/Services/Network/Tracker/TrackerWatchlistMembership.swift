@@ -28,6 +28,12 @@ final class TrackerWatchlistMembership {
         revision = UUID()
     }
 
+    /// Membership remembered from an earlier read, before this session's own.
+    /// Still due a refresh; a read begun before it may still replace it.
+    func seed(_ targets: Set<TrackerMutation.Target>) {
+        self.targets = targets
+    }
+
     func apply(_ target: TrackerMutation.Target, isPresent: Bool) {
         if isPresent { targets.insert(target) } else { targets.remove(target) }
         revision = UUID()

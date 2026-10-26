@@ -3,8 +3,8 @@
 //  Lume
 //
 //  Transient Trakt scrobble (start/pause/stop) triggered by playback state.
-//  The one-time durable "watched" sync, `syncWatchedServices(ref:)`, syncs
-//  Simkl alongside Trakt, so both trackers share the one completion path.
+//  The one-time durable "watched" sync, `syncWatchedServices(ref:)`, goes to
+//  every tracker (`MediaTrackers.all`), so they share the one completion path.
 //
 
 import Foundation
@@ -89,12 +89,14 @@ extension FullScreenPlayerView {
         switch ref {
         case let .movie(id):
             guard let movie = PlayerContentLookup.movie(id, in: modelContext) else { return }
-            TraktService.shared.syncWatched(movie: movie, watched: true)
-            SimklService.shared.syncWatched(movie: movie, watched: true)
+            for tracker in MediaTrackers.all {
+                tracker.syncWatched(movie: movie, watched: true)
+            }
         case let .episode(id):
             guard let episode = PlayerContentLookup.episode(id, in: modelContext) else { return }
-            TraktService.shared.syncWatched(episode: episode, watched: true)
-            SimklService.shared.syncWatched(episode: episode, watched: true)
+            for tracker in MediaTrackers.all {
+                tracker.syncWatched(episode: episode, watched: true)
+            }
         case .live:
             break
         }
