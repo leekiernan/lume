@@ -29,6 +29,11 @@ nonisolated enum AuthenticatedHomeList: String, CaseIterable, Identifiable {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         return CustomHomeSection(title: trimmed.isEmpty ? defaultTitle : trimmed, sourceURL: sourceURL(for: surface))
     }
+
+    /// An opaque account identity for derived surfaces such as Top Shelf.
+    func accountScope(_ account: String?) -> String? {
+        account.map { HomeListCacheKey(source: sourceURL(for: .home), account: $0).digest.rawValue }
+    }
 }
 
 enum AuthenticatedHomeLists {
