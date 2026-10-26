@@ -2,15 +2,17 @@ import Foundation
 
 nonisolated extension TraktClient {
     /// The web app's mixed and filtered feeds, in server order. Recommendations
-    /// are a bounded daily set, not a paginated user list. A single request
-    /// retains candidates for Show All while the rail resolves only 20 matches.
+    /// are a bounded daily set, not a paginated user list, so the request is
+    /// the web client's own — the same filters and a limit, no page. A single
+    /// request retains candidates for Show All while the rail resolves only 20
+    /// matches.
     func recommendations(scope: TraktRecommendationScope, accessToken: String) async throws -> HomeListPage {
-        let response: (items: [TraktRecommendationItem], pageCount: Int) = try await collectionPage(
-            scope.apiPath, number: 1, limit: 100, accessToken: accessToken,
-            query: [URLQueryItem(name: "ignore_watched", value: "true"),
-                    URLQueryItem(name: "ignore_collected", value: "true")]
-        )
-        return HomeListPage(entries: response.items.compactMap(\.entry), nextPage: nil)
+        let items: [TraktRecommendationItem] = try await get(scope.apiPath, query: [
+            URLQueryItem(name: "ignore_collected", value: "true"),
+            URLQueryItem(name: "ignore_watched", value: "true"),
+            URLQueryItem(name: "limit", value: "100")
+        ], accessToken: accessToken)
+        return HomeListPage(entries: items.compactMap(\.entry), nextPage: nil)
     }
 }
 

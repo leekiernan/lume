@@ -35,6 +35,8 @@ struct TraktRecommendationsTests {
         #expect(query.contains(URLQueryItem(name: "limit", value: "100")))
         #expect(query.contains(URLQueryItem(name: "ignore_watched", value: "true")))
         #expect(query.contains(URLQueryItem(name: "ignore_collected", value: "true")))
+        // The web client's request: a feed, not a page of a list.
+        #expect(!query.contains { $0.name == "page" })
     }
 
     @Test func `unknown catalogue identities are skipped without reordering or collapsing media namespaces`() async throws {
@@ -48,7 +50,7 @@ struct TraktRecommendationsTests {
     @Test func `a signed out source and invented continuation never make a network request`() async throws {
         let url = try #require(URL(string: AuthenticatedHomeList.traktRecommendations.sourceURL(for: .home)))
         let clientID = UUID().uuidString
-        await #expect(throws: HomeListError.privateList) {
+        await #expect(throws: HomeListError.accountRequired) {
             try await provider(token: nil, clientID: clientID).page(for: url, number: 1)
         }
         await #expect(throws: HomeListError.invalidURL) {
@@ -67,7 +69,9 @@ struct TraktRecommendationsTests {
 
     @Test func `endpoint and authentication failures are not silently replaced by a different ranking`() async throws {
         let url = try #require(URL(string: AuthenticatedHomeList.traktRecommendations.sourceURL(for: .home)))
-        for (status, error) in [(401, HomeListError.listNotShared), (404, .listNotFound), (503, .serverError(503))] {
+        for (status, error) in [(401, HomeListError.accountRequired), (403, .recommendationsUnavailable),
+                                (404, .recommendationsUnavailable), (503, .serverError(503))]
+        {
             StubURLProtocol.register(host: "api.trakt.tv", path: url.path, response: .init(status: status))
             await #expect(throws: error) { try await provider().page(for: url, number: 1) }
         }

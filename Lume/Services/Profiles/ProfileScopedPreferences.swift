@@ -77,7 +77,6 @@ nonisolated enum ProfileScopedPreferences {
             keys.append((HomeLayoutSettings.baseHeroSectionKey(surface), .string))
             keys.append((HomeLayoutSettings.baseHeroSeededKey(surface), .bool(default: .fixed(false))))
             keys.append((CustomHomeSections.baseStorageKey(surface), .string))
-            keys.append((AuthenticatedHomeLists.baseTitlesKey(surface), .string))
         }
         return keys
     }

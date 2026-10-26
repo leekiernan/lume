@@ -36,33 +36,6 @@ nonisolated enum AuthenticatedHomeList: String, CaseIterable, Identifiable {
     }
 }
 
-enum AuthenticatedHomeLists {
-    nonisolated static func baseTitlesKey(_ surface: SectionSurface) -> String {
-        "\(surface.storagePrefix).authenticatedListTitles.v1"
-    }
-
-    static func titlesKey(_ surface: SectionSurface) -> String {
-        ProfileScopedPreferences.key(baseTitlesKey(surface))
-    }
-
-    static func title(for source: AuthenticatedHomeList, raw: String) -> String {
-        titles(raw)[source.rawValue] ?? source.defaultTitle
-    }
-
-    static func settingTitle(_ title: String, for source: AuthenticatedHomeList, raw: String) -> String {
-        var values = titles(raw)
-        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        values[source.rawValue] = trimmed.isEmpty ? nil : trimmed
-        guard let data = try? JSONEncoder().encode(values) else { return raw }
-        return String(data: data, encoding: .utf8) ?? raw
-    }
-
-    private static func titles(_ raw: String) -> [String: String] {
-        guard let data = raw.data(using: .utf8) else { return [:] }
-        return (try? JSONDecoder().decode([String: String].self, from: data)) ?? [:]
-    }
-}
-
 nonisolated enum TraktRecommendationScope: CaseIterable {
     case all, movies, shows
 

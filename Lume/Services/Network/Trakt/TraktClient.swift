@@ -230,9 +230,9 @@ nonisolated struct TraktClient {
 
     /// One collection page with its server-reported continuation.
     func collectionPage<T: Decodable>(
-        _ path: String, number: Int, limit: Int, accessToken: String?, query: [URLQueryItem] = []
+        _ path: String, number: Int, limit: Int, accessToken: String?
     ) async throws -> (items: [T], pageCount: Int) {
-        var request = try makeRequest(path: path, method: "GET", query: query + [
+        var request = try makeRequest(path: path, method: "GET", query: [
             URLQueryItem(name: "page", value: String(number)), URLQueryItem(name: "limit", value: String(limit))
         ], accessToken: accessToken)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -241,8 +241,9 @@ nonisolated struct TraktClient {
         return (items, max(count, 1))
     }
 
-    private func get<T: Decodable>(_ path: String, accessToken: String? = nil) async throws -> T {
-        var request = try makeRequest(path: path, method: "GET", accessToken: accessToken)
+    /// One GET with exactly the query given: also for feeds that take no page.
+    func get<T: Decodable>(_ path: String, query: [URLQueryItem] = [], accessToken: String? = nil) async throws -> T {
+        var request = try makeRequest(path: path, method: "GET", query: query, accessToken: accessToken)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         return try await send(request).value
     }

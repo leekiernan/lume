@@ -62,7 +62,6 @@ struct ProfileScopedPreferencesTests {
                 expected.insert(HomeLayoutSettings.heroSectionKey(surface))
                 expected.insert(HomeLayoutSettings.heroSeededKey(surface))
                 expected.insert(CustomHomeSections.storageKey(surface))
-                expected.insert(AuthenticatedHomeLists.titlesKey(surface))
             }
             let listed = Set(ProfileScopedPreferences.scopedBaseKeys.map(ProfileScopedPreferences.key))
             #expect(listed == expected)
@@ -89,7 +88,6 @@ struct ProfileScopedPreferencesTests {
             expectedBases.append(HomeLayoutSettings.baseHeroSectionKey(surface))
             expectedBases.append(HomeLayoutSettings.baseHeroSeededKey(surface))
             expectedBases.append(CustomHomeSections.baseStorageKey(surface))
-            expectedBases.append(AuthenticatedHomeLists.baseTitlesKey(surface))
         }
         #expect(ProfileScopedPreferences.scopedBaseKeys == expectedBases)
         #expect(ProfileScopedPreferences.booleanBaseKeys == Set([

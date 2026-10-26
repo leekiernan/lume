@@ -76,11 +76,11 @@ nonisolated struct TraktListProvider: HomeListProvider {
         guard client.isConfigured else { throw HomeListError.unsupportedSource }
         if let scope = TraktRecommendationScope(url: url) {
             guard number == 1 else { throw HomeListError.invalidURL }
-            guard let token = await accessToken() else { throw HomeListError.privateList }
+            guard let token = await accessToken() else { throw HomeListError.accountRequired }
             do {
                 return try await client.recommendations(scope: scope, accessToken: token)
             } catch let error as TraktError {
-                throw Self.listError(from: error, signedIn: true)
+                throw Self.recommendationError(from: error)
             }
         }
         guard let list = Self.list(for: url) else { throw HomeListError.invalidURL }
@@ -145,6 +145,17 @@ nonisolated struct TraktListProvider: HomeListProvider {
     /// both for a private list and for one that doesn't exist, so the two share
     /// a message that covers either — worded for whether the request carried
     /// the viewer's account, since signed in their own lists would have opened.
+    /// Recommendations are the account's own, not a list someone shares: a
+    /// rejected sign-in asks for the account, and a refusal or a missing feed
+    /// says Trakt had none, rather than calling it a private list.
+    static func recommendationError(from error: TraktError) -> HomeListError {
+        switch error {
+        case .notAuthenticated: .accountRequired
+        case .server(403), .server(404), .decoding, .invalidResponse: .recommendationsUnavailable
+        default: listError(from: error, signedIn: true)
+        }
+    }
+
     static func listError(from error: TraktError, signedIn: Bool) -> HomeListError {
         switch error {
         case .notConfigured: .unsupportedSource
