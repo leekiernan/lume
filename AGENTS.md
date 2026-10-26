@@ -300,14 +300,18 @@ and "implemented but unmerged" are all *not done*. The sequence is:
 
 ### Branch lifecycle after merge
 
-- Branch cut from `origin/main` (our fork): **delete it once merged.** It has
-  served its purpose; keeping it clutters the fork.
+- **Never delete a local or remote branch without the user's explicit go-ahead
+  for branch deletion.** A request or approval to merge, completion of a task,
+  or a saved command approval does not authorize branch cleanup.
+- Branch cut from `origin/main` (our fork): **keep it after merge until the user
+  explicitly approves deletion.**
 - Branch cut from `upstream/main` (community upstream): **keep it after merge**
-  — it backs the public PR and community history.
+  — it backs the public PR and community history. The same explicit approval
+  requirement applies before deleting it.
 
 If you're unsure which a branch came from, check its upstream tracking
 (`git branch -vv`): branches showing `[upstream/main: …]` are community branches
-and are kept; branches tracking (or based on) `origin/main` are deleted on merge.
+and may back a public PR. Tracking information never authorizes deletion.
 
 ### Upstream intake and the project file
 
