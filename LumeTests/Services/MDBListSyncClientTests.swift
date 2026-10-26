@@ -218,6 +218,24 @@ struct MDBListSyncClientTests {
         }
     }
 
+    @Test func `a scrobble reply with a decimal-string progress is read`() async throws {
+        let host = "scrobble.mdblist.test"
+        StubURLProtocol.register(host: host, path: "/scrobble/start", response: .init(status: 201, body: """
+        {"id": 12345, "action": "start", "progress": "16.70", "started_at": "2025-11-06T20:00:00Z"}
+        """))
+        let reply = try await makeClient(host: host).scrobble(.movie(tmdbID: 278), action: .start, progress: 16.7, accessToken: "token")
+        #expect(reply?.action == "start")
+        #expect(reply?.progress == 16.7)
+    }
+
+    /// The status says whether MDBList recorded it; the reply is only logged.
+    @Test func `a successful scrobble with an unreadable reply still succeeds`() async throws {
+        let host = "scrobble-body.mdblist.test"
+        StubURLProtocol.register(host: host, path: "/scrobble/pause", response: .init(body: "OK"))
+        let reply = try await makeClient(host: host).scrobble(.movie(tmdbID: 278), action: .pause, progress: 20, accessToken: "token")
+        #expect(reply == nil)
+    }
+
     @Test func `clearing a session that is already gone succeeds`() async throws {
         let host = "clear.mdblist.test"
         StubURLProtocol.register(host: host, path: "/scrobble/clear", response: .init(status: 404, body: #"{"error": "Scrobble session not found"}"#))

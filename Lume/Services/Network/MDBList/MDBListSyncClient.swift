@@ -238,6 +238,15 @@ nonisolated struct MDBListSyncClient {
         return try Self.decode(data)
     }
 
+    /// POSTs a JSON payload whose status is the answer: the reply is decoded
+    /// for the log when it can be, and nil when it can't.
+    func postReporting<T: Decodable>(_ path: String, body: some Encodable, accessToken: String) async throws -> T? {
+        let request = try makeRequest(path: path, method: "POST", accessToken: accessToken)
+        let (data, response) = try await send(request, body: JSONEncoder().encode(body))
+        try Self.requireSuccess(response)
+        return try? JSONDecoder().decode(T.self, from: data)
+    }
+
     private static func requireSuccess(_ response: HTTPURLResponse) throws {
         guard (200 ... 299).contains(response.statusCode) else {
             if response.statusCode == 401 {

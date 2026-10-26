@@ -50,10 +50,21 @@ nonisolated struct MDBListScrobbleRequest: Encodable {
     }
 }
 
-/// What MDBList recorded — `pause`, or `scrobble` (watched) for a stop. Logged.
+/// What MDBList recorded — `pause`, or `scrobble` (watched) for a stop. Logged
+/// only. Progress can arrive as a decimal string (`"15.50"`).
 nonisolated struct MDBListScrobbleResponse: Decodable {
     let action: String?
     let progress: Double?
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        action = container.lenientString(forKey: .action)
+        progress = container.lenientDouble(forKey: .progress)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case action, progress
+    }
 }
 
 /// One entry from `GET /sync/playback`.
@@ -87,17 +98,18 @@ nonisolated struct MDBListPlaybackSession: Decodable {
 nonisolated extension MDBListSyncClient {
     /// Start, pause or stop the viewer's session on `target`. `discard` ends
     /// an abandoned start without leaving a resume point: MDBList keeps a stop
-    /// below 80% as a paused session, so that one is then cleared.
+    /// below 80% as a paused session, so that one is then cleared. A success
+    /// status is the answer; the reply is nil when it doesn't decode.
     @discardableResult
     func scrobble(
         _ target: TraktScrobbleTarget, action: TraktScrobbleAction, progress: Double, accessToken: String
-    ) async throws -> MDBListScrobbleResponse {
+    ) async throws -> MDBListScrobbleResponse? {
         let path = switch action {
         case .start: "/scrobble/start"
         case .pause: "/scrobble/pause"
         case .stop, .discard: "/scrobble/stop"
         }
-        let response: MDBListScrobbleResponse = try await post(
+        let response: MDBListScrobbleResponse? = try await postReporting(
             path, body: MDBListScrobbleRequest(target: target, progress: progress), accessToken: accessToken
         )
         if action == .discard {

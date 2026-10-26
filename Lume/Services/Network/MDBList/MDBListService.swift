@@ -211,7 +211,7 @@ final class MDBListService {
             do {
                 let recorded = try await client.scrobble(target, action: action, progress: progress, accessToken: accessToken)
                 Logger.network.info(
-                    "MDBList scrobble \(action.rawValue, privacy: .public) at \(progress, format: .fixed(precision: 1))% → recorded \(recorded.action ?? "?", privacy: .public)"
+                    "MDBList scrobble \(action.rawValue, privacy: .public) at \(progress, format: .fixed(precision: 1))% → recorded \(recorded?.action ?? "?", privacy: .public)"
                 )
             } catch {
                 let detail = LogRedaction.describe(error)
