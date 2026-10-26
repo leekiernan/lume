@@ -70,6 +70,8 @@
                 }
 
                 Section {
+                    AuthenticatedSectionSources(surface: surface, customSectionsRaw: $customSectionsRaw)
+
                     Button {
                         editorMode = .add
                     } label: {
@@ -80,12 +82,6 @@
                     Text("Custom Sections")
                 } footer: {
                     Text("Build your own row from a public list, like a site's most-popular chart. lume matches the list against your playlist and shows the titles you have.")
-                }
-
-                if TraktService.shared.isConnected {
-                    Section {
-                        AuthenticatedSectionSources(surface: surface, customSectionsRaw: $customSectionsRaw)
-                    }
                 }
 
                 if let categoryType {

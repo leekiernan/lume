@@ -98,7 +98,6 @@ import SwiftUI
             VStack(alignment: .leading, spacing: 36) {
                 sectionsSection
                 customSection
-                AuthenticatedSectionSources(surface: surface, customSectionsRaw: $customSectionsRaw, isReordering: isReordering)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             // Seeded here as well as on the page itself, so the starting hero is
@@ -339,6 +338,8 @@ import SwiftUI
         private var customSection: some View {
             VStack(alignment: .leading, spacing: 8) {
                 TVSettingsSectionLabel("Custom Sections")
+
+                AuthenticatedSectionSources(surface: surface, customSectionsRaw: $customSectionsRaw, isReordering: isReordering)
 
                 if editor == nil {
                     Button {
