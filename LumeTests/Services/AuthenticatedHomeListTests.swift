@@ -17,15 +17,9 @@ struct AuthenticatedHomeListTests {
         #expect(alice != HomeListCacheKey(source: section.sourceURL, account: nil))
     }
 
-    @Test func `each area has independent sources and title preferences`() {
+    @Test func `each area has its own source, added under the default title`() {
         let source = AuthenticatedHomeList.traktRecommendations
         #expect(Set(SectionSurface.allCases.map(source.sourceURL)).count == 3)
-        #expect(Set(SectionSurface.allCases.map(AuthenticatedHomeLists.baseTitlesKey)).count == 3)
-        let raw = AuthenticatedHomeLists.settingTitle("  My picks  ", for: source, raw: "")
-        #expect(AuthenticatedHomeLists.title(for: source, raw: raw) == "My picks")
-        #expect(AuthenticatedHomeLists.title(for: source, raw: "") == source.defaultTitle)
-        let reset = AuthenticatedHomeLists.settingTitle("  ", for: source, raw: raw)
-        #expect(AuthenticatedHomeLists.title(for: source, raw: reset) == source.defaultTitle)
         #expect(source.section(title: "", surface: .home).title == source.defaultTitle)
     }
 
