@@ -196,3 +196,20 @@ nonisolated extension SimklError: DiagnosticErrorDescribing {
         }
     }
 }
+
+nonisolated extension MDBListSyncError: DiagnosticErrorDescribing {
+    var logDescription: String {
+        switch self {
+        case .notConfigured: "not configured"
+        case .invalidResponse: "invalid HTTP response"
+        case let .server(status): "HTTP \(status)"
+        case .decoding: "response decoding failed"
+        case .notAuthenticated: "not authenticated (HTTP 401)"
+        case .authorizationPending: "authorization pending"
+        case .slowDown: "device authorization polling too quickly"
+        case .codeExpired: "device code expired"
+        case .accessDenied: "device authorization denied"
+        case .invalidClient: "OAuth client rejected"
+        }
+    }
+}

@@ -26,6 +26,7 @@ nonisolated enum HomeSection: String, CaseIterable, Identifiable {
     case trendingSeries
     case traktWatchlist
     case simklWatchlist
+    case mdblistWatchlist
     case sports
 
     var id: String {
@@ -39,16 +40,16 @@ nonisolated enum HomeSection: String, CaseIterable, Identifiable {
     static func cases(for surface: SectionSurface) -> [HomeSection] {
         switch surface {
         case .home:
-            [.continueWatching, .recentlyWatched, .favorites, .forYou, .trendingMovies, .trendingSeries, .traktWatchlist, .simklWatchlist]
+            [.continueWatching, .recentlyWatched, .favorites, .forYou, .trendingMovies, .trendingSeries, .traktWatchlist, .simklWatchlist, .mdblistWatchlist]
         case .movies:
-            [.continueWatching, .recentlyWatched, .favorites, .recentlyAdded, .trendingMovies, .traktWatchlist, .simklWatchlist]
+            [.continueWatching, .recentlyWatched, .favorites, .recentlyAdded, .trendingMovies, .traktWatchlist, .simklWatchlist, .mdblistWatchlist]
         case .series:
-            [.continueWatching, .recentlyWatched, .favorites, .recentlyAdded, .trendingSeries, .traktWatchlist, .simklWatchlist]
+            [.continueWatching, .recentlyWatched, .favorites, .recentlyAdded, .trendingSeries, .traktWatchlist, .simklWatchlist, .mdblistWatchlist]
         }
     }
 
     /// The label shown in the layout settings. Mirrors the row's own header
-    /// (the watchlist rows are shortened from "From Your Trakt/Simkl Watchlist" —
+    /// (the watchlist rows are shortened from "From Your Trakt/Simkl/MDBList Watchlist" —
     /// see `WatchlistProvider.rowTitle`).
     var title: LocalizedStringKey {
         switch self {
@@ -61,6 +62,7 @@ nonisolated enum HomeSection: String, CaseIterable, Identifiable {
         case .trendingSeries: "Trending Series"
         case .traktWatchlist: "Trakt Watchlist"
         case .simklWatchlist: "Simkl Watchlist"
+        case .mdblistWatchlist: "MDBList Watchlist"
         case .sports: "Sports"
         }
     }
@@ -79,6 +81,7 @@ nonisolated enum HomeSection: String, CaseIterable, Identifiable {
         case .trendingSeries: String(localized: "Trending Series")
         case .traktWatchlist: String(localized: "Trakt Watchlist")
         case .simklWatchlist: String(localized: "Simkl Watchlist")
+        case .mdblistWatchlist: String(localized: "MDBList Watchlist")
         case .sports: String(localized: "Sports")
         }
     }
@@ -107,7 +110,7 @@ nonisolated enum HomeSection: String, CaseIterable, Identifiable {
         case .forYou: "sparkles"
         case .trendingMovies: "film"
         case .trendingSeries: "tv"
-        case .traktWatchlist, .simklWatchlist: "rectangle.stack.badge.play"
+        case .traktWatchlist, .simklWatchlist, .mdblistWatchlist: "rectangle.stack.badge.play"
         case .sports: "sportscourt"
         }
     }

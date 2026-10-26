@@ -14,6 +14,7 @@ import SwiftUI
 nonisolated enum WatchlistProvider: CaseIterable, Hashable {
     case trakt
     case simkl
+    case mdblist
 
     /// The service behind a watchlist row; nil for every other row.
     init?(section: HomeSection) {
@@ -25,6 +26,7 @@ nonisolated enum WatchlistProvider: CaseIterable, Hashable {
         switch self {
         case .trakt: .traktWatchlist
         case .simkl: .simklWatchlist
+        case .mdblist: .mdblistWatchlist
         }
     }
 
@@ -34,6 +36,7 @@ nonisolated enum WatchlistProvider: CaseIterable, Hashable {
         switch self {
         case .trakt: "From Your Trakt Watchlist"
         case .simkl: "From Your Simkl Watchlist"
+        case .mdblist: "From Your MDBList Watchlist"
         }
     }
 
@@ -42,6 +45,7 @@ nonisolated enum WatchlistProvider: CaseIterable, Hashable {
         switch self {
         case .trakt: String(localized: "From Your Trakt Watchlist")
         case .simkl: String(localized: "From Your Simkl Watchlist")
+        case .mdblist: String(localized: "From Your MDBList Watchlist")
         }
     }
 
@@ -50,14 +54,17 @@ nonisolated enum WatchlistProvider: CaseIterable, Hashable {
         switch self {
         case .trakt: "Trakt"
         case .simkl: "Simkl"
+        case .mdblist: "MDBList"
         }
     }
 
-    /// The template image marking the service beside the heart.
-    var markImage: String {
+    /// The template image marking the service beside the heart. MDBList has
+    /// no published mark, so a symbol stands in.
+    var mark: Image {
         switch self {
-        case .trakt: "TraktMark"
-        case .simkl: "SimklMark"
+        case .trakt: Image("TraktMark")
+        case .simkl: Image("SimklMark")
+        case .mdblist: Image(systemName: "list.star")
         }
     }
 
@@ -67,6 +74,7 @@ nonisolated enum WatchlistProvider: CaseIterable, Hashable {
         switch self {
         case .trakt: TraktService.shared
         case .simkl: SimklService.shared
+        case .mdblist: MDBListService.shared
         }
     }
 
@@ -77,6 +85,7 @@ nonisolated enum WatchlistProvider: CaseIterable, Hashable {
         switch self {
         case .trakt: TraktService.shared.username
         case .simkl: SimklService.shared.username
+        case .mdblist: MDBListService.shared.username
         }
     }
 
@@ -95,6 +104,8 @@ nonisolated enum WatchlistProvider: CaseIterable, Hashable {
             try await TraktService.shared.watchlistItems().compactMap(Self.entry)
         case .simkl:
             await SimklService.shared.fetchWatchlist().map(Self.entry)
+        case .mdblist:
+            try await MDBListService.shared.watchlistItems().map(Self.entry)
         }
     }
 
@@ -108,6 +119,14 @@ nonisolated enum WatchlistProvider: CaseIterable, Hashable {
             return HomeListEntry(tmdbId: tmdbId, mediaType: .series, title: media.title ?? "")
         default:
             return nil
+        }
+    }
+
+    /// MDBList's watchlist is read without titles, like Simkl's.
+    private static func entry(_ item: MDBListWatchlistEntry) -> HomeListEntry {
+        switch item.kind {
+        case .movie: HomeListEntry(tmdbId: item.tmdbID, mediaType: .movie, title: "")
+        case .show: HomeListEntry(tmdbId: item.tmdbID, mediaType: .series, title: "")
         }
     }
 

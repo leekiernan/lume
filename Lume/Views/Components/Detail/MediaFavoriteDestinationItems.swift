@@ -16,7 +16,7 @@ struct MediaFavoriteDestinationItems: View {
         ForEach(WatchlistProvider.allCases, id: \.self) { provider in
             if let membership = state.trackers[provider] {
                 Toggle(isOn: binding(for: .tracker(provider), membership: membership)) {
-                    Label { Text(verbatim: provider.name) } icon: { Image(provider.markImage) }
+                    Label { Text(verbatim: provider.name) } icon: { provider.mark }
                 }
             }
         }

@@ -2,10 +2,11 @@
 //  SettingsView+Integrations.swift
 //  Lume
 //
-//  The Trakt / Simkl / OpenSubtitles entries in the main list, and their tvOS
-//  detail pane. Trakt and Simkl are two alternatives for the same job —
-//  scrobbling and watched-history sync — so they're offered the same way: the
-//  same row shape, the same icon, a NavigationLink only once configured.
+//  The Trakt / Simkl / MDBList / OpenSubtitles entries in the main list, and
+//  their tvOS detail pane. Trakt, Simkl and MDBList are alternatives for the
+//  same job — scrobbling and watched-history sync — so they're offered the
+//  same way: the same row shape, the same icon, a NavigationLink only once
+//  configured.
 //
 
 import SwiftUI
@@ -15,7 +16,11 @@ extension SettingsView {
     /// Integrations section (iOS / macOS) and sidebar category (tvOS) are
     /// hidden otherwise.
     var hasAnyIntegration: Bool {
-        trakt.isConfigured || simkl.isConfigured || openSubtitles.isConfigured
+        hasAnyTracker || openSubtitles.isConfigured
+    }
+
+    var hasAnyTracker: Bool {
+        trakt.isConfigured || simkl.isConfigured || mdblist.isConfigured
     }
 }
 
@@ -37,11 +42,22 @@ extension SettingsView {
 
                 if simkl.isConfigured {
                     PushedLink {
-                        SimklIntegrationView()
+                        WatchedTrackerIntegrationView(service: simkl, wording: .simkl)
                     } label: {
                         IntegrationSettingsLabel(
                             title: "Simkl", symbol: "arrow.trianglehead.2.clockwise.rotate.90.circle",
                             detail: simkl.isConnected ? (simkl.username.map { Text(verbatim: "@\($0)") } ?? Text("Connected")) : nil
+                        )
+                    }
+                }
+
+                if mdblist.isConfigured {
+                    PushedLink {
+                        WatchedTrackerIntegrationView(service: mdblist, wording: .mdblist)
+                    } label: {
+                        IntegrationSettingsLabel(
+                            title: "MDBList", symbol: "arrow.trianglehead.2.clockwise.rotate.90.circle",
+                            detail: mdblist.isConnected ? (mdblist.username.map { Text(verbatim: "@\($0)") } ?? Text("Connected")) : nil
                         )
                     }
                 }
@@ -64,7 +80,7 @@ extension SettingsView {
         /// promises a service this build hides.
         private var integrationsFooter: String {
             var sentences: [String] = []
-            if trakt.isConfigured || simkl.isConfigured {
+            if hasAnyTracker {
                 sentences.append(String(localized: "Sync watched movies and episodes."))
             }
             if trakt.isConfigured {
@@ -72,6 +88,9 @@ extension SettingsView {
             }
             if simkl.isConfigured {
                 sentences.append(String(localized: "Show your Simkl watchlist on Home."))
+            }
+            if mdblist.isConfigured {
+                sentences.append(String(localized: "Show your MDBList watchlist on Home."))
             }
             if openSubtitles.isConfigured {
                 sentences.append(String(localized: "Download subtitles for anything that ships without them."))
@@ -106,7 +125,10 @@ extension SettingsView {
                     TVTraktIntegrationView()
                 }
                 if simkl.isConfigured {
-                    TVSimklIntegrationView()
+                    TVWatchedTrackerIntegrationView(service: simkl, wording: .simkl)
+                }
+                if mdblist.isConfigured {
+                    TVWatchedTrackerIntegrationView(service: mdblist, wording: .mdblist)
                 }
                 if openSubtitles.isConfigured {
                     TVOpenSubtitlesIntegrationView()

@@ -14,6 +14,7 @@ struct SettingsView: View {
     /// Not `private`: read by the SettingsView+Integrations extension (separate file).
     @State var trakt = TraktService.shared
     @State var simkl = SimklService.shared
+    @State var mdblist = MDBListService.shared
     @State var openSubtitles = OpenSubtitlesService.shared
     /// Premium entitlement + paywall presentation. Not `private`: read by the
     /// SettingsView+Playlists / +TVComponents extensions (separate files).

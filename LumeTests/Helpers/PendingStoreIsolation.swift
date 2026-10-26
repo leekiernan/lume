@@ -3,10 +3,10 @@
 //  LumeTests
 //
 //  Keeps the tracker imports' parked-progress files away from the installed
-//  app's. `TraktPendingWatchedStore` and `SimklPendingWatchedStore` keep a JSON
-//  file in Application Support, and the tests run inside the real Lume.app —
-//  so a suite resetting "the store" deleted the viewer's own parked Trakt
-//  progress. Installed from the bundle's load-time constructor, alongside the
+//  app's. `TraktPendingWatchedStore`, `SimklPendingWatchedStore` and
+//  `MDBListPendingWatchedStore` each keep a JSON file in Application Support,
+//  and the tests run inside the real Lume.app — so a suite resetting "the
+//  store" deleted the viewer's own parked Trakt progress. Installed from the bundle's load-time constructor, alongside the
 //  credential backend (`CredentialIsolation.c`), before any test can run.
 //
 
@@ -20,5 +20,6 @@ nonisolated enum PendingStoreIsolation {
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         TraktPendingWatchedStore.directory = directory
         SimklPendingWatchedStore.directory = directory
+        MDBListPendingWatchedStore.directory = directory
     }
 }

@@ -31,10 +31,10 @@ enum SectionFeedSource: Hashable, CustomStringConvertible {
     init?(row: HomeSectionRef) {
         switch row {
         case .builtin(.trendingMovies), .builtin(.trendingSeries): self = .trending
-        case .builtin(.traktWatchlist): self = .watchlist(.trakt)
-        case .builtin(.simklWatchlist): self = .watchlist(.simkl)
+        case let .builtin(section):
+            guard let provider = WatchlistProvider(section: section) else { return nil }
+            self = .watchlist(provider)
         case .custom: self = .custom
-        case .builtin: return nil
         }
     }
 

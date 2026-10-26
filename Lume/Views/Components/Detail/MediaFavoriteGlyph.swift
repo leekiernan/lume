@@ -15,7 +15,7 @@ struct MediaFavoriteGlyph: View {
         HStack(spacing: 8) {
             Image(systemName: isFavorite ? "heart.fill" : "heart")
                 .symbolReplaceTransition(value: isFavorite)
-            ForEach(connectedTrackers, id: \.self) { tracker($0.markImage) }
+            ForEach(connectedTrackers, id: \.self) { tracker($0.mark) }
         }
         .accessibilityElement(children: .ignore)
         .task(id: MediaFavorites.watchlistAccounts) {
@@ -24,8 +24,8 @@ struct MediaFavoriteGlyph: View {
         }
     }
 
-    private func tracker(_ asset: String) -> some View {
-        Image(asset)
+    private func tracker(_ mark: Image) -> some View {
+        mark
             .renderingMode(.template)
             .resizable()
             .scaledToFit()

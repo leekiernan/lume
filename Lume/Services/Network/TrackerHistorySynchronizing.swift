@@ -33,6 +33,7 @@ protocol TrackerScrobbling: AnyObject {
 
 extension TraktService: TrackerHistorySynchronizing, TrackerScrobbling {}
 extension SimklService: TrackerHistorySynchronizing, TrackerScrobbling {}
+extension MDBListService: TrackerHistorySynchronizing, TrackerScrobbling {}
 
 /// A tracker watchlist the heart adds to and removes from — see
 /// `MediaFavorites` and `WatchlistProvider.service`.
@@ -67,12 +68,22 @@ extension SimklService: TrackerWatchlistSyncing {
     }
 }
 
+extension MDBListService: TrackerWatchlistSyncing {
+    var watchlistAccount: String? {
+        mutations.account
+    }
+
+    func isWatchlisted(_ target: TrackerMutation.Target) -> Bool {
+        mutations.isWatchlisted(target)
+    }
+}
+
 /// Every tracker integration, listed once: watched sync, scrobbles and rail
 /// removal fan out to these, so a new service is one entry here. Each
 /// service no-ops while it isn't connected.
 @MainActor
 enum MediaTrackers {
     static var all: [any TrackerHistorySynchronizing & TrackerScrobbling] {
-        [TraktService.shared, SimklService.shared]
+        [TraktService.shared, SimklService.shared, MDBListService.shared]
     }
 }

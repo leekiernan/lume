@@ -16,6 +16,7 @@ enum PremiumFeature: String, CaseIterable, Identifiable {
     case multipleProfiles
     case trakt
     case simkl
+    case mdblist
     case playbackControls
     case recommendations
     case multiView
@@ -33,11 +34,14 @@ enum PremiumFeature: String, CaseIterable, Identifiable {
         allCases.filter(\.isAvailableOnThisPlatform)
     }
 
+    /// MDBList sync also needs the build's client id; without one the
+    /// integration is hidden, so it isn't advertised either.
     var isAvailableOnThisPlatform: Bool {
+        if self == .mdblist, !MDBListSyncClient.shared.isConfigured { return false }
         #if os(tvOS)
-            self != .downloads
+            return self != .downloads
         #else
-            true
+            return true
         #endif
     }
 
@@ -48,6 +52,7 @@ enum PremiumFeature: String, CaseIterable, Identifiable {
         case .multipleProfiles: "Multiple Profiles"
         case .trakt: "Trakt Integration"
         case .simkl: "Simkl Integration"
+        case .mdblist: "MDBList Integration"
         case .playbackControls: "Smart Playback"
         case .recommendations: "For You Recommendations"
         case .multiView: "Multi-View"
@@ -63,6 +68,7 @@ enum PremiumFeature: String, CaseIterable, Identifiable {
         case .multipleProfiles: "Give everyone their own watch history, progress and favorites."
         case .trakt: "Scrobble what you watch and surface your Trakt watchlist on Home."
         case .simkl: "Scrobble what you watch to Simkl, import your Simkl history and surface your Simkl watchlist on Home."
+        case .mdblist: "Scrobble what you watch to MDBList, import your MDBList history and surface your MDBList watchlist on Home."
         case .playbackControls: "Autoplay the next episode, skip intros, and jump ahead with one tap."
         case .recommendations: "Get an on-device \"For You\" row tuned to your taste from your library and what you watch."
         case .multiView: "Watch up to four live channels side by side. Each tile can come from a different playlist, which helps if your provider allows only one connection per account."
@@ -78,6 +84,7 @@ enum PremiumFeature: String, CaseIterable, Identifiable {
         case .multipleProfiles: "person.2.crop.square.stack"
         case .trakt: "arrow.trianglehead.2.clockwise.rotate.90.circle"
         case .simkl: "arrow.trianglehead.2.clockwise.rotate.90.circle"
+        case .mdblist: "arrow.trianglehead.2.clockwise.rotate.90.circle"
         case .playbackControls: "forward.end.alt"
         case .recommendations: "sparkles"
         case .multiView: "rectangle.split.2x2"
