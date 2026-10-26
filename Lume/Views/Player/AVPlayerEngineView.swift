@@ -229,15 +229,12 @@ struct AVPlayerEngineView: View {
         .playerRemoteControls(controlsVisible: isControlsVisible, onBack: handleMenuPress, onPlayPause: togglePlay)
         #if os(macOS)
             .playerPointerChrome(chrome, mayHide: { canAutoHideControls })
-            .onKeyPress(.leftArrow) { coordinator.skip(by: -media.skipInterval(default: 15)); scheduleHide(); return .handled }
-            .onKeyPress(.rightArrow) { coordinator.skip(by: media.skipInterval(default: 15)); scheduleHide(); return .handled }
-            .liveChannelKeyNavigation(
-                neighbours: itemNeighbours, swapper: mediaSwapper,
-                onSelect: { onSelectMedia?($0) }, onResetHideTimer: scheduleHide
-            )
-            .onKeyPress(.space) { togglePlay(); return .handled }
-            .onKeyPress(.escape) { closePlayer(); return .handled }
         #endif
+            .playerKeyboardShortcuts(PlayerKeyActions(
+                togglePlay: togglePlay, skip: { coordinator.skip(by: $0) }, skipInterval: media.skipInterval(default: 15),
+                close: closePlayer, resetHideTimer: scheduleHide,
+                neighbours: itemNeighbours, swapper: mediaSwapper, selectMedia: { onSelectMedia?($0) }
+            ))
     }
 
     // MARK: - Tap Catcher

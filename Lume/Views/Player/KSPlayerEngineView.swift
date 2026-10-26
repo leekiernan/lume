@@ -528,15 +528,12 @@ struct KSPlayerEngineView: View {
             #if os(macOS)
                 .onChange(of: macPip.isActive) { _, active in isPipActive = active }
                 .playerPointerChrome(chrome, mayHide: { canAutoHideControls })
-                .onKeyPress(.leftArrow) { skip(by: -media.skipInterval(default: 15)); scheduleHide(); return .handled }
-                .onKeyPress(.rightArrow) { skip(by: media.skipInterval(default: 15)); scheduleHide(); return .handled }
-                .liveChannelKeyNavigation(
-                    neighbours: itemNeighbours, swapper: mediaSwapper,
-                    onSelect: { selectMedia($0) }, onResetHideTimer: scheduleHide
-                )
-                .onKeyPress(.space) { togglePlay(); return .handled }
-                .onKeyPress(.escape) { closePlayer(); return .handled }
             #endif
+                .playerKeyboardShortcuts(PlayerKeyActions(
+                    togglePlay: togglePlay, skip: { skip(by: $0) }, skipInterval: media.skipInterval(default: 15),
+                    close: closePlayer, resetHideTimer: scheduleHide,
+                    neighbours: itemNeighbours, swapper: mediaSwapper, selectMedia: { selectMedia($0) }
+                ))
         }
 
     #endif
