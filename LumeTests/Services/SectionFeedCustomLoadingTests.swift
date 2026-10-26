@@ -5,6 +5,35 @@ import Testing
 
 @MainActor
 struct SectionFeedCustomLoadingTests {
+    @Test func `an account switch during refresh cannot finish or relabel restored recommendations`() async throws {
+        let container = try container(ids: [1])
+        let directory = URL.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = HomeListCache(directory: directory)
+        let section = AuthenticatedHomeList.traktRecommendations.section(title: "Picks", surface: .movies)
+        let alice = HomeListCacheKey(source: section.sourceURL, account: "alice")
+        let fetchedAt = Date.now.addingTimeInterval(-901)
+        await cache.store(HomeListPage(entries: entries(1 ... 1), nextPage: nil), for: alice, now: fetchedAt)
+        let probe = ListPageProbe(pages: [:], blocked: true)
+        let account = ListAccountProbe(account: "alice")
+        let feed = SectionFeed(surface: .movies, listCache: cache,
+                               fetchListPage: { _, number in try await probe.page(number) }, currentTraktAccount: { account.account })
+        feed.update(context: .init(modelContext: container.mainContext, restriction: ContentRestriction(), playlistPrefix: "mine-"))
+        let cacheKey = UUID().uuidString
+        let task = Task { await feed.loadCustomSections(cacheKey: cacheKey, sections: [section]) }
+        await probe.waitForRequest()
+        #expect(feed.items(for: .custom(section.id)).count == 1)
+        account.account = "bob"
+        await probe.release(HomeListPage(entries: [], nextPage: nil))
+        await task.value
+        #expect(feed.customLoadTraktAccount == "alice")
+        #expect(!feed.customLoadAccountIsCurrent)
+        #expect(feed.loads.state(of: SectionFeedSource.custom) == .loading)
+        #expect(SectionFeedCache.shared.customEntry(.movies, for: feed.scoped(cacheKey)) == nil)
+        #expect(await cache.record(for: alice)?.fetchedAt == fetchedAt)
+        #expect(await cache.record(for: HomeListCacheKey(source: section.sourceURL, account: "bob")) == nil)
+    }
+
     @Test func `signed out recommendations do not restore anonymous membership or fetch`() async throws {
         let container = try container(ids: [1])
         let directory = URL.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -228,6 +257,15 @@ struct SectionFeedCustomLoadingTests {
         #expect(loader.items.count == 20)
         #expect(loader.pagination.nextOffset == 20)
         #expect(!loader.pagination.isLoading)
+    }
+}
+
+@MainActor
+private final class ListAccountProbe {
+    var account: String?
+
+    init(account: String?) {
+        self.account = account
     }
 }
 

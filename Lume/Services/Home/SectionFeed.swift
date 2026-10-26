@@ -90,6 +90,9 @@ final class SectionFeed {
     var requestedCustomSections: [CustomHomeSection] = []
     let listCache: HomeListCache
     let fetchListPage: @Sendable (String, Int) async throws -> HomeListPage
+    let currentTraktAccount: @MainActor () -> String?
+    /// Provenance of this custom pass, including its restored collections.
+    var customLoadTraktAccount: String?
     let loadGate = SectionFeedLoadGate()
     var context: Context?
     var loadPlan: SectionFeedLoadPlan?
@@ -107,11 +110,13 @@ final class SectionFeed {
     static let heroLimit = 8
 
     init(surface: SectionSurface, listCache: HomeListCache = .shared,
-         fetchListPage: @escaping @Sendable (String, Int) async throws -> HomeListPage = { try await HomeListCatalog.page(for: $0, number: $1) })
+         fetchListPage: @escaping @Sendable (String, Int) async throws -> HomeListPage = { try await HomeListCatalog.page(for: $0, number: $1) },
+         currentTraktAccount: @escaping @MainActor () -> String? = { TraktService.shared.username })
     {
         self.surface = surface
         self.listCache = listCache
         self.fetchListPage = fetchListPage
+        self.currentTraktAccount = currentTraktAccount
     }
 
     func items(for section: HomeSectionRef) -> [HomeMediaItem] {

@@ -9,7 +9,8 @@ extension SectionFeed {
             for (ref, collection) in collections where SectionFeedSource(row: ref) == source {
                 let shelfSource = TopShelfSource(surface: surface, ref: ref)
                 if let section = requestedCustomSections.first(where: { .custom($0.id) == ref }), let authenticated = section.authenticatedList {
-                    guard let account = authenticated.accountScope(TraktService.shared.username) else { continue }
+                    guard customLoadTraktAccount == currentTraktAccount(),
+                          let account = authenticated.accountScope(customLoadTraktAccount) else { continue }
                     accounts[shelfSource] = account
                 }
                 rows[shelfSource] = loads.failedRows.contains(ref)
