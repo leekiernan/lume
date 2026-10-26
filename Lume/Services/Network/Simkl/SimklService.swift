@@ -55,7 +55,7 @@ final class SimklService {
 
     /// The result of the most recent import, surfaced in the Settings UI.
     /// Cleared when a new import begins.
-    private(set) var lastImport: SimklImportSummary?
+    private(set) var lastImport: TrackerWatchedImportSummary?
 
     /// Mirrors Trakt's durable-history status so a temporary network failure
     /// cannot silently lose a local watched/unwatched choice.
@@ -396,10 +396,10 @@ final class SimklService {
 
     /// Off the main actor, on a context of its own — see `TraktService`.
     @concurrent
-    static func applyImport(items: SimklAllItems, container: ModelContainer, scope: TrackerScope, permit: TrackerImportPermit) async -> SimklImportSummary {
+    static func applyImport(items: SimklAllItems, container: ModelContainer, scope: TrackerScope, permit: TrackerImportPermit) async -> TrackerWatchedImportSummary {
         await TrackerImportPages.apply(
             SimklHistoryPage.plan(items), scope: .init(container: container, permit: permit, isCurrent: { scope.matches(.simkl) }),
-            initial: SimklImportSummary()
+            initial: TrackerWatchedImportSummary()
         ) { page, context in page.apply(in: context, scope: scope) }
     }
 }

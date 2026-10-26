@@ -122,7 +122,7 @@
             }
         }
 
-        private func importStatus(_ summary: SimklImportSummary) -> some View {
+        private func importStatus(_ summary: TrackerWatchedImportSummary) -> some View {
             TrackerImportStatus(
                 provider: .simkl, movies: summary.moviesMarked, episodes: summary.episodesMarked,
                 queuedShows: summary.showsQueued, failed: summary.failed

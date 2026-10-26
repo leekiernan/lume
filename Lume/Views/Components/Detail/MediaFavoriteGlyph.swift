@@ -7,27 +7,20 @@ struct MediaFavoriteGlyph: View {
     var showTrackers = true
     var trackerSize: CGFloat = 16
 
-    private var trakt: Bool {
-        showTrackers && TraktService.shared.isConnected
-    }
-
-    private var simkl: Bool {
-        showTrackers && SimklService.shared.isConnected
+    private var connectedTrackers: [WatchlistProvider] {
+        showTrackers ? WatchlistProvider.allCases.filter(\.service.isConnected) : []
     }
 
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: isFavorite ? "heart.fill" : "heart")
                 .symbolReplaceTransition(value: isFavorite)
-            if trakt { tracker("TraktMark") }
-            if simkl { tracker("SimklMark") }
+            ForEach(connectedTrackers, id: \.self) { tracker($0.markImage) }
         }
         .accessibilityElement(children: .ignore)
-        .task(id: "\(TraktService.shared.mutations.account ?? "")|\(SimklService.shared.mutations.account ?? "")") {
+        .task(id: MediaFavorites.watchlistAccounts) {
             guard showTrackers else { return }
-            async let trakt: Void = TraktService.shared.refreshWatchlistIfNeeded()
-            async let simkl: Void = SimklService.shared.refreshWatchlistIfNeeded()
-            _ = await (trakt, simkl)
+            await MediaFavorites.refreshWatchlists()
         }
     }
 

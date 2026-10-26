@@ -3,7 +3,7 @@
 //  Lume
 //
 //  Small playback-state machine that de-duplicates scrobble events, for
-//  Trakt and Simkl alike: both take the same start, pause and stop.
+//  every tracker alike: all take the same start, pause and stop.
 //
 
 import Foundation
@@ -24,8 +24,9 @@ final class TraktPlaybackScrobbler {
     private var lastProgress = 0.0
 
     init(send: @escaping Sender = { target, action, progress in
-        TraktService.shared.scrobble(target, action: action, progress: progress)
-        SimklService.shared.scrobble(target, action: action, progress: progress)
+        for tracker in MediaTrackers.all {
+            tracker.scrobble(target, action: action, progress: progress)
+        }
     }) {
         self.send = send
     }

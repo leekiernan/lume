@@ -24,5 +24,55 @@ protocol TrackerHistorySynchronizing: AnyObject {
     func retryPendingMutations()
 }
 
-extension TraktService: TrackerHistorySynchronizing {}
-extension SimklService: TrackerHistorySynchronizing {}
+/// Playback start, pause and stop, which every tracker takes the same way.
+/// Transient, unlike history: see `TraktPlaybackScrobbler`.
+@MainActor
+protocol TrackerScrobbling: AnyObject {
+    func scrobble(_ target: TraktScrobbleTarget, action: TraktScrobbleAction, progress: Double)
+}
+
+extension TraktService: TrackerHistorySynchronizing, TrackerScrobbling {}
+extension SimklService: TrackerHistorySynchronizing, TrackerScrobbling {}
+
+/// A tracker watchlist the heart adds to and removes from — see
+/// `MediaFavorites` and `WatchlistProvider.service`.
+@MainActor
+protocol TrackerWatchlistSyncing: AnyObject {
+    var isConnected: Bool { get }
+    /// The account membership belongs to, once known.
+    var watchlistAccount: String? { get }
+    func isWatchlisted(_ target: TrackerMutation.Target) -> Bool
+    func refreshWatchlistIfNeeded() async
+    func syncWatchlist(movie: Movie, watchlisted: Bool)
+    func syncWatchlist(series: Series, watchlisted: Bool)
+}
+
+extension TraktService: TrackerWatchlistSyncing {
+    var watchlistAccount: String? {
+        mutations.account
+    }
+
+    func isWatchlisted(_ target: TrackerMutation.Target) -> Bool {
+        mutations.isWatchlisted(target)
+    }
+}
+
+extension SimklService: TrackerWatchlistSyncing {
+    var watchlistAccount: String? {
+        mutations.account
+    }
+
+    func isWatchlisted(_ target: TrackerMutation.Target) -> Bool {
+        mutations.isWatchlisted(target)
+    }
+}
+
+/// Every tracker integration, listed once: watched sync, scrobbles and rail
+/// removal fan out to these, so a new service is one entry here. Each
+/// service no-ops while it isn't connected.
+@MainActor
+enum MediaTrackers {
+    static var all: [any TrackerHistorySynchronizing & TrackerScrobbling] {
+        [TraktService.shared, SimklService.shared]
+    }
+}

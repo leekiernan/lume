@@ -102,7 +102,7 @@ struct SimklParkedProgressScopeTests {
                 SimklPendingWatchedStore.resetCacheForTesting()
             }
             var parked = SimklPendingWatchedStore.load()
-            parked[300] = SimklPendingShow(episodes: ["1x2": 100])
+            parked[300] = TrackerPendingShow(episodes: ["1x2": 100])
             SimklPendingWatchedStore.save(parked)
             let url = try #require(SimklPendingWatchedStore.fileURL)
             #expect(FileManager.default.fileExists(atPath: url.path))
@@ -131,10 +131,10 @@ struct SimklParkedProgressScopeTests {
                 SimklPendingWatchedStore.resetCacheForTesting()
             }
             var parked = SimklPendingWatchedStore.load()
-            parked[300] = SimklPendingShow(episodes: ["1x2": 100])
+            parked[300] = TrackerPendingShow(episodes: ["1x2": 100])
             SimklPendingWatchedStore.save(parked)
             try FileManager.default.removeItem(at: directory)
-            parked[301] = SimklPendingShow(episodes: ["2x1": 200])
+            parked[301] = TrackerPendingShow(episodes: ["2x1": 200])
             SimklPendingWatchedStore.save(parked)
             SimklPendingWatchedStore.resetCacheForTesting()
             #expect(SimklPendingWatchedStore.load() == parked)
@@ -144,7 +144,7 @@ struct SimklParkedProgressScopeTests {
     @Test func `another account cannot replay or relabel parked watched state`() throws {
         defer { SimklPendingWatchedStore.clearAll() }
         var parked = SimklPendingWatchedStore.load()
-        parked[300] = SimklPendingShow(episodes: ["1x2": 100])
+        parked[300] = TrackerPendingShow(episodes: ["1x2": 100])
         SimklPendingWatchedStore.save(parked)
         SimklPendingWatchedStore.resetCacheForTesting()
         let original = try #require(SimklAccountIdentityStore.load())
@@ -161,7 +161,7 @@ struct SimklParkedProgressScopeTests {
 
     @Test func `legacy unstamped and unknown account state cannot authorize replay`() throws {
         defer { SimklPendingWatchedStore.clearAll() }
-        let legacy = SimklPendingWatched(shows: ["300": SimklPendingShow(episodes: ["1x2": 100])], profileID: ActiveProfileStore.current)
+        let legacy = TrackerPendingWatched(shows: ["300": TrackerPendingShow(episodes: ["1x2": 100])], profileID: ActiveProfileStore.current)
         let url = try #require(SimklPendingWatchedStore.fileURL)
         try JSONEncoder().encode(legacy).write(to: url, options: .atomic)
         SimklPendingWatchedStore.resetCacheForTesting()

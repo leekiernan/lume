@@ -13,14 +13,11 @@ struct MediaFavoriteDestinationItems: View {
         Toggle(isOn: binding(for: .local, membership: state.local)) {
             Label("Local Favorites", systemImage: "heart")
         }
-        if let trakt = state.trakt {
-            Toggle(isOn: binding(for: .trakt, membership: trakt)) {
-                Label("Trakt", image: "TraktMark")
-            }
-        }
-        if let simkl = state.simkl {
-            Toggle(isOn: binding(for: .simkl, membership: simkl)) {
-                Label("Simkl", image: "SimklMark")
+        ForEach(WatchlistProvider.allCases, id: \.self) { provider in
+            if let membership = state.trackers[provider] {
+                Toggle(isOn: binding(for: .tracker(provider), membership: membership)) {
+                    Label { Text(verbatim: provider.name) } icon: { Image(provider.markImage) }
+                }
             }
         }
     }

@@ -2,16 +2,16 @@
 //  WatchlistProvider.swift
 //  Lume
 //
-//  The tracker services that can back a watchlist row on a section surface.
-//  Each names its row, the connected account and how its watchlist reads as
-//  catalog-matchable entries; `SectionFeed` runs one load, cache and failure
-//  path for all of them, so a new service is a case here rather than a second
-//  copy of the pipeline.
+//  The tracker services that can back a watchlist row on a section surface,
+//  and the heart's membership. Each names its row, the connected account and
+//  how its watchlist reads as catalog-matchable entries; `SectionFeed` runs
+//  one load, cache and failure path for all of them, and `MediaFavorites` one
+//  heart, so a new service is a case here rather than a second copy of either.
 //
 
 import SwiftUI
 
-enum WatchlistProvider: CaseIterable, Hashable {
+nonisolated enum WatchlistProvider: CaseIterable, Hashable {
     case trakt
     case simkl
 
@@ -45,8 +45,34 @@ enum WatchlistProvider: CaseIterable, Hashable {
         }
     }
 
+    /// The service's name, as the favourite menus show it.
+    var name: String {
+        switch self {
+        case .trakt: "Trakt"
+        case .simkl: "Simkl"
+        }
+    }
+
+    /// The template image marking the service beside the heart.
+    var markImage: String {
+        switch self {
+        case .trakt: "TraktMark"
+        case .simkl: "SimklMark"
+        }
+    }
+
+    /// The service that holds this watchlist and receives the heart's changes.
+    @MainActor
+    var service: any TrackerWatchlistSyncing {
+        switch self {
+        case .trakt: TraktService.shared
+        case .simkl: SimklService.shared
+        }
+    }
+
     /// The connected account, or nil when signed out. Part of every load key,
     /// so connecting, disconnecting or switching account reloads the row.
+    @MainActor
     var account: String? {
         switch self {
         case .trakt: TraktService.shared.username
@@ -54,6 +80,7 @@ enum WatchlistProvider: CaseIterable, Hashable {
         }
     }
 
+    @MainActor
     var isConnected: Bool {
         account != nil
     }
@@ -61,6 +88,7 @@ enum WatchlistProvider: CaseIterable, Hashable {
     /// The watchlist in the service's own order. Trakt throws on a transport
     /// failure, so a stale row survives it; Simkl already falls back to its
     /// on-disk copy (see `SimklService.fetchWatchlist`) and never throws.
+    @MainActor
     func entries() async throws -> [HomeListEntry] {
         switch self {
         case .trakt:

@@ -12,9 +12,10 @@
 import Foundation
 import SwiftData
 
-/// One heart combines local favourites, Trakt watchlist and Simkl Plan to Watch.
-/// On adds to all connected trackers; off removes only existing memberships.
-/// Simkl off moves to Dropped, preserving watched history and ratings.
+/// One heart combines local favourites with every connected tracker's watchlist
+/// (`WatchlistProvider`). On adds to all connected trackers; off removes only
+/// existing memberships. Simkl off moves to Dropped, preserving watched history
+/// and ratings.
 ///
 /// A new favorite deliberately leaves `favoriteOrder` alone. Both surfaces that
 /// render favorites sort on `favoriteOrder ?? Int.max` (`HomeView.favoriteItems`
@@ -30,29 +31,37 @@ enum MediaFavorites {
     static func requestToggle(_ model: some WatchlistFavoritable, in context: ModelContext) {
         guard pendingToggles.insert(model.id).inserted else { return }
         let profile = ActiveProfileStore.current
-        let traktAccount = TraktService.shared.mutations.account
-        let simklAccount = SimklService.shared.mutations.account
+        let accounts = watchlistAccounts
         Task {
             defer { pendingToggles.remove(model.id) }
-            async let trakt: Void = TraktService.shared.refreshWatchlistIfNeeded()
-            async let simkl: Void = SimklService.shared.refreshWatchlistIfNeeded()
-            _ = await (trakt, simkl)
-            guard ActiveProfileStore.current == profile,
-                  TraktService.shared.mutations.account == traktAccount,
-                  SimklService.shared.mutations.account == simklAccount else { return }
+            await refreshWatchlists()
+            guard ActiveProfileStore.current == profile, watchlistAccounts == accounts else { return }
             toggle(model, in: context)
         }
     }
 
+    /// Every tracker's membership account, so a choice made under one
+    /// account isn't applied under another.
+    static var watchlistAccounts: [String?] {
+        WatchlistProvider.allCases.map(\.service.watchlistAccount)
+    }
+
+    /// Brings every connected tracker's membership up to date, together.
+    static func refreshWatchlists() async {
+        await withTaskGroup { group in
+            for provider in WatchlistProvider.allCases {
+                group.addTask { await provider.service.refreshWatchlistIfNeeded() }
+            }
+        }
+    }
+
     static func state(_ model: any FavoriteOrderable) -> MediaFavoriteState {
-        let target = target(model)
-        let trakt = TraktService.shared
-        let simkl = SimklService.shared
-        return MediaFavoriteState(
-            local: model.isFavorite,
-            trakt: trakt.isConnected ? target.map { trakt.mutations.isWatchlisted($0) } : nil,
-            simkl: simkl.isConnected ? target.map { simkl.mutations.isWatchlisted($0) } : nil
-        )
+        guard let target = target(model) else { return MediaFavoriteState(local: model.isFavorite) }
+        var trackers: [WatchlistProvider: Bool] = [:]
+        for provider in WatchlistProvider.allCases where provider.service.isConnected {
+            trackers[provider] = provider.service.isWatchlisted(target)
+        }
+        return MediaFavoriteState(local: model.isFavorite, trackers: trackers)
     }
 
     static func isFavorite(_ model: any FavoriteOrderable) -> Bool {
@@ -93,7 +102,7 @@ enum MediaFavorites {
             }
             try? context.save()
         }
-        syncWatchlists(model, trakt: change.trakt, simkl: change.simkl)
+        syncWatchlists(model, change.trackers)
     }
 
     @discardableResult
@@ -111,7 +120,7 @@ enum MediaFavorites {
     static func clearFavoriteState(_ model: any FavoriteOrderable) {
         let state = state(model)
         clearFavoriteFields(model)
-        syncWatchlists(model, trakt: state.trakt == true ? false : nil, simkl: state.simkl == true ? false : nil)
+        syncWatchlists(model, state.trackers.filter(\.value).mapValues { _ in false })
     }
 
     private static func clearFavoriteFields(_ model: any FavoriteOrderable) {
@@ -122,15 +131,15 @@ enum MediaFavorites {
         (model as? any WatchlistFavoritable)?.addedToWatchlistDate = nil
     }
 
-    /// Neither tracker represents IPTV channels. Services own id/connection
-    /// guards and durable delivery; watched/unwatched actions stay independent.
-    private static func syncWatchlists(_ model: any FavoriteOrderable, trakt: Bool?, simkl: Bool?) {
-        if let movie = model as? Movie {
-            if let trakt { TraktService.shared.syncWatchlist(movie: movie, watchlisted: trakt) }
-            if let simkl { SimklService.shared.syncWatchlist(movie: movie, watchlisted: simkl) }
-        } else if let series = model as? Series {
-            if let trakt { TraktService.shared.syncWatchlist(series: series, watchlisted: trakt) }
-            if let simkl { SimklService.shared.syncWatchlist(series: series, watchlisted: simkl) }
+    /// No tracker represents IPTV channels. Services own id/connection guards
+    /// and durable delivery; watched/unwatched actions stay independent.
+    private static func syncWatchlists(_ model: any FavoriteOrderable, _ changes: [WatchlistProvider: Bool]) {
+        for (provider, watchlisted) in changes {
+            if let movie = model as? Movie {
+                provider.service.syncWatchlist(movie: movie, watchlisted: watchlisted)
+            } else if let series = model as? Series {
+                provider.service.syncWatchlist(series: series, watchlisted: watchlisted)
+            }
         }
     }
 }

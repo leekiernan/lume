@@ -35,7 +35,7 @@ enum MediaWatchState {
     ) {
         movie.setWatched(watched)
         try? context.save()
-        for tracker in trackers ?? [TraktService.shared, SimklService.shared] {
+        for tracker in trackers ?? MediaTrackers.all {
             tracker.syncWatched(movie: movie, watched: watched)
             // History removal leaves the paused place behind.
             if !watched { tracker.clearPausedProgress(movie: movie) }
@@ -49,7 +49,7 @@ enum MediaWatchState {
     ) {
         episode.setWatched(watched)
         try? context.save()
-        for tracker in trackers ?? [TraktService.shared, SimklService.shared] {
+        for tracker in trackers ?? MediaTrackers.all {
             tracker.syncWatched(episode: episode, watched: watched)
             if !watched { tracker.clearPausedProgress(episode: episode) }
         }
