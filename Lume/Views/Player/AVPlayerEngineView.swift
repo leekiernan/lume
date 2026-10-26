@@ -390,7 +390,7 @@ struct AVPlayerEngineView: View {
         #if os(macOS)
             MacPlayerWindowRouter.shared.close()
         #else
-            dismiss()
+            dismiss.dismissPlayer()
         #endif
     }
 

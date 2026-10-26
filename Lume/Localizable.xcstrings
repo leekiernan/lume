@@ -52278,6 +52278,58 @@
         }
       }
     },
+    "Rotate to Landscape" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ins Querformat drehen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Girar a horizontal"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passer en mode paysage"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ruota in orizzontale"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "横向きに回転"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "가로 모드로 회전"
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Girar para paisagem"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "旋转至横屏"
+          }
+        }
+      }
+    },
     "Round %lld" : {
       "localizations" : {
         "de" : {
@@ -70461,6 +70513,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "失误"
+          }
+        }
+      }
+    },
+    "Turns your iPhone to landscape when a video starts, and back to portrait when the player closes." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dreht dein iPhone ins Querformat, sobald ein Video startet, und zurück ins Hochformat, wenn der Player geschlossen wird."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gira el iPhone a horizontal al empezar un vídeo y lo devuelve a vertical al cerrar el reproductor."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passe l’iPhone en mode paysage au lancement d’une vidéo, puis en mode portrait à la fermeture du lecteur."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ruota l’iPhone in orizzontale all’avvio di un video e di nuovo in verticale alla chiusura del player."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "動画の再生が始まるとiPhoneを横向きにし、プレーヤーを閉じると縦向きに戻します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "동영상이 시작되면 iPhone을 가로 모드로, 플레이어를 닫으면 세로 모드로 되돌립니다."
+          }
+        },
+        "pt" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gira o iPhone para paisagem quando um vídeo começa e volta para retrato quando o player é fechado."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "视频开始播放时将 iPhone 旋转至横屏，关闭播放器后恢复竖屏。"
           }
         }
       }

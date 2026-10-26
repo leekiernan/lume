@@ -51,6 +51,10 @@ struct SettingsView: View {
     #endif
     @AppStorage(PlayerSettings.Playback.showSkipIntroButtonKey)
     var showSkipIntroButton = PlayerSettings.Playback.showSkipIntroButtonDefault
+    #if os(iOS)
+        @AppStorage(PlayerSettings.Playback.rotateToLandscapeKey)
+        var rotateToLandscape = PlayerSettings.Playback.rotateToLandscapeDefault
+    #endif
     /// Comma-separated preferred languages, empty meaning no preference (see `PreferredLanguageList`). Not `private`: read by the SettingsView+Language extension (separate file).
     @AppStorage(PlayerSettings.Language.preferredAudioLanguagesKey) var preferredAudioLanguagesRaw = PlayerSettings.Language.preferredAudioLanguagesDefault
 
@@ -325,6 +329,11 @@ struct SettingsView: View {
 
         private var playbackSection: some View {
             Section {
+                #if os(iOS)
+                    if showsRotateToLandscape {
+                        Toggle("Rotate to Landscape", isOn: $rotateToLandscape)
+                    }
+                #endif
                 Toggle("Autoplay Next Episode", isOn: $autoPlayNext)
                     .disabled(!premium.isPremium)
                 Toggle("Show Skip Intro Button", isOn: $showSkipIntroButton)
@@ -339,8 +348,22 @@ struct SettingsView: View {
             } header: {
                 Text("Playback")
             } footer: {
-                Text("Automatically start the next episode when one finishes.")
+                VStack(alignment: .leading, spacing: 6) {
+                    if showsRotateToLandscape {
+                        Text("Turns your iPhone to landscape when a video starts, and back to portrait when the player closes.")
+                    }
+                    Text("Automatically start the next episode when one finishes.")
+                }
             }
+        }
+
+        /// iPhone only, like the lock itself — see `PlayerOrientationLock`.
+        private var showsRotateToLandscape: Bool {
+            #if os(iOS)
+                UIDevice.current.userInterfaceIdiom == .phone
+            #else
+                false
+            #endif
         }
 
         private var downloadsSection: some View {

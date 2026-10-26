@@ -1,8 +1,9 @@
 #if os(iOS)
     import UIKit
 
-    /// Exists for one thing: the background `URLSession` relaunch hook, which has
-    /// no SwiftUI equivalent.
+    /// Exists for two hooks with no SwiftUI equivalent: the background
+    /// `URLSession` relaunch, and the app-wide orientation mask the player
+    /// narrows to landscape (`PlayerOrientationLock`).
     ///
     /// When a download finishes while Lume is suspended or terminated, the system
     /// relaunches the app in the background and calls
@@ -22,6 +23,13 @@
                 identifier: identifier,
                 completionHandler: completionHandler
             )
+        }
+
+        func application(
+            _: UIApplication,
+            supportedInterfaceOrientationsFor _: UIWindow?
+        ) -> UIInterfaceOrientationMask {
+            PlayerOrientationLock.supportedOrientations
         }
     }
 #endif
