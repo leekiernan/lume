@@ -72,12 +72,14 @@
                 Form {
                     Section {
                         TextField("Title", text: $title, prompt: titlePrompt)
-                        TextField("List URL", text: $urlText, prompt: Text(verbatim: exampleURL))
-                            .urlEntry()
+                        if mode.existing?.authenticatedList == nil {
+                            TextField("List URL", text: $urlText, prompt: Text(verbatim: exampleURL))
+                                .urlEntry()
+                        }
                     } header: {
                         Text("Section")
                     } footer: {
-                        footer
+                        if mode.existing?.authenticatedList == nil { footer }
                     }
 
                     if let message = state.message {
@@ -200,6 +202,12 @@
             let resolvedTitle = typed.isEmpty ? (suggestedTitle ?? "") : typed
             guard !resolvedTitle.isEmpty else {
                 state = .failed(String(localized: "Give the section a title."))
+                return
+            }
+            if var existing = mode.existing, existing.authenticatedList != nil {
+                existing.title = resolvedTitle
+                onSave(existing)
+                dismiss()
                 return
             }
             state = .checking

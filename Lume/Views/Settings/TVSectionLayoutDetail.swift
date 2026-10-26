@@ -98,6 +98,7 @@ import SwiftUI
             VStack(alignment: .leading, spacing: 36) {
                 sectionsSection
                 customSection
+                AuthenticatedSectionSources(surface: surface, customSectionsRaw: $customSectionsRaw, isReordering: isReordering)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             // Seeded here as well as on the page itself, so the starting hero is
@@ -370,7 +371,9 @@ import SwiftUI
                     text: $editorTitle,
                     requestsFocusOnAppear: true
                 )
-                TVSettingsField(title: "List URL", placeholder: "List URL", text: $editorURL, contentType: .URL)
+                if !editingAuthenticatedList {
+                    TVSettingsField(title: "List URL", placeholder: "List URL", text: $editorURL, contentType: .URL)
+                }
 
                 if let editorError {
                     Text(verbatim: editorError)
@@ -390,8 +393,10 @@ import SwiftUI
                         .buttonStyle(TVSettingsRowButtonStyle())
                 }
 
-                Text("Paste the address of a public list, for example \(exampleListURL).")
-                    .tvSettingsFooter()
+                if !editingAuthenticatedList {
+                    Text("Paste the address of a public list, for example \(exampleListURL).")
+                        .tvSettingsFooter()
+                }
             }
         }
 
@@ -417,6 +422,10 @@ import SwiftUI
             editorURL = section.sourceURL
             editorError = nil
             editor = .edit(section.id)
+        }
+
+        private var editingAuthenticatedList: Bool {
+            editor?.editingID.flatMap { id in customSections.first { $0.id == id } }?.authenticatedList != nil
         }
 
         private func closeEditor() {
@@ -451,6 +460,14 @@ import SwiftUI
                 return
             }
             let id = editor?.editingID ?? UUID()
+            if editingAuthenticatedList {
+                customSectionsRaw = CustomHomeSections.encode(CustomHomeSections.upsert(
+                    CustomHomeSection(id: id, title: title, sourceURL: url), into: customSections
+                ))
+                closeEditor()
+                restoreFocus(to: .addSection)
+                return
+            }
             editorChecking = true
             editorError = nil
             Task {
