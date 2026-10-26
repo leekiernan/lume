@@ -35,8 +35,9 @@ final class TopShelfRefresher {
                 request: TopShelfExportRequest(profileID: profiles.activeProfileID, isChildProfile: profiles.activeProfileIsChild),
                 followed: TopShelfSettings.followedProfile(),
                 playlistID: UserDefaults.standard.string(forKey: PlaylistSelectionStore.key) ?? "",
-                rows: WidgetSnapshotExporter.plan(),
-                configuration: TopShelfSettings.configuration()
+                rows: WidgetSnapshotExporter.plan(traktAccount: TraktService.shared.username),
+                configuration: TopShelfSettings.configuration(),
+                traktAccountScope: AuthenticatedHomeList.traktRecommendations.accountScope(TraktService.shared.username)
             )
             let check: TopShelfExportCoordinator.PublicationCheck = {
                 canPublish() && !profiles.isSwitching
@@ -45,9 +46,10 @@ final class TopShelfRefresher {
                     && input.followed == TopShelfSettings.followedProfile()
                     && input.playlistID == (UserDefaults.standard.string(forKey: PlaylistSelectionStore.key) ?? "")
                     && input.configuration == TopShelfSettings.configuration()
+                    && input.traktAccountScope == AuthenticatedHomeList.traktRecommendations.accountScope(TraktService.shared.username)
                     // Newer recorded titles go out with the next export; see
                     // `TopShelfRowPlan.sameLayout`.
-                    && TopShelfRowPlan.sameLayout(input.rows, WidgetSnapshotExporter.plan())
+                    && TopShelfRowPlan.sameLayout(input.rows, WidgetSnapshotExporter.plan(traktAccount: TraktService.shared.username))
             }
             await BackgroundActivity.perform("Top Shelf snapshot") {
                 // userInitiated: a backgrounding export has the assertion's

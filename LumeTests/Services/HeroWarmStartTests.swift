@@ -3,6 +3,22 @@ import Foundation
 import Testing
 
 struct HeroWarmStartTests {
+    @Test func `recommendation hero artwork cannot survive an account change or disconnect`() throws {
+        let section = AuthenticatedHomeList.traktRecommendations.section(title: "Picks", surface: .home)
+        let hero = HomeSectionRef.custom(section.id)
+        let alice = HeroWarmStartCache.catalogScope(playlistID: nil, visibilityToken: "visible", hero: hero,
+                                                    customSections: [section], traktAccount: "alice")
+        let bob = HeroWarmStartCache.catalogScope(playlistID: nil, visibilityToken: "visible", hero: hero,
+                                                  customSections: [section], traktAccount: "bob")
+        let disconnected = HeroWarmStartCache.catalogScope(playlistID: nil, visibilityToken: "visible", hero: hero,
+                                                           customSections: [section], traktAccount: nil)
+        let image = try #require(URL(string: "https://example.com/backdrop.jpg"))
+        let raw = try #require(HeroWarmStartCache.encode(hero: hero, catalogScope: alice, backdropURL: image))
+        #expect(HeroWarmStartCache.backdropURL(from: raw, hero: hero, catalogScope: alice) == image)
+        #expect(HeroWarmStartCache.backdropURL(from: raw, hero: hero, catalogScope: bob) == nil)
+        #expect(HeroWarmStartCache.backdropURL(from: raw, hero: hero, catalogScope: disconnected) == nil)
+    }
+
     @Test func `portrait warm starts obey the same visibility scope and old records remain readable`() throws {
         let hero = HomeSectionRef.custom(Self.alpha.id)
         let backdrop = try #require(URL(string: "https://image.tmdb.org/t/p/original/wide.jpg"))

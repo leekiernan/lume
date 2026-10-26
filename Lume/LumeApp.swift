@@ -432,6 +432,9 @@ struct LumeApp: App {
                     .onChange(of: profileManager.isReady) { _, ready in
                         if ready { topShelf.refresh() }
                     }
+                    .onChange(of: TraktService.shared.username) {
+                        topShelf.refresh()
+                    }
                     .onChange(of: profileManager.profiles.map(\.id)) { _, ids in
                         topShelf.rosterChanged(ids)
                     }

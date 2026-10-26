@@ -173,8 +173,16 @@ nonisolated enum TopShelfSettings {
     /// states can't drift. A snapshot of a profile the Top Shelf no longer
     /// follows is cleared rather than kept: its rows belong to someone else.
     static func exportAction(followed: UUID?, active: UUID, snapshotProfile: UUID?) -> TopShelfExportAction {
+        exportAction(followed: followed, active: active, snapshotProfile: snapshotProfile, snapshotAccount: nil, currentAccount: nil)
+    }
+
+    static func exportAction(followed: UUID?, active: UUID, snapshotProfile: UUID?, snapshotAccount: String?, currentAccount: String?) -> TopShelfExportAction {
         guard let followed else { return .clear }
         if followed == active { return .build }
+        // The catalogue holds another profile, so rebuilding isn't possible.
+        // Clear its old personal recommendations rather than retaining them
+        // across a change to the app-wide tracker account.
+        if let snapshotAccount, snapshotAccount != currentAccount { return .clear }
         return snapshotProfile == followed ? .keep : .clear
     }
 
@@ -226,6 +234,7 @@ nonisolated enum TopShelfSettings {
     static func record(
         _ rows: [TopShelfSource: TopShelfRowContent],
         profile: UUID? = ActiveProfileStore.current,
+        accountScopes: [TopShelfSource: String] = [:],
         defaults: UserDefaults = .standard
     ) {
         guard let profile else { return }
@@ -235,8 +244,9 @@ nonisolated enum TopShelfSettings {
         for (source, content) in rows {
             guard case let .loaded(itemKeys) = content else { continue }
             let capped = Array(itemKeys.prefix(TopShelfConfiguration.maxItemsPerSection))
-            guard rowsOfProfile[source.token] != capped else { continue }
-            rowsOfProfile[source.token] = capped
+            let token = recordToken(source, accountScope: accountScopes[source])
+            guard rowsOfProfile[token] != capped else { continue }
+            rowsOfProfile[token] = capped
             changed = true
         }
         guard changed else { return }
@@ -247,9 +257,13 @@ nonisolated enum TopShelfSettings {
 
     /// What `source` last showed for `profile` — the followed one, for the
     /// export.
-    static func recordedItems(for source: TopShelfSource, profile: UUID?, defaults: UserDefaults = .standard) -> [String] {
+    static func recordedItems(for source: TopShelfSource, profile: UUID?, accountScope: String? = nil, defaults: UserDefaults = .standard) -> [String] {
         guard let profile else { return [] }
-        return storedRows(defaults)[profile.uuidString]?[source.token] ?? []
+        return storedRows(defaults)[profile.uuidString]?[recordToken(source, accountScope: accountScope)] ?? []
+    }
+
+    private static func recordToken(_ source: TopShelfSource, accountScope: String?) -> String {
+        source.token + (accountScope.map { "|account:\($0)" } ?? "")
     }
 
     /// Profile → row token → item keys.

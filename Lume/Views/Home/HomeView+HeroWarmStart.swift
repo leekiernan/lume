@@ -31,7 +31,8 @@ extension HomeView {
             playlistID: activePlaylist?.id,
             visibilityToken: restriction.visibilityToken,
             hero: heroRef,
-            customSections: customSections
+            customSections: customSections,
+            traktAccount: TraktService.shared.username
         )
     }
 

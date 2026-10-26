@@ -42,6 +42,7 @@ nonisolated struct TopShelfRowPlan: Equatable {
     let source: TopShelfSource
     let title: String
     let recordedItems: [String]
+    var accountScope: String?
 
     /// The row as the layout defines it — which row and what it's called —
     /// without the titles it last recorded, which change whenever a feed
@@ -49,10 +50,11 @@ nonisolated struct TopShelfRowPlan: Equatable {
     struct Layout: Hashable {
         let source: TopShelfSource
         let title: String
+        let accountScope: String?
     }
 
     var layout: Layout {
-        Layout(source: source, title: title)
+        Layout(source: source, title: title, accountScope: accountScope)
     }
 
     /// Whether an export planned from `planned` may still publish against
@@ -72,6 +74,7 @@ nonisolated struct TopShelfExportInput: Equatable {
     let playlistID: String
     let rows: [TopShelfRowPlan]
     let configuration: TopShelfConfiguration
+    var traktAccountScope: String?
 }
 
 enum WidgetSnapshotExporter {
@@ -82,17 +85,24 @@ enum WidgetSnapshotExporter {
     /// settings live. A custom row since deleted drops out; two rows that
     /// share a name ("Favorites" on Home and on Movies) are told apart by
     /// their area.
-    static func plan(defaults: UserDefaults = .standard) -> [TopShelfRowPlan] {
+    static func plan(defaults: UserDefaults = .standard, traktAccount: String? = nil) -> [TopShelfRowPlan] {
         let rows = TopShelfSettings.sources(defaults: defaults).compactMap { source in
             source.rowName(defaults: defaults).map { (source, $0) }
         }
         let counts = Dictionary(rows.map { ($0.1, 1) }, uniquingKeysWith: +)
         let followed = TopShelfSettings.followedProfile(defaults: defaults)
         return rows.map { source, name in
-            TopShelfRowPlan(
+            let section = source.ref.customID.flatMap { id in
+                CustomHomeSections.decode(defaults.string(forKey: CustomHomeSections.storageKey(source.surface)) ?? "").first { $0.id == id }
+            }
+            let authenticated = section?.authenticatedList
+            let account = authenticated?.accountScope(traktAccount)
+            return TopShelfRowPlan(
                 source: source,
                 title: counts[name, default: 0] > 1 ? source.qualified(name) : name,
-                recordedItems: TopShelfSettings.recordedItems(for: source, profile: followed, defaults: defaults)
+                recordedItems: authenticated != nil && account == nil ? [] :
+                    TopShelfSettings.recordedItems(for: source, profile: followed, accountScope: account, defaults: defaults),
+                accountScope: account
             )
         }
     }
@@ -116,7 +126,9 @@ enum WidgetSnapshotExporter {
         switch TopShelfSettings.exportAction(
             followed: followed,
             active: request.profileID,
-            snapshotProfile: TopShelfSettings.snapshotProfile()
+            snapshotProfile: TopShelfSettings.snapshotProfile(),
+            snapshotAccount: WidgetDataStore.load()?.traktAccountScope,
+            currentAccount: input.traktAccountScope
         ) {
         case .keep:
             return
@@ -138,6 +150,9 @@ enum WidgetSnapshotExporter {
             )
         }
         snapshot.topShelf = input.configuration
+        if input.rows.contains(where: { $0.accountScope != nil }), !snapshot.sections.isEmpty {
+            snapshot.traktAccountScope = input.traktAccountScope
+        }
         let owner = snapshot.sections.isEmpty ? nil : followed
         #if os(tvOS)
             await exportTV(&snapshot, owner: owner, canPublish: canPublish)
@@ -160,7 +175,9 @@ enum WidgetSnapshotExporter {
     /// every backgrounding asks for an export, and an unchanged one would
     /// still make the Top Shelf reload its images.
     private nonisolated static func write(_ snapshot: WidgetSnapshot, owner: UUID?) -> Bool {
-        if let current = WidgetDataStore.load(), current.sections == snapshot.sections, current.topShelf == snapshot.topShelf {
+        if let current = WidgetDataStore.load(), current.sections == snapshot.sections, current.topShelf == snapshot.topShelf,
+           current.traktAccountScope == snapshot.traktAccountScope
+        {
             TopShelfSettings.setSnapshotProfile(owner)
             return true
         }

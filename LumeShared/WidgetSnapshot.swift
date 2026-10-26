@@ -21,6 +21,9 @@ nonisolated struct WidgetSnapshot: Codable, Equatable {
     var sections: [WidgetSection]
     /// How the Top Shelf presents this snapshot.
     var topShelf: TopShelfConfiguration?
+    /// Opaque identity of the Trakt account behind personal recommendation
+    /// rows. Optional so snapshots from before those rows remain readable.
+    var traktAccountScope: String?
 
     static let empty = WidgetSnapshot(generatedAt: .distantPast, sections: [])
 }

@@ -43,6 +43,7 @@ extension SectionFeed {
     func beginCustomLoad(cacheKey: String, sections: [CustomHomeSection]) -> SectionFeedLoadGate.Request {
         let request = loadGate.begin(.custom)
         requestedCustomSections = sections
+        customLoadTraktAccount = currentTraktAccount()
         let cached = SectionFeedCache.shared.customEntry(surface, for: scoped(cacheKey))
         transition(.began(.custom, key: cacheKey, cache: cached == nil ? .missing : .stale))
         replaceCustomCollections(with: (cached?.value ?? [:]).filter { id, _ in sections.contains { $0.id == id } })
@@ -50,7 +51,7 @@ extension SectionFeed {
     }
 
     func finishCustomLoad(cacheKey: String, sections: [CustomHomeSection], request: SectionFeedLoadGate.Request) {
-        guard loadGate.isCurrent(request, for: .custom) else { return }
+        guard loadGate.isCurrent(request, for: .custom), customLoadAccountIsCurrent else { return }
         transition(.finished(.custom, .loaded))
         let snapshots = Dictionary(uniqueKeysWithValues: sections.compactMap { section in
             collection(for: .custom(section.id)).map { (section.id, $0) }
@@ -61,8 +62,16 @@ extension SectionFeed {
     func loadCustomSection(
         _ section: CustomHomeSection, request: SectionFeedLoadGate.Request, started: ContinuousClock.Instant
     ) async {
+        guard loadGate.isCurrent(request, for: .custom), customLoadAccountIsCurrent else { return }
         let ref = HomeSectionRef.custom(section.id)
-        let key = HomeListCacheKey(source: section.sourceURL, account: TraktService.shared.username)
+        // Never restore personal recommendations under an anonymous cache key
+        // while the connected account is still being resolved, or after logout.
+        if section.authenticatedList != nil, customLoadTraktAccount == nil {
+            publishCollection(.empty, for: ref)
+            transition(.rowFinished(ref, .loaded))
+            return
+        }
+        let key = HomeListCacheKey(source: section.sourceURL, account: customLoadTraktAccount)
         var step = ContinuousClock.now
         logHeroStep(ref, "lane started", since: started)
         let record = await listCache.record(for: key)
@@ -181,7 +190,12 @@ extension SectionFeed {
     }
 
     func listAccountIsCurrent(_ key: HomeListCacheKey) -> Bool {
-        key == HomeListCacheKey(source: key.source, account: TraktService.shared.username)
+        key == HomeListCacheKey(source: key.source, account: currentTraktAccount())
+    }
+
+    var customLoadAccountIsCurrent: Bool {
+        CustomHomeSections.accountSignature(requestedCustomSections, traktUsername: customLoadTraktAccount)
+            == CustomHomeSections.accountSignature(requestedCustomSections, traktUsername: currentTraktAccount())
     }
 
     /// Diagnostic timing for the hero's lane only, so a cold launch shows

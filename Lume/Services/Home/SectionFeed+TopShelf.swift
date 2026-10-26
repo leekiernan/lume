@@ -5,11 +5,18 @@ extension SectionFeed {
     func recordTopShelfRows(for source: SectionFeedSource) {
         #if os(tvOS)
             var rows: [TopShelfSource: TopShelfRowContent] = [:]
+            var accounts: [TopShelfSource: String] = [:]
             for (ref, collection) in collections where SectionFeedSource(row: ref) == source {
-                rows[TopShelfSource(surface: surface, ref: ref)] = loads.failedRows.contains(ref)
+                let shelfSource = TopShelfSource(surface: surface, ref: ref)
+                if let section = requestedCustomSections.first(where: { .custom($0.id) == ref }), let authenticated = section.authenticatedList {
+                    guard customLoadTraktAccount == currentTraktAccount(),
+                          let account = authenticated.accountScope(customLoadTraktAccount) else { continue }
+                    accounts[shelfSource] = account
+                }
+                rows[shelfSource] = loads.failedRows.contains(ref)
                     ? .unavailable : .loaded(collection.preview.map(\.id))
             }
-            if !rows.isEmpty { TopShelfSettings.record(rows, profile: context?.profileID) }
+            if !rows.isEmpty { TopShelfSettings.record(rows, profile: context?.profileID, accountScopes: accounts) }
         #endif
     }
 }
