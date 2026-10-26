@@ -49,6 +49,9 @@ nonisolated struct TraktListProvider: HomeListProvider {
     }
 
     func entries(for url: URL) async throws -> [HomeListEntry] {
+        if TraktRecommendationScope(url: url) != nil {
+            return try await page(for: url, number: 1).entries
+        }
         guard client.isConfigured else { throw HomeListError.unsupportedSource }
         guard let list = Self.list(for: url) else { throw HomeListError.invalidURL }
 
@@ -71,6 +74,15 @@ nonisolated struct TraktListProvider: HomeListProvider {
 
     func page(for url: URL, number: Int) async throws -> HomeListPage {
         guard client.isConfigured else { throw HomeListError.unsupportedSource }
+        if let scope = TraktRecommendationScope(url: url) {
+            guard number == 1 else { throw HomeListError.invalidURL }
+            guard let token = await accessToken() else { throw HomeListError.privateList }
+            do {
+                return try await client.recommendations(scope: scope, accessToken: token)
+            } catch let error as TraktError {
+                throw Self.listError(from: error, signedIn: true)
+            }
+        }
         guard let list = Self.list(for: url) else { throw HomeListError.invalidURL }
         let token = await accessToken()
         do {
@@ -81,6 +93,9 @@ nonisolated struct TraktListProvider: HomeListProvider {
     }
 
     func suggestedTitle(for url: URL) -> String? {
+        if TraktRecommendationScope(url: url) != nil {
+            return AuthenticatedHomeList.traktRecommendations.defaultTitle
+        }
         guard let list = Self.list(for: url) else { return nil }
         // "classic-rewatch" → "Classic Rewatch". A list addressed by its numeric
         // Trakt id has no name in its URL, so it falls back to the generic one.

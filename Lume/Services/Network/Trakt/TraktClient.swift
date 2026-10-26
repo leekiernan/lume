@@ -230,9 +230,9 @@ nonisolated struct TraktClient {
 
     /// One collection page with its server-reported continuation.
     func collectionPage<T: Decodable>(
-        _ path: String, number: Int, limit: Int, accessToken: String?
+        _ path: String, number: Int, limit: Int, accessToken: String?, query: [URLQueryItem] = []
     ) async throws -> (items: [T], pageCount: Int) {
-        var request = try makeRequest(path: path, method: "GET", query: [
+        var request = try makeRequest(path: path, method: "GET", query: query + [
             URLQueryItem(name: "page", value: String(number)), URLQueryItem(name: "limit", value: String(limit))
         ], accessToken: accessToken)
         request.setValue("application/json", forHTTPHeaderField: "Accept")

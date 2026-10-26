@@ -265,7 +265,8 @@ struct LibraryAreaView<Kind: LibraryAreaKind>: View {
             playlistID: activePlaylist?.id,
             visibilityToken: restriction.visibilityToken,
             hero: heroRef,
-            customSections: CustomHomeSections.decode(customSectionsRaw)
+            customSections: CustomHomeSections.decode(customSectionsRaw),
+            traktAccount: TraktService.shared.username
         )
     }
 

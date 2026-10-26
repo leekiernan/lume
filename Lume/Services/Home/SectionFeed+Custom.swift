@@ -61,7 +61,15 @@ extension SectionFeed {
     func loadCustomSection(
         _ section: CustomHomeSection, request: SectionFeedLoadGate.Request, started: ContinuousClock.Instant
     ) async {
+        guard loadGate.isCurrent(request, for: .custom) else { return }
         let ref = HomeSectionRef.custom(section.id)
+        // Never restore personal recommendations under an anonymous cache key
+        // while the connected account is still being resolved, or after logout.
+        if section.authenticatedList != nil, TraktService.shared.username == nil {
+            publishCollection(.empty, for: ref)
+            transition(.rowFinished(ref, .loaded))
+            return
+        }
         let key = HomeListCacheKey(source: section.sourceURL, account: TraktService.shared.username)
         var step = ContinuousClock.now
         logHeroStep(ref, "lane started", since: started)

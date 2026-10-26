@@ -32,6 +32,10 @@ nonisolated struct CustomHomeSection: Codable, Identifiable, Hashable {
     var provider: (any HomeListProvider)? {
         HomeListCatalog.provider(for: sourceURL)
     }
+
+    var authenticatedList: AuthenticatedHomeList? {
+        AuthenticatedHomeList.matching(sourceURL)
+    }
 }
 
 /// Storage for a surface's custom rows: a JSON array under one UserDefaults

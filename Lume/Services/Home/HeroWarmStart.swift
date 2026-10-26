@@ -36,12 +36,13 @@ enum HeroWarmStartCache {
         playlistID: UUID?,
         visibilityToken: String,
         hero: HomeSectionRef?,
-        customSections: [CustomHomeSection]
+        customSections: [CustomHomeSection],
+        traktAccount: String? = nil
     ) -> String {
         let source: String = if case let .custom(id) = hero,
                                 let section = customSections.first(where: { $0.id == id })
         {
-            section.sourceURL
+            section.sourceURL + (section.authenticatedList == nil ? "" : "|trakt:\(traktAccount ?? "none")")
         } else {
             "builtin"
         }

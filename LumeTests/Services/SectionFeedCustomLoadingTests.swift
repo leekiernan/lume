@@ -5,6 +5,21 @@ import Testing
 
 @MainActor
 struct SectionFeedCustomLoadingTests {
+    @Test func `signed out recommendations do not restore anonymous membership or fetch`() async throws {
+        let container = try container(ids: [1])
+        let directory = URL.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = HomeListCache(directory: directory)
+        let section = AuthenticatedHomeList.traktRecommendations.section(title: "Picks", surface: .movies)
+        await cache.store(HomeListPage(entries: entries(1 ... 1), nextPage: nil),
+                          for: HomeListCacheKey(source: section.sourceURL, account: nil))
+        let probe = ListPageProbe(pages: [:])
+        let feed = feed(container, cache: cache, probe: probe)
+        await feed.loadCustomSections(cacheKey: UUID().uuidString, sections: [section])
+        #expect(feed.items(for: .custom(section.id)).isEmpty)
+        #expect(await probe.calls.isEmpty)
+    }
+
     private func container(ids: [Int]) throws -> ModelContainer {
         let schema = Schema([Movie.self, Series.self, Episode.self, LiveStream.self, CastMember.self])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
