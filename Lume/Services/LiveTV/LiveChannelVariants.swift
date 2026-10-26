@@ -281,14 +281,14 @@ nonisolated extension LiveChannelVariants {
     }
 }
 
-extension ChannelQuality.Parsed {
+nonisolated extension ChannelQuality.Parsed {
     var isHighFrameRate: Bool {
         guard let tag else { return false }
         return tag.uppercased().replacing(" ", with: "").contains(/[56]0FPS/)
     }
 }
 
-extension ChannelQuality {
+nonisolated extension ChannelQuality {
     var label: String {
         switch self {
         case .sd: "SD"
