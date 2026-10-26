@@ -285,6 +285,7 @@ struct FullScreenPlayerView: View {
         .sourceSwitchConfirmation(request: $pendingSourceSwitch) { switchSource($0, start: .beginning) }
         .persistentSystemOverlays(.hidden)
         .preferredColorScheme(.dark)
+        .playerOrientationLock()
         .inAppToasts()
         .macPlayerWindow(activeMedia: activeMedia, launchMedia: media) { switchMedia(to: $0) }
         // Synchronous on purpose, and ahead of the `.task` below: the engine
@@ -539,7 +540,7 @@ struct FullScreenPlayerView: View {
         #if os(macOS)
             MacPlayerWindowRouter.shared.close()
         #else
-            dismiss()
+            dismiss.dismissPlayer()
         #endif
     }
 }

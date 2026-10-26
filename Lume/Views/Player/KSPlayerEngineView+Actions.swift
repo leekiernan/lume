@@ -73,7 +73,7 @@ extension KSPlayerEngineView {
         #if os(macOS)
             MacPlayerWindowRouter.shared.close()
         #else
-            dismiss()
+            dismiss.dismissPlayer()
         #endif
     }
 }
