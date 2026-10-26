@@ -35,8 +35,9 @@ extension TraktService: TrackerHistorySynchronizing, TrackerScrobbling {}
 extension SimklService: TrackerHistorySynchronizing, TrackerScrobbling {}
 extension MDBListService: TrackerHistorySynchronizing, TrackerScrobbling {}
 
-/// A tracker watchlist the heart adds to and removes from — see
-/// `MediaFavorites` and `WatchlistProvider.service`.
+/// A tracker watchlist the heart adds to and removes from, and Home's watchlist
+/// rows read — see `MediaFavorites` and `WatchlistProvider.service`. Every
+/// tracker gets it from its queue (`TrackerQueueOwning`).
 @MainActor
 protocol TrackerWatchlistSyncing: AnyObject {
     var isConnected: Bool { get }
@@ -44,39 +45,16 @@ protocol TrackerWatchlistSyncing: AnyObject {
     var watchlistAccount: String? { get }
     func isWatchlisted(_ target: TrackerMutation.Target) -> Bool
     func refreshWatchlistIfNeeded() async
+    /// The watchlist in the tracker's order. Falls back to the last good read
+    /// when the tracker can't be reached; throws when there is none.
+    func watchlistEntries() async throws -> [TrackerWatchlistEntry]
     func syncWatchlist(movie: Movie, watchlisted: Bool)
     func syncWatchlist(series: Series, watchlisted: Bool)
 }
 
-extension TraktService: TrackerWatchlistSyncing {
-    var watchlistAccount: String? {
-        mutations.account
-    }
-
-    func isWatchlisted(_ target: TrackerMutation.Target) -> Bool {
-        mutations.isWatchlisted(target)
-    }
-}
-
-extension SimklService: TrackerWatchlistSyncing {
-    var watchlistAccount: String? {
-        mutations.account
-    }
-
-    func isWatchlisted(_ target: TrackerMutation.Target) -> Bool {
-        mutations.isWatchlisted(target)
-    }
-}
-
-extension MDBListService: TrackerWatchlistSyncing {
-    var watchlistAccount: String? {
-        mutations.account
-    }
-
-    func isWatchlisted(_ target: TrackerMutation.Target) -> Bool {
-        mutations.isWatchlisted(target)
-    }
-}
+extension TraktService: TrackerQueueOwning {}
+extension SimklService: TrackerQueueOwning {}
+extension MDBListService: TrackerQueueOwning {}
 
 /// Every tracker integration, listed once: watched sync, scrobbles and rail
 /// removal fan out to these, so a new service is one entry here. Each

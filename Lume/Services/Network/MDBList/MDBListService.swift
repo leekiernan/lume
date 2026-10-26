@@ -5,8 +5,9 @@
 //  The app-wide coordinator for the MDBList integration, a third tracker
 //  beside Trakt and Simkl with the same shape: the shared sign-in and token
 //  lifecycle (`TrackerAccountSession`), durable watched, paused-progress and
-//  watchlist changes (`TrackerMutationQueue`), transient playback scrobbles,
-//  the watchlist for Home and the heart, and the watched-history import.
+//  watchlist changes and the watchlist read for Home and the heart
+//  (`TrackerMutationQueue`), transient playback scrobbles, and the
+//  watched-history import.
 //
 //  A shared singleton because watched-state changes originate from many places
 //  (player completion, detail-screen toggles, model methods) that don't all
@@ -77,10 +78,6 @@ final class MDBListService {
         mutations.syncError
     }
 
-    private var watchlistTask: Task<[MDBListWatchlistEntry], Error>?
-    private var watchlistTaskAccount: String?
-    private var watchlistTaskID: UUID?
-
     /// The catalog context the connect flow captured, so the watched-history
     /// import can run the moment the device code is approved.
     private var importContext: ModelContext?
@@ -96,8 +93,8 @@ final class MDBListService {
             session: session,
             outbox: outbox ?? TrackerMutationOutbox(storageKey: MDBListAccountBackend.outboxStorageKey)
         )
-        mutations.refreshWatchlist = { [weak self] in
-            Task { await self?.refreshWatchlistIfNeeded() }
+        mutations.fetchWatchlist = { accessToken in
+            try await client.watchlist(accessToken: accessToken).map { TrackerWatchlistEntry(target: $0.target) }
         }
         session.didConnect = { [weak self] in
             // The account's watched history imports on connect, as Simkl's
@@ -141,9 +138,6 @@ final class MDBListService {
 
     /// Revokes the token server-side (best effort) and clears all local state.
     func disconnect() async {
-        watchlistTask?.cancel()
-        watchlistTask = nil
-        watchlistTaskID = nil
         scrobbleTask?.cancel()
         scrobbleTask = nil
         mutations.reset()
@@ -226,63 +220,6 @@ final class MDBListService {
                 )
             }
         }
-    }
-
-    // MARK: - Watchlist
-
-    func syncWatchlist(movie: Movie, watchlisted: Bool) {
-        guard let tmdbID = movie.tmdbId else { return }
-        mutations.enqueue(.watchlist, .movie(tmdbID: tmdbID), isPresent: watchlisted)
-    }
-
-    func syncWatchlist(series: Series, watchlisted: Bool) {
-        guard let tmdbID = series.tmdbId else { return }
-        mutations.enqueue(.watchlist, .show(tmdbID: tmdbID), isPresent: watchlisted)
-    }
-
-    func refreshWatchlistIfNeeded() async {
-        guard let account = mutations.account else { return }
-        mutations.watchlist.reset(account: account)
-        guard mutations.watchlist.needsRefresh else { return }
-        let revision = mutations.watchlist.revision
-        _ = try? await watchlistItems()
-        // A delivery can invalidate a read while its request is in flight.
-        // Revalidate once after joining it, rather than accepting its old list.
-        if mutations.account == account, mutations.watchlist.revision != revision, mutations.watchlist.needsRefresh {
-            _ = try? await watchlistItems()
-        }
-    }
-
-    /// The watchlist, most recently added first. Throws rather than answering
-    /// empty on a failure, so Home keeps the row it last showed.
-    func watchlistItems() async throws -> [MDBListWatchlistEntry] {
-        guard let account = mutations.account else { throw MDBListSyncError.notAuthenticated }
-        if let watchlistTask, watchlistTaskAccount == account { return try await watchlistTask.value }
-        mutations.watchlist.reset(account: account)
-        let revision = mutations.watchlist.revision
-        let id = UUID()
-        let task = Task {
-            defer {
-                if watchlistTaskID == id { watchlistTask = nil; watchlistTaskID = nil }
-            }
-            guard let accessToken = await session.validAccessToken(), mutations.account == account else {
-                throw MDBListSyncError.notAuthenticated
-            }
-            let entries: [MDBListWatchlistEntry]
-            do {
-                entries = try await client.watchlist(accessToken: accessToken)
-            } catch {
-                Logger.network.warning("MDBList watchlist request failed: \(LogRedaction.describe(error), privacy: .public)")
-                throw error
-            }
-            guard mutations.account == account, watchlistTaskID == id else { throw MDBListSyncError.notAuthenticated }
-            mutations.updateWatchlist(Set(entries.map(\.target)), account: account, revision: revision)
-            return entries
-        }
-        watchlistTask = task
-        watchlistTaskAccount = account
-        watchlistTaskID = id
-        return try await task.value
     }
 
     // MARK: - Watched import

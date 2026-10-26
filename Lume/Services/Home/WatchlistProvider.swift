@@ -94,47 +94,18 @@ nonisolated enum WatchlistProvider: CaseIterable, Hashable {
         account != nil
     }
 
-    /// The watchlist in the service's own order. Trakt throws on a transport
-    /// failure, so a stale row survives it; Simkl already falls back to its
-    /// on-disk copy (see `SimklService.fetchWatchlist`) and never throws.
+    /// The watchlist in the service's own order. Every tracker reads it the
+    /// same way (`TrackerMutationQueue.watchlistEntries()`): an unreachable
+    /// tracker answers with its last good read, and throws only when it has
+    /// none, so a stale row survives a failure.
     @MainActor
     func entries() async throws -> [HomeListEntry] {
-        switch self {
-        case .trakt:
-            try await TraktService.shared.watchlistItems().compactMap(Self.entry)
-        case .simkl:
-            await SimklService.shared.fetchWatchlist().map(Self.entry)
-        case .mdblist:
-            try await MDBListService.shared.watchlistItems().map(Self.entry)
-        }
-    }
-
-    private static func entry(_ item: TraktWatchlistItem) -> HomeListEntry? {
-        switch item.type {
-        case "movie":
-            guard let media = item.movie, let tmdbId = media.ids.tmdb else { return nil }
-            return HomeListEntry(tmdbId: tmdbId, mediaType: .movie, title: media.title ?? "")
-        case "show":
-            guard let media = item.show, let tmdbId = media.ids.tmdb else { return nil }
-            return HomeListEntry(tmdbId: tmdbId, mediaType: .series, title: media.title ?? "")
-        default:
-            return nil
-        }
-    }
-
-    /// MDBList's watchlist is read without titles, like Simkl's.
-    private static func entry(_ item: MDBListWatchlistEntry) -> HomeListEntry {
-        switch item.kind {
-        case .movie: HomeListEntry(tmdbId: item.tmdbID, mediaType: .movie, title: "")
-        case .show: HomeListEntry(tmdbId: item.tmdbID, mediaType: .series, title: "")
-        }
-    }
-
-    /// Simkl's watchlist carries no titles — only what the catalog matches on.
-    private static func entry(_ item: SimklWatchlistEntry) -> HomeListEntry {
-        switch item.kind {
-        case .movie: HomeListEntry(tmdbId: item.tmdbID, mediaType: .movie, title: "")
-        case .show: HomeListEntry(tmdbId: item.tmdbID, mediaType: .series, title: "")
+        try await service.watchlistEntries().compactMap { entry in
+            switch entry.target {
+            case let .movie(tmdbID): HomeListEntry(tmdbId: tmdbID, mediaType: .movie, title: entry.title)
+            case let .show(tmdbID): HomeListEntry(tmdbId: tmdbID, mediaType: .series, title: entry.title)
+            case .episode: nil
+            }
         }
     }
 }
