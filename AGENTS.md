@@ -296,22 +296,20 @@ and "implemented but unmerged" are all *not done*. The sequence is:
 
 1. Engineer implements on a branch; runs unit tests + build + lint (or QA does).
 2. Branch handed to Staff Engineer for review.
-3. On approval, **merge the branch**, then mark the task complete — not before.
+3. After review approval, **wait for the user to explicitly instruct the merge**.
+   Passing checks, Staff Engineer approval and a request to implement changes
+   do not authorize merging. Once instructed, merge the branch, then mark the
+   task complete — not before.
 
 ### Branch lifecycle after merge
 
-- **Never delete a local or remote branch without the user's explicit go-ahead
-  for branch deletion.** A request or approval to merge, completion of a task,
-  or a saved command approval does not authorize branch cleanup.
-- Branch cut from `origin/main` (our fork): **keep it after merge until the user
-  explicitly approves deletion.**
-- Branch cut from `upstream/main` (community upstream): **keep it after merge**
-  — it backs the public PR and community history. The same explicit approval
-  requirement applies before deleting it.
-
-If you're unsure which a branch came from, check its upstream tracking
-(`git branch -vv`): branches showing `[upstream/main: …]` are community branches
-and may back a public PR. Tracking information never authorizes deletion.
+- **Do not merge until the user explicitly tells you to.** Keep the feature
+  branch available throughout implementation and review.
+- **After that authorized merge, delete the merged feature branch locally and
+  from `origin` if it was published there.** This is standing authorization for
+  post-merge branch cleanup; a separate deletion signal is not required.
+- Do not delete unmerged branches, `main`, or branches on `upstream` as part of
+  routine cleanup.
 
 ### Upstream intake and the project file
 
