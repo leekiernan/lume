@@ -104,6 +104,24 @@ struct TraktScrobbleClientTests {
         #expect(try requestJSON(requests[0])["progress"] as? Double == 16.5)
     }
 
+    /// Trakt answers a stop for an item it has just recorded as watched with
+    /// 409 Conflict: the watch stands, so the stop is not a failure.
+    @Test func `a stop on a just-watched item is recorded, not failed`() async throws {
+        TraktScrobbleStubProtocol.reset(statusCode: 409, responseBody: #"{"watched_at":"2026-10-27T01:05:00.000Z"}"#)
+        let response = try await makeClient().scrobble(.movie(tmdbID: 42), action: .stop, progress: 100, accessToken: "token")
+        #expect(response.action == "scrobble")
+    }
+
+    @Test func `a conflict on any other scrobble still fails`() async throws {
+        TraktScrobbleStubProtocol.reset(statusCode: 409)
+        do {
+            try await makeClient().scrobble(.movie(tmdbID: 42), action: .start, progress: 10, accessToken: "token")
+            Issue.record("Expected a conflict")
+        } catch let error as TraktError {
+            #expect(error == .server(409))
+        }
+    }
+
     private func makeClient() -> TraktClient {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [TraktScrobbleStubProtocol.self]

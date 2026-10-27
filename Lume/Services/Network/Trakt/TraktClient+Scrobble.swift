@@ -23,10 +23,17 @@ nonisolated extension TraktClient {
             }
             return TraktScrobbleResponse(id: nil, action: "discard", progress: 0)
         }
-        return try await post(
-            "/scrobble/\(action.rawValue)",
-            body: TraktScrobbleRequest(target: target, progress: progress),
-            accessToken: accessToken
-        )
+        do {
+            return try await post(
+                "/scrobble/\(action.rawValue)",
+                body: TraktScrobbleRequest(target: target, progress: progress),
+                accessToken: accessToken
+            )
+        } catch TraktError.server(409) where action == .stop {
+            // Trakt answers a stop for an item it has just recorded as watched
+            // (by this session's watched sync at 90%, or another scrobble)
+            // with 409 Conflict. The watch is recorded; nothing failed.
+            return TraktScrobbleResponse(id: nil, action: "scrobble", progress: progress)
+        }
     }
 }
