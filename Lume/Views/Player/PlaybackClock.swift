@@ -117,6 +117,9 @@ final class PlaybackTickScratch {
     /// When the last drift-triggered stream rebuild fired, for the re-fire
     /// cooldown in `noteClockDrift`.
     var lastDriftRecovery: TimeInterval = -.infinity
+    /// Whether a movie's read-ahead has stopped while it plays — see
+    /// `noteReadAhead`.
+    var readAhead = ReadAheadWatch()
 
     /// Back to the fresh-session baseline, for stream swaps.
     func reset() {
@@ -124,5 +127,6 @@ final class PlaybackTickScratch {
         start.beginStream()
         driftSince = nil
         lastDriftRecovery = -.infinity
+        readAhead = ReadAheadWatch()
     }
 }
