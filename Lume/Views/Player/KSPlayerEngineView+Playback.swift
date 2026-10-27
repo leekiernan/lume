@@ -462,11 +462,18 @@ extension KSPlayerEngineView {
     /// itself (FFmpeg then follows the redirect) when the resolve fails. The
     /// layer keeps the URL it was built with, so the view's own URL still
     /// matches it and `KSVideoPlayer` doesn't rebuild a second time.
+    ///
+    /// The buffer may still be playing while the token resolves, so a movie
+    /// resumes at the playhead it has reached by then, not where it was asked.
     private func rebuildFromFreshRedirect(on layer: KSPlayerLayer) {
         let original = media.url
         Task {
             let fresh = await StreamRedirect.resolve(original) ?? original
             guard coordinator.playerLayer === layer, media.url == original else { return }
+            let resumeAt = catchupRouter.enginePosition(forClock: clock.current)
+            if !media.isLive, resumeAt > 1 {
+                layer.options.startPlayTime = resumeAt
+            }
             rebuildStream(on: layer, url: fresh)
         }
     }
