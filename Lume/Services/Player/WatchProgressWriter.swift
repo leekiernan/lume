@@ -200,6 +200,11 @@ actor WatchProgressWriter {
         var change: WatchedChange?
         if completed, !movie.isWatched {
             movie.isWatched = true
+            // The title is finished in every version (`TitleVersions`); the
+            // one change below still goes to the trackers once.
+            for version in TitleVersions.movies(of: movie, in: context).dropFirst() where !version.isWatched {
+                version.setWatched(true)
+            }
             change = WatchedChange(ref: ref, isWatched: true, scope: scope)
         } else if movie.isWatched, WatchCompletion.reopensWatched(progress: progress, completed: completed) {
             // A rewatch: in progress again until it crosses the line, which
@@ -231,6 +236,9 @@ actor WatchProgressWriter {
         var change: WatchedChange?
         if completed, !episode.isWatched {
             episode.isWatched = true
+            for version in TitleVersions.episodes(of: episode, in: context).dropFirst() where !version.isWatched {
+                version.setWatched(true)
+            }
             change = WatchedChange(ref: ref, isWatched: true, scope: scope)
         } else if episode.isWatched, WatchCompletion.reopensWatched(progress: progress, completed: completed) {
             // A rewatch: in progress again until it crosses the line.

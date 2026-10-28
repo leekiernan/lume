@@ -72,14 +72,11 @@ enum WatchRailRemoval {
 
     // MARK: - Recently Watched
 
-    /// Unwatches `movie`'s title, every copy, here and on linked trackers.
+    /// Unwatches `movie`'s title, every version, here and on linked trackers
+    /// — see `MediaWatchState`.
     static func removeFromRecentlyWatched(
         _ movie: Movie, in context: ModelContext, trackers: [any TrackerHistorySynchronizing]? = nil
     ) {
-        for copy in copies(of: movie, in: context) where copy.id != movie.id {
-            copy.setWatched(false)
-        }
-        // The representative's unwatch carries every copy to the trackers.
         MediaWatchState.setWatched(false, movie: movie, in: context, trackers: trackers)
     }
 
