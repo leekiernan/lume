@@ -58,13 +58,12 @@ nonisolated enum WatchlistProvider: CaseIterable, Hashable {
         }
     }
 
-    /// The template image marking the service beside the heart. MDBList has
-    /// no published mark, so a symbol stands in.
+    /// The template image marking the service beside the heart.
     var mark: Image {
         switch self {
         case .trakt: Image("TraktMark")
         case .simkl: Image("SimklMark")
-        case .mdblist: Image(systemName: "list.star")
+        case .mdblist: Image("MDBListMark")
         }
     }
 
