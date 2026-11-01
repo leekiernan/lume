@@ -64,7 +64,9 @@ final class PlaybackClock {
         if timeline.duration > 0 { duration = timeline.duration }
     }
 
-    /// Ignore engine reports from `mediaID` until a different stream reports.
+    /// Ignore engine reports from `mediaID` until a different stream reports:
+    /// a catch-up seek's outgoing segment, or the outgoing title of any swap,
+    /// whose player can tick on for a moment after the next one mounts.
     func holdEngineReports(from mediaID: String) {
         heldMediaID = mediaID
     }
@@ -85,9 +87,12 @@ final class PlaybackClock {
         current = media?.timelinePosition(position) ?? position
     }
 
-    /// The engine's reported duration, mapped like `applyEngine(position:of:)`.
+    /// The engine's reported duration, mapped like `applyEngine(position:of:)`
+    /// and dropped under the same hold — the outgoing stream's length would
+    /// otherwise put the next episode in its own closing seconds.
     func applyEngine(duration total: TimeInterval, of media: PlayableMedia?) {
         guard total.isFinite, total > 0 else { return }
+        if let heldMediaID, heldMediaID == media?.id { return }
         duration = media?.timelineDuration(total) ?? total
     }
 
