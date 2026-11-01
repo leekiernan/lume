@@ -16,13 +16,26 @@ set -eu
 ENV_FILE="${SRCROOT}/.env"
 PLIST="${TARGET_BUILD_DIR}/${INFOPLIST_PATH}"
 
-if [ ! -f "$ENV_FILE" ]; then
-    echo "warning: .env not found at $ENV_FILE — secrets not injected"
+if [ ! -f "$PLIST" ]; then
+    echo "warning: Info.plist not found at $PLIST — secrets not injected"
     exit 0
 fi
 
-if [ ! -f "$PLIST" ]; then
-    echo "warning: Info.plist not found at $PLIST — secrets not injected"
+# The commit a build came from, so the session log tells builds apart without
+# touching the build number (which lives in the upstream-shared project file).
+# "+dirty" marks uncommitted changes. Not a secret, so it doesn't need .env.
+COMMIT="$(git -C "$SRCROOT" rev-parse --short HEAD 2>/dev/null || true)"
+if [ -n "$COMMIT" ]; then
+    if ! git -C "$SRCROOT" diff --quiet HEAD -- 2>/dev/null; then
+        COMMIT="${COMMIT}+dirty"
+    fi
+    /usr/libexec/PlistBuddy -c "Set :LumeGitCommit $COMMIT" "$PLIST" 2>/dev/null \
+        || /usr/libexec/PlistBuddy -c "Add :LumeGitCommit string $COMMIT" "$PLIST"
+    echo "Stamped commit $COMMIT into Info.plist"
+fi
+
+if [ ! -f "$ENV_FILE" ]; then
+    echo "warning: .env not found at $ENV_FILE — secrets not injected"
     exit 0
 fi
 

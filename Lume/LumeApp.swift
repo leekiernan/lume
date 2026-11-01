@@ -37,6 +37,7 @@ struct LumeApp: App {
         LaunchTimeline.appCodeStarts()
         // First, so the launch marker precedes anything the setup below logs.
         DiagnosticSession.start()
+        if !Self.isUnitTestHost { MainThreadStallWatch.shared.start() }
         if !Self.isUnitTestHost { DownloadCompletionNotifications.shared.configure() }
         let (catalog, cloud) = Self.makeModelContainers()
         catalogContainer = catalog
