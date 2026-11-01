@@ -13,7 +13,9 @@
       "INFOPLIST_KEY_NSSupportsLiveActivities": null,
       "INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates": null,
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume;",
-      "PROVISIONING_PROFILE_SPECIFIER": "\"\";"
+      "PROVISIONING_PROFILE_SPECIFIER": "\"\";",
+      "MARKETING_VERSION": "2.6.1;",
+      "CURRENT_PROJECT_VERSION": "33;"
     },
     "C67C02E62F880F2400842DBA": {
       "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvos*]\"": "\"LumeIceTV LumeCoralTV LumeGreenTV LumeSignalPinkTV LumeSignalIceTV LumeSignalCoralTV LumeSignalGreenTV LumeFloodlightPinkTV LumeFloodlightIceTV LumeFloodlightCoralTV LumeFloodlightGreenTV\";",
@@ -28,7 +30,9 @@
       "INFOPLIST_KEY_NSSupportsLiveActivities": null,
       "INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates": null,
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume;",
-      "PROVISIONING_PROFILE_SPECIFIER": "\"\";"
+      "PROVISIONING_PROFILE_SPECIFIER": "\"\";",
+      "MARKETING_VERSION": "2.6.1;",
+      "CURRENT_PROJECT_VERSION": "33;"
     },
     "C67C02E72F880F2400842DBA": {
       "CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED": "YES;",
@@ -45,22 +49,30 @@
     "C67C02EA2F880F2400842DBA": {
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;",
+      "MARKETING_VERSION": "2.6.1;",
+      "CURRENT_PROJECT_VERSION": "33;"
     },
     "C67C02EB2F880F2400842DBA": {
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;",
+      "MARKETING_VERSION": "2.6.1;",
+      "CURRENT_PROJECT_VERSION": "33;"
     },
     "C67C02ED2F880F2400842DBA": {
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeuitests;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeuitests;",
+      "MARKETING_VERSION": "2.6.1;",
+      "CURRENT_PROJECT_VERSION": "33;"
     },
     "C67C02EE2F880F2400842DBA": {
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeuitests;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeuitests;",
+      "MARKETING_VERSION": "2.6.1;",
+      "CURRENT_PROJECT_VERSION": "33;"
     },
     "C67C02F12F880F2400842DBA": {
       "CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED": "YES;",
@@ -81,57 +93,79 @@
       "INFOPLIST_KEY_NSSupportsLiveActivities": null,
       "INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates": null,
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume;",
-      "PROVISIONING_PROFILE_SPECIFIER": "\"\";"
+      "PROVISIONING_PROFILE_SPECIFIER": "\"\";",
+      "MARKETING_VERSION": "2.6.1;",
+      "CURRENT_PROJECT_VERSION": "33;"
     },
     "C67C02F32F880F2400842DBA": {
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;",
+      "MARKETING_VERSION": "2.6.1;",
+      "CURRENT_PROJECT_VERSION": "33;"
     },
     "C67C02F42F880F2400842DBA": {
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeuitests;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeuitests;",
+      "MARKETING_VERSION": "2.6.1;",
+      "CURRENT_PROJECT_VERSION": "33;"
     },
     "C6BD5701000000000000E006": {
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;",
+      "MARKETING_VERSION": "2.6.1;",
+      "CURRENT_PROJECT_VERSION": "33;"
     },
     "C6BD5701000000000000E007": {
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;",
+      "MARKETING_VERSION": "2.6.1;",
+      "CURRENT_PROJECT_VERSION": "33;"
     },
     "C6BD5701000000000000E008": {
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;",
+      "MARKETING_VERSION": "2.6.1;",
+      "CURRENT_PROJECT_VERSION": "33;"
     },
     "C6BD5701000000000000E009": {
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;",
+      "MARKETING_VERSION": "2.6.1;",
+      "CURRENT_PROJECT_VERSION": "33;"
     },
     "C6BE110000000000000000AA": {
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeperformancetests;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeperformancetests;",
+      "MARKETING_VERSION": "2.6.1;",
+      "CURRENT_PROJECT_VERSION": "33;"
     },
     "C6BE110000000000000000AB": {
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeperformancetests;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeperformancetests;",
+      "MARKETING_VERSION": "2.6.1;",
+      "CURRENT_PROJECT_VERSION": "33;"
     },
     "C6BE110000000000000000AC": {
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeperformancetests;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeperformancetests;",
+      "MARKETING_VERSION": "2.6.1;",
+      "CURRENT_PROJECT_VERSION": "33;"
     },
     "C6BE110000000000000000AD": {
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeperformancetests;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeperformancetests;",
+      "MARKETING_VERSION": "2.6.1;",
+      "CURRENT_PROJECT_VERSION": "33;"
     },
     "C6BE110000000000000000B1": {
       "CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED": "YES;",
@@ -152,17 +186,23 @@
       "INFOPLIST_KEY_NSSupportsLiveActivities": null,
       "INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates": null,
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume;",
-      "PROVISIONING_PROFILE_SPECIFIER": "\"\";"
+      "PROVISIONING_PROFILE_SPECIFIER": "\"\";",
+      "MARKETING_VERSION": "2.6.1;",
+      "CURRENT_PROJECT_VERSION": "33;"
     },
     "C6BE110000000000000000B3": {
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;",
+      "MARKETING_VERSION": "2.6.1;",
+      "CURRENT_PROJECT_VERSION": "33;"
     },
     "C6BE110000000000000000B4": {
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeuitests;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeuitests;",
+      "MARKETING_VERSION": "2.6.1;",
+      "CURRENT_PROJECT_VERSION": "33;"
     }
   },
   "attributes": {
