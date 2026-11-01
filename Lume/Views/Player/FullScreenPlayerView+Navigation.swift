@@ -150,8 +150,13 @@ extension FullScreenPlayerView {
         completedRef = nil
         // Zero — or, for a catch-up programme, where its opening segment sits.
         clock.reset(for: newMedia)
+        // The outgoing player can keep reporting for a moment (a remounted
+        // KSPlayer until its old layer goes): its end-of-episode position and
+        // length would re-fire auto-advance and save against the new title.
+        clock.holdEngineReports(from: activeMedia.id)
         // Restart the fallback chain from the primary engine for the new stream.
         engineAttempt = 0
+        remountForTitleSwap(to: newMedia)
         activeMedia = newMedia
         // Slide the outgoing channel into the recall slot so `right` can jump back.
         LiveChannelHistory.record(newMedia)

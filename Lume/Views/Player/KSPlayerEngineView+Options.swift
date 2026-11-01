@@ -7,6 +7,9 @@
 //  that view file focused on the SwiftUI body.
 //
 
+#if os(tvOS) || os(visionOS)
+    import AVKit
+#endif
 import CoreMedia
 import Foundation
 import KSPlayer
@@ -55,18 +58,77 @@ final nonisolated class LumeKSOptions: KSOptions {
         super.init()
     }
 
+    /// Process-wide, like the display it guards: an episode swap hands the
+    /// player a fresh options object, and what was applied must carry over.
+    @MainActor private static var displayGate = DisplayCriteriaGate()
+    @MainActor private static var displaySettle: Task<Void, Never>?
+    /// The outgoing player's reset of the display mode, held back so the next
+    /// title can claim the mode first — see `playerLayerDeinit`.
+    @MainActor private static var displayReset: Task<Void, Never>?
+    /// Long enough for the next episode's first frame (joins run 1–4 s, plus
+    /// the settle), short enough that leaving the player soon restores the
+    /// interface's mode.
+    private static let displayResetDelay: Duration = .seconds(5)
+
+    /// Settles KSPlayer's display-mode requests before any reaches the TV,
+    /// and drops one that matches the mode already set — see
+    /// `DisplayCriteriaGate`.
     @MainActor
     override func updateVideo(refreshRate: Float, isDovi: Bool, formatDescription: CMFormatDescription?) {
         guard matchesDisplayCriteria else { return }
-        super.updateVideo(refreshRate: refreshRate, isDovi: isDovi, formatDescription: formatDescription)
+        // KSPlayer only switches once the dynamic range is known.
+        guard let range = isDovi ? .dolbyVision : formatDescription?.dynamicRange else { return }
+        Self.displayGate.request(.init(refreshRate: refreshRate, dynamicRange: range.rawValue))
+        // A title is playing again: the outgoing one's reset is moot.
+        Self.displayReset?.cancel()
+        Self.displaySettle?.cancel()
+        Self.displaySettle = Task {
+            try? await Task.sleep(for: DisplayCriteriaGate.settleDelay)
+            guard !Task.isCancelled else { return }
+            guard Self.displayGate.settle() else {
+                Logger.player.info("display mode unchanged at \(refreshRate, format: .fixed(precision: 3), privacy: .public) fps, range \(range.rawValue, privacy: .public)")
+                return
+            }
+            Logger.player.info("display mode → \(refreshRate, format: .fixed(precision: 3), privacy: .public) fps, range \(range.rawValue, privacy: .public)")
+            super.updateVideo(refreshRate: refreshRate, isDovi: isDovi, formatDescription: formatDescription)
+        }
     }
 
     /// An embedded session never set the display mode, so it must not reset
     /// it either — that would knock full screen, or the next tile, back to the
     /// interface's mode.
+    ///
+    /// Not reset at once: KSPlayer gets a fresh player per episode, and
+    /// clearing the mode as the old one goes would make every episode change
+    /// two HDMI switches (to the interface's mode and straight back), the
+    /// back-to-back switching that has hung tvOS 27.2's display. The reset
+    /// waits, and the next title's first request cancels it; an episode in
+    /// the same format then never touches the display.
     override func playerLayerDeinit() {
         guard matchesDisplayCriteria else { return }
-        super.playerLayerDeinit()
+        guard Thread.isMainThread else {
+            Task { @MainActor in Self.scheduleDisplayReset() }
+            return
+        }
+        MainActor.assumeIsolated { Self.scheduleDisplayReset() }
+    }
+
+    @MainActor
+    private static func scheduleDisplayReset() {
+        displayReset?.cancel()
+        displayReset = Task {
+            try? await Task.sleep(for: displayResetDelay)
+            guard !Task.isCancelled else { return }
+            displaySettle?.cancel()
+            displayGate.reset()
+            Logger.player.info("display mode → interface")
+            #if os(tvOS) || os(visionOS)
+                let window = UIApplication.shared.connectedScenes
+                    .compactMap { ($0 as? UIWindowScene)?.windows.first }
+                    .first
+                window?.avDisplayManager.preferredDisplayCriteria = nil
+            #endif
+        }
     }
 
     /// Call from every manual audio-track pick, before `select(track:)`.

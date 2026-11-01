@@ -50,7 +50,10 @@ nonisolated enum DiagnosticSession {
         let launches = defaults.integer(forKey: launchCountKey) + 1
         defaults.set(launches, forKey: launchCountKey)
 
-        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
+        let bundleVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
+        // Stamped by `Scripts/inject-env.sh`; tells builds of one version apart.
+        let commit = Bundle.main.object(forInfoDictionaryKey: "LumeGitCommit") as? String
+        let build = commit.map { "\(bundleVersion), \($0)" } ?? bundleVersion
         let osVersion = ProcessInfo.processInfo.operatingSystemVersionString
         Logger.app.notice(
             "Session started — lume \(SupportInfo.appVersion) (\(build)), \(DebugLogExporter.platformName) \(osVersion), \(DebugLogExporter.deviceModel), launch #\(launches)"

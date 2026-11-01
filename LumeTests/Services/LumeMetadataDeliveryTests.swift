@@ -212,10 +212,13 @@ struct LumeMetadataDeliveryTests {
 
     @Test func `same authenticated batch is coalesced for concurrent readers`() async throws {
         let (_, source, client, host) = try fixture(body: envelope([item()]))
+        // All readers share the fixture's logical clock. Task entry order can
+        // differ from wall-clock sampling order under a loaded parallel run.
+        let now = now
         try await withThrowingTaskGroup(of: Void.self) { group in
             for _ in 0 ..< 10 {
                 group.addTask {
-                    _ = try await client.fetch(source: source, type: .movie, ids: [603], language: "en-GB")
+                    _ = try await client.fetch(source: source, type: .movie, ids: [603], language: "en-GB", now: now)
                 }
             }
             try await group.waitForAll()

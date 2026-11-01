@@ -32,7 +32,8 @@ nonisolated enum PlaybackResourceResolver {
     }()
 
     static func resolve(_ resource: PlaybackResource, session: URLSession = session,
-                        timeout: TimeInterval = timeout) async throws -> PlaybackResource
+                        timeout: TimeInterval = timeout,
+                        sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }) async throws -> PlaybackResource
     {
         try Task.checkCancellation()
         guard resource.needsPreparation else { return resource }
@@ -40,7 +41,7 @@ nonisolated enum PlaybackResourceResolver {
             return try await withThrowingTaskGroup(of: PlaybackResource.self) { group in
                 group.addTask { try await follow(resource, session: session) }
                 group.addTask {
-                    try await Task.sleep(for: .seconds(timeout))
+                    try await sleep(.seconds(timeout))
                     throw URLError(.timedOut)
                 }
                 defer { group.cancelAll() }

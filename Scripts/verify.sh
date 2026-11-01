@@ -30,7 +30,8 @@ tests() { # [Suite…]
         for suite in "$@"; do only+=("-only-testing:LumeTests/$suite"); done
     fi
     xcodebuild test -project Lume.xcodeproj -scheme Lume "${SPM[@]}" -derivedDataPath /tmp/lume-dd-mac \
-        -destination 'platform=macOS' COMPILER_INDEX_STORE_ENABLE=NO "${only[@]}" > "$LOG-test.log" 2>&1
+        -destination 'platform=macOS' -collect-test-diagnostics never \
+        ENABLE_INCOMING_NETWORK_CONNECTIONS=YES COMPILER_INDEX_STORE_ENABLE=NO "${only[@]}" > "$LOG-test.log" 2>&1
     local status=$?
     echo "tests: exit $status, passed $(grep -c "^Test case .*' passed" "$LOG-test.log"), failed $(grep -c "^Test case .*' failed" "$LOG-test.log")"
     grep "^Test case .*' failed\|error:" "$LOG-test.log" | head -5

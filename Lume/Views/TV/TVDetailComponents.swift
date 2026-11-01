@@ -308,7 +308,7 @@
                     .frame(width: TVDetailMetrics.episodeCardWidth, alignment: .leading)
                 }
             }
-            .buttonStyle(TVCardButtonStyle(focusScale: 1.06))
+            .buttonStyle(TVCardButtonStyle(focusScale: 1.06, castsShadow: false))
             .contextMenu {
                 EpisodeWatchedMenu(
                     episode: episode,
@@ -343,6 +343,7 @@
             }
             .frame(width: TVDetailMetrics.episodeCardWidth, height: TVDetailMetrics.episodeStillHeight)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .cardFocusGlow()
         }
 
         private var heading: String {

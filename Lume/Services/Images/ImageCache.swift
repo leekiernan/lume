@@ -200,6 +200,7 @@ final nonisolated class ImageDiskCache: @unchecked Sendable {
     private let now: @Sendable () -> Date
     private let automaticallyMaintains: Bool
     private let initialMaintenanceDelay: Duration
+    private let sleep: @Sendable (Duration) async throws -> Void
 
     /// Maintenance is intentionally detached from image delivery. These fields
     /// coalesce a burst of writes into one sweep, while `estimatedByteCount`
@@ -216,6 +217,7 @@ final nonisolated class ImageDiskCache: @unchecked Sendable {
         maxAge: TimeInterval = ImageDiskCache.defaultMaxAge,
         automaticallyMaintains: Bool = true,
         initialMaintenanceDelay: Duration = .seconds(5),
+        sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
         now: @escaping @Sendable () -> Date = { .now }
     ) {
         precondition(byteLimit > 0)
@@ -226,6 +228,7 @@ final nonisolated class ImageDiskCache: @unchecked Sendable {
         self.maxAge = maxAge
         self.automaticallyMaintains = automaticallyMaintains
         self.initialMaintenanceDelay = initialMaintenanceDelay
+        self.sleep = sleep
         self.now = now
         try? fileManager.createDirectory(at: self.directory, withIntermediateDirectories: true)
         scheduleInitialMaintenance()
@@ -432,8 +435,9 @@ final nonisolated class ImageDiskCache: @unchecked Sendable {
     private func scheduleInitialMaintenance() {
         guard automaticallyMaintains else { return }
         let delay = initialMaintenanceDelay
+        let sleep = sleep
         Task.detached(priority: .background) { [weak self] in
-            try? await Task.sleep(for: delay)
+            do { try await sleep(delay) } catch { return }
             guard !Task.isCancelled else { return }
             self?.requestMaintenance()
         }

@@ -16,7 +16,7 @@
 import Foundation
 import SwiftData
 
-enum TitleVersions {
+nonisolated enum TitleVersions {
     /// `movie` first, then every other movie with its TMDB id. Just `movie`
     /// when it has none: without the id there's no telling what else is it.
     static func movies(of movie: Movie, in context: ModelContext) -> [Movie] {

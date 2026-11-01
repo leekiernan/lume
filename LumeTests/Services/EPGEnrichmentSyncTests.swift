@@ -428,12 +428,19 @@ extension EPGEnrichmentSyncTests {
         #expect(requests.withLock { $0.last?.lowercased().contains("if-modified-since:") } == true)
     }
 
-    @Test func `cancelling a metadata download retries immediately after a provider 304`() async throws {
+    @Test(.timeLimit(.minutes(5))) func `cancelling a metadata download retries immediately after a provider 304`() async throws {
         let downloads = Mutex(0)
+        let (arrivals, arrived) = AsyncStream<Void>.makeStream()
+        let (replies, releaseReply) = AsyncStream<Void>.makeStream()
+        defer { releaseReply.finish() }
         let server = try GuideHTTPServer { raw in
             if raw.hasPrefix("GET /metadata") {
                 let attempt = downloads.withLock { $0 += 1; return $0 }
-                return .init(body: Fixture.document(channel: "KQED-DT.us_locals1", artwork: "https://example.com/art.jpg"), delay: attempt == 1 ? 2 : 0)
+                if attempt == 1 { arrived.yield(()) }
+                let wait: (@Sendable () async -> Void)? = attempt == 1 ? { @Sendable in
+                    for await _ in replies {}
+                } : nil
+                return .init(body: Fixture.document(channel: "KQED-DT.us_locals1", artwork: "https://example.com/art.jpg"), waitBeforeSending: wait)
             }
             if raw.lowercased().contains("if-modified-since:") { return .init(status: 304) }
             return .init(headers: ["Last-Modified": Self.modified], body: Fixture.document(channel: "PBSKQED.us"))
@@ -449,9 +456,8 @@ extension EPGEnrichmentSyncTests {
         fixture.defaults.set(Date().timeIntervalSince1970, forKey: "lume.epgEnrichment.attempted")
         let task = Task { await manager.syncAllSources(enrichProgrammes: true) }
         defer { task.cancel() }
-        for _ in 0 ..< 200 where downloads.withLock({ $0 }) == 0 {
-            try await Task.sleep(for: .milliseconds(5))
-        }
+        var iterator = arrivals.makeAsyncIterator()
+        _ = try #require(await iterator.next())
         try #require(downloads.withLock { $0 } == 1)
         task.cancel()
         #expect(await task.value == .cancelled)
