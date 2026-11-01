@@ -156,8 +156,9 @@ this household's proxy is currently its only user.
   no `termsOfService` or `license`, so the reuse question stays open.
 - A search for "English Premier" ranks *English Premier Womens League* above
   *English Premier League*. Abstaining on ambiguity is required, not optional.
-- `/api/public/v1/events` returns null `tsdbId` and null slugs (25 of 25 in
-  the Premier League window). Artwork counts match the sample table: 25
+- The `/api/public/v1/events` listing returns null `tsdbId` (25 of 25 in the
+  Premier League window), and its records have no slug field at all. Artwork
+  counts match the sample table: 25
   posters, 25 thumbnails, 14 banners (13 when first sampled: the data moves),
   no fanart.
 - Image filenames carry their provenance (`badge_thesportsdb_…`), so the
@@ -179,37 +180,52 @@ this household's proxy is currently its only user.
 
 ### Corrections and additions
 
-- **The TheSportsDB-compatible API answers the identity gap.** The
-  specification also publishes 32 `/api/v2/json/*` routes (lookup, search,
-  `list/teams`, `schedule/league/{id}/{season}`, `list/seasonposters`, `tv`,
-  `livescore`). This is what Sportarr's own client uses. Through it the same
-  game (`ev-2301184`, Liverpool v Arsenal) carries `tsdbId` `2494082`, and
-  teams carry a TheSportsDB id, a short code (`ARS`) and club colours. Map
-  through `v2/json`, or join `public/v1` to it by short id, rather than
-  treating event `tsdbId` as unavailable.
+- **The TheSportsDB id is only missing from the listing.** The same game
+  (`ev-2301184`, Liverpool v Arsenal) has `tsdbId` `2494082` on both the public
+  event detail (`/api/public/v1/events/{id}`) and the TheSportsDB-compatible
+  lookup. The specification publishes 32 such `/api/v2/json/*` routes (lookup,
+  search, `list/teams`, `schedule/league/{id}/{season}`,
+  `list/seasonposters`, `tv`, `livescore`); Sportarr's own client uses them.
+  Teams there carry a TheSportsDB id, a short code (`ARS`) and club colours.
+  This narrows the identity gap without closing it: no record carries an ESPN
+  id, so matching Sportarr events to ESPN fixtures by league, date and
+  participants is still required. Don't mandate per-event detail or
+  compatibility lookups until their batch coverage and request cost have been
+  compared with the listing's.
 - **Stable ids for every entity.** Leagues `lg-`, teams `tm-` and events `ev-`
   short ids, documented as permanent and never reused
   (`docs/EXTERNAL_IDS.md`), alongside a UUID. Key the proxy's mappings on short
   ids.
-- **More event artwork than the table lists.** Every sampled event also
-  carries its league badge and both teams' badges, and 14 of 25 carry a square
-  image. `thumbUrl` is the game's own 16:9 image: the wide heroes and big
+- **More event artwork than the table lists.** Every sampled Premier League
+  event also carries its league badge and both teams' badges, and 14 of 25
+  carry a square image. The UFC samples have no team badges. `thumbUrl` is the game's own 16:9 image: the wide heroes and big
   cards currently use one team's generic fanart (`SportsArtwork.art`).
 - **Matching data.** Events carry an alternate title (`Arsenal @ Liverpool`),
   round, season, venue, a UTC start and a `broadcastDate` in the league's
   `broadcastTimezone` (`Europe/London`). Teams carry short codes. These are
-  candidate aliases for the guide matcher.
+  candidate aliases for the guide matcher, outside the first artwork slice.
 - **TV listings are populated per event, without times.** `tv/event/ev-2301184`
   returned 37 broadcasters across 30 countries, including UK *Sky Sports
   Premier League* and *Sky Sports Main Event*, every `broadcastTime` null.
-  `tv/date/2026-11-01` returned no rows. Broadcaster names could narrow which
-  guide channels to search, but a broadcaster is not a playlist channel: treat
-  them as evidence for the existing matcher, never as a playable match. This
-  is a later gate, after artwork.
-- **Public events carry live scores.** The sampled game was
-  `status: in_progress` at 0–1. Enrichment must drop score and status fields
-  at the adapter so nothing can bypass Hide Scores. ESPN stays the score
-  source as planned.
+  `tv/date/2026-11-01` returned no rows. Broadcaster names may only add or
+  rank candidates in the existing guide matching, never restrict which
+  channels it searches: listings can be incomplete, and a narrowed search
+  would drop valid local matches. A broadcaster is not a playlist channel, so
+  a hint alone is never a playable match. This is a later gate, after
+  artwork.
+- **Public events carry live scores, and outcomes can hide in text.** The
+  sampled game was `status: in_progress` at 0–1. Dropping score and status
+  fields is not enough: descriptions, results text, video links and captions
+  can reveal an outcome too. The initial adapter keeps an allowlist and drops
+  everything else:
+  - **Identity:** the event, league and team short ids and UUIDs, `tsdbId`,
+    team names, scheduled start, `broadcastDate` and `broadcastTimezone`,
+    round, season and venue name.
+  - **Artwork:** `posterUrl`, `thumbUrl`, `bannerUrl`, `squareUrl`,
+    `fanartUrl`, `leagueBadgeUrl`, `homeTeamBadgeUrl` and `awayTeamBadgeUrl`.
+
+  Anything else (descriptions, alternate titles, broadcasters) needs its own
+  spoiler review before it is added. ESPN stays the score source as planned.
 - **A registered key is offered.** The specification describes `/api/v1` with
   an `X-API-Key` and higher limits "for registered consumers", and calls the
   public API "designed for Sportarr instances". Ask the maintainers for a key
