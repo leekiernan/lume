@@ -160,7 +160,7 @@ private final nonisolated class HeaderOnlyStreamProtocol: URLProtocol {
 }
 
 /// Never answers, so only cancellation (or the timeout) ends the probe.
-private final nonisolated class SilentStreamProtocol: URLProtocol {
+final nonisolated class SilentStreamProtocol: URLProtocol {
     // swiftlint:disable:next static_over_final_class
     override class func canInit(with _: URLRequest) -> Bool {
         true

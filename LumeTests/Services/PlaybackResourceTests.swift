@@ -2,84 +2,110 @@ import Foundation
 @testable import Lume
 import Testing
 
+@Suite(.timeLimit(.minutes(5)))
 struct PlaybackResourceTests {
     private let headers = ["X-Plex-Token": "private-source-token"]
 
+    private func source() -> URL {
+        URL(string: "https://\(UUID().uuidString.lowercased()).test/guide.xml")!
+    }
+
+    private func resolve(_ resource: PlaybackResource, session: URLSession) async throws -> PlaybackResource {
+        // These tests exercise redirect policy, not elapsed time. The deadline
+        // stays pending until the resolver cancels it after its response.
+        let deadline = TestSleeper()
+        return try await PlaybackResourceResolver.resolve(resource, session: session, sleep: deadline.sleep)
+    }
+
     @Test func `relative redirects keep authentication on every source hop`() async throws {
-        let log = RequestLog()
-        let server = try GuideHTTPServer { request in
-            log.append(request)
-            if request.contains("/guide.xml") { return .init(status: 302, headers: ["Location": "/canonical"], body: "") }
-            return .init(status: 206, body: "x")
-        }
-        let original = try await server.start()
-        defer { server.stop() }
-        let result = try await PlaybackResourceResolver.resolve(.init(url: original, headers: headers))
+        let original = source()
+        let host = try #require(original.host)
+        let session = StubURLProtocol.makeSession()
+        defer { session.invalidateAndCancel() }
+        StubURLProtocol.register(host: host, path: "/guide.xml", response: .init(status: 302, headers: ["Location": "/canonical"]))
+        StubURLProtocol.register(host: host, path: "/canonical", response: .init(status: 206, body: "x"))
+        let result = try await resolve(.init(url: original, headers: headers), session: session)
         #expect(result.url.path == "/canonical")
         #expect(result.headers == headers)
-        #expect(log.requests.count == 2)
-        #expect(log.requests.allSatisfy { $0.contains("private-source-token") && $0.contains("bytes=0-0") })
+        let requests = StubURLProtocol.requests(forHost: host)
+        #expect(requests.map { $0.url?.path } == ["/guide.xml", "/canonical"])
+        #expect(requests.allSatisfy {
+            $0.value(forHTTPHeaderField: "X-Plex-Token") == headers["X-Plex-Token"]
+                && $0.value(forHTTPHeaderField: "Range") == "bytes=0-0"
+        })
     }
 
     @Test func `a foreign port loses headers and is not probed`() async throws {
-        let log = RequestLog()
-        let destination = try GuideHTTPServer { request in log.append(request); return .init(body: "x") }
-        let target = try await destination.start()
-        defer { destination.stop() }
-        let origin = try GuideHTTPServer { _ in .init(status: 307, headers: ["Location": target.absoluteString], body: "") }
-        let original = try await origin.start()
-        defer { origin.stop() }
-        let result = try await PlaybackResourceResolver.resolve(.init(url: original, headers: headers))
+        let original = source()
+        let host = try #require(original.host)
+        var components = try #require(URLComponents(url: original, resolvingAgainstBaseURL: false))
+        components.port = 8443
+        let target = try #require(components.url)
+        let session = StubURLProtocol.makeSession()
+        defer { session.invalidateAndCancel() }
+        StubURLProtocol.register(host: host, path: "/guide.xml", response: .init(status: 307, headers: ["Location": target.absoluteString]))
+        let result = try await resolve(.init(url: original, headers: headers), session: session)
         #expect(result == PlaybackResource(url: target, headers: nil))
-        #expect(log.requests.isEmpty)
+        #expect(StubURLProtocol.requests(forHost: host).map(\.url) == [original])
     }
 
     @Test(arguments: ["file:///private/secret", "rtmp://media.test/film", "http://user:pass@media.test/film"])
     func `unsafe redirect targets fail closed`(target: String) async throws {
-        let server = try GuideHTTPServer { _ in .init(status: 302, headers: ["Location": target], body: "") }
-        let original = try await server.start()
-        defer { server.stop() }
+        let original = source()
+        let session = StubURLProtocol.makeSession()
+        defer { session.invalidateAndCancel() }
+        try StubURLProtocol.register(host: #require(original.host), path: original.path, response: .init(status: 302, headers: ["Location": target]))
         await #expect(throws: URLError.self) {
-            _ = try await PlaybackResourceResolver.resolve(.init(url: original, headers: headers))
+            _ = try await resolve(.init(url: original, headers: headers), session: session)
         }
     }
 
     @Test func `redirect loops have a finite budget`() async throws {
-        let server = try GuideHTTPServer { _ in .init(status: 302, headers: ["Location": "/guide.xml"], body: "") }
-        let original = try await server.start()
-        defer { server.stop() }
-        await #expect { _ = try await PlaybackResourceResolver.resolve(.init(url: original, headers: headers)) } throws: { error in
+        let original = source()
+        let session = StubURLProtocol.makeSession()
+        defer { session.invalidateAndCancel() }
+        try StubURLProtocol.register(host: #require(original.host), path: original.path, response: .init(status: 302, headers: ["Location": original.path]))
+        await #expect { _ = try await resolve(.init(url: original, headers: headers), session: session) } throws: { error in
             (error as? URLError)?.code == .httpTooManyRedirects
         }
     }
 
     @Test func `a slow source falls back to the unresolved handoff at its deadline`() async throws {
-        // The server stalls a minute; the deadline must end the wait long
-        // before, however busy the machine (a tight bound fails under a full
-        // parallel run without telling a regression from load).
-        let server = try GuideHTTPServer { _ in .init(body: "late", delay: 60) }
-        let original = try await server.start()
-        defer { server.stop() }
-        let resource = PlaybackResource(url: original, headers: headers)
-        let start = ContinuousClock.now
-        #expect(try await PlaybackResourceResolver.resolve(resource, timeout: 0.1) == resource)
-        #expect(start.duration(to: .now) < .seconds(30))
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [SilentStreamProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        let resource = PlaybackResource(url: source(), headers: headers)
+        let deadline = TestSleeper()
+        let read = Task { try await PlaybackResourceResolver.resolve(resource, session: session, sleep: deadline.sleep) }
+        defer { read.cancel() }
+        var iterator = deadline.requests.makeAsyncIterator()
+        let duration = try #require(await iterator.next())
+        #expect(duration == .seconds(PlaybackResourceResolver.timeout))
+        await deadline.advance()
+        #expect(try await read.value == resource)
     }
 
     @Test func `an unreachable source falls back to the unresolved handoff`() async throws {
-        let server = try GuideHTTPServer { _ in .init(body: "x") }
-        let original = try await server.start()
-        server.stop()
+        let original = source()
+        let session = StubURLProtocol.makeSession()
+        defer { session.invalidateAndCancel() }
+        try StubURLProtocol.register(host: #require(original.host), path: original.path, response: .init(error: URLError(.cannotConnectToHost)))
         let resource = PlaybackResource(url: original, headers: headers)
-        #expect(try await PlaybackResourceResolver.resolve(resource) == resource)
+        #expect(try await resolve(resource, session: session) == resource)
     }
 
     @Test func `a cancelled caller is not handed the fallback`() async throws {
-        let server = try GuideHTTPServer { _ in .init(body: "late", delay: 5) }
-        let original = try await server.start()
-        defer { server.stop() }
-        let read = Task { try await PlaybackResourceResolver.resolve(.init(url: original, headers: headers)) }
-        try await Task.sleep(for: .milliseconds(100))
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [SilentStreamProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        let original = source()
+        let deadline = TestSleeper()
+        let read = Task { try await PlaybackResourceResolver.resolve(.init(url: original, headers: headers), session: session, sleep: deadline.sleep) }
+        defer { read.cancel() }
+        var iterator = deadline.requests.makeAsyncIterator()
+        _ = try #require(await iterator.next())
         read.cancel()
         await #expect(throws: (any Error).self) { _ = try await read.value }
     }
