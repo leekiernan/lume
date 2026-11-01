@@ -47,6 +47,7 @@
                     }
                     .frame(width: TVDetailMetrics.episodeCardWidth, height: TVDetailMetrics.episodeStillHeight)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .cardFocusGlow()
 
                     VStack(alignment: .leading, spacing: 6) {
                         Text(video.name)
@@ -61,7 +62,7 @@
                     .frame(width: TVDetailMetrics.episodeCardWidth, alignment: .leading)
                 }
             }
-            .buttonStyle(TVCardButtonStyle(focusScale: 1.06))
+            .buttonStyle(TVCardButtonStyle(focusScale: 1.06, castsShadow: false))
         }
     }
 
