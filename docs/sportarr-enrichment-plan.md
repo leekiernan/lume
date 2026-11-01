@@ -141,3 +141,95 @@ Expand only if the trial demonstrates useful additional artwork at an acceptable
 request cost. Broader discovery, TV listings, shared ESPN feeds and proxy image
 delivery need their own coverage, freshness and cost evidence. Do not move them
 merely because the proxy can make HTTP requests.
+
+## Verification (2026-11-01)
+
+The claims above were rechecked against the live service, Sportarr's client
+source (`Sportarr/Sportarr`, `src/Services/SportarrApiClient.cs`) and both
+codebases. Context since writing: the proxy's cache is the intended path, and
+this household's proxy is currently its only user.
+
+### Confirmed
+
+- OpenAPI specification `Sportarr-Hub API` 1.8.0: `/api/public/v1` needs no
+  key and is limited per IP to 120 requests/minute and 2,000/hour. It carries
+  no `termsOfService` or `license`, so the reuse question stays open.
+- A search for "English Premier" ranks *English Premier Womens League* above
+  *English Premier League*. Abstaining on ambiguity is required, not optional.
+- `/api/public/v1/events` returns null `tsdbId` and null slugs (25 of 25 in
+  the Premier League window). Artwork counts match the sample table: 25
+  posters, 25 thumbnails, 14 banners (13 when first sampled: the data moves),
+  no fanart.
+- Image filenames carry their provenance (`badge_thesportsdb_…`), so the
+  artwork is TheSportsDB's. It is served from Cloudflare with
+  `cache-control: public, max-age=31536000, immutable`, which suits the plan
+  of the app fetching image bytes directly.
+- `SportsDataProvider` is the seam, and `SportsLeague.makeID` hard-codes
+  `espn:{sport}/{slug}`: enrichment must attach to ESPN ids, not replace them.
+- The proxy stores schedules per source, competition and date window
+  (`internal/sports/schedules.go`), so its existing fetch is bounded.
+- The proxy's `docs/sports-api.md` (line 3) still says the app does not
+  consume broadcasts. It is stale; the app does.
+- Every figure in [sports-proxy.md](sports-proxy.md) matches the code: 16
+  batches and 16 MiB cached, 60 s ready / 10 s pending reuse, 3 s / 5 s
+  timeouts, a 10 s cooldown, unavailable negotiations cached for 60 s, batches
+  capped at 50, four concurrent playlist negotiations and a ten-minute resolver
+  cache. Undocumented there: a single response is capped at 8 MiB
+  (`LumeSportsClient.maximumBytes`).
+
+### Corrections and additions
+
+- **The TheSportsDB-compatible API answers the identity gap.** The
+  specification also publishes 32 `/api/v2/json/*` routes (lookup, search,
+  `list/teams`, `schedule/league/{id}/{season}`, `list/seasonposters`, `tv`,
+  `livescore`). This is what Sportarr's own client uses. Through it the same
+  game (`ev-2301184`, Liverpool v Arsenal) carries `tsdbId` `2494082`, and
+  teams carry a TheSportsDB id, a short code (`ARS`) and club colours. Map
+  through `v2/json`, or join `public/v1` to it by short id, rather than
+  treating event `tsdbId` as unavailable.
+- **Stable ids for every entity.** Leagues `lg-`, teams `tm-` and events `ev-`
+  short ids, documented as permanent and never reused
+  (`docs/EXTERNAL_IDS.md`), alongside a UUID. Key the proxy's mappings on short
+  ids.
+- **More event artwork than the table lists.** Every sampled event also
+  carries its league badge and both teams' badges, and 14 of 25 carry a square
+  image. `thumbUrl` is the game's own 16:9 image: the wide heroes and big
+  cards currently use one team's generic fanart (`SportsArtwork.art`).
+- **Matching data.** Events carry an alternate title (`Arsenal @ Liverpool`),
+  round, season, venue, a UTC start and a `broadcastDate` in the league's
+  `broadcastTimezone` (`Europe/London`). Teams carry short codes. These are
+  candidate aliases for the guide matcher.
+- **TV listings are populated per event, without times.** `tv/event/ev-2301184`
+  returned 37 broadcasters across 30 countries, including UK *Sky Sports
+  Premier League* and *Sky Sports Main Event*, every `broadcastTime` null.
+  `tv/date/2026-11-01` returned no rows. Broadcaster names could narrow which
+  guide channels to search, but a broadcaster is not a playlist channel: treat
+  them as evidence for the existing matcher, never as a playable match. This
+  is a later gate, after artwork.
+- **Public events carry live scores.** The sampled game was
+  `status: in_progress` at 0–1. Enrichment must drop score and status fields
+  at the adapter so nothing can bypass Hide Scores. ESPN stays the score
+  source as planned.
+- **A registered key is offered.** The specification describes `/api/v1` with
+  an `X-API-Key` and higher limits "for registered consumers", and calls the
+  public API "designed for Sportarr instances". Ask the maintainers for a key
+  for the proxy; that conversation is also where the reuse terms get settled.
+- **Pacing is already expected.** Sportarr's own client spaces its hub calls
+  (`HubRequestPacer`) because the hub enforces a per-second allowance as well
+  as the documented per-minute one. The proxy should do the same.
+
+### What today's artwork path does, for the comparison gate
+
+`SportsArtwork` uses TheSportsDB's free v1 key (`123`), paced to 30
+requests/minute:
+
+- **Team fanart:** found by name search (`searchteams.php`, first result with
+  the right sport). That's fragile for name variants and duplicate club names.
+- **League fanart and posters:** only for about 25 hard-coded competitions
+  (`leagueIds`).
+- **Event posters:** an event search by title and date, for the compact hero
+  only.
+- **Fallback:** a generic image per sport.
+
+Compare enrichment against each of these on the same fixtures, as gate 1
+describes.
