@@ -97,6 +97,8 @@ struct FullScreenPlayerView: View {
     @State var pendingCatchupTarget: TimeInterval?
     @State var catchupSeekTask: Task<Void, Never>?
     @State var catchupRestartCount = 0
+    /// Bumped to rebuild KSPlayer for each new title — see `remountForTitleSwap`.
+    @State var titleRemountCount = 0
 
     /// De-duplicates the low-frequency engine state changes into one ordered
     /// Trakt start/pause/stop lifecycle for the active movie or episode.
@@ -455,7 +457,18 @@ struct FullScreenPlayerView: View {
     /// Rebuilt on an engine fallback, and on a catch-up seek that restarts the
     /// segment already playing.
     private var engineIdentity: [Int] {
-        [engineAttempt, catchupRestartCount]
+        [engineAttempt, catchupRestartCount, titleRemountCount]
+    }
+
+    /// KSPlayer gets a fresh player for each new movie or episode instead of
+    /// loading it into the running one. On tvOS 27.2 an in-place episode swap
+    /// can leave the HDMI output stuck on the loading frame while the new
+    /// episode plays underneath (and once reset the Apple TV), where opening
+    /// the same episode fresh never has. Live channel changes keep the
+    /// in-place swap and its held frame.
+    func remountForTitleSwap(to newMedia: PlayableMedia) {
+        guard engine == .ksPlayer, !newMedia.isLive else { return }
+        titleRemountCount &+= 1
     }
 
     @ViewBuilder

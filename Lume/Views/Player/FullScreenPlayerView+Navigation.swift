@@ -152,6 +152,7 @@ extension FullScreenPlayerView {
         clock.reset(for: newMedia)
         // Restart the fallback chain from the primary engine for the new stream.
         engineAttempt = 0
+        remountForTitleSwap(to: newMedia)
         activeMedia = newMedia
         // Slide the outgoing channel into the recall slot so `right` can jump back.
         LiveChannelHistory.record(newMedia)
