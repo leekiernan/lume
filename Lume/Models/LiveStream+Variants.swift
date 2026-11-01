@@ -9,7 +9,7 @@ extension LiveStream {
     }
 }
 
-extension Sequence<LiveStream> {
+nonisolated extension Sequence<LiveStream> {
     /// Each channel once, as the first of its qualities in this order: for a
     /// newest-first list, the one watched last — the quality it opens in.
     func onePerChannel() -> [LiveStream] {
