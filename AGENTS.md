@@ -312,6 +312,24 @@ and "implemented but unmerged" are all *not done*. The sequence is:
 - Do not delete unmerged branches, `main`, or branches on `upstream` as part of
   routine cleanup.
 
+### Versioning on merge
+
+Every merge into `main` bumps the version, as its own commit straight after
+the merge:
+
+```bash
+git merge --no-ff <branch>
+Scripts/bump-version.py            # --dry-run to preview, --level to override
+```
+
+The level is semantic versioning from the merged branch's conventional
+commits: a breaking change (`type!:` or a `BREAKING CHANGE:` footer) is
+major, any `feat` minor, anything else patch; with no conventional commits,
+a `feat/` branch is minor and the rest patch. The build number goes up by one
+every time. The script records both in `Scripts/fork-project-overrides.json`,
+so the fork keeps its own numbering through upstream project-file intake —
+never hand-edit `MARKETING_VERSION` or `CURRENT_PROJECT_VERSION`.
+
 ### Upstream intake and the project file
 
 Upstream is taken by `git cherry-pick -x`, not by merging `upstream/main`.
