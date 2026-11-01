@@ -44,8 +44,12 @@ extension KSPlayerEngineView {
     /// change between episodes can make the Apple TV renegotiate HDMI, much as
     /// a display-mode switch does.
     private func logAudioFormat(_ player: some MediaPlayerProtocol) {
-        let route = AVAudioSession.sharedInstance()
-        let output = "output \(route.outputNumberOfChannels)ch @ \(Int(route.sampleRate)) Hz"
+        #if os(macOS)
+            let output = "output n/a"
+        #else
+            let route = AVAudioSession.sharedInstance()
+            let output = "output \(route.outputNumberOfChannels)ch @ \(Int(route.sampleRate)) Hz"
+        #endif
         guard let track = player.tracks(mediaType: .audio).first(where: \.isEnabled),
               let description = track.audioStreamBasicDescription
         else {
@@ -95,9 +99,13 @@ extension KSPlayerEngineView {
         return "renderer \(status)\(error), flush needed \(renderer.requiresFlushToResumeDecoding), layer \(attached)"
     }
 
+    /// Printable characters only: a code of zero bytes (FFmpeg-only codecs
+    /// such as Opus have no CoreMedia code) put a NUL in the string, which
+    /// cut the whole log line short.
     private static func fourCC(_ code: FourCharCode) -> String {
         let bytes = [24, 16, 8, 0].map { UInt8((code >> $0) & 0xFF) }
-        let text = String(bytes: bytes, encoding: .ascii) ?? ""
-        return text.trimmingCharacters(in: .whitespaces).isEmpty ? "\(code)" : text
+        let printable = bytes.filter { $0 >= 0x20 && $0 < 0x7F }
+        let text = (String(bytes: printable, encoding: .ascii) ?? "").trimmingCharacters(in: .whitespaces)
+        return text.isEmpty ? "codec \(code)" : text
     }
 }
