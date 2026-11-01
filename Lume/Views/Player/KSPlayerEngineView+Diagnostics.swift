@@ -37,6 +37,24 @@ extension KSPlayerEngineView {
         let rate = String(format: "%.3f fps", frameRate)
         let format = "\(shape) \(rate), range \(range), transfer \(transfer), field order \(fieldOrder)"
         Logger.player.info("video format: \(format, privacy: .public)")
+        logAudioFormat(player)
+    }
+
+    /// The audio track's format beside the HDMI route's. A channel-count
+    /// change between episodes can make the Apple TV renegotiate HDMI, much as
+    /// a display-mode switch does.
+    private func logAudioFormat(_ player: some MediaPlayerProtocol) {
+        let route = AVAudioSession.sharedInstance()
+        let output = "output \(route.outputNumberOfChannels)ch @ \(Int(route.sampleRate)) Hz"
+        guard let track = player.tracks(mediaType: .audio).first(where: \.isEnabled),
+              let description = track.audioStreamBasicDescription
+        else {
+            Logger.player.info("audio format: unknown, \(output, privacy: .public)")
+            return
+        }
+        let codec = Self.fourCC(track.codecType)
+        let format = "\(codec) \(description.mChannelsPerFrame)ch @ \(Int(description.mSampleRate)) Hz"
+        Logger.player.info("audio format: \(format, privacy: .public), \(output, privacy: .public)")
     }
 
     /// Logs a picture that stands still while the playhead moves, and its
