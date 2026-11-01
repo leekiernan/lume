@@ -92,44 +92,34 @@ struct ImageDiskCacheTests {
         #expect(fixture.cache.data(for: "healthy") != nil)
     }
 
-    @Test func `launch maintenance waits before sweeping the cache`() async throws {
+    @Test(.timeLimit(.minutes(5))) func `launch maintenance waits before sweeping the cache`() async throws {
         let clock = TestClock()
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("ImageDiskCacheLaunchTests-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
         let delay = Duration.seconds(1)
-        let launched = ContinuousClock.now
+        let sleeper = TestSleeper()
         let cache = ImageDiskCache(
             directory: directory,
             byteLimit: 1024,
             maxAge: 60,
             initialMaintenanceDelay: delay,
+            sleep: sleeper.sleep,
             now: clock.now
         )
         cache.store(Data(repeating: 0xA4, count: 32), for: "expired-after-launch")
         clock.advance(by: 61)
 
-        // The entry is already expired according to the cache clock, but launch
-        // maintenance must give foreground poster delivery a head start.
-        try await Task.sleep(for: .milliseconds(100))
+        // Hold the launch delay until the test releases it, even if a busy
+        // suite takes seconds to schedule either task.
+        var iterator = sleeper.requests.makeAsyncIterator()
+        let duration = try #require(await iterator.next())
+        #expect(duration == delay)
         let cachedFile = cache.fileURL(for: "expired-after-launch")
-        let survivedLaunch = FileManager.default.fileExists(atPath: cachedFile.path)
-        let checkedAfter = ContinuousClock.now - launched
-        // In a loaded parallel run this task can wake seconds late — after the
-        // sweep was *meant* to run — and then the check proves nothing. It is
-        // only judged when it really happened inside the delay.
-        if checkedAfter < delay {
-            #expect(survivedLaunch, "Swept \(checkedAfter) after launch, before the \(delay) delay")
-        }
-
-        // The sweep runs at `.background` priority, so poll for it rather than
-        // betting on one fixed sleep.
-        let deadline = ContinuousClock.now + .seconds(10)
-        while FileManager.default.fileExists(atPath: cachedFile.path), ContinuousClock.now < deadline {
-            try await Task.sleep(for: .milliseconds(50))
-        }
-        #expect(!FileManager.default.fileExists(atPath: cachedFile.path))
+        #expect(FileManager.default.fileExists(atPath: cachedFile.path))
+        await sleeper.advance()
+        #expect(await eventually { !FileManager.default.fileExists(atPath: cachedFile.path) })
     }
 }
 
