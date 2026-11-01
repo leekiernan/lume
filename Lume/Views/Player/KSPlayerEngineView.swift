@@ -271,6 +271,7 @@ struct KSPlayerEngineView: View {
                                 notePlaybackProgress(current)
                                 noteClockDrift()
                                 noteReadAhead()
+                                notePicture()
                                 // syncState (onStateChanged) already refreshes this
                                 // on every transition; only chase it from the
                                 // per-tick play callback until it first lands, so
@@ -445,6 +446,7 @@ struct KSPlayerEngineView: View {
                                 notePlaybackProgress(current)
                                 noteClockDrift()
                                 noteReadAhead()
+                                notePicture()
                                 chaseVideoInfo()
                             }
                         }

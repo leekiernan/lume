@@ -123,6 +123,7 @@ extension KSPlayerEngineView {
     /// confirmed healthy again. `.playedToTheEnd` is a clean finish, not a drop,
     /// so it is left alone.
     func handleState(_ state: KSPlayerState) {
+        logStateChange(state)
         // The stall watchdog lives exactly as long as a mid-playback `.buffering`
         // window; any other state means the engine moved on. Startup buffering
         // is excluded — `startupTimeout` already covers it.
@@ -133,6 +134,7 @@ extension KSPlayerEngineView {
         }
         switch state {
         case .readyToPlay:
+            logVideoFormat()
             tick.start.noteEngineReady()
             reconnector.reset()
         case .bufferFinished:

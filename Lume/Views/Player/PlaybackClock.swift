@@ -120,6 +120,9 @@ final class PlaybackTickScratch {
     /// Whether a movie's read-ahead has stopped while it plays — see
     /// `noteReadAhead`.
     var readAhead = ReadAheadWatch()
+    /// Whether the picture has frozen over a moving playhead — see
+    /// `notePicture`. Diagnostic only.
+    var picture = PictureWatch()
 
     /// Back to the fresh-session baseline, for stream swaps.
     func reset() {
@@ -128,5 +131,6 @@ final class PlaybackTickScratch {
         driftSince = nil
         lastDriftRecovery = -.infinity
         readAhead = ReadAheadWatch()
+        picture = PictureWatch()
     }
 }
