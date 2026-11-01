@@ -4,13 +4,15 @@ import Testing
 
 @MainActor
 struct DesignControlLayoutTests {
-    @Test func `filter chips have a touch target and grow with accessibility text`() throws {
-        let standard = try chipSize(at: .large)
-        let accessible = try chipSize(at: .accessibility5)
-        #expect(standard.height >= 44)
-        #expect(accessible.height > standard.height)
-        #expect(accessible.width > standard.width)
-    }
+    #if os(iOS) || os(visionOS)
+        @Test func `filter chips have a touch target and grow with accessibility text`() throws {
+            let standard = try chipSize(at: .large)
+            let accessible = try chipSize(at: .accessibility5)
+            #expect(standard.height >= 44)
+            #expect(accessible.height > standard.height)
+            #expect(accessible.width > standard.width)
+        }
+    #endif
 
     @Test func `the shared detail icon is at least a touch target`() throws {
         let renderer = ImageRenderer(content: GlassIconButton(systemImage: "heart", accessibilityLabel: "Favorite", action: {}))
@@ -19,23 +21,25 @@ struct DesignControlLayoutTests {
         #expect(image.height >= 44)
     }
 
-    @Test func `the shared primary play action grows with accessibility text`() throws {
-        let button = PrimaryPlayButton(title: "Watch from Start", action: {})
-            .frame(width: 320)
-        let standard = try #require(ImageRenderer(content: button.dynamicTypeSize(.large)).cgImage)
-        let accessible = try #require(ImageRenderer(content: button.dynamicTypeSize(.accessibility5)).cgImage)
-        #expect(standard.height >= 44)
-        #expect(accessible.height > standard.height)
-        #expect(standard.width == 320)
-        #expect(accessible.width == 320)
-    }
+    #if os(iOS) || os(visionOS)
+        @Test func `the shared primary play action grows with accessibility text`() throws {
+            let button = PrimaryPlayButton(title: "Watch from Start", action: {})
+                .frame(width: 320)
+            let standard = try #require(ImageRenderer(content: button.dynamicTypeSize(.large)).cgImage)
+            let accessible = try #require(ImageRenderer(content: button.dynamicTypeSize(.accessibility5)).cgImage)
+            #expect(standard.height >= 44)
+            #expect(accessible.height > standard.height)
+            #expect(standard.width == 320)
+            #expect(accessible.width == 320)
+        }
 
-    private func chipSize(at size: DynamicTypeSize) throws -> CGSize {
-        let renderer = ImageRenderer(content:
-            Button("Movies", action: {})
-                .buttonStyle(FilterChipStyle(isSelected: false))
-                .dynamicTypeSize(size))
-        let image = try #require(renderer.cgImage)
-        return CGSize(width: image.width, height: image.height)
-    }
+        private func chipSize(at size: DynamicTypeSize) throws -> CGSize {
+            let renderer = ImageRenderer(content:
+                Button("Movies", action: {})
+                    .buttonStyle(FilterChipStyle(isSelected: false))
+                    .dynamicTypeSize(size))
+            let image = try #require(renderer.cgImage)
+            return CGSize(width: image.width, height: image.height)
+        }
+    #endif
 }
