@@ -108,7 +108,7 @@ extension View {
     @ViewBuilder
     func posterCardButtonStyle() -> some View {
         #if os(tvOS)
-            buttonStyle(TVCardButtonStyle(focusScale: 1.08))
+            buttonStyle(TVCardButtonStyle(focusScale: 1.08, glows: true))
         #else
             buttonStyle(.plain)
         #endif

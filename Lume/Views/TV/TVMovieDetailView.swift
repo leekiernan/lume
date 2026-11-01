@@ -199,12 +199,12 @@
                 NavigationLink(value: movie) {
                     TVPosterCard(item: item, badge: badge)
                 }
-                .buttonStyle(TVCardButtonStyle())
+                .posterCardButtonStyle()
             case let .series(series):
                 NavigationLink(value: series) {
                     TVPosterCard(item: item, badge: badge)
                 }
-                .buttonStyle(TVCardButtonStyle())
+                .posterCardButtonStyle()
             case .live:
                 EmptyView()
             }
