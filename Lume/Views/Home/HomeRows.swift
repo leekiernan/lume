@@ -72,6 +72,7 @@ private struct HomeItemCell: View {
                 NavigationLink(value: movie) {
                     PosterCard(title: item.title, provider: item.imageURL?.absoluteString, posterPath: movie.posterPath,
                                request: .init(kind: .movie, id: movie.id, categoryID: movie.categoryId), progress: progress)
+                        .watchedBadge(movie.isWatched)
                         .matchedTransitionSourceIfAvailable(id: movie.id, in: animationNamespace)
                 }
                 .posterCardButtonStyle()
@@ -81,6 +82,7 @@ private struct HomeItemCell: View {
                         title: item.title, provider: item.imageURL?.absoluteString, posterPath: series.posterPath,
                         request: .init(kind: .series, id: series.id, categoryID: series.categoryId), progress: progress
                     )
+                    .seriesWatchedBadge(series)
                     .matchedTransitionSourceIfAvailable(id: series.id, in: animationNamespace)
                 }
                 .posterCardButtonStyle()

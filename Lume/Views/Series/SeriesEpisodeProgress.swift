@@ -11,6 +11,9 @@
 //  with no sorting and no intermediate arrays.
 //
 
+import Foundation
+import SwiftData
+
 enum SeriesEpisodeProgress {
     /// The furthest episodes by watch state, in (season, episode) order.
     struct Markers {
@@ -82,5 +85,16 @@ enum SeriesEpisodeProgress {
         return (candidate.seasonNum, candidate.episodeNum) < (current.seasonNum, current.episodeNum)
             ? candidate
             : current
+    }
+
+    /// Whether every episode this device has of the series is watched — the
+    /// poster's tick (`seriesWatchedBadge`). Counted in the store rather than
+    /// by walking the relationship, which would fault in every episode of
+    /// every show in a grid. False with no episodes yet.
+    static func allEpisodesWatched(seriesID: String, in context: ModelContext) -> Bool {
+        let all = FetchDescriptor<Episode>(predicate: #Predicate { $0.series?.id == seriesID })
+        let unwatched = FetchDescriptor<Episode>(predicate: #Predicate { $0.series?.id == seriesID && !$0.isWatched })
+        guard let total = try? context.fetchCount(all), total > 0 else { return false }
+        return (try? context.fetchCount(unwatched)) == 0
     }
 }

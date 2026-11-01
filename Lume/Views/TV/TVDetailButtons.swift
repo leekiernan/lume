@@ -61,15 +61,20 @@
         /// category rail to mask the engine's transient landing before it
         /// snaps focus to the selected category.
         var suppressFocusEffects = false
+        /// Lifts the focused card on a glow in the theme's accent rather than
+        /// a black shadow, which barely shows on the dark screens: posters in
+        /// rails and grids, where the focused card has to stand out among many.
+        var glows = false
 
         func makeBody(configuration: Configuration) -> some View {
-            StyleBody(configuration: configuration, focusScale: focusScale, suppressFocusEffects: suppressFocusEffects)
+            StyleBody(configuration: configuration, focusScale: focusScale, suppressFocusEffects: suppressFocusEffects, glows: glows)
         }
 
         struct StyleBody: View {
             let configuration: ButtonStyleConfiguration
             let focusScale: CGFloat
             var suppressFocusEffects = false
+            var glows = false
             @Environment(\.isFocused) private var isFocusedRaw
 
             private var isFocused: Bool {
@@ -79,7 +84,7 @@
             var body: some View {
                 let pressed = configuration.isPressed
                 let scale: CGFloat = pressed ? focusScale * 0.97 : (isFocused ? focusScale : 1.0)
-                let shadowOpacity: Double = isFocused ? 0.5 : 0
+                let shadowColor = glows ? Color.lumeAccent.opacity(isFocused ? 0.6 : 0) : .black.opacity(isFocused ? 0.5 : 0)
                 return configuration.label
                     // The shadow is applied *before* the scale transform so it is
                     // rasterised once and then scaled as a bitmap, rather than the
@@ -87,7 +92,7 @@
                     // (which happens when scaleEffect precedes shadow). A smaller
                     // radius further cuts the per-frame blur cost while still
                     // reading as a clear focus lift on the 10-foot UI.
-                    .shadow(color: .black.opacity(shadowOpacity), radius: 12, y: 8)
+                    .shadow(color: shadowColor, radius: glows ? 18 : 12, y: glows ? 4 : 8)
                     .scaleEffect(scale)
                     .animation(.easeOut(duration: 0.18), value: isFocused)
                     .animation(.easeOut(duration: 0.1), value: pressed)

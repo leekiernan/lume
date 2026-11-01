@@ -15,6 +15,7 @@ struct MovieCardView: View {
 
     var body: some View {
         posterCard
+            .watchedBadge(movie.isWatched)
     }
 
     var posterCard: PosterCard {
