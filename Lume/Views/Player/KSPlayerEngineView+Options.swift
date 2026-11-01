@@ -55,10 +55,31 @@ final nonisolated class LumeKSOptions: KSOptions {
         super.init()
     }
 
+    /// Process-wide, like the display it guards: an episode swap hands the
+    /// player a fresh options object, and what was applied must carry over.
+    @MainActor private static var displayGate = DisplayCriteriaGate()
+    @MainActor private static var displaySettle: Task<Void, Never>?
+
+    /// Settles KSPlayer's display-mode requests before any reaches the TV,
+    /// and drops one that matches the mode already set — see
+    /// `DisplayCriteriaGate`.
     @MainActor
     override func updateVideo(refreshRate: Float, isDovi: Bool, formatDescription: CMFormatDescription?) {
         guard matchesDisplayCriteria else { return }
-        super.updateVideo(refreshRate: refreshRate, isDovi: isDovi, formatDescription: formatDescription)
+        // KSPlayer only switches once the dynamic range is known.
+        guard let range = isDovi ? .dolbyVision : formatDescription?.dynamicRange else { return }
+        Self.displayGate.request(.init(refreshRate: refreshRate, dynamicRange: range.rawValue))
+        Self.displaySettle?.cancel()
+        Self.displaySettle = Task {
+            try? await Task.sleep(for: DisplayCriteriaGate.settleDelay)
+            guard !Task.isCancelled else { return }
+            guard Self.displayGate.settle() else {
+                Logger.player.info("display mode unchanged at \(refreshRate, format: .fixed(precision: 3), privacy: .public) fps, range \(range.rawValue, privacy: .public)")
+                return
+            }
+            Logger.player.info("display mode → \(refreshRate, format: .fixed(precision: 3), privacy: .public) fps, range \(range.rawValue, privacy: .public)")
+            super.updateVideo(refreshRate: refreshRate, isDovi: isDovi, formatDescription: formatDescription)
+        }
     }
 
     /// An embedded session never set the display mode, so it must not reset
@@ -67,6 +88,19 @@ final nonisolated class LumeKSOptions: KSOptions {
     override func playerLayerDeinit() {
         guard matchesDisplayCriteria else { return }
         super.playerLayerDeinit()
+        // Synchronously when possible, so a hop can't land after the next
+        // session's first request and drop it.
+        guard Thread.isMainThread else {
+            Task { @MainActor in Self.resetDisplayGate() }
+            return
+        }
+        MainActor.assumeIsolated { Self.resetDisplayGate() }
+    }
+
+    @MainActor
+    private static func resetDisplayGate() {
+        displaySettle?.cancel()
+        displayGate.reset()
     }
 
     /// Call from every manual audio-track pick, before `select(track:)`.
