@@ -17,11 +17,13 @@ final nonisolated class StubURLProtocol: URLProtocol {
         var status: Int
         var body: String
         var headers: [String: String]
+        var error: URLError?
 
-        init(status: Int = 200, body: String = "", headers: [String: String] = [:]) {
+        init(status: Int = 200, body: String = "", headers: [String: String] = [:], error: URLError? = nil) {
             self.status = status
             self.body = body
             self.headers = headers
+            self.error = error
         }
     }
 
@@ -109,6 +111,10 @@ final nonisolated class StubURLProtocol: URLProtocol {
             }?.value ?? Self.pathRoutes[PathKey(host: host, path: components.path)]
         }
 
+        if let error = match?.error {
+            client?.urlProtocol(self, didFailWithError: error)
+            return
+        }
         guard let match, let response = HTTPURLResponse(
             url: url, statusCode: match.status, httpVersion: nil, headerFields: match.headers
         ) else {

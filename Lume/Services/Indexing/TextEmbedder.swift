@@ -35,8 +35,17 @@ import Foundation
 import NaturalLanguage
 import os
 
+/// OS model availability is external to Lume. Keep sentence-model discovery
+/// injectable so unit tests exercise the adapter without installed OS assets.
+nonisolated protocol SentenceEmbeddingModel {
+    var dimension: Int { get }
+    func vector(for text: String) -> [Double]?
+}
+
+nonisolated extension NLEmbedding: SentenceEmbeddingModel {}
+
 final nonisolated class TextEmbedder {
-    enum EmbedderError: Error {
+    enum EmbedderError: Error, Equatable {
         /// The selected model could not be acquired within this pass's budget.
         case modelUnavailable
         /// Model assets are not on-device and could not be downloaded.
@@ -47,7 +56,7 @@ final nonisolated class TextEmbedder {
 
     private enum Backend {
         case contextual(NLContextualEmbedding)
-        case sentence(NLEmbedding)
+        case sentence(any SentenceEmbeddingModel)
     }
 
     /// How long to wait for `requestAssets` before giving up on this attempt.
@@ -117,8 +126,11 @@ final nonisolated class TextEmbedder {
     /// because the genre words carry the signal and most are cognates. Not worth
     /// a second, English-language TMDB fetch per title (which would also
     /// overwrite the localized genre the user sees).
-    static func sentence() async throws -> TextEmbedder {
-        guard let embedding = try await EmbeddingModelAcquisition.acquire(lookup: { NLEmbedding.sentenceEmbedding(for: .english) }) else {
+    static func sentence(
+        lookup: () -> (any SentenceEmbeddingModel)? = { NLEmbedding.sentenceEmbedding(for: .english) },
+        retryDelays: [Duration] = EmbeddingModelAcquisition.retryDelays
+    ) async throws -> TextEmbedder {
+        guard let embedding = try await EmbeddingModelAcquisition.acquire(lookup: lookup, retryDelays: retryDelays) else {
             throw EmbedderError.modelUnavailable
         }
         return TextEmbedder(backend: .sentence(embedding))

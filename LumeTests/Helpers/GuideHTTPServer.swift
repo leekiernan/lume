@@ -10,6 +10,8 @@ final nonisolated class GuideHTTPServer: @unchecked Sendable {
         var body = "<tv></tv>"
         var bodyBytes: Data?
         var delay: TimeInterval = 0
+        /// A test-owned barrier, used when cancellation must precede a reply.
+        var waitBeforeSending: (@Sendable () async -> Void)?
         /// False sends the body undeclared, ended by closing the connection.
         var declaresLength = true
     }
@@ -67,7 +69,12 @@ final nonisolated class GuideHTTPServer: @unchecked Sendable {
             let length = response.declaresLength ? "Content-Length: \(body.count)\r\n" : ""
             let head = "HTTP/1.1 \(response.status) Response\r\n\(length)Connection: close\r\n\(headers)\r\n"
             let content = Data(head.utf8) + body
-            if response.delay > 0 {
+            if let wait = response.waitBeforeSending {
+                Task {
+                    await wait()
+                    connection.send(content: content, completion: .contentProcessed { _ in connection.cancel() })
+                }
+            } else if response.delay > 0 {
                 DispatchQueue.global().asyncAfter(deadline: .now() + response.delay) {
                     connection.send(content: content, completion: .contentProcessed { _ in connection.cancel() })
                 }
