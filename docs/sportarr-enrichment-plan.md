@@ -39,8 +39,12 @@ fixture/account identity checks, malformed duplicate handling and retraction
 behaviour. Result bundles are `/tmp/lume-sportarr-app-targeted-fixed.xcresult`
 and `/tmp/lume-sportarr-app-full.xcresult`.
 
-The wire contract was checked against the sibling proxy's in-progress
-`feat/sportarr-artwork` endpoint and capability. Deployment with
+The wire contract was verified against sibling proxy commit `f6f1bc8` using
+captured responses from its real HTTP handlers. The follow-up app run passed
+140 test executions, and the proxy sports/Xtream suites passed with the race
+detector. This fixed an app negative-cache issue with expired unavailable
+publications; see the [contract verification](sportarr-artwork-contract.md#cross-repository-verification).
+Deployment with
 `SPORTS_ARTWORK=sportarr`, real-device visual/coverage comparisons, upstream
 request-cost measurements and the hosted-data reuse decision remain separate
 follow-ups. These local checks do not establish additional artwork coverage or

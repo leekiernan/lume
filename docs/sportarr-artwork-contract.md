@@ -2,10 +2,12 @@
 
 App implementation in `feat/sportarr-artwork-enrichment`, begun 2026-11-01.
 Endpoint, capability and publication fields checked against the sibling proxy's
-`feat/sportarr-artwork` implementation on 2026-11-02. Both sides use `matched`
+`feat/sportarr-artwork` implementation (`f6f1bc8`) on 2026-11-02. Both sides use `matched`
 statuses, `poster`, `thumb` and `fanart` image fields, and the ESPN fixture
-identity that justified each match. App tests use mocked responses; deployment
-and real-device coverage checks remain separate.
+identity that justified each match. Contract tests now feed exact responses
+captured from the proxy's real HTTP handlers through the production Swift
+client and presentation cache. Upstreams are synthetic; deployment and
+real-device coverage checks remain separate.
 
 ## Negotiation and requests
 
@@ -92,8 +94,10 @@ changing follows, reminders or channel picks.
   Transport timeouts are 3 seconds/request and 5 seconds/resource. There are at
   most four distinct in-flight artwork requests and two connections per host.
 - Concurrent identical requests coalesce. At most 16 decoded batches are kept
-  for five minutes or publication expiry, whichever comes first. Failed reads
-  back off for 30 seconds per account. Unsupported capability probes reuse the
+  for five minutes or publication expiry, whichever comes first, for usable
+  ready artwork. Nonready/expired responses are negatively cached for 30 seconds
+  independently of their old publication expiry. Failed reads also back off
+  for 30 seconds per account. Unsupported capability probes reuse the
   existing capability cache and make no artwork request.
 - A bounded, shared in-memory presentation cache holds at most 256 event
   publications, retaining their original expiry even when read again. It is
@@ -124,3 +128,17 @@ keep their current layouts. This change does not introduce new image placements.
 
 Shipping also requires proxy coverage/cost measurements and the hosted-data
 reuse decision in [the enrichment plan](sportarr-enrichment-plan.md).
+
+## Cross-repository verification
+
+Verified against proxy commit `f6f1bc8` on 2026-11-02. Its sports and Xtream
+integration suites passed `go test -race ./internal/sports ./internal/xtream`.
+Raw responses from its real handlers are retained in
+`LumeTests/Fixtures/ProxySportsArtwork`, with a recorded clock and provenance.
+The app's contract and sports regression run passed 140 executions, with zero
+failures or runtime warnings (`/tmp/lume-sportarr-contract-app.xcresult`).
+
+This exercise found and fixed one app cache issue: an unavailable publication's
+expired timestamp previously expired the negative cache immediately too.
+Nonready responses now retain a 30-second retry interval while ready images
+continue to honour their original expiry. No proxy checkout edits were needed.

@@ -87,8 +87,14 @@ actor LumeSportsArtworkClient {
         let batch = await flight.task.value
         if flights[url]?.id == flight.id {
             flights.removeValue(forKey: url)
-            let lifetime: TimeInterval = batch?.status == "ready" ? 300 : 30
-            cache[url] = Cached(batch: batch, until: min(now.addingTimeInterval(lifetime), batch?.expiresAt ?? now.addingTimeInterval(lifetime)))
+            let until: Date = if let batch, batch.status == "ready", now < batch.expiresAt {
+                min(now.addingTimeInterval(300), batch.expiresAt)
+            } else {
+                // Unavailable publications retain their old expiry on the
+                // wire. That stamp bounds artwork, not the negative cache.
+                now.addingTimeInterval(30)
+            }
+            cache[url] = Cached(batch: batch, until: until)
             order.removeAll { $0 == url }
             order.append(url)
             while order.count > 16 {
