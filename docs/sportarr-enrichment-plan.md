@@ -1,7 +1,9 @@
 # Sportarr enrichment for the Sports Hub
 
-Written 2026-11-01. Proposal only: no Sportarr integration, proxy endpoint or
-provider migration is implemented by this note.
+Written 2026-11-01. The first optional app artwork slice is implemented
+on `feat/sportarr-artwork-enrichment`; see the [app wire contract](sportarr-artwork-contract.md).
+The branch is awaiting merge approval. The proxy is developed separately.
+No provider migration is proposed.
 
 ## Recommendation
 
@@ -13,6 +15,36 @@ to establish whether coverage warrants implementing it.
 The proxy is an optional, separately deployed service, not a central cache
 shared by every Lume installation. It can share work among devices using that
 instance. Standalone clients retain today's ESPN/TheSportsDB behaviour.
+
+## First app slice: implemented and validated
+
+As of 2026-11-02, the app negotiates `sports_artwork` independently, batches
+ESPN fixture IDs, validates the echoed fixture identity and publication expiry,
+and updates existing sports backdrops asynchronously. Posters, fanart and
+thumbnails use the shared image pipeline. Failed requests retain bounded cached
+artwork; explicit unmatched/ambiguous publications retract an older image.
+There are no new SwiftData writes, catalogue migrations or app settings.
+
+Initial coverage is advertised two-team football competitions. Home fixture
+logo cards and detail team logos retain their current layouts. The first slice
+adds bounded in-memory metadata caches, reusing existing image/fallback disk
+caches; it does not introduce a persistent Sportarr metadata store or direct
+app-to-Sportarr API requests.
+
+Validation: 132 focused test executions passed. The full iOS unit suite passed
+4,521 executions with zero failures and zero runtime warnings; one system-model
+integration test remains intentionally disabled. iOS test build, unsigned tvOS
+build, SwiftFormat and strict SwiftLint passed. Staff review approved the
+fixture/account identity checks, malformed duplicate handling and retraction
+behaviour. Result bundles are `/tmp/lume-sportarr-app-targeted-fixed.xcresult`
+and `/tmp/lume-sportarr-app-full.xcresult`.
+
+The wire contract was checked against the sibling proxy's in-progress
+`feat/sportarr-artwork` endpoint and capability. Deployment with
+`SPORTS_ARTWORK=sportarr`, real-device visual/coverage comparisons, upstream
+request-cost measurements and the hosted-data reuse decision remain separate
+follow-ups. These local checks do not establish additional artwork coverage or
+an end-to-end deployed result.
 
 ## Evidence and limits
 
@@ -91,7 +123,8 @@ sources as part of this first slice.
 On the proxy:
 
 - Negotiate enrichment as an optional capability, separate from existing
-  broadcast matching. No route/schema is committed by this proposal.
+  broadcast matching. The first app slice and separately developed proxy now
+  align on the [artwork contract](sportarr-artwork-contract.md).
 - Share public enrichment independently of playlist accounts. Cache keys include
   upstream source, canonical league ID, date window and any language/variant
   parameters; derived matches also depend on fixture identity and mapping
