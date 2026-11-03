@@ -9,10 +9,12 @@ nonisolated struct LumeProxyCapabilities: Decodable, Equatable {
     let version: Int
     let metadata: LumeProxyMetadataCapability?
     let sports: LumeProxySportsCapability?
+    let sportsArtwork: LumeProxyArtworkCapability?
 
     enum CodingKeys: String, CodingKey {
         case version = "v"
         case metadata, sports
+        case sportsArtwork = "sports_artwork"
     }
 
     init(from decoder: Decoder) throws {
@@ -22,6 +24,7 @@ nonisolated struct LumeProxyCapabilities: Decodable, Equatable {
         // break unrelated features of an otherwise recognised envelope.
         metadata = try? container.decode(LumeProxyMetadataCapability.self, forKey: .metadata)
         sports = try? container.decode(LumeProxySportsCapability.self, forKey: .sports)
+        sportsArtwork = try? container.decode(LumeProxyArtworkCapability.self, forKey: .sportsArtwork)
     }
 
     var metadataBatchSize: Int? {
@@ -39,6 +42,29 @@ nonisolated struct LumeProxyCapabilities: Decodable, Equatable {
         guard version == 1, let sports, sports.version == 1, sports.matcherVersion == 3,
               sports.source == "espn", sports.groups.contains("broadcasts"), sports.maxBatchSize > 0 else { return nil }
         return min(sports.maxBatchSize, 50)
+    }
+}
+
+/// Independent of broadcast matcher versions; older proxies simply omit it.
+nonisolated struct LumeProxyArtworkCapability: Decodable, Equatable {
+    let version: Int
+    let matcherVersion: Int
+    let source: String
+    let artworkSource: String
+    let competitions: [String]
+    let maxBatchSize: Int
+
+    enum CodingKeys: String, CodingKey {
+        case version = "v"
+        case matcherVersion = "matcher_v"
+        case artworkSource = "artwork_source"
+        case maxBatchSize = "max_batch_size"
+        case source, competitions
+    }
+
+    var batchSize: Int? {
+        guard version == 1, matcherVersion == 1, source == "espn", artworkSource == "sportarr", maxBatchSize > 0 else { return nil }
+        return min(maxBatchSize, 50)
     }
 }
 

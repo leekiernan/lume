@@ -16,10 +16,7 @@ nonisolated struct LumeSportsBroadcast: Decodable, Hashable {
 
     func matches(_ local: SportsFixture) -> Bool {
         guard status == "ready", let fixture, let candidates, candidates.count <= 256,
-              fixture.source == "espn", fixture.competition == local.proxyCompetition,
-              fixture.eventID == eventID, eventID == local.eventId,
-              abs(fixture.start.timeIntervalSince(local.startDate)) < 1,
-              fixture.home.id == local.home?.team.teamId, fixture.away.id == local.away?.team.teamId else { return false }
+              fixture.eventID == eventID, fixture.matches(local) else { return false }
         return true
     }
 }
@@ -35,6 +32,12 @@ nonisolated struct LumeSportsFixture: Decodable, Hashable {
     enum CodingKeys: String, CodingKey {
         case eventID = "event_id"
         case source, competition, start, home, away
+    }
+
+    func matches(_ local: SportsFixture) -> Bool {
+        source == "espn" && competition == local.proxyCompetition && eventID == local.eventId &&
+            abs(start.timeIntervalSince(local.startDate)) < 1 &&
+            home.id == local.home?.team.teamId && away.id == local.away?.team.teamId
     }
 }
 
@@ -120,6 +123,10 @@ nonisolated struct LumeSportsBatch: Decodable {
     }
 
     static func decode(_ data: Data) -> Self? {
+        try? decoder().decode(Self.self, from: data)
+    }
+
+    static func decoder() -> JSONDecoder {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .custom { decoder in
             let value = try decoder.singleValueContainer().decode(String.self)
@@ -132,7 +139,7 @@ nonisolated struct LumeSportsBatch: Decodable {
             }
             return date
         }
-        return try? decoder.decode(Self.self, from: data)
+        return decoder
     }
 }
 

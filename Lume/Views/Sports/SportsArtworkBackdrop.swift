@@ -15,6 +15,8 @@ struct SportsArtworkBackdrop: View {
     var prefersPortrait = false
     @State private var artwork: Artwork?
     @State private var failedPosterURL: URL?
+    @State private var enrichment = SportsArtworkEnrichment.shared
+    @State private var failedEnrichedURLs: Set<URL> = []
 
     private struct Artwork {
         let url: URL
@@ -26,11 +28,14 @@ struct SportsArtworkBackdrop: View {
         let size: SportsArtwork.Size
         let portrait: Bool
         let failedPosterURL: URL?
+        let enrichedURL: URL?
     }
 
     var body: some View {
         GeometryReader { proxy in
             let portrait = prefersPortrait && size == .hero && proxy.size.width < 600
+            let images = enrichment.images(for: fixture)
+            let enrichedURL = images?.url(portrait: portrait, excluding: failedEnrichedURLs)
             let height = portrait && artwork?.isPortrait != true
                 ? HeroArtworkPolicy.artworkHeight(width: proxy.size.width, heroHeight: proxy.size.height)
                 : proxy.size.height
@@ -47,6 +52,10 @@ struct SportsArtworkBackdrop: View {
             .overlay(alignment: .top) {
                 if let artwork {
                     HeroArtworkImage(url: artwork.url, sourceRatio: artwork.isPortrait ? 0.68 : HeroArtworkPolicy.landscapeRatio, onFailure: {
+                        if artwork.url == enrichedURL {
+                            failedEnrichedURLs.insert(artwork.url)
+                            return
+                        }
                         guard artwork.isPortrait, self.artwork?.url == artwork.url else { return }
                         failedPosterURL = artwork.url
                     })
@@ -66,8 +75,12 @@ struct SportsArtworkBackdrop: View {
             }
             .clipped()
             .accessibilityHidden(true)
-            .task(id: Request(fixture: fixture, size: size, portrait: portrait, failedPosterURL: failedPosterURL)) {
+            .task(id: Request(fixture: fixture, size: size, portrait: portrait, failedPosterURL: failedPosterURL, enrichedURL: enrichedURL)) {
                 artwork = nil
+                if let enrichedURL {
+                    artwork = Artwork(url: enrichedURL, isPortrait: portrait && enrichedURL == images?.poster)
+                    return
+                }
                 if portrait, let url = await SportsArtwork.shared.portraitArt(for: fixture), url != failedPosterURL {
                     guard !Task.isCancelled else { return }
                     artwork = Artwork(url: url, isPortrait: true)

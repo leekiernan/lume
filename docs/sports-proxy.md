@@ -6,6 +6,10 @@ details retain the same resolver interface and channel-selection UI. The app
 still fetches its own fixtures; it does not replace that feed with the proxy's
 fixture-discovery endpoint.
 
+For the proposed Sportarr artwork/metadata enrichment and the division of work
+between app and proxy, see [Sportarr enrichment](sportarr-enrichment-plan.md).
+That proposal is separate from the implemented broadcast contract below.
+
 ## Negotiation and identity
 
 Sports is independent of title metadata. `/lume/v1/capabilities` must advertise

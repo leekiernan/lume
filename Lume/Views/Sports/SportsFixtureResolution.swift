@@ -22,6 +22,7 @@ enum SportsFixtureResolution {
         soonestFirst: Bool = true
     ) async {
         guard let request = machine.wrappedValue.begin(fixtures, visibilityToken: restriction.visibilityToken) else { return }
+        async let artwork: Void = SportsArtworkEnrichment.refresh(container: container, fixtures: fixtures)
         EPGSyncService.shared.ensureCoverage(reason: "Sports fixtures")
         if soonestFirst {
             await SportsChannelResolver.resolveSoonestFirst(
@@ -35,5 +36,6 @@ enum SportsFixtureResolution {
             guard !Task.isCancelled else { return }
             machine.wrappedValue.publish(request, answer)
         }
+        await artwork
     }
 }
