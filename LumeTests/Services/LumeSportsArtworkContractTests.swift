@@ -3,7 +3,7 @@ import Foundation
 import Testing
 
 /// Raw responses captured from the sibling proxy's actual HTTP handlers.
-/// See Fixtures/ProxySportsArtwork/README.md for provenance and scope.
+/// See Fixtures/ProxySportsArtwork/PROVENANCE.md for provenance and scope.
 @MainActor
 struct LumeSportsArtworkContractTests {
     private final class ResourceAnchor {}
