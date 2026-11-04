@@ -12,6 +12,19 @@ matches usable artwork for Bundesliga 9/9, Ligue 1 10/10 and MLS 18/18, plus
 NFL 16/16, NBA 56/56 and NHL 52/52, without ambiguous matches. The tables below
 retain the original measurements so the improvement remains reviewable.
 
+Implementation validated on 2026-11-04: app `29a9fcfc`, proxy `08298e0` and
+`1cc2c6a`. Both implementation branches remain unmerged pending user approval.
+The full iOS Simulator unit suite passed (4,535 executions, one skipped),
+including the focused artwork/contract regressions; the unsigned tvOS build,
+Swift formatting/lint checks and full proxy `go test -race ./...` also passed.
+App evidence: `/tmp/lume-team-sports-full.xcresult` and
+`/tmp/lume-team-sports-targeted-current-sim.xcresult`.
+
+Deployment remains opt-in: `SPORTS_ARTWORK=sportarr` enables the source;
+`SPORTS_ARTWORK_COMPETITIONS` selects artwork independently. When omitted, it
+inherits `SPORTS_COMPETITIONS`, preserving existing deployments. The new
+registry entries alone do not enable additional competitions.
+
 ## Recommendation
 
 Expand the existing football mapping first, and prepare a separate artwork-only
