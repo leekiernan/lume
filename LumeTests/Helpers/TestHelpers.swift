@@ -181,3 +181,11 @@ func clearWebDAVDigests() {
         defaults.removeObject(forKey: key)
     }
 }
+
+/// A fresh UUID-named `UserDefaults` suite, removed again once `body` returns.
+func withIsolatedDefaults(_ body: (UserDefaults) throws -> Void) rethrows {
+    let suiteName = UUID().uuidString
+    let defaults = UserDefaults(suiteName: suiteName)!
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+    try body(defaults)
+}

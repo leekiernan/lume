@@ -139,6 +139,15 @@ nonisolated extension PerfSignpost {
     static let playerStartupFailure = PerfSignpost("PlayerStartupFailure")
     /// Core Audio's first-use registration, paid off the main thread at launch.
     static let audioWarmUp = PerfSignpost("AudioWarmUp")
+
+    // Hue
+
+    /// One decoded frame scaled down to the sampling grid.
+    static let hueDownscale = PerfSignpost("HueDownscale")
+    /// Grid → channel colours: region averages, smoothing and intensity.
+    static let hueMap = PerfSignpost("HueMap")
+    /// Channel colours → one stream packet.
+    static let hueEncode = PerfSignpost("HueEncode")
 }
 
 // MARK: - Interval handle

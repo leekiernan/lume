@@ -199,6 +199,16 @@ struct LumeApp: App {
     static let isUnitTestHost: Bool = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         && !CommandLine.arguments.contains("-ui-testing")
 
+    /// Any automated or preview run — unit tests, UI tests, SwiftUI previews.
+    /// Code that would reach real hardware on the network (a Hue Bridge) checks
+    /// this rather than `isUnitTestHost`, which excludes UI tests.
+    static let isTestOrPreviewHost: Bool = {
+        let environment = ProcessInfo.processInfo.environment
+        return environment["XCTestConfigurationFilePath"] != nil
+            || environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+            || CommandLine.arguments.contains("-ui-testing")
+    }()
+
     /// An in-memory store for the unit-test host (see `isUnitTestHost`).
     private static func makeTestHostContainer(_ schema: Schema) -> ModelContainer {
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
