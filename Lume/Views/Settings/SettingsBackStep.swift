@@ -23,6 +23,8 @@ nonisolated enum SettingsBackStep: Equatable {
     case closeLanguageList
     /// Leave Subtitle Style for the player settings.
     case closeSubtitleStyle
+    /// Leave Philips Hue for the Player overview.
+    case closePhilipsHue
     /// Leave a Library area's categories for the area list.
     case closeAreaCategories
     /// Move focus to the current category in the sidebar.
@@ -44,6 +46,7 @@ nonisolated enum SettingsBackStep: Equatable {
         case .languages(.add): return .closeLanguagePicker
         case .languages(.list): return .closeLanguageList
         case .subtitleStyle: return .closeSubtitleStyle
+        case .philipsHue: return .closePhilipsHue
         case .overview: break
         }
         if showingAreaCategories { return .closeAreaCategories }

@@ -91,6 +91,11 @@ struct StringCatalog {
         strings[key] as? [String: Any]
     }
 
+    /// Every key in the catalog.
+    var keys: [String] {
+        Array(strings.keys)
+    }
+
     static func localizable(filePath: String = #filePath) throws -> Self {
         let url = repoRootURL(filePath: filePath).appendingPathComponent("Lume/Localizable.xcstrings")
         let root = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any]

@@ -7,13 +7,14 @@ nonisolated enum PlayerSettingsRoute: Equatable {
     case engine(PlayerEngineKind)
     case languages(LanguagePane)
     case subtitleStyle
+    case philipsHue
 
     @discardableResult
     mutating func goBack() -> Bool {
         switch self {
         case .overview: return false
         case .languages(.add): self = .languages(.list)
-        case .engine, .languages(.list), .subtitleStyle: self = .overview
+        case .engine, .languages(.list), .subtitleStyle, .philipsHue: self = .overview
         }
         return true
     }

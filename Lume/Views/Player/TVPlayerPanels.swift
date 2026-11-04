@@ -29,6 +29,7 @@
         case audio
         case subtitles
         case source
+        case hue
         case favorite
         case panelClose
         case episode(String)
