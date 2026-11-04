@@ -35,7 +35,11 @@ nonisolated struct LumeSportsFixture: Decodable, Hashable {
     }
 
     func matches(_ local: SportsFixture) -> Bool {
-        source == "espn" && competition == local.proxyCompetition && eventID == local.eventId &&
+        matches(local, competition: local.proxyCompetition)
+    }
+
+    func matches(_ local: SportsFixture, competition expected: String?) -> Bool {
+        source == "espn" && competition == expected && eventID == local.eventId &&
             abs(start.timeIntervalSince(local.startDate)) < 1 &&
             home.id == local.home?.team.teamId && away.id == local.away?.team.teamId
     }
@@ -145,7 +149,13 @@ nonisolated struct LumeSportsBatch: Decodable {
 
 nonisolated extension SportsFixture {
     var proxyCompetition: String? {
-        guard leagueId.hasPrefix("espn:soccer/"), hasTeams, sessionKind == nil,
+        guard leagueId.hasPrefix("espn:soccer/") else { return nil }
+        return espnTeamCompetition
+    }
+
+    /// Shared two-team identity shape; each consumer chooses eligible sports.
+    var espnTeamCompetition: String? {
+        guard leagueId.hasPrefix("espn:"), hasTeams, sessionKind == nil,
               !eventId.isEmpty, eventId.count <= 64, eventId.utf8.allSatisfy({ $0 >= 48 && $0 <= 57 }) else { return nil }
         return String(leagueId.dropFirst("espn:".count))
     }

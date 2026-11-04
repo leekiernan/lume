@@ -4,6 +4,14 @@ Assessed 2026-11-03 against app `b9218f65` and proxy `f6f1bc8`.
 This is a measured expansion recommendation; no runtime coverage is enabled
 by this document. The user reports the initial artwork working well on device.
 
+Implementation of the first two steps is on `feat/sportarr-team-sports` in both
+checkouts: the additional football mappings and guarded aliases, independently
+configured NFL/NBA/NHL artwork, and padded discovery with original UTC filtering.
+The v1 publication shape is preserved. Replay of these captured samples now
+matches usable artwork for Bundesliga 9/9, Ligue 1 10/10 and MLS 18/18, plus
+NFL 16/16, NBA 56/56 and NHL 52/52, without ambiguous matches. The tables below
+retain the original measurements so the improvement remains reviewable.
+
 ## Recommendation
 
 Expand the existing football mapping first, and prepare a separate artwork-only

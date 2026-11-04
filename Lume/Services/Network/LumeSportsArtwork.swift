@@ -95,10 +95,21 @@ nonisolated struct LumeSportsArtworkBatch: Decodable {
         for fixture in fixtures where fixture.startDate >= from && fixture.startDate < until {
             guard let group = groups[fixture.eventId], group.count == 1, let item = group.first?.value,
                   ["matched", "unmatched", "ambiguous"].contains(item.status),
-                  item.eventID == item.fixture.eventID, item.fixture.matches(fixture) else { continue }
+                  item.eventID == item.fixture.eventID, item.fixture.matches(fixture, competition: fixture.artworkCompetition) else { continue }
             result[fixture.id] = LumeSportsArtworkPublication(value: item, expiresAt: expiresAt)
         }
         return result
+    }
+}
+
+nonisolated extension SportsFixture {
+    /// Artwork is independent of football broadcast matching. A proxy must
+    /// still advertise the exact competition and echo the current fixture.
+    var artworkCompetition: String? {
+        guard let competition = espnTeamCompetition,
+              let sport = competition.split(separator: "/").first,
+              ["soccer", "football", "basketball", "hockey"].contains(String(sport)) else { return nil }
+        return competition
     }
 }
 

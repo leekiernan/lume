@@ -12,7 +12,7 @@ final class SportsArtworkEnrichment {
 
     func images(for fixture: SportsFixture, now: Date = Date()) -> LumeSportsArtwork.Images? {
         guard let entry = entries[fixture.id], now < entry.expiresAt,
-              entry.value.status == "matched", entry.value.fixture.matches(fixture) else { return nil }
+              entry.value.status == "matched", entry.value.fixture.matches(fixture, competition: fixture.artworkCompetition) else { return nil }
         return entry.value.artwork
     }
 
@@ -34,11 +34,12 @@ final class SportsArtworkEnrichment {
     /// Fetch alongside channel resolution, with its own cancellation lifetime.
     /// The context lives exclusively on this background executor, never in body.
     @concurrent static func refresh(container: ModelContainer, fixtures: [SportsFixture]) async {
-        let sources = SportsChannelResolver.proxySources(container: container, fixtures: fixtures)
+        var remaining = fixtures.filter { $0.artworkCompetition != nil }
+        guard !remaining.isEmpty else { return }
+        let sources = LumeProxySource.snapshots(in: container)
         // Only public artwork is shared between playlist accounts. Use the
         // first supporting source per event, in stable playlist order.
         var answers: [(LumeProxySource, [String: LumeSportsArtworkPublication])] = []
-        var remaining = fixtures.filter { $0.proxyCompetition != nil }
         for source in sources.sorted(by: { $0.playlistID.uuidString < $1.playlistID.uuidString }).prefix(4) {
             guard !Task.isCancelled, !remaining.isEmpty else { break }
             let fetched = await (try? LumeSportsArtworkClient.shared.artwork(source: source, fixtures: remaining)) ?? [:]
@@ -48,7 +49,7 @@ final class SportsArtworkEnrichment {
         guard !Task.isCancelled else { return }
         // Recheck every retained source after the last network await: an earlier
         // account may have changed while a later source was still answering.
-        let current = Set(SportsChannelResolver.proxySources(container: container, fixtures: fixtures))
+        let current = Set(LumeProxySource.snapshots(in: container))
         let values = merged(answers, currentSources: current)
         await shared.publish(values)
     }

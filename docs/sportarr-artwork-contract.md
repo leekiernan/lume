@@ -31,11 +31,20 @@ Independently advertise the following at the existing authenticated
 The app requests `GET /lume/v1/sports/artwork?competition=soccer%2Feng.1&ids=401,402`
 with the existing proxy account query parameters. IDs are deduplicated and
 sorted, and batches contain at most 50 IDs (or the advertised smaller limit).
-Only explicitly advertised football competitions with two known ESPN teams
-are eligible in this first slice. The proxy maps the requested fixtures into
+Only explicitly advertised two-team competitions in soccer, American football,
+basketball and hockey are eligible. The proxy's verified registry currently
+selects football competitions plus NFL, NBA and NHL; other sports remain on
+their existing fallbacks. The proxy maps the requested fixtures into
 its cached league/date windows; this must not trigger per-event upstream detail
 lookups. Neither a broadcast capability nor a broadcast matcher version enables
-artwork on its own.
+artwork on its own. An artwork-only proxy may omit `sports` entirely.
+
+Proxy `SPORTS_ARTWORK_COMPETITIONS` is independent of its broadcast list. When
+omitted it inherits `SPORTS_COMPETITIONS`, preserving existing configuration.
+An explicit list replaces that default; `SPORTS_ARTWORK=sportarr` must still be
+enabled. The app's artwork source discovery and identity validation do not use
+football broadcast eligibility. Both paths retain exact competition, event ID,
+ordered team IDs and kickoff checks.
 
 ## Response
 
