@@ -544,6 +544,7 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, TVSettingsMetrics.pageHorizontalInset)
                     .padding(.vertical, TVSettingsMetrics.pageVerticalInset)
+                    .opensDrillInsAtTop(playerRoute, proxy: proxy)
                 }
             }
             .focusSection()

@@ -307,6 +307,25 @@ import SwiftUI
         }
     }
 
+    extension View {
+        /// A Player drill-in replaces the long overview inside the same scroll
+        /// view, which would otherwise keep the overview's offset and open the
+        /// shorter page scrolled past its top. Scrolls to the top on entering
+        /// one; the anchor sits behind the content so it takes no row.
+        func opensDrillInsAtTop(_ route: PlayerSettingsRoute, proxy: ScrollViewProxy) -> some View {
+            background(alignment: .top) {
+                Color.clear.frame(height: 1).id(SettingsDetailAnchor.top)
+            }
+            .onChange(of: route) { _, route in
+                guard route != .overview else { return }
+                proxy.scrollTo(SettingsDetailAnchor.top, anchor: .top)
+            }
+        }
+    }
+
+    private enum SettingsDetailAnchor {
+        case top
+    }
 #endif
 
 #Preview("Empty") {
