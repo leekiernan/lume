@@ -45,7 +45,9 @@ struct HuePairingModelTests {
         }
     }
 
-    private func model(store: HueCredentialStore, window: Duration = .seconds(5)) -> HuePairingModel {
+    /// The success paths finish as soon as the bridge answers, so their window
+    /// only has to outlast a loaded test host; the timeout test passes its own.
+    private func model(store: HueCredentialStore, window: Duration = .seconds(60)) -> HuePairingModel {
         HuePairingModel(
             makeClient: { HueBridgeClient(host: $0.host, applicationKey: nil, session: StubURLProtocol.makeSession()) },
             store: store,
