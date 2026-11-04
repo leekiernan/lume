@@ -144,7 +144,7 @@ extension CloudSyncEngine {
     /// that follows is a union merge. Returns whether it did.
     func recoverFromLostMirror() -> Bool {
         guard mirrorReadiness() == .lostButHadData else { return false }
-        resetShadow()
+        shadow.resetAll()
         return true
     }
 

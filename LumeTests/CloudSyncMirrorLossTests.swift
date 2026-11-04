@@ -176,22 +176,10 @@ struct CloudSyncMirrorLossTests {
         #expect(try ctx.fetch(FetchDescriptor<Playlist>()).isEmpty)
     }
 
-    @Test func `an un-favorite on another device still propagates`() async throws {
-        let container = try makeProfileTestContainer()
-        let ctx = container.mainContext
-        let engine = CloudSyncEngine(container: container, shadow: freshShadow())
-        let ids = try await seedSyncedDevice(playlists: 2, in: ctx, engine: engine)
-
-        let favoriteID = "\(ids[0].uuidString)-live-1"
-        try ctx.delete(model: UserContentState.self, where: #Predicate { $0.contentId == favoriteID })
-        try ctx.save()
-
-        let result = await engine.reconcile()
-
-        #expect(!result.recoveredFromLostMirror)
-        let stream = try #require(try ctx.fetch(FetchDescriptor<LiveStream>()).first { $0.id == favoriteID })
-        #expect(!stream.isFavorite)
-    }
+    // Upstream's "an un-favorite on another device still propagates" is not
+    // ported: in the fork a missing content record is never a clear — clears
+    // travel as explicit intents (`ContentIntentMerge`,
+    // `CloudSyncAbsentContentTests`).
 
     // MARK: - Classifier
 
@@ -258,5 +246,35 @@ struct CloudSyncMirrorLossTests {
             baselinedPlaylists: 2, missingPlaylists: 0, mirrorHasProfiles: true, baselinedContent: 2, mirrorContent: 0
         )
         #expect(CloudSyncEngine.mirrorReadiness(probe) == .ready)
+    }
+}
+
+extension CloudSyncMirrorLossTests {
+    /// The fork's shadow also baselines the parental PIN, the tracker
+    /// credentials and account settings, whose local side survives a lost
+    /// mirror. Kept against an emptied mirror, the PIN baseline would read the
+    /// local PIN as removed on another device and clear it here.
+    @Test func `an emptied mirror keeps the local parental PIN`() async throws {
+        try await withIsolatedCredentials { _ in
+            let container = try makeProfileTestContainer()
+            let ctx = container.mainContext
+            let engine = CloudSyncEngine(container: container, shadow: freshShadow())
+            ParentalControlsStore.save(pin: "1234")
+            _ = try await seedSyncedDevice(playlists: 3, in: ctx, engine: engine)
+            #expect(try ctx.fetch(FetchDescriptor<SyncedParentalPIN>()).count == 1)
+
+            try ctx.delete(model: SyncedPlaylist.self)
+            try ctx.delete(model: UserContentState.self)
+            try ctx.delete(model: UserProfile.self)
+            try ctx.delete(model: SyncedParentalPIN.self)
+            try ctx.save()
+
+            let result = await engine.reconcile()
+
+            #expect(result.recoveredFromLostMirror)
+            #expect(ParentalControlsStore.isSet)
+            #expect(ParentalControlsStore.verify(pin: "1234"))
+            #expect(try ctx.fetch(FetchDescriptor<SyncedParentalPIN>()).count == 1)
+        }
     }
 }
