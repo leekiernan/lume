@@ -343,7 +343,7 @@
             }
             .frame(width: TVDetailMetrics.episodeCardWidth, height: TVDetailMetrics.episodeStillHeight)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .cardFocusGlow()
+            .cardFocusRing(cornerRadius: 18)
         }
 
         private var heading: String {

@@ -47,7 +47,7 @@
                     }
                     .frame(width: TVDetailMetrics.episodeCardWidth, height: TVDetailMetrics.episodeStillHeight)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .cardFocusGlow()
+                    .cardFocusRing(cornerRadius: 14)
 
                     VStack(alignment: .leading, spacing: 6) {
                         Text(video.name)

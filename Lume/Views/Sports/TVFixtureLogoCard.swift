@@ -5,8 +5,9 @@
 //  The Home rail's tvOS fixture card: the two crests with the kickoff (and its
 //  weekday when not today) or the score between them — a 10-foot glance, not a
 //  line of text. The hub uses the fuller `TVFixtureCard`. The team gradient stays
-//  at rest; focus is a scale lift (TVCardButtonStyle) plus a white ring, since
-//  the system white-fill idiom would paint the gradient over.
+//  at rest; focus is a scale lift (TVCardButtonStyle) plus the shared white
+//  ring (`CardFocusRing`), since the system white fill would paint the
+//  gradient over.
 //
 
 #if os(tvOS)
