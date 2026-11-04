@@ -417,6 +417,14 @@ struct LumeApp: App {
                         // without sending the viewer to Settings first.
                         OpenSubtitlesService.shared.restore()
 
+                        // Lamps a crash left in Hue stream colours. Never under
+                        // tests or previews, which must not reach a real bridge.
+                        #if os(tvOS)
+                            if !Self.isTestOrPreviewHost {
+                                HueSyncController.shared.restoreLeftoverSnapshot()
+                            }
+                        #endif
+
                         // Kick off iCloud sync: check account reachability, then run
                         // a first reconcile between the local catalog and the cloud
                         // mirrors. Runs after progress reconciliation so a fresh
@@ -493,6 +501,11 @@ struct LumeApp: App {
                         if phase == .background {
                             topShelf.refresh(immediately: true)
                         }
+                        // The lamps go back to how they were; the player reopens
+                        // the session on return.
+                        #if os(tvOS)
+                            if phase == .background { HueSyncController.shared.suspend() }
+                        #endif
                     }
                     .observeArtworkAccounts()
                     .appAppearance(AppAppearance.resolve(appearanceRaw))

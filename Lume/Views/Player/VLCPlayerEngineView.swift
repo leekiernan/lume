@@ -185,6 +185,7 @@ struct VLCPlayerEngineView: View {
             coordinator.loadExternalSubtitle(subtitle)
         }
         .preferredColorScheme(.dark)
+        .hueFrameSource(coordinator)
         .onAppear {
             chrome.activate()
             let catchup = coordinator.catchup

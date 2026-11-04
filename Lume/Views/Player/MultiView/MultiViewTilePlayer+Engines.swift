@@ -52,6 +52,7 @@ struct MultiViewKSTile: View {
             coordinator.resetPlayer()
         }
         .onChange(of: isMuted) { _, muted in coordinator.isMuted = muted }
+        .hueFrameSource(coordinator)
     }
 
     private func handle(_ state: KSPlayerState) {
@@ -104,6 +105,7 @@ struct MultiViewVLCTile: View {
 
     var body: some View {
         VLCVideoContainer(coordinator: coordinator)
+            .hueFrameSource(coordinator)
             .onAppear {
                 coordinator.isMuted = isMuted
                 coordinator.startupTimeout = PlaybackPolicy.tileStartupTimeout(quick: usesQuickStartupTimeout)
@@ -136,6 +138,7 @@ struct MultiViewAVTile: View {
 
     var body: some View {
         AVPlayerVideoContainer(coordinator: coordinator)
+            .hueFrameSource(coordinator)
             .onAppear {
                 coordinator.isMuted = isMuted
                 coordinator.startupTimeout = PlaybackPolicy.tileStartupTimeout(quick: usesQuickStartupTimeout)

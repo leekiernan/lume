@@ -92,6 +92,10 @@ final class HueSyncController {
     /// Resolves once the machine next settles — no setup, restore or close in
     /// flight; what `start`/`stop`/`suspend` hand back to await.
     @ObservationIgnored private var settleWaiters: [CheckedContinuation<Void, Never>] = []
+    /// Screens that run a session (the full-screen player, Multi-View). A
+    /// handover can show the next before the last disappears; only the last
+    /// one leaving ends the session.
+    @ObservationIgnored private var hosts: Set<UUID> = []
 
     init(dependencies: HueSyncDependencies) {
         self.dependencies = dependencies
@@ -130,6 +134,19 @@ final class HueSyncController {
         frameSource?.detach()
         send(.stop)
         return settled()
+    }
+
+    /// A screen that runs sessions appeared.
+    func beginHosting(_ host: UUID) {
+        hosts.insert(host)
+    }
+
+    /// A hosting screen went away: stops the session unless another host is
+    /// still on screen. Nil when one is.
+    @discardableResult
+    func endHosting(_ host: UUID) -> Task<Void, Never>? {
+        hosts.remove(host)
+        return hosts.isEmpty ? stop() : nil
     }
 
     /// Swaps the frame source without touching the stream. The previous

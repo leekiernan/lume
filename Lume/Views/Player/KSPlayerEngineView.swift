@@ -343,6 +343,7 @@ struct KSPlayerEngineView: View {
             }
             .subtitleSearch(isPresented: $isSearchingSubtitles, media: media, onPick: applyExternalSubtitle)
             .preferredColorScheme(.dark)
+            .hueFrameSource(coordinator, isPictureInPicture: isPipActive)
             .onAppear {
                 chrome.activate()
                 loadCatchupRouter()
