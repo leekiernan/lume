@@ -208,6 +208,7 @@ struct MultiViewScreen: View {
         #endif
             .persistentSystemOverlays(.hidden)
             .preferredColorScheme(.dark)
+            .multiViewHueSync(audioSlotID: session.audioSlotID)
             .onAppear {
                 // Leases are taken here, the pair of `onDisappear`, so no task
                 // timing can leave one held. The tiles' QoE reports would be
@@ -410,6 +411,7 @@ struct MultiViewScreen: View {
             },
             onRemove: { session.setMedia(nil, in: slot.id) }
         )
+        .multiViewHueSlot(slot.id)
     }
 
     /// Whether selecting the tile at `index` should swap it onto the stage: only

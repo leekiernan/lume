@@ -288,6 +288,7 @@ struct FullScreenPlayerView: View {
         .persistentSystemOverlays(.hidden)
         .preferredColorScheme(.dark)
         .playerOrientationLock()
+        .playerHueSync(isCasting: castService.castProvider?.isCasting ?? false)
         .inAppToasts()
         .macPlayerWindow(activeMedia: activeMedia, launchMedia: media) { switchMedia(to: $0) }
         // Synchronous on purpose, and ahead of the `.task` below: the engine

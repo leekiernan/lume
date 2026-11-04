@@ -91,6 +91,11 @@ struct StringCatalog {
         strings[key] as? [String: Any]
     }
 
+    /// Every key in the catalog.
+    var keys: [String] {
+        Array(strings.keys)
+    }
+
     static func localizable(filePath: String = #filePath) throws -> Self {
         let url = repoRootURL(filePath: filePath).appendingPathComponent("Lume/Localizable.xcstrings")
         let root = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any]
@@ -180,4 +185,12 @@ func clearWebDAVDigests() {
     for key in defaults.dictionaryRepresentation().keys where key.hasPrefix("sync.webdavDigest.") {
         defaults.removeObject(forKey: key)
     }
+}
+
+/// A fresh UUID-named `UserDefaults` suite, removed again once `body` returns.
+func withIsolatedDefaults(_ body: (UserDefaults) throws -> Void) rethrows {
+    let suiteName = UUID().uuidString
+    let defaults = UserDefaults(suiteName: suiteName)!
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+    try body(defaults)
 }

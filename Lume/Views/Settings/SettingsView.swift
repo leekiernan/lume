@@ -535,6 +535,7 @@ struct SettingsView: View {
                             case let .engine(engine): tvEngineOptionsDetail(for: engine)
                             case let .languages(pane): tvPreferredLanguageDetail(pane, proxy: proxy)
                             case .subtitleStyle: TVSubtitleStyleSettingsView()
+                            case .philipsHue: TVHueSettingsPane()
                             }
                         case .about: tvAboutDetail
                         }
@@ -543,6 +544,7 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, TVSettingsMetrics.pageHorizontalInset)
                     .padding(.vertical, TVSettingsMetrics.pageVerticalInset)
+                    .opensDrillInsAtTop(playerRoute, proxy: proxy)
                 }
             }
             .focusSection()
@@ -567,7 +569,8 @@ struct SettingsView: View {
             switch step {
             case .closePlaylist: selectedPlaylist = nil
             case .closeEPGSources: showingEPGSources = false
-            case .closeEngineOptions, .closeLanguagePicker, .closeLanguageList, .closeSubtitleStyle: playerRoute.goBack()
+            case .closeEngineOptions, .closeLanguagePicker, .closeLanguageList, .closeSubtitleStyle, .closePhilipsHue:
+                playerRoute.goBack()
             case .closeAreaCategories: showingAreaCategories = false
             case .toSidebar: focusedCategory = selectedCategory
             }

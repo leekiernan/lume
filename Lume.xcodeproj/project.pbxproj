@@ -552,7 +552,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = lume;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "lume needs access to your local network to reach media servers and WebDAV shares running on it.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "lume needs access to your local network to find Philips Hue Bridges and to reach media servers and WebDAV shares running on it.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -619,7 +619,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = lume;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "lume needs access to your local network to reach media servers and WebDAV shares running on it.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "lume needs access to your local network to find Philips Hue Bridges and to reach media servers and WebDAV shares running on it.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -972,7 +972,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = lume;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "lume needs access to your local network to reach media servers and WebDAV shares running on it.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "lume needs access to your local network to find Philips Hue Bridges and to reach media servers and WebDAV shares running on it.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -1379,7 +1379,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = lume;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "lume needs access to your local network to reach media servers and WebDAV shares running on it.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "lume needs access to your local network to find Philips Hue Bridges and to reach media servers and WebDAV shares running on it.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;

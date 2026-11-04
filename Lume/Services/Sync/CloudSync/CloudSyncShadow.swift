@@ -228,6 +228,25 @@ final nonisolated class CloudSyncShadow {
         isDirty = true
     }
 
+    /// Drop every baseline, the keychain- and defaults-backed ones included.
+    /// Called when the cloud *mirror* lost the records the shadow baselined
+    /// (CloudKit re-importing after a history reset): unlike a lost catalog
+    /// (`reset()`), here a kept PIN, credential or account-settings baseline
+    /// against an empty mirror would read the local value as deleted on
+    /// another device. With no baseline at all the pass is a union merge and
+    /// every local value is pushed back.
+    func resetAll() {
+        playlists.removeAll()
+        content.removeAll()
+        epgSources.removeAll()
+        categoryRestrictions.removeAll()
+        parentalPIN = nil
+        traktCredentials = nil
+        simklCredentials = nil
+        accountSettings = nil
+        isDirty = true
+    }
+
     // MARK: Transactions
 
     func checkpoint() -> Checkpoint {

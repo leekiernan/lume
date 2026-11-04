@@ -199,6 +199,16 @@ struct LumeApp: App {
     static let isUnitTestHost: Bool = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         && !CommandLine.arguments.contains("-ui-testing")
 
+    /// Any automated or preview run — unit tests, UI tests, SwiftUI previews.
+    /// Code that would reach real hardware on the network (a Hue Bridge) checks
+    /// this rather than `isUnitTestHost`, which excludes UI tests.
+    static let isTestOrPreviewHost: Bool = {
+        let environment = ProcessInfo.processInfo.environment
+        return environment["XCTestConfigurationFilePath"] != nil
+            || environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+            || CommandLine.arguments.contains("-ui-testing")
+    }()
+
     /// An in-memory store for the unit-test host (see `isUnitTestHost`).
     private static func makeTestHostContainer(_ schema: Schema) -> ModelContainer {
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
@@ -407,6 +417,14 @@ struct LumeApp: App {
                         // without sending the viewer to Settings first.
                         OpenSubtitlesService.shared.restore()
 
+                        // Lamps a crash left in Hue stream colours. Never under
+                        // tests or previews, which must not reach a real bridge.
+                        #if os(tvOS)
+                            if !Self.isTestOrPreviewHost {
+                                HueSyncController.shared.restoreLeftoverSnapshot()
+                            }
+                        #endif
+
                         // Kick off iCloud sync: check account reachability, then run
                         // a first reconcile between the local catalog and the cloud
                         // mirrors. Runs after progress reconciliation so a fresh
@@ -483,6 +501,11 @@ struct LumeApp: App {
                         if phase == .background {
                             topShelf.refresh(immediately: true)
                         }
+                        // The lamps go back to how they were; the player reopens
+                        // the session on return.
+                        #if os(tvOS)
+                            if phase == .background { HueSyncController.shared.suspend() }
+                        #endif
                     }
                     .observeArtworkAccounts()
                     .appAppearance(AppAppearance.resolve(appearanceRaw))

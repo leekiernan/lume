@@ -396,13 +396,14 @@
             .disabled(!enabled)
         }
 
-        // MARK: - Trailing controls (audio / subtitles / favorite)
+        // MARK: - Trailing controls (audio / subtitles / sources / hue / favorite)
 
         private var trailingControls: some View {
             HStack(spacing: 16) {
                 audioTrackMenu
                 subtitleMenu
                 sourceMenu
+                hueButton
                 favoriteButton
             }
         }

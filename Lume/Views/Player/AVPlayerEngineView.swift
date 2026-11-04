@@ -165,6 +165,7 @@ struct AVPlayerEngineView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .hueFrameSource(coordinator)
         .onAppear {
             chrome.activate()
             let catchup = coordinator.catchup

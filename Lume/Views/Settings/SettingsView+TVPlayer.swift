@@ -61,6 +61,9 @@ import SwiftUI
 
                 tvStreamInfoSection
 
+                // What the room does while video plays, before the engines.
+                tvHueSection
+
                 tvEnginePrioritySection(proxy: proxy)
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -118,6 +121,26 @@ import SwiftUI
                 Text("Swipes across the remote's touch surface control the player: up and down change channels, left opens the channel browser and right returns to the last channel. Turn this off to leave those to a click on the remote's direction buttons, so a brush across the surface changes nothing.")
                     .tvSettingsFooter()
                     .padding(.top, 6)
+            }
+        }
+
+        /// Philips Hue, drilled into in place like Subtitle Style.
+        private var tvHueSection: some View {
+            VStack(alignment: .leading, spacing: 8) {
+                TVSettingsSectionLabel("settings.hue.section.lights")
+
+                Button {
+                    playerRoute = .philipsHue
+                } label: {
+                    HStack(spacing: 16) {
+                        Text(verbatim: "Philips Hue")
+                        Spacer(minLength: 16)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .buttonStyle(TVSettingsRowButtonStyle())
             }
         }
 
