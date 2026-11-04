@@ -204,7 +204,7 @@ private struct SportsHighlightCardSurface<Backdrop: View>: ViewModifier {
                 .foregroundStyle(.white)
                 .padding(26)
                 .frame(width: TVSportsMetrics.fixtureCardWidth, height: TVSportsMetrics.highlightCardHeight, alignment: .topLeading)
-                .tvSportsCardSurface(cornerRadius: 30, restingOpacity: 0.08, backdrop: backdrop)
+                .tvSportsCardSurface(cornerRadius: 30, backdrop: backdrop)
         #else
             content
                 .foregroundStyle(.white)
@@ -225,13 +225,12 @@ extension View {
 #if os(tvOS)
     private struct TVSportsCardSurface<Backdrop: View>: ViewModifier {
         let cornerRadius: CGFloat
-        let restingOpacity: Double
         @ViewBuilder var backdrop: () -> Backdrop
 
         func body(content: Content) -> some View {
             content
                 .background(backdrop())
-                .cardFocusRing(cornerRadius: cornerRadius, restingOpacity: restingOpacity)
+                .cardFocusRing(cornerRadius: cornerRadius)
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
     }
@@ -245,10 +244,9 @@ extension View {
 
         func tvSportsCardSurface(
             cornerRadius: CGFloat,
-            restingOpacity: Double = 0.1,
             @ViewBuilder backdrop: @escaping () -> some View
         ) -> some View {
-            modifier(TVSportsCardSurface(cornerRadius: cornerRadius, restingOpacity: restingOpacity, backdrop: backdrop))
+            modifier(TVSportsCardSurface(cornerRadius: cornerRadius, backdrop: backdrop))
         }
     }
 #endif

@@ -113,23 +113,23 @@
     }
 
     /// The one focus highlight every tvOS card shares: a white ring that
-    /// follows the card's corners, at full strength and 4 pt in focus. A ring
+    /// follows the card's corners, a hairline at rest and 4 pt at full
+    /// strength in focus. A ring
     /// rather than the system's white fill, which would paint over artwork
     /// and team gradients, and rather than a glow, which washed out on the
     /// dark screens. Posters get it from `TVCardButtonStyle`; a card with a
     /// caption rings its artwork with `cardFocusRing(cornerRadius:)`.
     struct CardFocusRing: View {
         static let lineWidth: CGFloat = 4
+        /// The hairline every card keeps at rest.
+        static let restingOpacity = 0.1
 
         let cornerRadius: CGFloat
         let isFocused: Bool
-        /// A hairline at rest, for cards whose surface needs an edge (the
-        /// sports cards' gradients); none by default.
-        var restingOpacity: Double = 0
 
         var body: some View {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .strokeBorder(.white.opacity(isFocused ? 1 : restingOpacity), lineWidth: isFocused ? Self.lineWidth : 1)
+                .strokeBorder(.white.opacity(isFocused ? 1 : Self.restingOpacity), lineWidth: isFocused ? Self.lineWidth : 1)
                 .animation(.easeOut(duration: 0.18), value: isFocused)
                 .allowsHitTesting(false)
         }
@@ -139,19 +139,18 @@
         /// Rings this view in focus — a captioned card's artwork, inside a
         /// button styled `TVCardButtonStyle(castsShadow: false)`. `isFocused`
         /// reads the nearest focusable ancestor, the card's button.
-        func cardFocusRing(cornerRadius: CGFloat, restingOpacity: Double = 0) -> some View {
-            modifier(CardFocusRingModifier(cornerRadius: cornerRadius, restingOpacity: restingOpacity))
+        func cardFocusRing(cornerRadius: CGFloat) -> some View {
+            modifier(CardFocusRingModifier(cornerRadius: cornerRadius))
         }
     }
 
     private struct CardFocusRingModifier: ViewModifier {
         let cornerRadius: CGFloat
-        let restingOpacity: Double
         @Environment(\.isFocused) private var isFocused
 
         func body(content: Content) -> some View {
             content.overlay {
-                CardFocusRing(cornerRadius: cornerRadius, isFocused: isFocused, restingOpacity: restingOpacity)
+                CardFocusRing(cornerRadius: cornerRadius, isFocused: isFocused)
             }
         }
     }
