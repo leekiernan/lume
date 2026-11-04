@@ -34,7 +34,7 @@ actor LumeSportsArtworkClient {
 
     func artwork(source: LumeProxySource, fixtures: [SportsFixture], now: Date = Date()) async throws -> [String: LumeSportsArtworkPublication] {
         try Task.checkCancellation()
-        let groups = Dictionary(grouping: fixtures.filter { $0.proxyCompetition != nil }, by: { $0.proxyCompetition ?? "" })
+        let groups = Dictionary(grouping: fixtures.filter { $0.artworkCompetition != nil }, by: { $0.artworkCompetition ?? "" })
         guard !groups.isEmpty else { return [:] }
         failures = failures.filter { now < $0.value }
         guard failures[source.identity] == nil else { return [:] }

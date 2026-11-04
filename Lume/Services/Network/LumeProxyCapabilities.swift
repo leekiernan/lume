@@ -123,6 +123,16 @@ nonisolated struct LumeProxySource: Hashable {
         try snapshots(of: context.fetch(FetchDescriptor<Playlist>()))
     }
 
+    /// Background sports consumers share one bounded-by-playlists read. No
+    /// managed value survives an await; views use their existing playlist query.
+    static func snapshots(in container: ModelContainer) -> [Self] {
+        autoreleasepool {
+            let context = ModelContext(container)
+            guard let values = try? snapshots(in: context) else { return [] }
+            return Array(values.values)
+        }
+    }
+
     /// For views that already hold their scene's playlists.
     static func snapshots(of playlists: [Playlist]) -> [UUID: Self] {
         var sources: [UUID: Self] = [:]

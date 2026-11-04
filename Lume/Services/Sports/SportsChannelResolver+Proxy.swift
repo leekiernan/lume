@@ -41,11 +41,7 @@ nonisolated extension SportsChannelResolver {
 
     static func proxySources(container: ModelContainer, fixtures: [SportsFixture]) -> [LumeProxySource] {
         guard fixtures.contains(where: { $0.proxyCompetition != nil }) else { return [] }
-        return autoreleasepool {
-            let context = ModelContext(container)
-            let playlists = (try? context.fetch(FetchDescriptor<Playlist>())) ?? []
-            return playlists.compactMap { LumeProxySource(playlist: $0) }
-        }
+        return LumeProxySource.snapshots(in: container)
     }
 
     static func proxyBroadcasts(

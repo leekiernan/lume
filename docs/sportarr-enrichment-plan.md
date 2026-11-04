@@ -1,9 +1,15 @@
 # Sportarr enrichment for the Sports Hub
 
-Written 2026-11-01. The first optional app artwork slice is implemented
-on `feat/sportarr-artwork-enrichment`; see the [app wire contract](sportarr-artwork-contract.md).
-The branch is awaiting merge approval. The proxy is developed separately.
-No provider migration is proposed.
+Written 2026-11-01. The first optional app artwork slice is implemented in
+`fc94c817`, with the proxy compatibility correction in `b9218f65`; see the
+[app wire contract](sportarr-artwork-contract.md). The proxy is developed
+separately. No provider migration is proposed.
+
+The user reports the initial artwork working well. The
+[broader coverage assessment](sportarr-broader-coverage.md), sampled on
+2026-11-03, measures additional football and team sports, identifies a US
+broadcast-date boundary issue, and separates F1/session work from card/match
+feeds that do not yet have reliable usable artwork.
 
 ## Recommendation
 
