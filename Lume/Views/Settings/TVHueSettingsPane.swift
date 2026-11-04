@@ -86,6 +86,12 @@
             .onAppear {
                 pairedBridge = HueCredentialStore().pairedBridge
                 updateDiscovery()
+                // The Philips Hue row sits low on the long Player page, so the
+                // pane opens with the detail scrolled down past its short
+                // content. `defaultFocus` alone doesn't always land; taking
+                // focus explicitly scrolls the first row into view, as Subtitle
+                // Style does.
+                Task { @MainActor in focus = .sync }
             }
             .onDisappear {
                 discovery.stop()
