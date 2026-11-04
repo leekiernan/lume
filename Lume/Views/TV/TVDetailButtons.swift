@@ -61,19 +61,18 @@
         /// category rail to mask the engine's transient landing before it
         /// snaps focus to the selected category.
         var suppressFocusEffects = false
-        /// Lifts the focused card on the accent glow (`CardFocusGlow`) rather
-        /// than a black shadow, which barely shows on the dark screens: posters
-        /// in rails and grids, where the focused card has to stand out among many.
-        var glows = false
+        /// Rings the whole card in focus (`cardFocusRing`), for cards that are
+        /// artwork edge to edge with this corner radius: posters in rails and
+        /// grids. A card captioned underneath rings its artwork itself.
+        var focusRingCornerRadius: CGFloat?
         /// No shadow from the style at all: a card with a caption under its
-        /// artwork glows on the artwork alone (`cardFocusGlow()`), since a
-        /// shadow here would wrap the caption's text too.
+        /// artwork, where a shadow would wrap the caption's text too.
         var castsShadow = true
 
         func makeBody(configuration: Configuration) -> some View {
             StyleBody(
                 configuration: configuration, focusScale: focusScale, suppressFocusEffects: suppressFocusEffects,
-                glows: glows, castsShadow: castsShadow
+                focusRingCornerRadius: focusRingCornerRadius, castsShadow: castsShadow
             )
         }
 
@@ -81,7 +80,7 @@
             let configuration: ButtonStyleConfiguration
             let focusScale: CGFloat
             var suppressFocusEffects = false
-            var glows = false
+            var focusRingCornerRadius: CGFloat?
             var castsShadow = true
             @Environment(\.isFocused) private var isFocusedRaw
 
@@ -93,17 +92,19 @@
                 let pressed = configuration.isPressed
                 let scale: CGFloat = pressed ? focusScale * 0.97 : (isFocused ? focusScale : 1.0)
                 let lifted = isFocused && castsShadow
-                let shadowColor = glows
-                    ? Color.lumeAccent.opacity(lifted ? CardFocusGlow.opacity : 0)
-                    : .black.opacity(lifted ? 0.5 : 0)
                 return configuration.label
+                    .overlay {
+                        if let focusRingCornerRadius {
+                            CardFocusRing(cornerRadius: focusRingCornerRadius, isFocused: isFocused)
+                        }
+                    }
                     // The shadow is applied *before* the scale transform so it is
                     // rasterised once and then scaled as a bitmap, rather than the
                     // GPU re-blurring it on every frame of the focus animation
                     // (which happens when scaleEffect precedes shadow). A smaller
                     // radius further cuts the per-frame blur cost while still
                     // reading as a clear focus lift on the 10-foot UI.
-                    .shadow(color: shadowColor, radius: glows ? CardFocusGlow.radius : 12, y: glows ? CardFocusGlow.yOffset : 8)
+                    .shadow(color: .black.opacity(lifted ? 0.5 : 0), radius: 12, y: 8)
                     .scaleEffect(scale)
                     .animation(.easeOut(duration: 0.18), value: isFocused)
                     .animation(.easeOut(duration: 0.1), value: pressed)
@@ -111,34 +112,47 @@
         }
     }
 
-    /// The accent glow a focused card lifts on: around the whole card for
-    /// posters (`TVCardButtonStyle.glows`), around the artwork alone for cards
-    /// captioned underneath (`cardFocusGlow()`), so every card reads the same.
-    enum CardFocusGlow {
-        static let opacity = 0.4
-        static let radius: CGFloat = 16
-        static let yOffset: CGFloat = 4
-    }
+    /// The one focus highlight every tvOS card shares: a white ring that
+    /// follows the card's corners, at full strength and 4 pt in focus. A ring
+    /// rather than the system's white fill, which would paint over artwork
+    /// and team gradients, and rather than a glow, which washed out on the
+    /// dark screens. Posters get it from `TVCardButtonStyle`; a card with a
+    /// caption rings its artwork with `cardFocusRing(cornerRadius:)`.
+    struct CardFocusRing: View {
+        static let lineWidth: CGFloat = 4
 
-    extension View {
-        /// The focus glow on this view alone — a captioned card's artwork,
-        /// inside a button styled `TVCardButtonStyle(castsShadow: false)`.
-        /// `isFocused` reads the nearest focusable ancestor, the card's button.
-        func cardFocusGlow() -> some View {
-            modifier(CardFocusGlowModifier())
+        let cornerRadius: CGFloat
+        let isFocused: Bool
+        /// A hairline at rest, for cards whose surface needs an edge (the
+        /// sports cards' gradients); none by default.
+        var restingOpacity: Double = 0
+
+        var body: some View {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .strokeBorder(.white.opacity(isFocused ? 1 : restingOpacity), lineWidth: isFocused ? Self.lineWidth : 1)
+                .animation(.easeOut(duration: 0.18), value: isFocused)
+                .allowsHitTesting(false)
         }
     }
 
-    private struct CardFocusGlowModifier: ViewModifier {
+    extension View {
+        /// Rings this view in focus — a captioned card's artwork, inside a
+        /// button styled `TVCardButtonStyle(castsShadow: false)`. `isFocused`
+        /// reads the nearest focusable ancestor, the card's button.
+        func cardFocusRing(cornerRadius: CGFloat, restingOpacity: Double = 0) -> some View {
+            modifier(CardFocusRingModifier(cornerRadius: cornerRadius, restingOpacity: restingOpacity))
+        }
+    }
+
+    private struct CardFocusRingModifier: ViewModifier {
+        let cornerRadius: CGFloat
+        let restingOpacity: Double
         @Environment(\.isFocused) private var isFocused
 
         func body(content: Content) -> some View {
-            content
-                .shadow(
-                    color: Color.lumeAccent.opacity(isFocused ? CardFocusGlow.opacity : 0),
-                    radius: CardFocusGlow.radius, y: CardFocusGlow.yOffset
-                )
-                .animation(.easeOut(duration: 0.18), value: isFocused)
+            content.overlay {
+                CardFocusRing(cornerRadius: cornerRadius, isFocused: isFocused, restingOpacity: restingOpacity)
+            }
         }
     }
 

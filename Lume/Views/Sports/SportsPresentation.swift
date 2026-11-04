@@ -227,14 +227,12 @@ extension View {
         let cornerRadius: CGFloat
         let restingOpacity: Double
         @ViewBuilder var backdrop: () -> Backdrop
-        @Environment(\.isFocused) private var isFocused
 
         func body(content: Content) -> some View {
-            let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             content
                 .background(backdrop())
-                .overlay(shape.strokeBorder(.white.opacity(isFocused ? 1 : restingOpacity), lineWidth: isFocused ? 4 : 1))
-                .clipShape(shape)
+                .cardFocusRing(cornerRadius: cornerRadius, restingOpacity: restingOpacity)
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
     }
 

@@ -102,13 +102,13 @@ extension View {
         }
     }
 
-    /// Applies the focus-aware card button style on tvOS (scale + shadow on
-    /// focus) and the plain style elsewhere, so browse cards lift cleanly
+    /// Applies the focus-aware card button style on tvOS (scale, shadow and
+    /// the shared focus ring) and the plain style elsewhere, so browse cards lift cleanly
     /// without overlapping neighbours.
     @ViewBuilder
     func posterCardButtonStyle() -> some View {
         #if os(tvOS)
-            buttonStyle(TVCardButtonStyle(focusScale: 1.08, glows: true))
+            buttonStyle(TVCardButtonStyle(focusScale: 1.08, focusRingCornerRadius: PosterCardMetrics.cornerRadius))
         #else
             buttonStyle(.plain)
         #endif

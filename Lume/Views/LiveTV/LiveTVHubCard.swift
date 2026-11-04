@@ -52,6 +52,9 @@ struct LiveTVHubCard: View {
                     }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: PosterCardMetrics.cornerRadius))
+            #if os(tvOS)
+                .cardFocusRing(cornerRadius: PosterCardMetrics.cornerRadius)
+            #endif
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(slot?.title ?? channel.name)
@@ -87,7 +90,9 @@ struct LiveTVHubCard: View {
 extension View {
     @ViewBuilder func liveTVHubCardStyle() -> some View {
         #if os(tvOS)
-            buttonStyle(TVCardButtonStyle())
+            // The ring is on the artwork (`cardFocusRing`); a shadow from the
+            // style would wrap the caption too.
+            buttonStyle(TVCardButtonStyle(castsShadow: false))
         #else
             buttonStyle(.plain)
         #endif
