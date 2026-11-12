@@ -94,12 +94,8 @@
         }
 
         func selectTextTrack(id: String?) {
-            guard let subtitleModel = coordinator?.subtitleModel else { return }
-            if let id {
-                subtitleModel.selectedSubtitleInfo = subtitleModel.subtitleInfos.first { $0.subtitleID == id }
-            } else {
-                subtitleModel.selectedSubtitleInfo = nil
-            }
+            guard let coordinator else { return }
+            coordinator.selectSubtitle(id.flatMap { id in coordinator.subtitleModel.subtitleInfos.first { $0.subtitleID == id } })
             objectWillChange.send()
         }
 

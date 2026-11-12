@@ -52,6 +52,10 @@ final nonisolated class LumeKSOptions: KSOptions {
     /// full screen later adopts.
     private let matchesDisplayCriteria: Bool
 
+    /// Where hand picks are recorded for the next episode; nil outside the
+    /// full-screen player. Main actor only, like the picks themselves.
+    weak var trackCarryOver: TrackCarryOverSession?
+
     init(preferredAudioLanguages: [String], matchesDisplayCriteria: Bool) {
         self.preferredAudioLanguages = preferredAudioLanguages
         self.matchesDisplayCriteria = matchesDisplayCriteria
@@ -155,8 +159,53 @@ extension KSVideoPlayer.Coordinator {
     /// stream, which every overlay would otherwise have to remember. Callers
     /// publish their own change afterwards.
     func selectAudioTrack(_ track: MediaPlayerTrack) {
-        (playerLayer?.options as? LumeKSOptions)?.noteManualAudioSelection()
+        let options = playerLayer?.options as? LumeKSOptions
+        options?.noteManualAudioSelection()
+        options?.trackCarryOver?.noteAudio(.init(languageTag: track.languageCode, label: track.name))
         playerLayer?.player.select(track: track)
+    }
+
+    /// The one sanctioned way to pick a subtitle by hand (`nil` is Off), so
+    /// the pick carries into the next episode. Embedded tracks only: a
+    /// side-loaded file belongs to the stream it was found for.
+    func selectSubtitle(_ info: (any SubtitleInfo)?) {
+        subtitleModel.selectedSubtitleInfo = info
+        let carry = (playerLayer?.options as? LumeKSOptions)?.trackCarryOver
+        guard let info else {
+            carry?.noteSubtitle(.off)
+            return
+        }
+        guard let track = info as? MediaPlayerTrack else { return }
+        carry?.noteSubtitle(.track(
+            .init(languageTag: track.languageCode, label: info.name),
+            isForced: KSSubtitleCarry.isForced(info)
+        ))
+    }
+
+    /// Re-applies a subtitle pick carried from the last episode, once
+    /// KSPlayer has listed this stream's embedded tracks (and made its own
+    /// auto-selection, which this replaces).
+    func applyCarriedSubtitle(_ carry: TrackCarryOver) {
+        let infos = subtitleModel.subtitleInfos
+        let candidates = infos.map { info in
+            TrackCarryOver.Candidate(
+                track: .init(languageTag: (info as? MediaPlayerTrack)?.languageCode, label: info.name),
+                isForced: KSSubtitleCarry.isForced(info)
+            )
+        }
+        switch carry.resolveSubtitle(in: candidates) {
+        case .keep: break
+        case .off: subtitleModel.selectedSubtitleInfo = nil
+        case let .select(index): subtitleModel.selectedSubtitleInfo = infos[index]
+        }
+    }
+}
+
+/// KSPlayer reports no forced disposition for a subtitle track, only its
+/// title; a forced track is named for it ("English Forced", "Forced").
+enum KSSubtitleCarry {
+    static func isForced(_ info: any SubtitleInfo) -> Bool {
+        info.name.localizedCaseInsensitiveContains("forced")
     }
 }
 
@@ -184,7 +233,13 @@ enum KSPlayerOptionsFactory {
     ///   allowed to start PiP from inline would fight over the one PiP window,
     ///   and a tile switching the TV's display mode blacks out the whole screen
     ///   on every channel change.
-    static func make(for media: PlayableMedia, isEmbedded: Bool = false) -> KSOptions {
+    /// - Parameter trackCarryOver: the full-screen player's carried picks;
+    ///   the stream starts with the carried audio language first.
+    static func make(
+        for media: PlayableMedia,
+        isEmbedded: Bool = false,
+        trackCarryOver: TrackCarryOverSession? = nil
+    ) -> KSOptions {
         _ = configureGlobalOptions
 
         let settings = KSPlayerOptions.load()
@@ -195,10 +250,13 @@ enum KSPlayerOptionsFactory {
         KSOptions.useSystemHTTPProxy = settings.systemProxy
         KSOptions.firstPlayerType = settings.primaryEngine == .ffmpeg ? KSMEPlayer.self : KSAVPlayer.self
 
+        trackCarryOver?.begin(media)
+        let preferred = PlayerLanguageOptions.load().preferredAudioLanguages
         let options = LumeKSOptions(
-            preferredAudioLanguages: PlayerLanguageOptions.load().preferredAudioLanguages,
+            preferredAudioLanguages: trackCarryOver?.carry.audioLanguages(over: preferred) ?? preferred,
             matchesDisplayCriteria: !isEmbedded
         )
+        options.trackCarryOver = trackCarryOver
         // Now Playing metadata + remote commands are owned by
         // `NowPlayingService` for all engines; KSPlayer's built-in
         // registration would double-handle every command.
@@ -240,7 +298,7 @@ enum KSPlayerOptionsFactory {
 
 extension KSPlayerEngineView {
     func makeOptions() -> KSOptions {
-        let options = KSPlayerOptionsFactory.make(for: media)
+        let options = KSPlayerOptionsFactory.make(for: media, trackCarryOver: trackCarryOver)
         let resource = playbackResource ?? resourceRequest
         PlaybackCredentials.input(for: .ksPlayer, url: resource.url, headers: resource.headers).apply(to: options)
         return options

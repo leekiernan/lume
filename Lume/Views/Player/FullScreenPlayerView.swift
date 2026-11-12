@@ -63,6 +63,9 @@ struct FullScreenPlayerView: View {
     /// stream is driven through the AVPlayer engine regardless of the user's
     /// engine preference. See `engine` / `castService`.
     @State private var castService = CastService.shared
+    /// Hand-picked tracks carried into the next episode; outlives each
+    /// title's engine remount.
+    @State private var trackCarryOver = TrackCarryOverSession()
 
     /// Ids of streams AVPlayer couldn't start while casting over AirPlay (a codec
     /// or container AVPlayer can't open — common for MPEG-TS / MKV IPTV that only
@@ -289,6 +292,7 @@ struct FullScreenPlayerView: View {
         .preferredColorScheme(.dark)
         .playerOrientationLock()
         .playerHueSync(isCasting: castService.castProvider?.isCasting ?? false)
+        .environment(\.trackCarryOver, trackCarryOver)
         .inAppToasts()
         .macPlayerWindow(activeMedia: activeMedia, launchMedia: media) { switchMedia(to: $0) }
         // Synchronous on purpose, and ahead of the `.task` below: the engine

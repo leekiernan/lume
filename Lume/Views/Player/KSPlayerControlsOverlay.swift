@@ -97,7 +97,7 @@ import SwiftUI
         }
 
         private func selectTextTrack(_ id: String?) {
-            coordinator.subtitleModel.selectedSubtitleInfo = subtitleTracks.first { $0.subtitleID == id }
+            coordinator.selectSubtitle(subtitleTracks.first { $0.subtitleID == id })
         }
 
         private func onSliderEditingChanged(editing: Bool) {
