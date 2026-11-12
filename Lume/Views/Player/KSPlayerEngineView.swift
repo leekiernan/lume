@@ -131,6 +131,8 @@ struct KSPlayerEngineView: View {
     }
 
     @Environment(PlayerControlsBridge.self) var remoteBridge: PlayerControlsBridge?
+    /// The player's carried track picks (`TrackCarryOver`); nil in previews.
+    @Environment(\.trackCarryOver) var trackCarryOver
 
     /// Whether the controls are on screen — see `PlayerChrome`.
     var drawsControls: Bool {
@@ -344,6 +346,7 @@ struct KSPlayerEngineView: View {
             .subtitleSearch(isPresented: $isSearchingSubtitles, media: media, onPick: applyExternalSubtitle)
             .preferredColorScheme(.dark)
             .hueFrameSource(coordinator, isPictureInPicture: isPipActive)
+            .carriesSubtitlePick(coordinator, from: trackCarryOver)
             .onAppear {
                 chrome.activate()
                 loadCatchupRouter()
@@ -493,6 +496,7 @@ struct KSPlayerEngineView: View {
             }
             .subtitleSearch(isPresented: $isSearchingSubtitles, media: media, onPick: applyExternalSubtitle)
             .preferredColorScheme(.dark)
+            .carriesSubtitlePick(coordinator, from: trackCarryOver)
             .onAppear {
                 chrome.activate()
                 loadCatchupRouter()
