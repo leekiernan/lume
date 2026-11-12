@@ -40,7 +40,9 @@ struct HomeRow: View {
 
     var body: some View {
         PosterRail(title: title, showAll: showAll, isRefreshing: isRefreshing, onLeadingLeft: onLeadingLeft) {
-            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+            // One poster per title on every Home-style rail (For You, feeds,
+            // custom rows), as in the grids (`PosterWindow`).
+            ForEach(Array(items.deduplicatedByTitle().enumerated()), id: \.element.id) { index, item in
                 HomeItemCell(
                     item: item,
                     seriesResume: seriesResume,
