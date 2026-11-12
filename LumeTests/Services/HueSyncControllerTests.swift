@@ -388,6 +388,8 @@ struct HueSyncControllerTests {
         first.sample = try .frame(.grid(#require(Self.solidGrid(30))))
         let transport = try await startStreaming(harness, source: first)
         harness.controller.tick()
+        // Latest-wins sampler: let the first packet out before the next tick.
+        #expect(await eventually { transport.sent.count == 1 })
 
         let second = FakeFrameSource()
         second.sample = try .frame(.grid(#require(Self.solidGrid(220))))
