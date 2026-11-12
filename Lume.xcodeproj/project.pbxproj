@@ -1546,8 +1546,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/kingslay/KSPlayer";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.3.4;
+				kind = revision;
+				revision = be7f60d3b94a0941c643fe8699113cfce4f08e83;
 			};
 		};
 		C6FF000C2FC5A59D00484603 /* XCRemoteSwiftPackageReference "VLCKit" */ = {

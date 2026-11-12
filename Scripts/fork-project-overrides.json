@@ -233,5 +233,8 @@
     "C6BB20012FDE00030000BB01",
     "C6BB20022FDE00030000BB02",
     "C6BB20032FDE00030000BB03"
-  ]
+  ],
+  "packageRequirements": {
+    "https://github.com/kingslay/KSPlayer": "\t\t\t\tkind = revision;\n\t\t\t\trevision = be7f60d3b94a0941c643fe8699113cfce4f08e83;\n"
+  }
 }

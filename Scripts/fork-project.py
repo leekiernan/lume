@@ -2,8 +2,8 @@
 """Keep the fork's project.pbxproj a pure function of upstream's.
 
 The fork's project-file changes are mechanical: signing identity (team,
-bundle ids, signing style), Xcode's recommended settings and explicitly retired
-target objects. Carried as a diff,
+bundle ids, signing style), Xcode's recommended settings, explicitly retired
+target objects and package requirements pinned differently from upstream. Carried as a diff,
 they sit next to the version lines, so every upstream version bump conflicts.
 Carried as data, an upstream project change is taken whole and the overrides
 re-applied — no hand-merging.
@@ -48,6 +48,11 @@ CONFIG = re.compile(
 # A single-line setting inside buildSettings (multi-line arrays are left alone).
 SETTING = re.compile(r'^\t\t\t\t(?P<key>"[^"]+"|[A-Za-z0-9_]+(?:\[[^\]]*\])?) = (?P<value>[^\n]*;)$')
 ATTRIBUTE = re.compile(r"^(\t\t\t\t)(LastUpgradeCheck|LastSwiftUpdateCheck) = (\d+);$", re.M)
+# One remote package's requirement block, found by its repository URL.
+PACKAGE = re.compile(
+    r"(?P<head>\t\t\tisa = XCRemoteSwiftPackageReference;\n\t\t\trepositoryURL = \"(?P<url>[^\"]+)\";\n"
+    r"\t\t\trequirement = \{\n)(?P<body>(?:\t\t\t\t[^\n]*\n)*?)(?P<tail>\t\t\t\};\n)"
+)
 
 
 def git_show(rev: str) -> str:
@@ -107,6 +112,14 @@ def apply(text: str, overrides: dict) -> str:
         return match["head"] + apply_to_body(match["body"], changes) + match["tail"]
 
     text = CONFIG.sub(replace, text)
+    for url, requirement in overrides.get("packageRequirements", {}).items():
+        # A package the fork pins differently from upstream (an engine held at
+        # its last source-built revision, say).
+        text = PACKAGE.sub(
+            lambda m: m["head"] + requirement + m["tail"] if m["url"] == url else m.group(0), text
+        )
+        if url not in {m["url"] for m in PACKAGE.finditer(text)}:
+            sys.exit(f"fork-project: package no longer in the project: {url}")
     for name, minimum in overrides.get("attributes", {}).items():
         # Only ever raise: once upstream adopts a newer Xcode, theirs stands.
         text = ATTRIBUTE.sub(
@@ -151,6 +164,13 @@ def capture(base_rev: str) -> dict:
         changes.update({k: None for k in base[config_id] if k not in ours[config_id]})
         if changes:
             result["configurations"][config_id] = dict(sorted(changes.items()))
+    base_packages = {m["url"]: m["body"] for m in PACKAGE.finditer(base_text)}
+    packages = {
+        m["url"]: m["body"] for m in PACKAGE.finditer(ours_text)
+        if m["url"] in base_packages and base_packages[m["url"]] != m["body"]
+    }
+    if packages:
+        result["packageRequirements"] = dict(sorted(packages.items()))
     base_attrs = {m[2]: int(m[3]) for m in ATTRIBUTE.finditer(base_text)}
     for m in ATTRIBUTE.finditer(ours_text):
         if int(m[3]) > base_attrs.get(m[2], 0):
