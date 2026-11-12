@@ -234,7 +234,7 @@ private struct ContinueWatchingCell: View {
                 .posterCardButtonStyle()
             }
         }
-        .modifier(HomeItemMenu(
+        .modifier(MediaItemMenu(
             item: item,
             onRemove: onRemove,
             onVote: nil,

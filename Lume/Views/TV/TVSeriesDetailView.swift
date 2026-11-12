@@ -107,13 +107,13 @@
                     aboutSection
 
                     if !series.orderedCast.isEmpty {
-                        TVRail(title: "Cast", items: series.orderedCast) { member in
+                        PosterRail(title: Text("Cast"), items: series.orderedCast, style: .detail) { member in
                             TVCastCard(member: member)
                         }
                     }
 
                     if !series.trailers.isEmpty {
-                        TVRail(title: "Videos", items: series.trailers) { video in
+                        PosterRail(title: Text("Videos"), items: series.trailers, style: .detail) { video in
                             TVVideoCard(video: video) {
                                 openVideo(video) { showYouTubeUnavailable = true }
                             }
@@ -121,7 +121,7 @@
                     }
 
                     if !similar.isEmpty {
-                        TVRail(title: "You May Also Like", items: similar) { item in
+                        PosterRail(title: Text("You May Also Like"), items: similar, style: .detail) { item in
                             posterLink(for: item)
                                 .mediaFavoriteMenu(item, in: modelContext)
                         }
