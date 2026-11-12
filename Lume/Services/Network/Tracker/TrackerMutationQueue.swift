@@ -215,7 +215,7 @@ final class TrackerMutationQueue<Backend: TrackerAccountBackend> {
             }
             let entries: [TrackerWatchlistEntry]
             do {
-                entries = try await fetchWatchlist(accessToken)
+                entries = try await session.retryingRefusedToken(accessToken, fetchWatchlist)
             } catch {
                 Logger.network.warning("\(Backend.name, privacy: .public) watchlist request failed: \(LogRedaction.describe(error), privacy: .public)")
                 guard let saved = TrackerWatchlistStore.load(Backend.name, account: account) else { throw error }
@@ -252,7 +252,7 @@ final class TrackerMutationQueue<Backend: TrackerAccountBackend> {
             }
             guard !Task.isCancelled, drainID == id, self.account == account else { break }
             do {
-                guard try await session.backend.deliver(mutation, accessToken: accessToken) else {
+                guard try await session.retryingRefusedToken(accessToken, { try await session.backend.deliver(mutation, accessToken: $0) }) else {
                     Logger.network.error(
                         "Discarding \(Backend.name) \(mutation.kind.rawValue) mutation it has no request for"
                     )

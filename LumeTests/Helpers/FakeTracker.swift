@@ -52,6 +52,11 @@ final class FakeTracker {
     var deliveryResponses: [FakeDelivery] = []
     /// Every mutation the queue tried to send, in order.
     var deliveryAttempts: [TrackerMutation.Target] = []
+    /// Access tokens the service refuses (HTTP 401) on any request, as when
+    /// another device has refreshed the shared pair.
+    var refusedTokens: Set<String> = []
+    /// The token each identity lookup and delivery was sent with, in order.
+    var tokensUsed: [String] = []
 }
 
 enum FakeDelivery {
@@ -61,6 +66,8 @@ enum FakeDelivery {
 }
 
 struct FakeDeliveryError: Error {}
+
+struct FakeRefusedTokenError: Error {}
 
 @MainActor
 struct FakeBackend: TrackerAccountBackend {
@@ -91,12 +98,25 @@ struct FakeBackend: TrackerAccountBackend {
         tracker.revoked.append(accessToken)
     }
 
-    func fetchIdentity(accessToken _: String) async -> FakeIdentity? {
-        if let gate = tracker.identityGate { return await gate() }
-        return tracker.identityResponses.isEmpty ? nil : tracker.identityResponses.removeFirst()
+    func fetchIdentity(accessToken: String) async throws -> FakeIdentity {
+        tracker.tokensUsed.append(accessToken)
+        if tracker.refusedTokens.contains(accessToken) { throw FakeRefusedTokenError() }
+        let identity = if let gate = tracker.identityGate {
+            await gate()
+        } else {
+            tracker.identityResponses.isEmpty ? nil : tracker.identityResponses.removeFirst()
+        }
+        guard let identity else { throw FakeDeliveryError() }
+        return identity
     }
 
-    func deliver(_ mutation: TrackerMutation, accessToken _: String) async throws -> Bool {
+    static func refusesAccessToken(_ error: any Error) -> Bool {
+        error is FakeRefusedTokenError
+    }
+
+    func deliver(_ mutation: TrackerMutation, accessToken: String) async throws -> Bool {
+        tracker.tokensUsed.append(accessToken)
+        if tracker.refusedTokens.contains(accessToken) { throw FakeRefusedTokenError() }
         tracker.deliveryAttempts.append(mutation.target)
         let outcome = tracker.deliveryResponses.isEmpty ? .sent : tracker.deliveryResponses.removeFirst()
         switch outcome {
