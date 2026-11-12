@@ -235,6 +235,7 @@
     "C6BB20032FDE00030000BB03"
   ],
   "packageRequirements": {
+    "https://code.videolan.org/videolan/VLCKit.git": "\t\t\t\tkind = exactVersion;\n\t\t\t\tversion = \"4.0.0-a26\";\n",
     "https://github.com/kingslay/KSPlayer": "\t\t\t\tkind = revision;\n\t\t\t\trevision = be7f60d3b94a0941c643fe8699113cfce4f08e83;\n"
   }
 }
