@@ -82,13 +82,13 @@ struct TraktAccountBackend: TrackerAccountBackend {
         try? await client.revokeToken(accessToken)
     }
 
-    func fetchIdentity(accessToken: String) async -> TraktAccountIdentity? {
-        do {
-            return try await TraktAccountIdentity(user: client.currentUser(accessToken: accessToken))
-        } catch {
-            Logger.network.warning("Trakt account verification failed: \(LogRedaction.describe(error), privacy: .public)")
-            return nil
-        }
+    func fetchIdentity(accessToken: String) async throws -> TraktAccountIdentity {
+        try await TraktAccountIdentity(user: client.currentUser(accessToken: accessToken))
+    }
+
+    static func refusesAccessToken(_ error: any Error) -> Bool {
+        if case TraktError.notAuthenticated = error { return true }
+        return false
     }
 
     func deliver(_ mutation: TrackerMutation, accessToken: String) async throws -> Bool {

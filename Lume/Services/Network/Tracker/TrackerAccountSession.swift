@@ -68,6 +68,9 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
     /// it and be exporting the replacement through iCloud, so don't retry it
     /// until a different pair arrives.
     @ObservationIgnored private var refreshFailedForToken: String?
+    /// An access token the service refused before its expiry date. The next
+    /// `validAccessToken()` refreshes rather than hand it out again.
+    @ObservationIgnored private var refusedAccessToken: String?
 
     /// First wait between identity lookups; doubles up to ten minutes.
     @ObservationIgnored private let identityRetryDelay: Duration
@@ -141,7 +144,13 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
 
         let request = generation
         guard let accessToken = await validAccessToken(), generation == request, isConnected else { return .waiting }
-        if let fresh = await backend.fetchIdentity(accessToken: accessToken) {
+        var fresh = await lookUpIdentity(accessToken)
+        if fresh == nil, refusedAccessToken == accessToken,
+           let renewed = await validAccessToken(), generation == request, isConnected
+        {
+            fresh = await lookUpIdentity(renewed)
+        }
+        if let fresh {
             guard generation == request, isConnected, !Task.isCancelled else { return .signedOut }
             adopt(fresh)
         }
@@ -201,8 +210,9 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
             if generation != request { continue }
             guard let token else { return nil }
             if verifiedDeliveryGeneration != request {
-                let fresh = await backend.fetchIdentity(accessToken: token)
-                if generation != request { continue }
+                let fresh = await lookUpIdentity(token)
+                // A refused token is refreshed on the next pass.
+                if generation != request || (fresh == nil && refusedAccessToken == token) { continue }
                 guard let fresh, delivery.isCurrent, isConnected, !Task.isCancelled else { return nil }
                 adopt(fresh)
             }
@@ -215,7 +225,7 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
     /// Concurrent refreshes coalesce into one request.
     func validAccessToken() async -> String? {
         guard let current = tokens else { return nil }
-        if !current.needsRefresh {
+        if !current.needsRefresh, current.accessToken != refusedAccessToken {
             return current.accessToken
         }
         guard refreshFailedForToken != current.refreshToken else { return nil }
@@ -234,6 +244,33 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
         guard generation == request else { return nil }
         refreshTask = nil
         return Task.isCancelled ? nil : result
+    }
+
+    /// A request made with `accessToken` came back refused (HTTP 401) though
+    /// the pair has not reached its expiry date. Another device has likely
+    /// refreshed the shared pair; the next `validAccessToken()` refreshes too,
+    /// and the new pair reaches the other devices through iCloud.
+    func accessTokenRefused(_ accessToken: String) {
+        guard tokens?.accessToken == accessToken else { return }
+        Logger.network.info("\(Backend.name, privacy: .public) refused the access token; refreshing before the next request")
+        refusedAccessToken = accessToken
+    }
+
+    /// Sends `request` with `accessToken`. If the service refuses the token,
+    /// it is refreshed and the request sent once more with the new one.
+    func retryingRefusedToken<T>(_ accessToken: String, _ request: (String) async throws -> T) async throws -> T {
+        do {
+            return try await request(accessToken)
+        } catch where Backend.refusesAccessToken(error) {
+            accessTokenRefused(accessToken)
+            guard let renewed = await validAccessToken(), renewed != accessToken else { throw error }
+            do {
+                return try await request(renewed)
+            } catch where Backend.refusesAccessToken(error) {
+                accessTokenRefused(renewed)
+                throw error
+            }
+        }
     }
 
     private func refresh(_ current: Backend.Tokens, request: RequestToken) async -> String? {
@@ -273,6 +310,18 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
 
     // MARK: - Identity
 
+    /// Who `accessToken` belongs to, or nil when the lookup failed. A refused
+    /// token is noted so the next `validAccessToken()` refreshes it.
+    private func lookUpIdentity(_ accessToken: String) async -> Backend.Identity? {
+        do {
+            return try await backend.fetchIdentity(accessToken: accessToken)
+        } catch {
+            Logger.network.warning("\(Backend.name, privacy: .public) account verification failed: \(LogRedaction.describe(error), privacy: .public)")
+            if Backend.refusesAccessToken(error) { accessTokenRefused(accessToken) }
+            return nil
+        }
+    }
+
     private func setIdentity(_ newIdentity: Backend.Identity?, confirmed: Bool) {
         if identity?.scope != newIdentity?.scope { deliveryLifetime.invalidate() }
         if confirmed { verifiedDeliveryGeneration = generation }
@@ -296,14 +345,21 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
         let request = generation
         identityTask = Task { [weak self] in
             var delay = self?.identityRetryDelay ?? .seconds(15)
+            var retriedRefusal = false
             while !Task.isCancelled {
                 guard let self, generation == request, machine.isConnected, machine.account == nil else { break }
-                if let accessToken = await validAccessToken(),
-                   let fresh = await backend.fetchIdentity(accessToken: accessToken),
-                   generation == request, !Task.isCancelled, machine.isConnected, machine.account == nil
-                {
-                    adopt(fresh)
-                    break
+                if let accessToken = await validAccessToken() {
+                    if let fresh = await lookUpIdentity(accessToken),
+                       generation == request, !Task.isCancelled, machine.isConnected, machine.account == nil
+                    {
+                        adopt(fresh)
+                        break
+                    }
+                    // A refused token is refreshed straight away, once.
+                    if !retriedRefusal, refusedAccessToken == accessToken {
+                        retriedRefusal = true
+                        continue
+                    }
                 }
                 try? await Task.sleep(for: delay)
                 delay = min(delay * 2, .seconds(600))
@@ -361,7 +417,7 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
         invalidateSessionWork()
         let request = generation
         apply(newTokens)
-        let fresh = await backend.fetchIdentity(accessToken: newTokens.accessToken)
+        let fresh = await lookUpIdentity(newTokens.accessToken)
         guard !Task.isCancelled, generation == request, isConnecting else { return }
         if let fresh {
             // Just fetched with the new token, so work queued for the account

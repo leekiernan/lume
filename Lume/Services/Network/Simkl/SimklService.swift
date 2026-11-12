@@ -248,7 +248,9 @@ final class SimklService {
                 return
             }
             do {
-                let recorded = try await client.scrobble(target, action: action, progress: progress, accessToken: accessToken)
+                let recorded = try await session.retryingRefusedToken(accessToken) {
+                    try await self.client.scrobble(target, action: action, progress: progress, accessToken: $0)
+                }
                 Logger.network.info(
                     "Simkl scrobble \(action.rawValue, privacy: .public) at \(progress, format: .fixed(precision: 1))% → recorded \(recorded.action ?? "?", privacy: .public)"
                 )
@@ -320,7 +322,7 @@ final class SimklService {
             permit: session.importPermit,
             begin: { await TrackerScope.begin(after: self.mutations) },
             accessToken: { await self.session.validAccessToken() },
-            fetch: { try await self.client.watchedItems(accessToken: $0) },
+            fetch: { try await self.session.retryingRefusedToken($0, self.client.watchedItems) },
             isCurrent: { $0.isCurrent(isConnected: self.isConnected, account: self.mutations.account, pendingCount: self.mutations.pendingCount) },
             apply: { items, scope, permit in await Self.applyImport(items: items, container: container, scope: scope, permit: permit) }
         ).perform()

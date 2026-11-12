@@ -70,13 +70,17 @@ struct MDBListAccountBackend: TrackerAccountBackend {
         try? await client.revokeToken(accessToken)
     }
 
-    func fetchIdentity(accessToken: String) async -> MDBListAccountIdentity? {
-        do {
-            return try await MDBListAccountIdentity(user: client.currentUser(accessToken: accessToken))
-        } catch {
-            Logger.network.warning("MDBList account verification failed: \(LogRedaction.describe(error), privacy: .public)")
-            return nil
+    func fetchIdentity(accessToken: String) async throws -> MDBListAccountIdentity {
+        // An account with no name can't be shown or scoped.
+        guard let identity = try await MDBListAccountIdentity(user: client.currentUser(accessToken: accessToken)) else {
+            throw MDBListSyncError.decoding
         }
+        return identity
+    }
+
+    static func refusesAccessToken(_ error: any Error) -> Bool {
+        if case MDBListSyncError.notAuthenticated = error { return true }
+        return false
     }
 
     func deliver(_ mutation: TrackerMutation, accessToken: String) async throws -> Bool {

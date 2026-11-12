@@ -251,9 +251,9 @@ final class TraktService {
             }
 
             do {
-                let recorded = try await client.scrobble(
-                    target, action: action, progress: progress, accessToken: accessToken
-                )
+                let recorded = try await session.retryingRefusedToken(accessToken) {
+                    try await self.client.scrobble(target, action: action, progress: progress, accessToken: $0)
+                }
                 // Successes too: without them a log can't tell a scrobble
                 // Trakt took from one that was never sent.
                 Logger.network.info("""
@@ -297,7 +297,7 @@ final class TraktService {
             permit: session.importPermit,
             begin: { await TrackerScope.begin(after: self.mutations) },
             accessToken: { await self.session.validAccessToken() },
-            fetch: { token in
+            fetch: { try await self.session.retryingRefusedToken($0) { token in
                 async let movies = self.client.watchedMovies(accessToken: token)
                 async let shows = self.client.watchedShows(accessToken: token)
                 let watched = try await (movies: movies, shows: shows)
@@ -305,7 +305,7 @@ final class TraktService {
                 // the watched history stands if this fails.
                 let paused = try? await self.client.playback(accessToken: token)
                 return (movies: watched.movies, shows: watched.shows, paused: paused)
-            },
+            } },
             isCurrent: { $0.isCurrent(isConnected: self.isConnected, account: self.mutations.account, pendingCount: self.mutations.pendingCount) },
             apply: { history, scope, permit in
                 await Self.applyImport(history: history, container: container, scope: scope, permit: permit)

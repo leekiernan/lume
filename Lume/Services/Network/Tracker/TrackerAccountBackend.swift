@@ -82,7 +82,14 @@ protocol TrackerAccountBackend {
     func poll(_ code: Code) async -> TrackerPollOutcome<Tokens>
     func refresh(_ refreshToken: String) async -> TrackerRefreshOutcome<Tokens>
     func revoke(accessToken: String) async
-    func fetchIdentity(accessToken: String) async -> Identity?
+    /// Who the token belongs to. Throws when the lookup fails, which
+    /// `refusesAccessToken` tells apart from being offline.
+    func fetchIdentity(accessToken: String) async throws -> Identity
+    /// Whether `error`, from any request this service made with an access
+    /// token, means the service refused that token (HTTP 401). A token can die
+    /// before its expiry date: Simkl ends the previous access token the moment
+    /// any device holding the shared pair refreshes it.
+    static func refusesAccessToken(_ error: any Error) -> Bool
     /// Sends one durable mutation. Returns false for a kind or target this
     /// service has no request for, which is dropped rather than left to block
     /// the queue; throws to keep the mutation for a retry.

@@ -75,13 +75,13 @@ struct SimklAccountBackend: TrackerAccountBackend {
         try? await client.revokeToken(accessToken)
     }
 
-    func fetchIdentity(accessToken: String) async -> SimklAccountIdentity? {
-        do {
-            return try await SimklAccountIdentity(settings: client.userSettings(accessToken: accessToken))
-        } catch {
-            Logger.network.warning("Simkl account verification failed: \(LogRedaction.describe(error), privacy: .public)")
-            return nil
-        }
+    func fetchIdentity(accessToken: String) async throws -> SimklAccountIdentity {
+        try await SimklAccountIdentity(settings: client.userSettings(accessToken: accessToken))
+    }
+
+    static func refusesAccessToken(_ error: any Error) -> Bool {
+        if case SimklError.notAuthenticated = error { return true }
+        return false
     }
 
     /// Watchlist status changes never go through the history endpoints.
