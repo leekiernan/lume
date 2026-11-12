@@ -12,26 +12,32 @@ struct CatalogGenreKey: Hashable {
 /// Owns genre scan publication, not database contexts. Only identifiers cross
 /// the background boundary; hydration remains in the caller's main context.
 @Observable
-final class CatalogGenreLoadMachine<Item> {
+final class CatalogGenreLoadMachine<Item: Hashable> {
     typealias Fetch = (GenrePageRequest) async -> GenrePage
     typealias Hydrate = (PersistentIdentifier) -> Item?
 
     private(set) var key: CatalogGenreKey?
-    private(set) var items: [Item] = []
+    private var window: PosterWindow<Item>
+    var items: [Item] {
+        window.items
+    }
+
     private(set) var pagination = PaginationMachine()
     @ObservationIgnored private var owner = RequestToken()
     @ObservationIgnored private var nextTask: Task<Void, Never>?
     let pageSize: Int
 
-    init(pageSize: Int = 100) {
+    /// - Parameter duplicateKey: groups copies of one title (`PosterWindow`).
+    init(pageSize: Int = 100, duplicateKey: @escaping (Item) -> AnyHashable? = { _ in nil }) {
         self.pageSize = pageSize
+        window = PosterWindow(duplicateKey: duplicateKey)
     }
 
     func open(key nextKey: CatalogGenreKey, excluded: Set<String>, fetch: @escaping Fetch, hydrate: @escaping Hydrate) async {
         if key != nextKey {
             cancel()
             key = nextKey
-            items = []
+            window.removeAll()
             if !pagination.prepare(for: nextKey.genre) { pagination.restart() }
         }
         guard items.isEmpty else { return }
@@ -71,9 +77,9 @@ final class CatalogGenreLoadMachine<Item> {
             // A zero-progress source cannot keep an empty scan loop alive.
             let hasMore = !page.reachedEnd && page.scanned > 0
             guard pagination.finish(request, scanned: page.scanned, hasMore: hasMore) else { return }
-            let rows = page.ids.compactMap(hydrate)
-            items.append(contentsOf: rows)
-            if !rows.isEmpty || !hasMore { return }
+            // Other copies of titles already shown add no poster; scan on.
+            let added = window.accept(page.ids.compactMap(hydrate))
+            if added > 0 || !hasMore { return }
         }
     }
 }

@@ -10,12 +10,16 @@ struct CatalogCategoryKey: Hashable {
 /// One category lifecycle for both media kinds. Import work is injected so the
 /// machine owns publication, never provider persistence or pruning.
 @Observable
-final class CatalogCategoryLoadMachine<Item> {
+final class CatalogCategoryLoadMachine<Item: Hashable> {
     typealias Fetch = (String, Int, Int) throws -> [Item]
     typealias Import = (Category, Playlist) async throws -> Void
 
     private(set) var key: CatalogCategoryKey?
-    private(set) var items: [Item] = []
+    private var window: PosterWindow<Item>
+    var items: [Item] {
+        window.items
+    }
+
     private(set) var pagination = PaginationMachine()
     /// Which scope may publish the import running for it. A new scope takes
     /// this over; the walk itself is `runningImport`.
@@ -31,8 +35,10 @@ final class CatalogCategoryLoadMachine<Item> {
     @ObservationIgnored private var importWaiters: [CheckedContinuation<Void, Never>] = []
     let pageSize: Int
 
-    init(pageSize: Int = 100) {
+    /// - Parameter duplicateKey: groups copies of one title (`PosterWindow`).
+    init(pageSize: Int = 100, duplicateKey: @escaping (Item) -> AnyHashable? = { _ in nil }) {
         self.pageSize = pageSize
+        window = PosterWindow(duplicateKey: duplicateKey)
     }
 
     var isImporting: Bool {
@@ -43,7 +49,7 @@ final class CatalogCategoryLoadMachine<Item> {
         generation = RequestToken()
         releaseImport()
         key = nil
-        items = []
+        window.removeAll()
         loadedInitialPage = false
         pagination = PaginationMachine()
     }
@@ -74,7 +80,7 @@ final class CatalogCategoryLoadMachine<Item> {
             key = nextKey
             generation = RequestToken()
             releaseImport()
-            items = []
+            window.removeAll()
             loadedInitialPage = false
             if !pagination.prepare(for: nextKey.categoryID) { pagination.restart() }
         } else if loadedInitialPage {
@@ -90,9 +96,22 @@ final class CatalogCategoryLoadMachine<Item> {
         // trailing onAppear can otherwise strand the grid at its first page.
         guard let key, !isImporting || loadedInitialPage, let request = pagination.beginLoading() else { return }
         do {
-            let rows = try fetch(key.categoryID, request.offset, pageSize)
-            guard pagination.finish(request, scanned: rows.count, hasMore: rows.count == pageSize) else { return }
-            items.append(contentsOf: rows)
+            // A page of other copies of titles already shown adds no poster,
+            // so no trailing poster would ask for the next: fetch on.
+            var candidate = window
+            var offset = request.offset
+            var hasMore = true
+            var added = 0
+            repeat {
+                let rows = try fetch(key.categoryID, offset, pageSize)
+                offset += rows.count
+                hasMore = rows.count == pageSize
+                added += candidate.accept(rows)
+            } while added == 0 && hasMore
+            guard pagination.finish(request, scanned: offset - request.offset, hasMore: hasMore) else {
+                return
+            }
+            window = candidate
             loadedInitialPage = true
         } catch {
             pagination.abandon(request)
@@ -105,17 +124,18 @@ final class CatalogCategoryLoadMachine<Item> {
         guard await runImport(category, playlist: playlist, owner: owner, action: importContent) else { return }
         guard let rows = try? fetch(category.id, 0, pageSize) else { return }
         pagination.replaceWindow(scanned: rows.count, hasMore: rows.count == pageSize)
-        items = rows
+        window.replace(with: rows)
         loadedInitialPage = true
     }
 
     private func reloadWindow(fetch: Fetch) {
         guard let key else { return }
-        let window = max(items.count, pageSize)
+        // Rows, not posters: other copies were scanned past to reach them.
+        let limit = max(pagination.nextOffset, pageSize)
         // A failed revalidation fetch must not replace a usable cached window.
-        guard let rows = try? fetch(key.categoryID, 0, window) else { return }
-        pagination.replaceWindow(scanned: rows.count, hasMore: rows.count == window)
-        items = rows
+        guard let rows = try? fetch(key.categoryID, 0, limit) else { return }
+        pagination.replaceWindow(scanned: rows.count, hasMore: rows.count == limit)
+        window.replace(with: rows)
     }
 
     private func runImport(_ category: Category, playlist: Playlist, owner: RequestToken, action: Import) async -> Bool {

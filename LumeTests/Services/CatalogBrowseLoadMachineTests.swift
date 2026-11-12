@@ -442,3 +442,28 @@ private final class BrowseGate<Value> {
         waiter = nil
     }
 }
+
+// MARK: - One poster per title
+
+extension CatalogBrowseLoadMachineTests {
+    /// Pages of two: [1, 2] are titles a and b, [3, 4] are other copies of a
+    /// and b, [5] is title c. The second page adds no poster, so the first
+    /// load must read on to reach c rather than stall waiting for a trailing
+    /// poster to ask.
+    @Test func `a category shows one poster per title and reads past a page of copies`() async {
+        let category = category()
+        let titles = [1: "a", 2: "b", 3: "a", 4: "b", 5: "c"]
+        let machine = CatalogCategoryLoadMachine<Int>(pageSize: 2, duplicateKey: { titles[$0].map(AnyHashable.init) })
+        let rows = [1, 2, 3, 4, 5]
+        let fetch: CatalogCategoryLoadMachine<Int>.Fetch = { _, offset, limit in
+            Array(rows.dropFirst(offset).prefix(limit))
+        }
+        await machine.open(category: category, key: categoryKey(category), fetch: fetch, importContent: { _, _ in })
+        #expect(machine.items == [1, 2])
+
+        machine.loadNextPage(fetch: fetch)
+        #expect(machine.items == [1, 2, 5])
+        #expect(machine.pagination.nextOffset == 5)
+        #expect(!machine.pagination.canLoadMore)
+    }
+}

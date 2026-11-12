@@ -3,8 +3,8 @@
 //  Lume
 //
 //  The poster grid of a full-page collection — a Home row's See All, a
-//  person's filmography — with its loading and empty states. Owners keep the
-//  paging; this asks for the next page when the last poster appears.
+//  person's filmography: `PosterGridContent` over Home's mixed media items.
+//  Owners keep the paging.
 //
 
 import SwiftUI
@@ -21,32 +21,12 @@ struct CollectionGridContent: View {
     let onReachEnd: () -> Void
 
     var body: some View {
-        switch CollectionGridPresentation.resolve(hasItems: !items.isEmpty, isLoading: isLoading) {
-        case .empty:
-            ContentUnavailableView {
-                Label(emptyTitle, systemImage: "rectangle.stack")
-            } description: {
-                emptyMessage
-            }
-            .padding(.top, 40)
-        case .loading:
-            ProgressView("Loading…").frame(maxWidth: .infinity).padding(.top, 40)
-        case .content:
-            PosterGrid {
-                ForEach(items) { item in
-                    itemLink(item)
-                        .onAppear {
-                            if item.id == items.last?.id { onReachEnd() }
-                        }
-                }
-
-                if isLoadingMore {
-                    ProgressView()
-                        .frame(maxWidth: .infinity)
-                }
-            }
-            .padding()
-        }
+        PosterGridContent(
+            items: items, isLoading: isLoading, isLoadingMore: isLoadingMore,
+            empty: .init(title: emptyTitle, systemImage: "rectangle.stack", description: emptyMessage),
+            onReachEnd: onReachEnd,
+            cell: itemLink
+        )
     }
 
     @ViewBuilder

@@ -420,11 +420,14 @@ struct SearchView: View {
         // `resultLimit` hydrated rows per type, with the comparator
         // `SortDescriptor(\.name)` used.
         let localMovies = sortedByName(hydrateSearchHits(localHits.movies, in: modelContext) as [Movie], name: \.name)
+        // One poster per title, as every grid and rail shows it (`PosterWindow`).
         results.movies = (hydrateMovies(ids: portal.movies) + localMovies)
             .filter { shows(MediaItemKey.movie($0.id).description, categoryID: $0.categoryId) }
+            .deduplicatedByTitle()
         let localSeries = sortedByName(hydrateSearchHits(localHits.series, in: modelContext) as [Series], name: \.name)
         results.series = (hydrateSeries(ids: portal.series) + localSeries)
             .filter { shows(MediaItemKey.series($0.id).description, categoryID: $0.categoryId) }
+            .deduplicatedByTitle()
 
         let named = sortedByName(hydrateSearchHits(localHits.streams, in: modelContext) as [LiveStream], name: \.name)
         let programmeStreams = Dictionary(

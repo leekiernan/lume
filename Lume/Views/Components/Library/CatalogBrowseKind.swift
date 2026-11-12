@@ -5,7 +5,8 @@ import SwiftUI
 /// concrete: SwiftData must see Movie/Series key paths, not erased models.
 @MainActor
 protocol CatalogBrowseKind {
-    associatedtype Item: PersistentModel & Hashable & WatchlistFavoritable
+    /// `DuplicableTitle`: grids show one poster per title (`PosterWindow`).
+    associatedtype Item: PersistentModel & Hashable & WatchlistFavoritable & DuplicableTitle
     associatedtype Card: View
     static var categoryType: CategoryType { get }
     static var surface: SectionSurface { get }

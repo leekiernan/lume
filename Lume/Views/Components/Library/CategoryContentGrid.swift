@@ -26,28 +26,12 @@ struct CategoryContentGrid<Item: Identifiable & Hashable & WatchlistFavoritable,
 
     var body: some View {
         CategoryPage(title: title) {
-            switch CollectionGridPresentation.resolve(hasItems: !items.isEmpty, isLoading: isLoading) {
-            case .loading:
-                ProgressView("Loading…")
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 40)
-            case .empty:
-                ContentUnavailableView(
-                    emptyTitle,
-                    systemImage: emptyIcon,
-                    description: Text(emptyDescription)
-                )
-                .padding(.top, 40)
-            case .content:
-                PosterGrid {
-                    ForEach(items) { item in
-                        CatalogPosterLink(item: item, animationNamespace: animationNamespace, card: card)
-                            .onAppear {
-                                if let onLoadMore, item.id == items.last?.id { onLoadMore() }
-                            }
-                    }
-                }
-                .padding()
+            PosterGridContent(
+                items: items, isLoading: isLoading,
+                empty: .init(title: emptyTitle, systemImage: emptyIcon, description: Text(emptyDescription)),
+                onReachEnd: onLoadMore
+            ) { item in
+                CatalogPosterLink(item: item, animationNamespace: animationNamespace, card: card)
             }
         }
     }
