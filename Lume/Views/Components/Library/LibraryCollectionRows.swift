@@ -103,7 +103,7 @@ struct CollectionPreviewRow<Item: Identifiable & Hashable & WatchlistFavoritable
 
     var body: some View {
         PosterRail(title: Text(title), showAll: hasMore ? showAll : nil, groupsFocus: true, onLeadingLeft: onLeadingLeft) {
-            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+            RailItems(items: items) { index, item in
                 CatalogPosterLink(
                     item: item, animationNamespace: animationNamespace,
                     onRemoveFromRecents: removeAction.map { action in { action(item) } }, card: card

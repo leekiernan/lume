@@ -154,7 +154,19 @@ extension PosterRail where Destination == Never {
 /// focus engine would otherwise go. Elsewhere it is a plain `ForEach`.
 struct RailItems<Item: Identifiable, Cell: View>: View {
     let items: [Item]
-    @ViewBuilder let cell: (Item) -> Cell
+    /// The card at a position (0 is the first, which some rails hand the
+    /// sidebar to on a left press).
+    private let cell: (Int, Item) -> Cell
+
+    init(items: [Item], @ViewBuilder cell: @escaping (Item) -> Cell) {
+        self.items = items
+        self.cell = { _, item in cell(item) }
+    }
+
+    init(items: [Item], @ViewBuilder indexedCell cell: @escaping (Int, Item) -> Cell) {
+        self.items = items
+        self.cell = cell
+    }
 
     #if os(tvOS)
         @FocusState private var focused: Item.ID?
@@ -163,17 +175,24 @@ struct RailItems<Item: Identifiable, Cell: View>: View {
 
     var body: some View {
         #if os(tvOS)
-            ForEach(items) { item in
-                cell(item)
-                    .focused($focused, equals: item.id)
-            }
-            .onChange(of: focused) { _, id in
-                if let id { lastFocused = id }
-            }
-            .defaultFocus($focused, entryTarget, priority: .userInitiated)
+            cards
+                .onChange(of: focused) { _, id in
+                    if let id { lastFocused = id }
+                }
+                .defaultFocus($focused, entryTarget, priority: .userInitiated)
         #else
-            ForEach(items, content: cell)
+            cards
         #endif
+    }
+
+    private var cards: some View {
+        ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+            #if os(tvOS)
+                cell(index, item).focused($focused, equals: item.id)
+            #else
+                cell(index, item)
+            #endif
+        }
     }
 
     #if os(tvOS)

@@ -84,7 +84,7 @@ struct ContinueWatchingRow: View {
                        groupsFocus: true, rowHeight: ContinueWatchingMetrics.rowHeight,
                        fitsContentHeight: ContinueWatchingMetrics.fixedCardHeight == nil, onLeadingLeft: onLeadingLeft)
             {
-                ForEach(Array(visible.enumerated()), id: \.element.id) { index, item in
+                RailItems(items: visible) { index, item in
                     ContinueWatchingCell(
                         item: item,
                         continuation: continuation(for: item),

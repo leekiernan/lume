@@ -40,10 +40,10 @@ struct HomeRow: View {
     var animationNamespace: Namespace.ID?
 
     var body: some View {
-        PosterRail(title: title, showAll: showAll, isRefreshing: isRefreshing, onLeadingLeft: onLeadingLeft) {
+        PosterRail(title: title, showAll: showAll, groupsFocus: true, isRefreshing: isRefreshing, onLeadingLeft: onLeadingLeft) {
             // One poster per title on every Home-style rail (For You, feeds,
             // custom rows), as in the grids (`PosterWindow`).
-            ForEach(Array(items.deduplicatedByTitle().enumerated()), id: \.element.id) { index, item in
+            RailItems(items: items.deduplicatedByTitle()) { index, item in
                 MediaItemCell(
                     item: item,
                     seriesResume: seriesResume,
