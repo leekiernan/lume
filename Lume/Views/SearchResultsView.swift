@@ -198,12 +198,9 @@ struct SearchResultsView<Header: View>: View {
         _ items: [Item],
         @ViewBuilder card: @escaping (Item) -> some View
     ) -> some View {
-        PosterGrid {
-            ForEach(items) { item in
-                CatalogPosterLink(item: item, animationNamespace: animationNamespace, card: card)
-            }
+        PosterGridContent(items: items) { item in
+            CatalogPosterLink(item: item, animationNamespace: animationNamespace, card: card)
         }
-        .padding(.horizontal)
     }
 
     // MARK: - Header

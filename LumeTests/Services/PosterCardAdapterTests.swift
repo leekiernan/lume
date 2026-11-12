@@ -34,18 +34,6 @@ struct PosterCardAdapterTests {
         #expect(card.fillsWidth)
     }
 
-    @Test func `detail adapter keeps its badge and fixed rail width`() {
-        let series = Series(id: "other-series", seriesId: 1, name: "Other Series")
-        series.posterPath = "/stored.jpg"
-        let card = DetailPosterCard(item: .series(series), badge: "Other playlist").posterCard
-        #expect(card.title == series.name)
-        #expect(card.posterPath == series.posterPath)
-        #expect(card.request?.kind == .series)
-        #expect(card.badge == "Other playlist")
-        #expect(!card.fillsWidth)
-        #expect(card.progress == nil)
-    }
-
     @Test func `render adapters reread scalar model updates without storing a stale snapshot`() {
         let movie = Movie(id: "movie", streamId: 1, name: "Before")
         let view = MovieCardView(movie: movie)

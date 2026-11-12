@@ -321,40 +321,15 @@ private struct CastCard: View {
 
 // MARK: - Similar titles
 
-/// Horizontal poster row for "You May Also Like". Reuses `HomeMediaItem` so the
-/// destination links match the rest of the app.
+/// A detail page's similar titles ("You May Also Like", a collection): the
+/// shared rail with Home's cards, under the section heading the page draws.
 struct SimilarRow: View {
     let items: [HomeMediaItem]
     var animationNamespace: Namespace.ID?
 
-    @Environment(\.modelContext) private var modelContext
-
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 16) {
-                ForEach(items) { item in
-                    Group {
-                        switch item {
-                        case let .movie(movie):
-                            NavigationLink(value: movie) {
-                                DetailPosterCard(item: item)
-                                    .matchedTransitionSourceIfAvailable(id: movie.id, in: animationNamespace)
-                            }
-                            .buttonStyle(.plain)
-                        case let .series(series):
-                            NavigationLink(value: series) {
-                                DetailPosterCard(item: item)
-                                    .matchedTransitionSourceIfAvailable(id: series.id, in: animationNamespace)
-                            }
-                            .buttonStyle(.plain)
-                        case .live:
-                            EmptyView()
-                        }
-                    }
-                    .mediaFavoriteMenu(item, in: modelContext)
-                }
-            }
-            .padding(.horizontal, DetailMetrics.contentPadding)
+        PosterRail(title: nil, items: items, style: .detail) { item in
+            MediaItemCell(item: item, animationNamespace: animationNamespace)
         }
     }
 }
@@ -509,15 +484,4 @@ enum DetailFormat {
     let movie2 = Movie(id: "preview-sim-2", streamId: 2, name: "Similar Movie 2")
     SimilarRow(items: [.movie(movie1), .movie(movie2)])
         .modelContainer(previewContainer())
-}
-
-#Preview("DetailPosterCard") {
-    DetailPosterCard(
-        title: "The Matrix",
-        imageURL: URL(string: "https://image.tmdb.org/t/p/w185/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg")
-    )
-}
-
-#Preview("DetailPosterCard - No Image") {
-    DetailPosterCard(title: "No Poster", imageURL: nil)
 }

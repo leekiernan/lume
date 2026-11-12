@@ -34,7 +34,7 @@ struct PagedCollectionTests {
             collection.loadNextPage(
                 in: context,
                 pageSize: 100,
-                deduplicateBy: { $0.tmdbId.map(AnyHashable.init) },
+                duplicateKey: { $0.tmdbId.map(AnyHashable.init) },
                 descriptor: { offset, limit in
                     MovieCollectionQuery.pageDescriptor(
                         for: .favorites,

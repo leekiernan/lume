@@ -13,8 +13,12 @@ import SwiftUI
 @MainActor
 @Observable
 final class PagedCollection<Item: PersistentModel> {
-    private(set) var items: [Item] = []
+    private var window = PosterWindow<Item>()
     private(set) var pagination = PaginationMachine()
+
+    var items: [Item] {
+        window.items
+    }
 
     var canLoadMore: Bool {
         pagination.canLoadMore
@@ -28,40 +32,38 @@ final class PagedCollection<Item: PersistentModel> {
     /// a grid from a detail screen keeps its loaded pages and scroll position.
     func prepare(for key: String) {
         guard pagination.prepare(for: key) else { return }
-        items = []
+        window.removeAll()
     }
 
     /// Loads one page and preserves model identity/order. The descriptor owns
     /// the predicate and ordering; this type owns the common cursor and
     /// end-of-results contract.
+    ///
+    /// - Parameter duplicateKey: groups copies of one title (`PosterWindow`).
     func loadNextPage(
         in context: ModelContext,
         pageSize: Int,
-        deduplicateBy: ((Item) -> AnyHashable?)? = nil,
+        duplicateKey: @escaping (Item) -> AnyHashable? = { _ in nil },
         descriptor: (_ offset: Int, _ limit: Int) -> FetchDescriptor<Item>
     ) {
         guard let request = pagination.beginLoading() else { return }
 
         do {
-            var existingIDs = Set(items.map(\.persistentModelID))
-            var existingKeys = Set(items.compactMap { deduplicateBy?($0) })
-            var accepted: [Item] = []
+            if window.isEmpty { window = PosterWindow(duplicateKey: duplicateKey) }
+            var candidate = window
             var sourceOffset = request.offset
             var hasMore = true
 
             // A whole source page can consist of alternate streams for titles
             // already shown. Keep walking until the UI gains a new trailing
             // card (which can trigger its next onAppear) or the source ends.
+            var added = 0
             repeat {
                 let page = try context.fetch(descriptor(sourceOffset, pageSize))
                 sourceOffset += page.count
                 hasMore = page.count == pageSize
-                accepted.append(contentsOf: page.filter { item in
-                    guard existingIDs.insert(item.persistentModelID).inserted else { return false }
-                    guard let key = deduplicateBy?(item) else { return true }
-                    return existingKeys.insert(key).inserted
-                })
-            } while accepted.isEmpty && hasMore
+                added += candidate.accept(page)
+            } while added == 0 && hasMore
 
             guard pagination.finish(
                 request,
@@ -70,7 +72,7 @@ final class PagedCollection<Item: PersistentModel> {
             ) else {
                 return
             }
-            items.append(contentsOf: accepted)
+            window = candidate
         } catch {
             // Preserve the already loaded window. A later appearance can retry
             // instead of turning a transient store failure into a false end.

@@ -9,7 +9,7 @@ struct CatalogCategoryView<Kind: CatalogBrowseKind>: View {
     /// Observed, so a profile switch restarts the load; `ActiveProfileStore`
     /// alone is a UserDefaults read SwiftUI can't see change.
     @Environment(ProfileManager.self) private var profiles: ProfileManager?
-    @State private var loader = CatalogCategoryLoadMachine<Kind.Item>()
+    @State private var loader = CatalogCategoryLoadMachine<Kind.Item>(duplicateKey: { $0.duplicateKey })
 
     private var key: CatalogCategoryKey {
         .init(categoryID: category.id, visibility: restriction.visibilityToken, profile: profiles?.activeProfileID ?? ActiveProfileStore.current)

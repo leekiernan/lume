@@ -86,13 +86,13 @@
                     aboutSection
 
                     if !movie.orderedCast.isEmpty {
-                        TVRail(title: "Cast", items: movie.orderedCast) { member in
+                        PosterRail(title: Text("Cast"), items: movie.orderedCast, style: .detail) { member in
                             TVCastCard(member: member)
                         }
                     }
 
                     if !movie.trailers.isEmpty {
-                        TVRail(title: "Videos", items: movie.trailers) { video in
+                        PosterRail(title: Text("Videos"), items: movie.trailers, style: .detail) { video in
                             TVVideoCard(video: video) {
                                 openVideo(video) { showYouTubeUnavailable = true }
                             }
@@ -100,14 +100,14 @@
                     }
 
                     if !similar.isEmpty {
-                        TVRail(title: "You May Also Like", items: similar) { item in
+                        PosterRail(title: Text("You May Also Like"), items: similar, style: .detail) { item in
                             posterLink(for: item)
                                 .mediaFavoriteMenu(item, in: modelContext)
                         }
                     }
 
                     if !collectionMovies.isEmpty, let name = movie.collectionName {
-                        TVRail(title: "Part of \(name)", items: collectionMovies) { item in
+                        PosterRail(title: Text("Part of \(name)"), items: collectionMovies, style: .detail) { item in
                             posterLink(for: item)
                                 .mediaFavoriteMenu(item, in: modelContext)
                         }

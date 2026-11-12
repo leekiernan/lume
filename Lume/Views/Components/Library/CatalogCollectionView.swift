@@ -4,7 +4,6 @@ import SwiftUI
 @MainActor
 protocol CatalogCollectionKind: CatalogBrowseKind {
     static func collectionDescriptor(_ kind: LibraryCollection.Kind, prefix: String, excluded: Set<String>, offset: Int, limit: Int) -> FetchDescriptor<Item>
-    static func deduplicationKey(_ item: Item) -> AnyHashable?
     static func collectionDescription(_ kind: LibraryCollection.Kind) -> LocalizedStringKey
     static func splits(_ kind: LibraryCollection.Kind) -> Bool
     static func progressKey(_ items: [Item], kind: LibraryCollection.Kind) -> [String]
@@ -76,19 +75,19 @@ struct CatalogCollectionView<Kind: CatalogCollectionKind>: View {
 
     private func loadNextPage() {
         guard collection.pagination.key == requestKey else { return }
-        collection.loadNextPage(in: modelContext, pageSize: pageSize, deduplicateBy: Kind.deduplicationKey) { offset, limit in
-            Kind.collectionDescriptor(kind, prefix: playlistPrefix, excluded: restriction.excludedCategoryIDs, offset: offset, limit: limit)
-        }
+        collection.loadNextPage(
+            in: modelContext, pageSize: pageSize,
+            duplicateKey: { $0.duplicateKey },
+            descriptor: { offset, limit in
+                Kind.collectionDescriptor(kind, prefix: playlistPrefix, excluded: restriction.excludedCategoryIDs, offset: offset, limit: limit)
+            }
+        )
     }
 }
 
 extension MovieCatalog: CatalogCollectionKind {
     static func collectionDescriptor(_ kind: LibraryCollection.Kind, prefix: String, excluded: Set<String>, offset: Int, limit: Int) -> FetchDescriptor<Movie> {
         MovieCollectionQuery.pageDescriptor(for: kind, playlistPrefix: prefix, excludedCategoryIDs: excluded, offset: offset, limit: limit)
-    }
-
-    static func deduplicationKey(_ item: Movie) -> AnyHashable? {
-        item.tmdbId.map(AnyHashable.init)
     }
 
     static func collectionDescription(_ kind: LibraryCollection.Kind) -> LocalizedStringKey {
@@ -119,10 +118,6 @@ extension MovieCatalog: CatalogCollectionKind {
 extension SeriesCatalog: CatalogCollectionKind {
     static func collectionDescriptor(_ kind: LibraryCollection.Kind, prefix: String, excluded: Set<String>, offset: Int, limit: Int) -> FetchDescriptor<Series> {
         SeriesCollectionQuery.pageDescriptor(for: kind, playlistPrefix: prefix, excludedCategoryIDs: excluded, offset: offset, limit: limit)
-    }
-
-    static func deduplicationKey(_ item: Series) -> AnyHashable? {
-        item.tmdbId.map(AnyHashable.init)
     }
 
     static func collectionDescription(_ kind: LibraryCollection.Kind) -> LocalizedStringKey {
