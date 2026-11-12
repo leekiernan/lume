@@ -74,19 +74,21 @@ struct PosterRail<Destination: Hashable, Content: View>: View {
         }
     }
 
-    @ViewBuilder private var cards: some View {
-        if sizesToCards {
-            // The short Continue Watching rail measures every card up front,
-            // so horizontal scrolling cannot change its height. Poster rails
-            // retain lazy loading and their fixed artwork geometry.
-            if style == .detail {
-                LazyHStack(alignment: .top, spacing: spacing, content: content)
-            } else {
-                HStack(spacing: spacing, content: content)
-            }
-        } else {
-            LazyHStack(spacing: spacing, content: content)
-        }
+    private var cards: some View {
+        RailStack(layout: stackLayout, content: content)
+            // `RailItems` lays its cards out the same way (see there).
+            .environment(\.railStackLayout, stackLayout)
+    }
+
+    private var stackLayout: RailStackLayout {
+        // The short Continue Watching rail measures every card up front, so
+        // horizontal scrolling cannot change its height. Poster rails retain
+        // lazy loading and their fixed artwork geometry.
+        RailStackLayout(
+            spacing: spacing,
+            alignment: style == .detail ? .top : .center,
+            isLazy: !sizesToCards || style == .detail
+        )
     }
 
     // MARK: Geometry
@@ -169,13 +171,17 @@ struct RailItems<Item: Identifiable, Cell: View>: View {
     }
 
     #if os(tvOS)
+        @Environment(\.railStackLayout) private var layout
         @FocusState private var focused: Item.ID?
         @State private var lastFocused: Item.ID?
     #endif
 
     var body: some View {
         #if os(tvOS)
-            cards
+            // Focus modifiers on the bare `ForEach` would make the cards one
+            // view, which SwiftUI stacks vertically. They hang off a stack of
+            // the rail's own layout instead.
+            RailStack(layout: layout) { cards }
                 .onChange(of: focused) { _, id in
                     if let id { lastFocused = id }
                 }
@@ -202,4 +208,31 @@ struct RailItems<Item: Identifiable, Cell: View>: View {
             return items.first?.id
         }
     #endif
+}
+
+/// How a rail lays out its cards: spacing, vertical alignment, and whether
+/// cards load lazily as they scroll in.
+struct RailStackLayout {
+    var spacing: CGFloat?
+    var alignment: VerticalAlignment = .center
+    var isLazy = true
+}
+
+extension EnvironmentValues {
+    /// The enclosing `PosterRail`'s card layout, for `RailItems`.
+    @Entry var railStackLayout = RailStackLayout()
+}
+
+/// A horizontal card stack in a rail's layout.
+struct RailStack<Content: View>: View {
+    let layout: RailStackLayout
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        if layout.isLazy {
+            LazyHStack(alignment: layout.alignment, spacing: layout.spacing, content: content)
+        } else {
+            HStack(alignment: layout.alignment, spacing: layout.spacing, content: content)
+        }
+    }
 }
