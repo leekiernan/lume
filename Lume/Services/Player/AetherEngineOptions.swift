@@ -36,18 +36,6 @@ extension PlayerSettings {
         static let audioDelayKey = "player.aether.audioDelay"
         static let prepareNativeSubtitlesKey = "player.aether.prepareNativeSubtitles"
         static let matchContentKey = "player.aether.matchContent"
-        /// Whether AetherEngine is in this device's engine list at all.
-        /// Device-local and off by default; not part of `allKeys`, so resetting
-        /// the options leaves it on.
-        static let enabledKey = "player.aether.enabled"
-
-        static var isEnabled: Bool {
-            #if os(visionOS)
-                false
-            #else
-                UserDefaults.standard.bool(forKey: enabledKey)
-            #endif
-        }
 
         static let decodePathDefault = AetherDecodePath.automatic
         static let escalateToSoftwareDefault = true

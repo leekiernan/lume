@@ -5,8 +5,7 @@ nonisolated enum PlayerEngineKind: String, CaseIterable, Identifiable {
     case vlcKit
     case ksPlayer
     case avPlayer
-    /// Opt-in per device (`PlayerSettings.Aether.isEnabled`), never the
-    /// default; not on visionOS.
+    /// The default everywhere but visionOS, which doesn't link it.
     case aetherEngine
     var id: String {
         rawValue
@@ -30,18 +29,15 @@ nonisolated enum PlayerEngineKind: String, CaseIterable, Identifiable {
         }
     }
 
-    /// The default engine, and the primary of the default priority list. KSPlayer
-    /// leads (it handles most IPTV streams while supporting Picture in Picture and
-    /// per-stream decoder tuning), falling back to VLCKit then AVPlayer — the order
-    /// `PlayerEnginePriority.normalized` appends the remaining engines in. The
-    /// `#if` cascade just degrades gracefully if an engine isn't linked.
+    /// The default engine, and the primary of the default priority list
+    /// (`PlayerEnginePriority.available()`): AetherEngine, then KSPlayer,
+    /// VLCKit and AVPlayer. visionOS, which doesn't link AetherEngine, starts
+    /// at KSPlayer.
     static var defaultValue: PlayerEngineKind {
-        #if canImport(KSPlayer)
-            return .ksPlayer
-        #elseif canImport(VLCKit)
-            return .vlcKit
+        #if os(visionOS)
+            .ksPlayer
         #else
-            return .avPlayer
+            .aetherEngine
         #endif
     }
 }
@@ -80,9 +76,13 @@ nonisolated enum StreamInfoDetailLevel: String, CaseIterable, Identifiable {
 /// `PlayerSettings.enginePriorityKey`.
 enum PlayerEnginePriority {
     /// Decode the stored priority into a complete, de-duplicated engine list.
-    /// Falls back to the legacy single-engine key (then the platform default)
-    /// when no priority list has been stored yet, so an upgrade keeps the user's
-    /// previously chosen engine as the primary.
+    /// Falls back to the legacy single-engine key (then the default order)
+    /// when no priority list has been stored yet, so an upgrade keeps the
+    /// user's previously chosen engine.
+    ///
+    /// AetherEngine leads any order saved before it existed — one that doesn't
+    /// name it at all. Once an order names it (the viewer moved it, or saved
+    /// any order since), that order stands. Nothing is written back here.
     ///
     /// Only engines `available` on this device are listed. The stored list
     /// itself (synced between devices) keeps the others: see `merging`.
@@ -91,18 +91,25 @@ enum PlayerEnginePriority {
         legacyEngineRaw: String,
         available: [PlayerEngineKind] = PlayerEnginePriority.available()
     ) -> [PlayerEngineKind] {
-        let stored = decode(priorityRaw)
-        if !stored.isEmpty {
-            return normalized(stored, available: available)
+        var order = decode(priorityRaw)
+        if order.isEmpty, let legacy = PlayerEngineKind(rawValue: legacyEngineRaw) {
+            order = [legacy]
         }
-        let primary = PlayerEngineKind(rawValue: legacyEngineRaw) ?? .defaultValue
-        return normalized([primary], available: available)
+        if !order.contains(.aetherEngine) {
+            order.insert(.aetherEngine, at: 0)
+        }
+        return normalized(order, available: available)
     }
 
-    /// The engines this device plays with: AetherEngine only once it is turned
-    /// on here.
-    static func available(aetherEnabled: Bool = PlayerSettings.Aether.isEnabled) -> [PlayerEngineKind] {
-        PlayerEngineKind.allCases.filter { $0 != .aetherEngine || aetherEnabled }
+    /// The engines this device plays with, in the default order. visionOS
+    /// doesn't link AetherEngine.
+    static func available() -> [PlayerEngineKind] {
+        let all: [PlayerEngineKind] = [.aetherEngine, .ksPlayer, .vlcKit, .avPlayer]
+        #if os(visionOS)
+            return all.filter { $0 != .aetherEngine }
+        #else
+            return all
+        #endif
     }
 
     /// `visible`, reordered on this device, written back into the stored list
@@ -125,12 +132,12 @@ enum PlayerEnginePriority {
     }
 
     /// Keep the given order but ensure every engine appears exactly once: drop
-    /// duplicates, then append any engine missing from the list in declaration
+    /// duplicates, then append any engine missing from the list in `available`
     /// order. Guarantees the priority list is always complete even if a new
     /// engine is added to `PlayerEngineKind` after the user stored their order.
     static func normalized(
         _ order: [PlayerEngineKind],
-        available: [PlayerEngineKind] = PlayerEngineKind.allCases
+        available: [PlayerEngineKind] = [.aetherEngine, .ksPlayer, .vlcKit, .avPlayer]
     ) -> [PlayerEngineKind] {
         var seen = Set<PlayerEngineKind>()
         var result: [PlayerEngineKind] = []

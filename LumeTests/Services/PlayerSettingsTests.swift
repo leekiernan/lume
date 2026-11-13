@@ -46,30 +46,33 @@ struct PlayerSettingsTests {
 }
 
 struct PlayerEnginePriorityTests {
-    /// A device that hasn't turned AetherEngine on, as the test host is.
-    private static let withoutAether = PlayerEnginePriority.available(aetherEnabled: false)
+    /// A device that doesn't link AetherEngine (visionOS).
+    private static let withoutAether: [PlayerEngineKind] = [.ksPlayer, .vlcKit, .avPlayer]
 
-    @Test func `the AetherEngine is listed only on a device that turned it on, last`() {
-        #expect(!Self.withoutAether.contains(.aetherEngine))
-        let resolved = PlayerEnginePriority.resolve(
-            priorityRaw: "vlcKit,ksPlayer,avPlayer", legacyEngineRaw: "vlcKit",
-            available: PlayerEnginePriority.available(aetherEnabled: true)
-        )
-        #expect(resolved == [.vlcKit, .ksPlayer, .avPlayer, .aetherEngine])
+    @Test func `a fresh install leads with AetherEngine`() {
+        #expect(PlayerEngineKind.defaultValue == .aetherEngine)
+        // No stored priority; the engine key defaults to the default engine.
+        let resolved = PlayerEnginePriority.resolve(priorityRaw: "", legacyEngineRaw: PlayerEngineKind.defaultValue.rawValue)
+        #expect(resolved == [.aetherEngine, .ksPlayer, .vlcKit, .avPlayer])
+    }
+
+    @Test func `an order saved before AetherEngine gets it first, the rest unchanged`() {
+        let resolved = PlayerEnginePriority.resolve(priorityRaw: "ksPlayer,avPlayer,vlcKit", legacyEngineRaw: "ksPlayer")
+        #expect(resolved == [.aetherEngine, .ksPlayer, .avPlayer, .vlcKit])
+    }
+
+    @Test func `an order that names AetherEngine stands`() {
+        let resolved = PlayerEnginePriority.resolve(priorityRaw: "vlcKit,aetherEngine,ksPlayer,avPlayer", legacyEngineRaw: "vlcKit")
+        #expect(resolved == [.vlcKit, .aetherEngine, .ksPlayer, .avPlayer])
     }
 
     @Test func `a synced list naming AetherEngine keeps it on a device that hides it`() {
         let stored = "aetherEngine,ksPlayer,vlcKit,avPlayer"
         let shown = PlayerEnginePriority.resolve(priorityRaw: stored, legacyEngineRaw: "ksPlayer", available: Self.withoutAether)
         #expect(shown == [.ksPlayer, .vlcKit, .avPlayer])
-        // Reordered here, AetherEngine keeps its place for the other devices.
+        // Reordered there, AetherEngine keeps its place for the other devices.
         let merged = PlayerEnginePriority.merging([.avPlayer, .ksPlayer, .vlcKit], into: stored)
         #expect(merged == [.aetherEngine, .avPlayer, .ksPlayer, .vlcKit])
-    }
-
-    @Test func `merging into an empty list stores every engine`() {
-        let merged = PlayerEnginePriority.merging([.vlcKit, .ksPlayer, .avPlayer], into: "")
-        #expect(merged == [.vlcKit, .ksPlayer, .avPlayer, .aetherEngine])
     }
 
     @Test func `encode and decode round-trips`() {
@@ -85,23 +88,13 @@ struct PlayerEnginePriorityTests {
     }
 
     @Test func `normalized keeps order, dedupes, and appends missing engines`() {
-        // Duplicates collapse to the first occurrence...
-        let deduped = PlayerEnginePriority.normalized([.avPlayer, .avPlayer, .vlcKit])
-        // ...and every remaining engine is appended in declaration order.
-        #expect(deduped == [.avPlayer, .vlcKit, .ksPlayer, .aetherEngine])
-        // A complete list is returned unchanged.
-        #expect(PlayerEnginePriority.normalized([.ksPlayer, .avPlayer, .vlcKit, .aetherEngine]) == [.ksPlayer, .avPlayer, .vlcKit, .aetherEngine])
-        // Every engine always appears exactly once.
+        // Duplicates collapse to the first occurrence, and every remaining
+        // engine is appended in the default order.
+        #expect(PlayerEnginePriority.normalized([.avPlayer, .avPlayer, .vlcKit]) == [.avPlayer, .vlcKit, .aetherEngine, .ksPlayer])
+        let complete: [PlayerEngineKind] = [.ksPlayer, .avPlayer, .vlcKit, .aetherEngine]
+        #expect(PlayerEnginePriority.normalized(complete) == complete)
         #expect(Set(PlayerEnginePriority.normalized([])) == Set(PlayerEngineKind.allCases))
         #expect(PlayerEnginePriority.normalized([]).count == PlayerEngineKind.allCases.count)
-    }
-
-    @Test func `resolve uses the stored priority when present`() {
-        let resolved = PlayerEnginePriority.resolve(
-            priorityRaw: "ksPlayer,avPlayer,vlcKit",
-            legacyEngineRaw: PlayerEngineKind.vlcKit.rawValue
-        )
-        #expect(resolved == [.ksPlayer, .avPlayer, .vlcKit])
     }
 
     @Test(arguments: [
@@ -111,56 +104,34 @@ struct PlayerEnginePriorityTests {
     ])
     func `retired engine drops out without changing remaining priority`(stored: String) {
         let resolved = PlayerEnginePriority.resolve(priorityRaw: stored, legacyEngineRaw: "lumeEngine")
-        #expect(resolved == [.ksPlayer, .avPlayer, .vlcKit])
-        #expect(PlayerEnginePriority.encode(resolved) == "ksPlayer,avPlayer,vlcKit")
+        #expect(resolved == [.aetherEngine, .ksPlayer, .avPlayer, .vlcKit])
         #expect(PlayerEngineKind(rawValue: "lumeEngine") == nil)
     }
 
     @Test func `retired-only priority uses the remaining legacy engine`() {
         let resolved = PlayerEnginePriority.resolve(priorityRaw: "lumeEngine", legacyEngineRaw: "avPlayer")
-        #expect(resolved == [.avPlayer, .vlcKit, .ksPlayer])
+        #expect(resolved == [.aetherEngine, .avPlayer, .ksPlayer, .vlcKit])
     }
 
     @Test(arguments: ["", "lumeEngine", "lumeEngine,lumeEngine,bogus"])
     func `retired primary falls back to the default`(stored: String) {
         let resolved = PlayerEnginePriority.resolve(priorityRaw: stored, legacyEngineRaw: "lumeEngine")
-        #expect(resolved == [.ksPlayer, .vlcKit, .avPlayer])
+        #expect(resolved == [.aetherEngine, .ksPlayer, .vlcKit, .avPlayer])
     }
 
     @Test func `resolve completes a partial stored priority`() {
-        let resolved = PlayerEnginePriority.resolve(
-            priorityRaw: "avPlayer",
-            legacyEngineRaw: PlayerEngineKind.vlcKit.rawValue
-        )
-        #expect(resolved.first == .avPlayer)
-        #expect(Set(resolved) == Set(Self.withoutAether))
-        #expect(resolved.count == Self.withoutAether.count)
+        let resolved = PlayerEnginePriority.resolve(priorityRaw: "avPlayer", legacyEngineRaw: PlayerEngineKind.vlcKit.rawValue)
+        #expect(resolved == [.aetherEngine, .avPlayer, .ksPlayer, .vlcKit])
     }
 
-    @Test func `resolve migrates the legacy engine as primary when no priority stored`() {
-        let resolved = PlayerEnginePriority.resolve(
-            priorityRaw: "",
-            legacyEngineRaw: PlayerEngineKind.avPlayer.rawValue
-        )
-        #expect(resolved.first == .avPlayer)
-        #expect(Set(resolved) == Set(Self.withoutAether))
+    @Test func `the legacy engine follows AetherEngine when no priority is stored`() {
+        let resolved = PlayerEnginePriority.resolve(priorityRaw: "", legacyEngineRaw: PlayerEngineKind.avPlayer.rawValue)
+        #expect(resolved == [.aetherEngine, .avPlayer, .ksPlayer, .vlcKit])
     }
 
-    @Test func `resolve falls back to the default engine for an unknown legacy value`() {
+    @Test func `an unknown legacy value falls back to the default order`() {
         let resolved = PlayerEnginePriority.resolve(priorityRaw: "", legacyEngineRaw: "bogus")
-        #expect(resolved.first == .defaultValue)
-        #expect(resolved.count == Self.withoutAether.count)
-    }
-
-    @Test func `default priority is KSPlayer then VLCKit then AVPlayer`() {
-        #expect(PlayerEngineKind.defaultValue == .ksPlayer)
-        // A fresh install (no stored priority, engine key defaults to the default
-        // engine) resolves to the documented default order.
-        let resolved = PlayerEnginePriority.resolve(
-            priorityRaw: "",
-            legacyEngineRaw: PlayerEngineKind.defaultValue.rawValue
-        )
-        #expect(resolved == [.ksPlayer, .vlcKit, .avPlayer])
+        #expect(resolved == PlayerEnginePriority.available())
     }
 }
 

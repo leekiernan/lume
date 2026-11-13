@@ -4,8 +4,7 @@
 //
 //  AetherEngine's curated option surface in Settings: a grouped `Form`
 //  section plus the screen the Player settings push on iOS and macOS, and the
-//  flat detail pane on tvOS; and the per-device switch that adds the engine
-//  to the priority list at all. Every
+//  flat detail pane on tvOS. Every
 //  control is backed directly by `@AppStorage` (raw values, never the enums
 //  themselves), read back through `AetherEngineOptions.load(from:)` the next
 //  time a stream starts.
@@ -249,17 +248,6 @@ import SwiftUI
                 Button("Cancel", role: .cancel) {}
             }
         }
-    }
-
-#endif
-
-// MARK: - Opt-in
-
-#if !os(visionOS)
-
-    /// Why the AetherEngine switch exists, under it on every platform.
-    enum AetherEngineOptIn {
-        static let footer: LocalizedStringKey = "AetherEngine is an additional engine you can try on this device. Turned on, it joins the end of the engine list; move it up to use it first."
     }
 
 #endif

@@ -10,7 +10,6 @@
         /// as the migration seed for the priority list.
         @AppStorage(PlayerSettings.engineKey) private var engineRaw = PlayerEngineKind.defaultValue.rawValue
         @AppStorage(PlayerSettings.enginePriorityKey) private var enginePriorityRaw = ""
-        @AppStorage(PlayerSettings.Aether.enabledKey) private var aetherEnabled = false
 
         private var engines: [PlayerEngineKind] {
             PlayerEnginePriority.resolve(priorityRaw: enginePriorityRaw, legacyEngineRaw: engineRaw)
@@ -39,15 +38,6 @@
                 } footer: {
                     Text("lume plays each stream with the first engine and automatically falls back to the next if it can't be played. Drag to reorder.")
                 }
-                #if !os(visionOS)
-                    Section {
-                        Toggle("AetherEngine", isOn: $aetherEnabled)
-                    } footer: {
-                        Text(AetherEngineOptIn.footer)
-                    }
-                    // The reorder rows stay draggable; the switch must not.
-                    .moveDisabled(true)
-                #endif
             }
             .platformNavigationTitle("Player Engines")
             #if os(iOS)

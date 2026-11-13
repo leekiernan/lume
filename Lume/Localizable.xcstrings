@@ -6097,9 +6097,6 @@
         }
       }
     },
-    "AetherEngine" : {
-      "shouldTranslate" : false
-    },
     "AetherEngine — Audio & Subtitles" : {
       "localizations" : {
         "de" : {
@@ -6270,58 +6267,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "AetherEngine — 视频"
-          }
-        }
-      }
-    },
-    "AetherEngine is an additional engine you can try on this device. Turned on, it joins the end of the engine list; move it up to use it first." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AetherEngine ist eine zusätzliche Engine, die du auf diesem Gerät ausprobieren kannst. Eingeschaltet steht sie am Ende der Engine-Liste; schiebe sie nach oben, um sie zuerst zu verwenden."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AetherEngine es un motor adicional que puedes probar en este dispositivo. Al activarlo, se añade al final de la lista de motores; súbelo para usarlo primero."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AetherEngine est un moteur supplémentaire que vous pouvez essayer sur cet appareil. Une fois activé, il s'ajoute à la fin de la liste des moteurs ; remontez-le pour l'utiliser en premier."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AetherEngine è un motore aggiuntivo che puoi provare su questo dispositivo. Una volta attivato, si aggiunge in fondo all'elenco dei motori; spostalo in alto per usarlo per primo."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AetherEngine は、このデバイスで試せる追加のエンジンです。オンにするとエンジンリストの最後に加わります。最初に使うには上へ移動してください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AetherEngine은 이 기기에서 사용해 볼 수 있는 추가 엔진입니다. 켜면 엔진 목록의 맨 끝에 추가되며, 먼저 사용하려면 위로 옮기세요."
-          }
-        },
-        "pt" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "O AetherEngine é um motor adicional que pode experimentar neste dispositivo. Quando ativado, entra no fim da lista de motores; mova-o para cima para o usar primeiro."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AetherEngine 是可以在此设备上试用的附加引擎。打开后，它会加入引擎列表的末尾；将其上移即可优先使用。"
           }
         }
       }
