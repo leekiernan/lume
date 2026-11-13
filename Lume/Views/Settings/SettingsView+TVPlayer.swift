@@ -23,9 +23,9 @@ import SwiftUI
         /// Persists a new priority order, keeping the legacy single-engine key in
         /// sync with the primary so other readers (and a downgrade) still resolve it.
         private func setEnginePriority(_ list: [PlayerEngineKind]) {
-            let normalized = PlayerEnginePriority.normalized(list)
+            let normalized = PlayerEnginePriority.merging(list, into: enginePriorityRaw)
             enginePriorityRaw = PlayerEnginePriority.encode(normalized)
-            engineRaw = normalized.first?.rawValue ?? PlayerEngineKind.defaultValue.rawValue
+            engineRaw = list.first?.rawValue ?? PlayerEngineKind.defaultValue.rawValue
         }
 
         func tvPlayerDetail(proxy: ScrollViewProxy) -> some View {
@@ -98,15 +98,20 @@ import SwiftUI
                         .padding(.top, 6)
                 }
 
-                // Each engine's options live behind a dedicated row, so they're
-                // all reachable regardless of the priority order. AVPlayer has no
-                // configurable options, so it isn't listed.
-                VStack(alignment: .leading, spacing: 8) {
-                    TVSettingsSectionLabel("Engine Options")
-                    VStack(spacing: TVSettingsMetrics.rowSpacing) {
-                        tvEngineOptionsRow(.vlcKit)
-                        tvEngineOptionsRow(.ksPlayer)
-                    }
+                tvEngineOptionsSection
+            }
+        }
+
+        /// Each engine's options live behind a dedicated row, so they're all
+        /// reachable regardless of the priority order. AVPlayer has no
+        /// configurable options, so it isn't listed.
+        private var tvEngineOptionsSection: some View {
+            VStack(alignment: .leading, spacing: 8) {
+                TVSettingsSectionLabel("Engine Options")
+                VStack(spacing: TVSettingsMetrics.rowSpacing) {
+                    tvEngineOptionsRow(.aetherEngine)
+                    tvEngineOptionsRow(.ksPlayer)
+                    tvEngineOptionsRow(.vlcKit)
                 }
             }
         }

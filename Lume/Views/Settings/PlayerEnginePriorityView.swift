@@ -50,9 +50,9 @@
         private func move(from offsets: IndexSet, to destination: Int) {
             var list = engines
             list.move(fromOffsets: offsets, toOffset: destination)
-            let normalized = PlayerEnginePriority.normalized(list)
+            let normalized = PlayerEnginePriority.merging(list, into: enginePriorityRaw)
             enginePriorityRaw = PlayerEnginePriority.encode(normalized)
-            engineRaw = normalized.first?.rawValue ?? PlayerEngineKind.defaultValue.rawValue
+            engineRaw = list.first?.rawValue ?? PlayerEngineKind.defaultValue.rawValue
         }
     }
 

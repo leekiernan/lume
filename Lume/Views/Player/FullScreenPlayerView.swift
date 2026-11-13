@@ -135,7 +135,7 @@ struct FullScreenPlayerView: View {
     /// auto-advance (see `PlayerNextUpOverlay`); `nil` for movies, live channels
     /// and series finales. Read only when the player tree is (re)built, never on
     /// the per-tick clock path.
-    @State private var nextUpMedia: PlayableMedia?
+    @State var nextUpMedia: PlayableMedia?
 
     /// Intro / recap / outro windows for the active episode (from IntroDB). The
     /// openers drive the in-player Skip Intro button; the outro sets when the
@@ -143,7 +143,7 @@ struct FullScreenPlayerView: View {
     /// IntroDB doesn't know — resolved whenever the active stream changes. Read
     /// only when the player tree is (re)built, never on the per-tick clock path.
     /// See `PlayerSkipIntroOverlay` / `PlayerNextUpOverlay`.
-    @State private var skipSegments: IntroSegments?
+    @State var skipSegments: IntroSegments?
 
     /// What the previous/next transport controls play for the active stream.
     /// Resolved once per stream in `.task(id:)` below, never in a body and never
@@ -213,7 +213,7 @@ struct FullScreenPlayerView: View {
     /// Suppressed during an AirPlay override: the forced AVPlayer either casts or
     /// shows its error overlay, rather than looping through the fallback chain
     /// (which would only land back on engines that can't cast video).
-    private var hasFallbackEngine: Bool {
+    var hasFallbackEngine: Bool {
         !isAirPlayOverride && engineAttempt + 1 < enginePriority.count
     }
 
@@ -252,7 +252,7 @@ struct FullScreenPlayerView: View {
 
     /// An engine couldn't start the stream. Whether another engine is left is
     /// decided now, not when the engine was built.
-    private func engineFailedToStart() {
+    func engineFailedToStart() {
         session.send(.failedToStart(engine, canFallBack: hasFallbackEngine))
     }
 
@@ -461,7 +461,7 @@ struct FullScreenPlayerView: View {
 
     /// Rebuilt on an engine fallback, and on a catch-up seek that restarts the
     /// segment already playing.
-    private var engineIdentity: [Int] {
+    var engineIdentity: [Int] {
         [engineAttempt, catchupRestartCount, titleRemountCount]
     }
 
@@ -526,6 +526,8 @@ struct FullScreenPlayerView: View {
                 session: session, nowPlayingOwner: playbackLease
             )
             .id(engineIdentity)
+        case .aetherEngine:
+            aetherEngineView(for: media)
         }
     }
 

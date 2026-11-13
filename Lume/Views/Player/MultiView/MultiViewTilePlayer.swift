@@ -133,6 +133,18 @@ struct MultiViewTilePlayer: View {
                 onPlaybackStarted: { isPlaying = true },
                 onPlaybackFailed: handleFailure
             )
+        case .aetherEngine:
+            #if os(visionOS)
+                Color.black.onAppear(perform: handleFailure)
+            #else
+                MultiViewAetherTile(
+                    media: media,
+                    isMuted: isMuted,
+                    usesQuickStartupTimeout: hasFallbackEngine,
+                    onPlaybackStarted: { isPlaying = true },
+                    onPlaybackFailed: handleFailure
+                )
+            #endif
         }
     }
 

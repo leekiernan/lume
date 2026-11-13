@@ -105,6 +105,8 @@ import SwiftUI
                 case .avPlayer:
                     Text("AVPlayer has no configurable options.")
                         .tvSettingsFooter()
+                case .aetherEngine:
+                    AetherEngineSettingsTVDetail()
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

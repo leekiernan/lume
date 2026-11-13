@@ -1,6 +1,6 @@
 # Lume — AI Agent Guide
 
-Lume is a native, multi-platform IPTV player (iOS 18+, macOS 15+, tvOS 18+, visionOS 2+) built with SwiftUI + SwiftData. Single Swift codebase with three interchangeable playback engines: KSPlayer (default) → VLCKit → AVPlayer. It is built with the iOS 26 SDK and uses Liquid Glass / iOS 26 navigation APIs where available, falling back to system materials on older OS versions.
+Lume is a native, multi-platform IPTV player (iOS 18+, macOS 15+, tvOS 18+, visionOS 2+) built with SwiftUI + SwiftData. Single Swift codebase with four interchangeable playback engines: AetherEngine (default; not on visionOS) → KSPlayer → VLCKit → AVPlayer. It is built with the iOS 26 SDK and uses Liquid Glass / iOS 26 navigation APIs where available, falling back to system materials on older OS versions.
 
 ---
 
