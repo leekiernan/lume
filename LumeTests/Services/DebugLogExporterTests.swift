@@ -51,8 +51,9 @@ struct DebugLogExporterTests {
         let metadata = DebugLogExporter.currentMetadata()
         #expect(!metadata.appVersion.isEmpty)
         #expect(!metadata.osVersion.isEmpty)
-        // The engine summary always resolves to the full fallback list.
-        for engine in PlayerEngineKind.allCases {
+        // The engine summary always resolves to this device's full fallback
+        // list (AetherEngine only once turned on here).
+        for engine in PlayerEnginePriority.available() {
             #expect(metadata.engineSummary.contains(engine.displayName))
         }
     }
