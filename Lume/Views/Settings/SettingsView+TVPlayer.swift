@@ -98,16 +98,28 @@ import SwiftUI
                         .padding(.top, 6)
                 }
 
-                // Each engine's options live behind a dedicated row, so they're
-                // all reachable regardless of the priority order. AVPlayer has no
-                // configurable options, so it isn't listed.
-                VStack(alignment: .leading, spacing: 8) {
-                    TVSettingsSectionLabel("Engine Options")
-                    VStack(spacing: TVSettingsMetrics.rowSpacing) {
-                        tvEngineOptionsRow(.vlcKit)
-                        tvEngineOptionsRow(.ksPlayer)
+                tvEngineOptionsSection
+            }
+        }
+
+        /// Each engine's options live behind a dedicated row, so they're all
+        /// reachable regardless of the priority order. AVPlayer has no
+        /// configurable options, so it isn't listed; AetherEngine is listed
+        /// once it is turned on here.
+        private var tvEngineOptionsSection: some View {
+            VStack(alignment: .leading, spacing: 8) {
+                TVSettingsSectionLabel("Engine Options")
+                VStack(spacing: TVSettingsMetrics.rowSpacing) {
+                    tvEngineOptionsRow(.vlcKit)
+                    tvEngineOptionsRow(.ksPlayer)
+                    TVOptionToggleRow(title: "AetherEngine", isOn: $aetherEnabled)
+                    if aetherEnabled {
+                        tvEngineOptionsRow(.aetherEngine)
                     }
                 }
+                Text(AetherEngineOptIn.footer)
+                    .tvSettingsFooter()
+                    .padding(.top, 6)
             }
         }
 

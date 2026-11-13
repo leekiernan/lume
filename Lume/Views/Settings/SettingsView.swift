@@ -32,6 +32,7 @@ struct SettingsView: View {
     /// SettingsView+TVPlayer extension (separate file, tvOS player pane).
     @AppStorage(PlayerSettings.engineKey) var engineRaw: String = PlayerEngineKind.defaultValue.rawValue
     @AppStorage(PlayerSettings.enginePriorityKey) var enginePriorityRaw: String = ""
+    @AppStorage(PlayerSettings.Aether.enabledKey) var aetherEnabled = false
     @AppStorage(PlayerSettings.externalPlayerKey) var externalPlayerRaw: String = ""
     @AppStorage(PlayerSettings.externalPlayerScopeKey)
     var externalPlayerScopeRaw: String = ExternalPlayerScope.default.rawValue

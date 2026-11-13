@@ -36,6 +36,11 @@
 
                 NavigationLink("VLCKit Options") { VLCEngineSettingsScreen() }
                 NavigationLink("KSPlayer Options") { KSEngineSettingsScreen() }
+                #if !os(visionOS)
+                    if aetherEnabled {
+                        NavigationLink("AetherEngine Options") { AetherEngineSettingsScreen() }
+                    }
+                #endif
             } header: {
                 Text("Player")
             } footer: {
