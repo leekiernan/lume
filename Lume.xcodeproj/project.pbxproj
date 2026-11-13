@@ -819,6 +819,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 2.12.1;
+				OTHER_LDFLAGS = "$(inherited) -framework LumeAetherBridge";
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume.lumetests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -846,6 +847,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 2.12.1;
+				OTHER_LDFLAGS = "$(inherited) -framework LumeAetherBridge";
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume.lumetests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -1050,6 +1052,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 2.12.1;
+				OTHER_LDFLAGS = "$(inherited) -framework LumeAetherBridge";
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume.lumetests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -1457,6 +1460,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 2.12.1;
+				OTHER_LDFLAGS = "$(inherited) -framework LumeAetherBridge";
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume.lumetests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;

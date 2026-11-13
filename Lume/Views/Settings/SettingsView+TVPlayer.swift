@@ -23,9 +23,9 @@ import SwiftUI
         /// Persists a new priority order, keeping the legacy single-engine key in
         /// sync with the primary so other readers (and a downgrade) still resolve it.
         private func setEnginePriority(_ list: [PlayerEngineKind]) {
-            let normalized = PlayerEnginePriority.normalized(list)
+            let normalized = PlayerEnginePriority.merging(list, into: enginePriorityRaw)
             enginePriorityRaw = PlayerEnginePriority.encode(normalized)
-            engineRaw = normalized.first?.rawValue ?? PlayerEngineKind.defaultValue.rawValue
+            engineRaw = list.first?.rawValue ?? PlayerEngineKind.defaultValue.rawValue
         }
 
         func tvPlayerDetail(proxy: ScrollViewProxy) -> some View {

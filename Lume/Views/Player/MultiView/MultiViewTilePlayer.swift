@@ -133,6 +133,9 @@ struct MultiViewTilePlayer: View {
                 onPlaybackStarted: { isPlaying = true },
                 onPlaybackFailed: handleFailure
             )
+        case .aetherEngine:
+            // No tile yet: hand the stream straight to the next engine.
+            Color.black.onAppear(perform: handleFailure)
         }
     }
 

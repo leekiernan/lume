@@ -53,6 +53,7 @@
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "MARKETING_VERSION": "2.12.1;",
+      "OTHER_LDFLAGS": "\"$(inherited) -framework LumeAetherBridge\";",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;"
     },
     "C67C02EB2F880F2400842DBA": {
@@ -60,6 +61,7 @@
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "MARKETING_VERSION": "2.12.1;",
+      "OTHER_LDFLAGS": "\"$(inherited) -framework LumeAetherBridge\";",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;"
     },
     "C67C02ED2F880F2400842DBA": {
@@ -105,6 +107,7 @@
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "MARKETING_VERSION": "2.12.1;",
+      "OTHER_LDFLAGS": "\"$(inherited) -framework LumeAetherBridge\";",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;"
     },
     "C67C02F42F880F2400842DBA": {
@@ -199,6 +202,7 @@
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "MARKETING_VERSION": "2.12.1;",
+      "OTHER_LDFLAGS": "\"$(inherited) -framework LumeAetherBridge\";",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;"
     },
     "C6BE110000000000000000B4": {

@@ -526,6 +526,11 @@ struct FullScreenPlayerView: View {
                 session: session, nowPlayingOwner: playbackLease
             )
             .id(engineIdentity)
+        case .aetherEngine:
+            // Not hosted yet: hand the stream straight to the next engine.
+            Color.black
+                .onAppear(perform: engineFailedToStart)
+                .id(engineIdentity)
         }
     }
 

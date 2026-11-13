@@ -5,6 +5,9 @@ nonisolated enum PlayerEngineKind: String, CaseIterable, Identifiable {
     case vlcKit
     case ksPlayer
     case avPlayer
+    /// Opt-in per device (`PlayerSettings.Aether.isEnabled`), never the
+    /// default; not on visionOS.
+    case aetherEngine
     var id: String {
         rawValue
     }
@@ -14,6 +17,7 @@ nonisolated enum PlayerEngineKind: String, CaseIterable, Identifiable {
         case .vlcKit: "VLCKit"
         case .ksPlayer: "KSPlayer"
         case .avPlayer: "AVPlayer"
+        case .aetherEngine: "AetherEngine"
         }
     }
 
@@ -22,6 +26,7 @@ nonisolated enum PlayerEngineKind: String, CaseIterable, Identifiable {
         case .vlcKit: "VLCKit 4 is VLC's native engine. Plays virtually any format and codec, with hardware-accelerated 4K HDR, Picture in Picture, and the broadest IPTV compatibility."
         case .ksPlayer: "KSPlayer is a powerful third-party player that supports a wide range of formats, including those commonly used in IPTV streams."
         case .avPlayer: "Native Apple player. Best for HLS and MP4. But does not support many formats used in IPTV streams."
+        case .aetherEngine: "An FFmpeg engine that hands the picture to Apple's own video pipeline, with fast live channel changes and in-place recovery when a live source drops."
         }
     }
 
@@ -78,13 +83,35 @@ enum PlayerEnginePriority {
     /// Falls back to the legacy single-engine key (then the platform default)
     /// when no priority list has been stored yet, so an upgrade keeps the user's
     /// previously chosen engine as the primary.
-    static func resolve(priorityRaw: String, legacyEngineRaw: String) -> [PlayerEngineKind] {
+    ///
+    /// Only engines `available` on this device are listed. The stored list
+    /// itself (synced between devices) keeps the others: see `merging`.
+    static func resolve(
+        priorityRaw: String,
+        legacyEngineRaw: String,
+        available: [PlayerEngineKind] = PlayerEnginePriority.available()
+    ) -> [PlayerEngineKind] {
         let stored = decode(priorityRaw)
         if !stored.isEmpty {
-            return normalized(stored)
+            return normalized(stored, available: available)
         }
         let primary = PlayerEngineKind(rawValue: legacyEngineRaw) ?? .defaultValue
-        return normalized([primary])
+        return normalized([primary], available: available)
+    }
+
+    /// The engines this device plays with: AetherEngine only once it is turned
+    /// on here.
+    static func available(aetherEnabled: Bool = PlayerSettings.Aether.isEnabled) -> [PlayerEngineKind] {
+        PlayerEngineKind.allCases.filter { $0 != .aetherEngine || aetherEnabled }
+    }
+
+    /// `visible`, reordered on this device, written back into the stored list
+    /// without dropping the engines this device doesn't show: each keeps its
+    /// place, and the visible ones fill the other places in their new order.
+    static func merging(_ visible: [PlayerEngineKind], into storedRaw: String) -> [PlayerEngineKind] {
+        let full = normalized(decode(storedRaw).isEmpty ? visible : decode(storedRaw))
+        var reordered = normalized(visible, available: full.filter(visible.contains)).makeIterator()
+        return full.map { visible.contains($0) ? reordered.next() ?? $0 : $0 }
     }
 
     /// Parse the comma-separated raw value into engines, dropping any token that
@@ -101,13 +128,16 @@ enum PlayerEnginePriority {
     /// duplicates, then append any engine missing from the list in declaration
     /// order. Guarantees the priority list is always complete even if a new
     /// engine is added to `PlayerEngineKind` after the user stored their order.
-    static func normalized(_ order: [PlayerEngineKind]) -> [PlayerEngineKind] {
+    static func normalized(
+        _ order: [PlayerEngineKind],
+        available: [PlayerEngineKind] = PlayerEngineKind.allCases
+    ) -> [PlayerEngineKind] {
         var seen = Set<PlayerEngineKind>()
         var result: [PlayerEngineKind] = []
-        for kind in order where seen.insert(kind).inserted {
+        for kind in order where available.contains(kind) && seen.insert(kind).inserted {
             result.append(kind)
         }
-        for kind in PlayerEngineKind.allCases where seen.insert(kind).inserted {
+        for kind in available where seen.insert(kind).inserted {
             result.append(kind)
         }
         return result
