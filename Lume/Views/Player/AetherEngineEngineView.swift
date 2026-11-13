@@ -64,6 +64,7 @@
             @Environment(\.contentRestriction) var restriction
         #endif
 
+        @Environment(\.trackCarryOver) private var trackCarryOver
         @Environment(\.dismiss) private var dismiss
         @Environment(\.scenePhase) private var scenePhase
 
@@ -138,6 +139,7 @@
                 coordinator.loadExternalSubtitle(subtitle)
             }
             .preferredColorScheme(.dark)
+            .hueFrameSource(coordinator)
             .onAppear(perform: start)
             .onDisappear {
                 chrome.deactivate()
@@ -196,6 +198,7 @@
             catchup.onSeek = onCatchupSeek
             coordinator.onPlaybackFailure = { reportFailure(allowsNextEngine: $0) }
             coordinator.resolveFreshURL = refreshStreamURL
+            coordinator.trackCarryOver = trackCarryOver
             #if os(iOS)
                 coordinator.onPictureInPictureStop = {
                     PlayerBackgrounding.pictureInPictureDidStop(owner: nowPlayingOwner, engineOwner: coordinator) { closePlayer() }

@@ -16,12 +16,21 @@
         func selectAudioTrack(id: String) {
             guard let index = Int(id) else { return }
             manualAudioTrackID = index
+            if let track = session?.audioTracks.first(where: { $0.id == index }) {
+                trackCarryOver?.noteAudio(Self.carried(track))
+            }
             session?.selectAudioTrack(id: index)
         }
 
         func selectTextTrack(id: String?) {
             let index = id.flatMap(Int.init)
             isExternalSubtitleSelected = index != nil && index == externalSubtitleTrackID
+            hasPendingCarriedSubtitle = false
+            if index == nil {
+                trackCarryOver?.noteSubtitle(.off)
+            } else if let track = session?.subtitleTracks.first(where: { $0.id == index }), !track.isExternal {
+                trackCarryOver?.noteSubtitle(.track(Self.carried(track), isForced: track.isForced))
+            }
             session?.selectSubtitleTrack(id: index)
             if index == nil { subtitleCues.clear() }
         }
@@ -30,6 +39,7 @@
         /// changed so an unchanged republish doesn't re-render the overlay.
         func publishMedia() {
             guard let session else { return }
+            applyCarriedSubtitle(on: session)
             let audio = session.audioTracks.enumerated().map { position, track in
                 PlayerTrackOption(
                     id: String(track.id),
@@ -61,6 +71,25 @@
             let id = session.addExternalSubtitle(fileURL: externalSubtitle.fileURL, name: externalSubtitle.label)
             externalSubtitleTrackID = id
             if isExternalSubtitleSelected { session.selectSubtitleTrack(id: id) }
+        }
+
+        /// Puts the subtitle pick carried from the last episode back on, once
+        /// the engine lists the stream's own tracks.
+        private func applyCarriedSubtitle(on session: any AetherSessionDriving) {
+            guard hasPendingCarriedSubtitle, let carry = trackCarryOver?.carry else { return }
+            let tracks = session.subtitleTracks.filter { !$0.isExternal }
+            guard !tracks.isEmpty else { return }
+            hasPendingCarriedSubtitle = false
+            let candidates = tracks.map { TrackCarryOver.Candidate(track: Self.carried($0), isForced: $0.isForced) }
+            switch carry.resolveSubtitle(in: candidates) {
+            case .keep: break
+            case .off: session.selectSubtitleTrack(id: nil)
+            case let .select(index): session.selectSubtitleTrack(id: tracks[index].id)
+            }
+        }
+
+        private static func carried(_ track: LumeAetherTrack) -> TrackCarryOver.Track {
+            TrackCarryOver.Track(languageTag: track.language, label: track.name.isEmpty ? nil : track.name)
         }
 
         private static func label(_ track: LumeAetherTrack, fallback: String) -> String {

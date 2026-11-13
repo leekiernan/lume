@@ -134,8 +134,17 @@ struct MultiViewTilePlayer: View {
                 onPlaybackFailed: handleFailure
             )
         case .aetherEngine:
-            // No tile yet: hand the stream straight to the next engine.
-            Color.black.onAppear(perform: handleFailure)
+            #if os(visionOS)
+                Color.black.onAppear(perform: handleFailure)
+            #else
+                MultiViewAetherTile(
+                    media: media,
+                    isMuted: isMuted,
+                    usesQuickStartupTimeout: hasFallbackEngine,
+                    onPlaybackStarted: { isPlaying = true },
+                    onPlaybackFailed: handleFailure
+                )
+            #endif
         }
     }
 

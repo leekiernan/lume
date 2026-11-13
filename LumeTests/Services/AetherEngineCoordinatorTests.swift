@@ -166,6 +166,38 @@
             #expect(!coordinator.report.buffering)
         }
 
+        @Test func `a subtitle picked on one episode is put back on the next`() async throws {
+            let carry = TrackCarryOverSession()
+            let coordinator = coordinator()
+            coordinator.trackCarryOver = carry
+            let episode = { (id: String) in
+                try PlayableMedia(
+                    id: id, url: #require(URL(string: "https://example.com/\(id).mkv")), title: id, subtitle: nil,
+                    posterURL: nil, kind: .vod, startTime: 0, contentRef: .episode(id)
+                )
+            }
+            let tracks = [
+                LumeAetherTrack(id: 3, name: "English", codec: "subrip", language: "eng", channels: 0, sampleRate: 0,
+                                isDefault: false, isForced: false, isExternal: false),
+                LumeAetherTrack(id: 4, name: "Deutsch", codec: "subrip", language: "ger", channels: 0, sampleRate: 0,
+                                isDefault: false, isForced: false, isExternal: false)
+            ]
+            session.subtitleTracks = tracks
+            try coordinator.configure(media: episode("e1"))
+            try await waitUntil { coordinator.machine.acceptsTime }
+            coordinator.selectTextTrack(id: "4")
+            // The next episode lists the same languages under other ids.
+            session.subtitleTracks = []
+            try coordinator.configure(media: episode("e2"))
+            try await waitUntil { coordinator.machine.acceptsTime }
+            session.subtitleTracks = tracks.map {
+                LumeAetherTrack(id: $0.id + 10, name: $0.name, codec: $0.codec, language: $0.language, channels: 0,
+                                sampleRate: 0, isDefault: false, isForced: false, isExternal: false)
+            }
+            session.onMediaChange?()
+            #expect(session.calls.last == "selectSubtitleTrack(14)")
+        }
+
         @Test func `teardown stops the engine`() async throws {
             let coordinator = try await playing(media())
             coordinator.tearDown()

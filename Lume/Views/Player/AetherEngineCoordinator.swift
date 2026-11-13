@@ -89,6 +89,12 @@
         /// URL so it outranks the preferred languages.
         var manualAudioTrackID: Int?
         var externalSubtitle: ExternalSubtitle?
+        /// The full-screen player's hand-picked tracks, carried into the same
+        /// stream again and the next episode; nil in a Multi-View tile.
+        weak var trackCarryOver: TrackCarryOverSession?
+        /// The carried subtitle pick waits for the engine to list the
+        /// stream's tracks, which can come after `load` returns.
+        var hasPendingCarriedSubtitle = false
         var externalSubtitleTrackID: Int?
         var isExternalSubtitleSelected = false
 
@@ -140,6 +146,8 @@
                 }
             }
             loadTask?.cancel()
+            trackCarryOver?.begin(media)
+            hasPendingCarriedSubtitle = trackCarryOver?.carry.subtitle != nil
             currentMedia = media
             catchup.load(media)
             let plan = loadPlan(for: media)
@@ -375,7 +383,10 @@
                 isLive: media.isLive,
                 isHLSSource: AetherLoadContext.isHLS(media.url),
                 httpHeaders: media.httpHeaders,
-                preferredAudioLanguages: PlayerLanguageOptions.load().preferredAudioLanguages,
+                preferredAudioLanguages: {
+                    let preferred = PlayerLanguageOptions.load().preferredAudioLanguages
+                    return trackCarryOver?.carry.audioLanguages(over: preferred) ?? preferred
+                }(),
                 isEmbedded: isEmbedded
             ))
         }
