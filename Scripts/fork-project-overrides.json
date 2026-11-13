@@ -6,16 +6,17 @@
       "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=macosx*]\"": "\"\";",
       "ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES": "\"LumeIce LumeCoral LumeGreen LumeSignalPink LumeSignalIce LumeSignalCoral LumeSignalGreen LumeFloodlightPink LumeFloodlightIce LumeFloodlightCoral LumeFloodlightGreen\";",
       "CODE_SIGN_IDENTITY": "\"Apple Development\";",
+      "CURRENT_PROJECT_VERSION": "45;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
       "INFOPLIST_KEY_NSLocalNetworkUsageDescription": "\"lume needs access to your local network to find Philips Hue Bridges and to reach media servers and WebDAV shares running on it.\";",
       "INFOPLIST_KEY_NSSupportsLiveActivities": null,
       "INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates": null,
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume;",
-      "PROVISIONING_PROFILE_SPECIFIER": "\"\";",
+      "LUME_CLOUD_URL": null,
       "MARKETING_VERSION": "2.12.1;",
-      "CURRENT_PROJECT_VERSION": "45;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume;",
+      "PROVISIONING_PROFILE_SPECIFIER": "\"\";"
     },
     "C67C02E62F880F2400842DBA": {
       "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvos*]\"": "\"LumeIceTV LumeCoralTV LumeGreenTV LumeSignalPinkTV LumeSignalIceTV LumeSignalCoralTV LumeSignalGreenTV LumeFloodlightPinkTV LumeFloodlightIceTV LumeFloodlightCoralTV LumeFloodlightGreenTV\";",
@@ -23,16 +24,17 @@
       "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=macosx*]\"": "\"\";",
       "ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES": "\"LumeIce LumeCoral LumeGreen LumeSignalPink LumeSignalIce LumeSignalCoral LumeSignalGreen LumeFloodlightPink LumeFloodlightIce LumeFloodlightCoral LumeFloodlightGreen\";",
       "CODE_SIGN_IDENTITY": "\"Apple Development\";",
+      "CURRENT_PROJECT_VERSION": "45;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
       "INFOPLIST_KEY_NSLocalNetworkUsageDescription": "\"lume needs access to your local network to find Philips Hue Bridges and to reach media servers and WebDAV shares running on it.\";",
       "INFOPLIST_KEY_NSSupportsLiveActivities": null,
       "INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates": null,
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume;",
-      "PROVISIONING_PROFILE_SPECIFIER": "\"\";",
+      "LUME_CLOUD_URL": null,
       "MARKETING_VERSION": "2.12.1;",
-      "CURRENT_PROJECT_VERSION": "45;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume;",
+      "PROVISIONING_PROFILE_SPECIFIER": "\"\";"
     },
     "C67C02E72F880F2400842DBA": {
       "CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED": "YES;",
@@ -47,32 +49,32 @@
       "STRING_CATALOG_GENERATE_SYMBOLS": "YES;"
     },
     "C67C02EA2F880F2400842DBA": {
+      "CURRENT_PROJECT_VERSION": "45;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;",
       "MARKETING_VERSION": "2.12.1;",
-      "CURRENT_PROJECT_VERSION": "45;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;"
     },
     "C67C02EB2F880F2400842DBA": {
+      "CURRENT_PROJECT_VERSION": "45;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;",
       "MARKETING_VERSION": "2.12.1;",
-      "CURRENT_PROJECT_VERSION": "45;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;"
     },
     "C67C02ED2F880F2400842DBA": {
+      "CURRENT_PROJECT_VERSION": "45;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeuitests;",
       "MARKETING_VERSION": "2.12.1;",
-      "CURRENT_PROJECT_VERSION": "45;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeuitests;"
     },
     "C67C02EE2F880F2400842DBA": {
+      "CURRENT_PROJECT_VERSION": "45;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeuitests;",
       "MARKETING_VERSION": "2.12.1;",
-      "CURRENT_PROJECT_VERSION": "45;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeuitests;"
     },
     "C67C02F12F880F2400842DBA": {
       "CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED": "YES;",
@@ -86,86 +88,87 @@
       "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=macosx*]\"": "\"\";",
       "ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES": "\"LumeIce LumeCoral LumeGreen LumeSignalPink LumeSignalIce LumeSignalCoral LumeSignalGreen LumeFloodlightPink LumeFloodlightIce LumeFloodlightCoral LumeFloodlightGreen\";",
       "CODE_SIGN_IDENTITY": "\"Apple Development\";",
+      "CURRENT_PROJECT_VERSION": "45;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
       "INFOPLIST_KEY_NSLocalNetworkUsageDescription": "\"lume needs access to your local network to find Philips Hue Bridges and to reach media servers and WebDAV shares running on it.\";",
       "INFOPLIST_KEY_NSSupportsLiveActivities": null,
       "INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates": null,
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume;",
-      "PROVISIONING_PROFILE_SPECIFIER": "\"\";",
+      "LUME_CLOUD_URL": null,
       "MARKETING_VERSION": "2.12.1;",
-      "CURRENT_PROJECT_VERSION": "45;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume;",
+      "PROVISIONING_PROFILE_SPECIFIER": "\"\";"
     },
     "C67C02F32F880F2400842DBA": {
+      "CURRENT_PROJECT_VERSION": "45;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;",
       "MARKETING_VERSION": "2.12.1;",
-      "CURRENT_PROJECT_VERSION": "45;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;"
     },
     "C67C02F42F880F2400842DBA": {
+      "CURRENT_PROJECT_VERSION": "45;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeuitests;",
       "MARKETING_VERSION": "2.12.1;",
-      "CURRENT_PROJECT_VERSION": "45;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeuitests;"
     },
     "C6BD5701000000000000E006": {
+      "CURRENT_PROJECT_VERSION": "45;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;",
       "MARKETING_VERSION": "2.12.1;",
-      "CURRENT_PROJECT_VERSION": "45;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;"
     },
     "C6BD5701000000000000E007": {
+      "CURRENT_PROJECT_VERSION": "45;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;",
       "MARKETING_VERSION": "2.12.1;",
-      "CURRENT_PROJECT_VERSION": "45;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;"
     },
     "C6BD5701000000000000E008": {
+      "CURRENT_PROJECT_VERSION": "45;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;",
       "MARKETING_VERSION": "2.12.1;",
-      "CURRENT_PROJECT_VERSION": "45;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;"
     },
     "C6BD5701000000000000E009": {
+      "CURRENT_PROJECT_VERSION": "45;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;",
       "MARKETING_VERSION": "2.12.1;",
-      "CURRENT_PROJECT_VERSION": "45;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;"
     },
     "C6BE110000000000000000AA": {
+      "CURRENT_PROJECT_VERSION": "45;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeperformancetests;",
       "MARKETING_VERSION": "2.12.1;",
-      "CURRENT_PROJECT_VERSION": "45;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeperformancetests;"
     },
     "C6BE110000000000000000AB": {
+      "CURRENT_PROJECT_VERSION": "45;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeperformancetests;",
       "MARKETING_VERSION": "2.12.1;",
-      "CURRENT_PROJECT_VERSION": "45;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeperformancetests;"
     },
     "C6BE110000000000000000AC": {
+      "CURRENT_PROJECT_VERSION": "45;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeperformancetests;",
       "MARKETING_VERSION": "2.12.1;",
-      "CURRENT_PROJECT_VERSION": "45;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeperformancetests;"
     },
     "C6BE110000000000000000AD": {
+      "CURRENT_PROJECT_VERSION": "45;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeperformancetests;",
       "MARKETING_VERSION": "2.12.1;",
-      "CURRENT_PROJECT_VERSION": "45;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeperformancetests;"
     },
     "C6BE110000000000000000B1": {
       "CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED": "YES;",
@@ -179,30 +182,31 @@
       "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=macosx*]\"": "\"\";",
       "ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES": "\"LumeIce LumeCoral LumeGreen LumeSignalPink LumeSignalIce LumeSignalCoral LumeSignalGreen LumeFloodlightPink LumeFloodlightIce LumeFloodlightCoral LumeFloodlightGreen\";",
       "CODE_SIGN_IDENTITY": "\"Apple Development\";",
+      "CURRENT_PROJECT_VERSION": "45;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
       "INFOPLIST_KEY_NSLocalNetworkUsageDescription": "\"lume needs access to your local network to find Philips Hue Bridges and to reach media servers and WebDAV shares running on it.\";",
       "INFOPLIST_KEY_NSSupportsLiveActivities": null,
       "INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates": null,
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume;",
-      "PROVISIONING_PROFILE_SPECIFIER": "\"\";",
+      "LUME_CLOUD_URL": null,
       "MARKETING_VERSION": "2.12.1;",
-      "CURRENT_PROJECT_VERSION": "45;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume;",
+      "PROVISIONING_PROFILE_SPECIFIER": "\"\";"
     },
     "C6BE110000000000000000B3": {
+      "CURRENT_PROJECT_VERSION": "45;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;",
       "MARKETING_VERSION": "2.12.1;",
-      "CURRENT_PROJECT_VERSION": "45;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;"
     },
     "C6BE110000000000000000B4": {
+      "CURRENT_PROJECT_VERSION": "45;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeuitests;",
       "MARKETING_VERSION": "2.12.1;",
-      "CURRENT_PROJECT_VERSION": "45;"
+      "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeuitests;"
     }
   },
   "attributes": {
@@ -229,10 +233,15 @@
     "C6AA10022FDD00010000AA02",
     "C6AA10032FDD00010000AA03",
     "C6AA10042FDD00010000AA04",
-    "C6AA10052FDD00010000AA05",
     "C6BB20012FDE00030000BB01",
     "C6BB20022FDE00030000BB02",
-    "C6BB20032FDE00030000BB03"
+    "C6BB20032FDE00030000BB03",
+    "C6CC30012FDF00040000CC01",
+    "C6CC30022FDF00040000CC02",
+    "C6CC30032FDF00040000CC03",
+    "C6CC40012FE000040000CC01",
+    "C6CC40022FE000040000CC02",
+    "C6CC40032FE000040000CC03"
   ],
   "packageRequirements": {
     "https://code.videolan.org/videolan/VLCKit.git": "\t\t\t\tkind = exactVersion;\n\t\t\t\tversion = \"4.0.0-a26\";\n",
