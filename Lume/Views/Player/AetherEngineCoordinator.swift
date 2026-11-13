@@ -32,6 +32,16 @@
         /// Active cues on their own observable, so a cue change invalidates
         /// only the subtitle leaf.
         let subtitleCues = SubtitleCueModel()
+        @Published var isPipActive = false
+        /// Follows the route: the PiP layer comes and goes with the session.
+        @Published var isPipSupported = false
+        var pictureInPicture: AetherPictureInPictureController?
+        /// The PiP window went away, so the host can end the session if the
+        /// viewer closed it rather than restoring the player.
+        var onPictureInPictureStop: (() -> Void)?
+        /// Sends a catch-up programme's seeks to the host and maps this
+        /// player's playhead onto the programme clock.
+        let catchup = CatchupSeekRouter()
 
         /// The engine's playback tick: (current, duration) in seconds, only
         /// while it describes the current stream.
@@ -111,6 +121,7 @@
         }
 
         func tearDown() {
+            pictureInPicture?.stop()
             loadTask?.cancel()
             loadTask = nil
             send(.tearDown)
@@ -130,6 +141,7 @@
             }
             loadTask?.cancel()
             currentMedia = media
+            catchup.load(media)
             let plan = loadPlan(for: media)
             send(.load(kind, isLive: media.isLive, startupTimeout: startupTimeout,
                        waitsForLiveJoin: plan.isLive && plan.liveJoinProfile == .standard))
@@ -168,11 +180,13 @@
         }
 
         func skip(by seconds: Double) {
+            if catchup.route(.by(seconds)) { return }
             guard let session else { return }
             seek(to: max(0, session.currentTime + seconds))
         }
 
         func seek(to seconds: TimeInterval) {
+            if catchup.route(.to(seconds)) { return }
             let session = session
             Task { await session?.seek(to: seconds) }
         }
@@ -325,9 +339,15 @@
 
         private func startLoad(_ token: RequestToken) {
             guard let session, let media = currentMedia else { return }
-            registerLogSecrets(for: media)
+            // FFmpeg repeats headers to every URL it opens, so the credential
+            // travels in the URL (`PlaybackCredentials`).
+            let input = PlaybackCredentials.input(for: .aetherEngine, url: media.url, headers: media.httpHeaders)
+            let loaded = media.replacingURL(input.url)
+            registerLogSecrets(for: media, loadedURL: input.url)
             applyAudioLevel()
-            let request = LumeAetherLoadRequest(plan: loadPlan(for: media), media: media, audioStreamIndex: manualAudioTrackID)
+            var plan = loadPlan(for: media)
+            plan.httpHeaders = [:]
+            let request = LumeAetherLoadRequest(plan: plan, media: loaded, audioStreamIndex: manualAudioTrackID)
             loadTask = Task { [weak self] in
                 do {
                     try await session.load(request)
@@ -346,6 +366,7 @@
             guard let session else { return }
             restoreExternalSubtitle(on: session)
             if playbackRate != 1 { session.setRate(playbackRate) }
+            setUpPictureInPicture()
             publishMedia()
         }
 
@@ -367,6 +388,8 @@
                 onTime?(current, duration)
             }
             session.onPhaseChange = { [weak self] phase in
+                self?.pictureInPicture?.refresh()
+                self?.pictureInPicture?.invalidatePlaybackState()
                 self?.send(.phase(AetherSessionMachine.EnginePhase(phase)))
             }
             session.onFailure = { [weak self] failure in
@@ -410,8 +433,9 @@
         /// Registers the load's credentials before the engine sees its URL and
         /// releases the previous load's after, so a value both share stays
         /// redacted throughout. Registrations are counted engine-wide.
-        private func registerLogSecrets(for media: PlayableMedia) {
+        private func registerLogSecrets(for media: PlayableMedia, loadedURL: URL) {
             let secrets = AetherLogSecrets.values(url: media.url, httpHeaders: media.httpHeaders)
+                .union(AetherLogSecrets.values(url: loadedURL, httpHeaders: nil))
             for secret in secrets.subtracting(registeredLogSecrets) {
                 _ = LumeAetherBridge.registerLogSecret(secret)
             }

@@ -27,6 +27,9 @@ nonisolated enum PlaybackCredentials {
         case ksPlayer
         case avPlayer
         case vlc
+        /// AetherEngine: FFmpeg on its software path, AVPlayer on its native
+        /// one; like VLC, the credential travels in the URL alone.
+        case aetherEngine
     }
 
     struct Input: Equatable {
@@ -45,7 +48,7 @@ nonisolated enum PlaybackCredentials {
             ?? PlexPlaybackAuth.authenticatedURL(url, headers: headers)
         let authorization = headers?["Authorization"].map { ["Authorization": $0] }
         switch engine {
-        case .ksPlayer, .vlc:
+        case .ksPlayer, .vlc, .aetherEngine:
             let basicURL = HTTPBasicCredentials.authenticatedURL(url, headers: headers)
             return Input(
                 url: basicURL ?? tokenURL ?? url,
