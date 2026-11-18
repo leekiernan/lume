@@ -18,7 +18,7 @@
     /// Every focusable element in the tvOS player overlay. A single
     /// `@FocusState` of this type is owned by the overlay and shared with the
     /// panels so focus can be moved programmatically as panels open and close.
-    enum TVPlayerFocus: Hashable {
+    nonisolated enum TVPlayerFocus: Hashable {
         case scrubber
         case transport
         case skipBackward

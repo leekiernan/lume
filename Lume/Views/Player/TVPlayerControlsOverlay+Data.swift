@@ -20,6 +20,35 @@
             initialFocus == .progress && !media.isLive ? .scrubber : .transport
         }
 
+        var nativeMenuTriggers: Set<TVPlayerFocus> {
+            var targets: Set<TVPlayerFocus> = [.favorite, .hue]
+            if coordinator.audioTrackOptions.count > 1 { targets.insert(.audio) }
+            if !coordinator.textTrackOptions.isEmpty || onSearchSubtitles != nil { targets.insert(.subtitles) }
+            if remoteBridge?.sources != nil { targets.insert(.source) }
+            return targets
+        }
+
+        /// Prefer a real control even if a panel's asynchronous rows are empty.
+        var focusLandingTarget: TVPlayerFocus {
+            if isScrubbing { return .scrubber }
+            guard let openTab else { return landingFocus }
+            if openTab == .info { return infoPrimaryAction != nil ? .infoPrimary : .panelClose }
+            return .tab(tabKinds.firstIndex(of: openTab) ?? 0)
+        }
+
+        func updateFocusOwner() {
+            applyFocusEffect(focusOwner.focusChanged(to: focus, menuTriggers: nativeMenuTriggers))
+        }
+
+        func applyFocusEffect(_ effect: PlayerControlsFocusMachine<TVPlayerFocus>.Effect?) {
+            switch effect {
+            case .activity: onResetHideTimer()
+            case .menuOpened: onMenuOpenChange(true)
+            case .menuClosed: onMenuOpenChange(false)
+            case nil: break
+            }
+        }
+
         var isSeries: Bool {
             if case .episode = media.contentRef { true } else { false }
         }

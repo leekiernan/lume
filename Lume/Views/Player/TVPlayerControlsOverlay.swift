@@ -95,6 +95,8 @@
         enum TabKind: Hashable { case episodes, recent, info }
         @State var openTab: TabKind?
         @FocusState var focus: TVPlayerFocus?
+        @State var focusOwner = PlayerControlsFocusMachine<TVPlayerFocus>()
+        @Namespace private var controlsFocusScope
         /// Quick-press skip steps — buttons, progress bar and scrub alike — and
         /// the indicator for the last one. See `SkipAcceleration`.
         @State var skipAcceleration = SkipAcceleration()
@@ -122,7 +124,8 @@
                 if let skipBadge { SkipBadgeLabel(badge: skipBadge, buffering: isBuffering).id(skipBadge.forward) }
             }
             .preference(key: SkipIndicatorShowingKey.self, value: skipBadge != nil)
-            .defaultFocus($focus, landingFocus)
+            .defaultFocus($focus, landingFocus, priority: .userInitiated)
+            .focusScope(controlsFocusScope)
             .tvRemoteMoveCommand { direction in
                 // While scrubbing, left/right step the playhead; vertical moves
                 // are swallowed so focus can't escape the bar.
@@ -167,19 +170,21 @@
             }
             .task(id: media.playbackSessionID) { await resolveContent() }
             .task(id: media.playbackSessionID) { await resolveStreamInfo() }
-            .task {
-                // Each reveal mounts fresh controls. `defaultFocus` alone is
-                // unreliable: explicitly land on the requested control in a
-                // task cancelled with the overlay.
-                focus = landingFocus
+            .onAppear { onMenuOpenChange(false) }
+            .task(id: focusOwner.landingRequest) {
+                guard focusOwner.needsLanding else { return }
+                // A reveal is animated: the target must exist before UIKit
+                // can accept it. Never pull focus back from a native menu.
+                _ = await TVFocusLanding.perform(release: { focus = nil }, assert: {
+                    focusOwner.beginLanding()
+                    focus = focusLandingTarget
+                }, while: {
+                    focusOwner.needsLanding && focus == nil
+                })
             }
-            .onChange(of: focus) { _, newFocus in
-                // Every control is a `focus` target, so focus leaves them all
-                // only for a native menu one of them opened; it returns to that
-                // control when the menu closes.
-                onMenuOpenChange(newFocus == nil)
-                // Moving between controls counts as activity — keep them up.
-                if newFocus != nil { onResetHideTimer() }
+            .onChange(of: focus, initial: true) { updateFocusOwner() }
+            .onChange(of: nativeMenuTriggers) {
+                applyFocusEffect(focusOwner.menuTriggersChanged(nativeMenuTriggers))
             }
         }
 
