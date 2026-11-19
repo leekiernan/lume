@@ -78,6 +78,7 @@
                     }
                 }
                 .buttonStyle(TVSettingsRowButtonStyle())
+                TVOptionToggleRow(title: "Foreign Parts Only", isOn: $service.foreignPartsOnly)
             }
         }
 

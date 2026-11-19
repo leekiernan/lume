@@ -29,7 +29,7 @@
             if index == nil {
                 trackCarryOver?.noteSubtitle(.off)
             } else if let track = session?.subtitleTracks.first(where: { $0.id == index }), !track.isExternal {
-                trackCarryOver?.noteSubtitle(.track(Self.carried(track), isForced: track.isForced))
+                trackCarryOver?.noteSubtitle(.track(Self.carried(track), isForced: Self.isForced(track)))
             }
             session?.selectSubtitleTrack(id: index)
             if index == nil { subtitleCues.clear() }
@@ -73,6 +73,12 @@
             if isExternalSubtitleSelected { session.selectSubtitleTrack(id: id) }
         }
 
+        /// The container's forced disposition, or a track named for it: IPTV
+        /// muxes often drop the flag and keep "English Forced" as the title.
+        private static func isForced(_ track: LumeAetherTrack) -> Bool {
+            track.isForced || ForcedSubtitleName.matches(track.name)
+        }
+
         /// Puts the subtitle pick carried from the last episode back on, once
         /// the engine lists the stream's own tracks.
         private func applyCarriedSubtitle(on session: any AetherSessionDriving) {
@@ -80,7 +86,7 @@
             let tracks = session.subtitleTracks.filter { !$0.isExternal }
             guard !tracks.isEmpty else { return }
             hasPendingCarriedSubtitle = false
-            let candidates = tracks.map { TrackCarryOver.Candidate(track: Self.carried($0), isForced: $0.isForced) }
+            let candidates = tracks.map { TrackCarryOver.Candidate(track: Self.carried($0), isForced: Self.isForced($0)) }
             switch carry.resolveSubtitle(in: candidates) {
             case .keep: break
             case .off: session.selectSubtitleTrack(id: nil)

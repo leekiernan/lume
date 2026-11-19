@@ -31,6 +31,24 @@
                 } else {
                     signIn
                 }
+
+                // The player's search raises this view compact, above its own
+                // copy of the toggle.
+                if !isCompact {
+                    searchOptions
+                        .padding(.top, 24)
+                }
+            }
+        }
+
+        private var searchOptions: some View {
+            VStack(alignment: .leading, spacing: 8) {
+                TVSettingsSectionLabel("Search")
+                TVOptionToggleRow(title: "Foreign Parts Only", isOn: $service.foreignPartsOnly)
+                Text("Foreign Parts Only finds subtitles for just the dialogue in another language, like the Na'vi in Avatar.")
+                    .font(.system(size: TVSettingsMetrics.explanatoryFontSize))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, TVSettingsMetrics.rowHPadding)
             }
         }
 

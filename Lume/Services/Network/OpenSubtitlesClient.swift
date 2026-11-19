@@ -83,6 +83,9 @@ nonisolated struct OpenSubtitlesQuery: Equatable {
     var season: Int?
     var episode: Int?
     var languages: [String] = []
+    /// Asks for foreign-parts-only subtitles alone: the ones that translate
+    /// just the dialogue the audio leaves untranslated.
+    var foreignPartsOnly = false
 
     /// Whether there is anything to search on. A query with only a language
     /// filter would return the whole catalogue.
@@ -125,7 +128,13 @@ nonisolated struct OpenSubtitlesQuery: Equatable {
     /// back empty — which means the id is stale or wrong, not that the title
     /// has no subtitles.
     var titleOnly: OpenSubtitlesQuery {
-        OpenSubtitlesQuery(text: text, season: season, episode: episode, languages: languages)
+        OpenSubtitlesQuery(
+            text: text,
+            season: season,
+            episode: episode,
+            languages: languages,
+            foreignPartsOnly: foreignPartsOnly
+        )
     }
 }
 
@@ -146,6 +155,8 @@ nonisolated struct OnlineSubtitle: Identifiable, Hashable {
     let isMachineTranslated: Bool
     let isFromTrusted: Bool
     let rating: Double
+    /// Translates only the foreign dialogue ("forced"), not the whole film.
+    var isForeignPartsOnly = false
 
     /// The language in the viewer's own language, falling back to the raw code
     /// for OpenSubtitles' regional variants (`pt-br`, `zh-cn`) the system
@@ -284,6 +295,13 @@ nonisolated struct OpenSubtitlesClient {
         if !query.languages.isEmpty {
             // The API wants a comma-separated, sorted list.
             items.append(URLQueryItem(name: "languages", value: query.languages.sorted().joined(separator: ",")))
+        }
+        if query.foreignPartsOnly {
+            // The API's own filter: `include` (its default), `exclude` or `only`.
+            // Filtering here rather than on the client keeps paging honest — a
+            // title with hundreds of full subtitles would push its few forced
+            // ones off the first page.
+            items.append(URLQueryItem(name: "foreign_parts_only", value: "only"))
         }
 
         var components = URLComponents()
@@ -528,69 +546,6 @@ private nonisolated struct LanguageDTO: Decodable {
 
 private nonisolated struct LanguagesResponse: Decodable {
     let data: [LanguageDTO]
-}
-
-/// One downloadable file of a subtitle record. Multi-CD releases list several.
-nonisolated struct OpenSubtitlesFileDTO: Decodable {
-    let fileID: Int?
-    let fileName: String?
-
-    enum CodingKeys: String, CodingKey {
-        case fileID = "file_id"
-        case fileName = "file_name"
-    }
-}
-
-/// The per-record fields the picker shows. The rest of each record (uploader,
-/// related links, legacy ids) is ignored.
-nonisolated struct OpenSubtitlesAttributesDTO: Decodable {
-    let subtitleID: String?
-    let language: String?
-    let downloadCount: Int?
-    let hearingImpaired: Bool?
-    let machineTranslated: Bool?
-    let aiTranslated: Bool?
-    let fromTrusted: Bool?
-    let ratings: Double?
-    let release: String?
-    let files: [OpenSubtitlesFileDTO]?
-
-    enum CodingKeys: String, CodingKey {
-        case subtitleID = "subtitle_id"
-        case language
-        case downloadCount = "download_count"
-        case hearingImpaired = "hearing_impaired"
-        case machineTranslated = "machine_translated"
-        case aiTranslated = "ai_translated"
-        case fromTrusted = "from_trusted"
-        case ratings
-        case release
-        case files
-    }
-}
-
-/// One `/subtitles` record.
-nonisolated struct OpenSubtitlesSearchItem: Decodable {
-    let attributes: OpenSubtitlesAttributesDTO
-
-    /// `nil` for a record with no downloadable file or no language — neither can
-    /// be offered to the viewer, and both appear occasionally in the feed.
-    var subtitle: OnlineSubtitle? {
-        guard let file = attributes.files?.first, let fileID = file.fileID,
-              let language = attributes.language, !language.isEmpty
-        else { return nil }
-        return OnlineSubtitle(
-            id: attributes.subtitleID ?? String(fileID),
-            fileID: fileID,
-            languageCode: language,
-            releaseName: attributes.release ?? file.fileName ?? "",
-            downloadCount: attributes.downloadCount ?? 0,
-            isHearingImpaired: attributes.hearingImpaired ?? false,
-            isMachineTranslated: (attributes.machineTranslated ?? false) || (attributes.aiTranslated ?? false),
-            isFromTrusted: attributes.fromTrusted ?? false,
-            rating: attributes.ratings ?? 0
-        )
-    }
 }
 
 private nonisolated struct SearchResponse: Decodable {

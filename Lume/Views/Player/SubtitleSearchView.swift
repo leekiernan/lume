@@ -36,6 +36,7 @@ struct SubtitleSearchView: View {
     private struct SearchKey: Equatable {
         let mediaID: String
         let languages: [String]
+        let foreignPartsOnly: Bool
     }
 
     var body: some View {
@@ -46,7 +47,11 @@ struct SubtitleSearchView: View {
                 standardBody
             #endif
         }
-        .task(id: SearchKey(mediaID: media.id, languages: service.preferredLanguages)) { await runSearch() }
+        .task(id: SearchKey(
+            mediaID: media.id,
+            languages: service.preferredLanguages,
+            foreignPartsOnly: service.foreignPartsOnly
+        )) { await runSearch() }
         .onDisappear {
             machine.invalidate()
             downloadTask?.cancel()
@@ -151,6 +156,9 @@ struct SubtitleSearchView: View {
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
+                }
+                Toggle(isOn: $service.foreignPartsOnly) {
+                    Label("Foreign Parts Only", systemImage: "character.bubble")
                 }
             }
         }
