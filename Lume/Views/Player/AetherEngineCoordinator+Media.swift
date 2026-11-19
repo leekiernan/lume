@@ -40,6 +40,7 @@
         func publishMedia() {
             guard let session else { return }
             applyCarriedSubtitle(on: session)
+            preferAudioChannels(of: session)
             let audio = session.audioTracks.enumerated().map { position, track in
                 PlayerTrackOption(
                     id: String(track.id),
@@ -86,6 +87,17 @@
             case .off: session.selectSubtitleTrack(id: nil)
             case let .select(index): session.selectSubtitleTrack(id: tracks[index].id)
             }
+        }
+
+        /// The playing track's channel count for the audio session. The engine
+        /// writes this itself on its renderer paths; its AVPlayer path leaves
+        /// the session as it found it, so the app sets it there. A Multi-View
+        /// tile leaves the session's width alone.
+        private func preferAudioChannels(of session: any AetherSessionDriving) {
+            guard !isEmbedded else { return }
+            let tracks = session.audioTracks
+            let playing = tracks.first { $0.id == session.activeAudioTrackID } ?? tracks.first
+            PlayerAudioChannelPreference.apply(sourceChannels: playing?.channels)
         }
 
         private static func carried(_ track: LumeAetherTrack) -> TrackCarryOver.Track {

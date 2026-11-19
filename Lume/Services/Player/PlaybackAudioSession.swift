@@ -31,13 +31,16 @@ actor PlaybackAudioSession {
             #else
                 try? session.setCategory(.playback, mode: .moviePlayback, policy: .longFormVideo, options: [])
             #endif
-            if configuration == .fullScreen {
-                let maxChannels = session.maximumOutputNumberOfChannels
-                if maxChannels > 2 {
-                    try? session.setPreferredOutputNumberOfChannels(maxChannels)
-                }
-            }
             try? session.setActive(true, options: [])
+            if configuration == .fullScreen {
+                // Start at stereo, clearing whatever an earlier session asked
+                // for; the engine widens it once it knows the audio track
+                // (`PlayerAudioChannelPreference`). Asking for the route's full
+                // width here sent stereo channels to a receiver as 5.1.
+                // Multi-View leaves the width alone: one muted grid can't fill
+                // a surround layout.
+                PlayerAudioChannelPreference.apply(sourceChannels: nil)
+            }
 
             if configuration == .fullScreen {
                 let route = session.currentRoute.outputs
