@@ -9,6 +9,7 @@ nonisolated struct SubtitleBadge: Identifiable {
 nonisolated extension OnlineSubtitle {
     var badges: [SubtitleBadge] {
         var badges: [SubtitleBadge] = []
+        if isForeignPartsOnly { badges.append(SubtitleBadge(id: "forced", systemImage: "character.bubble")) }
         if isHearingImpaired { badges.append(SubtitleBadge(id: "cc", systemImage: "captions.bubble")) }
         if isFromTrusted { badges.append(SubtitleBadge(id: "trusted", systemImage: "checkmark.seal")) }
         if isMachineTranslated { badges.append(SubtitleBadge(id: "machine", systemImage: "wand.and.stars")) }

@@ -202,10 +202,10 @@ extension KSVideoPlayer.Coordinator {
 }
 
 /// KSPlayer reports no forced disposition for a subtitle track, only its
-/// title; a forced track is named for it ("English Forced", "Forced").
+/// title; a forced track is named for it ("English Forced", "Forced", "FPO").
 enum KSSubtitleCarry {
     static func isForced(_ info: any SubtitleInfo) -> Bool {
-        info.name.localizedCaseInsensitiveContains("forced")
+        ForcedSubtitleName.matches(info.name)
     }
 }
 

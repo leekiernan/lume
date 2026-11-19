@@ -56,6 +56,16 @@ final class OpenSubtitlesService {
         }
     }
 
+    /// Search for foreign-parts-only subtitles alone — the ones that translate
+    /// just the dialogue the audio leaves untranslated (Na'vi in *Avatar*).
+    /// Off, searches return every subtitle with the forced ones listed last.
+    var foreignPartsOnly: Bool {
+        didSet {
+            guard foreignPartsOnly != oldValue else { return }
+            defaults.set(foreignPartsOnly, forKey: Self.foreignPartsOnlyKey)
+        }
+    }
+
     private var machine = OpenSubtitlesSessionMachine()
     private var session: OpenSubtitlesSession? {
         machine.account?.session
@@ -68,6 +78,7 @@ final class OpenSubtitlesService {
     private let defaults: UserDefaults
 
     static let languagesKey = "openSubtitlesPreferredLanguages"
+    static let foreignPartsOnlyKey = "openSubtitlesForeignPartsOnly"
 
     init(
         client: any OpenSubtitlesProviding = OpenSubtitlesClient.shared,
@@ -81,6 +92,7 @@ final class OpenSubtitlesService {
         self.defaults = defaults
         let stored = defaults.stringArray(forKey: Self.languagesKey)
         preferredLanguages = stored ?? Self.defaultLanguages()
+        foreignPartsOnly = defaults.bool(forKey: Self.foreignPartsOnlyKey)
     }
 
     /// Whether the build carries an API key at all. When false the whole
@@ -155,6 +167,7 @@ final class OpenSubtitlesService {
     func search(_ query: OpenSubtitlesQuery) async throws -> [OnlineSubtitle] {
         var query = query
         query.languages = preferredLanguages
+        query.foreignPartsOnly = foreignPartsOnly
         var permit = machine.generation
         let results: [OnlineSubtitle]
         do {
@@ -168,7 +181,18 @@ final class OpenSubtitlesService {
             results = try await client.search(query, host: OpenSubtitlesClient.defaultHost, token: nil)
         }
         try requireCurrent(permit)
-        return results.sorted { $0.downloadCount > $1.downloadCount }
+        return Self.ranked(results)
+    }
+
+    /// Full subtitles before forced ones, then the most downloaded first. A
+    /// forced subtitle picked by mistake looks like a broken one — silence
+    /// through every line in the viewer's own language — so it never leads a
+    /// search that didn't ask for it.
+    static func ranked(_ results: [OnlineSubtitle]) -> [OnlineSubtitle] {
+        results.sorted {
+            if $0.isForeignPartsOnly != $1.isForeignPartsOnly { return !$0.isForeignPartsOnly }
+            return $0.downloadCount > $1.downloadCount
+        }
     }
 
     /// The full language list for the search sheet's filter, fetched once per
