@@ -83,6 +83,18 @@ struct ForcedSubtitleTests {
         #expect(subtitle.badges.contains { $0.id == "forced" })
     }
 
+    /// One choice for every title: the toggle in the search sheet is read
+    /// back by the next search, whatever it is for.
+    @Test @MainActor func `the foreign parts choice is remembered`() throws {
+        let suite = "ForcedSubtitleTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        #expect(!OpenSubtitlesService(defaults: defaults).foreignPartsOnly)
+        OpenSubtitlesService(defaults: defaults).foreignPartsOnly = true
+        #expect(OpenSubtitlesService(defaults: defaults).foreignPartsOnly)
+    }
+
     @Test @MainActor func `forced results rank after full ones`() {
         func subtitle(_ id: String, downloads: Int, forced: Bool) -> OnlineSubtitle {
             OnlineSubtitle(

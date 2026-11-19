@@ -25857,58 +25857,6 @@
         }
       }
     },
-    "Foreign Parts Only finds subtitles for just the dialogue in another language, like the Na'vi in Avatar." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "„Nur fremdsprachige Teile“ findet Untertitel nur für die Dialoge in einer anderen Sprache, etwa das Na'vi in Avatar."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "«Solo partes en otro idioma» busca subtítulos solo para los diálogos en otro idioma, como el na'vi de Avatar."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "« Passages étrangers uniquement » trouve des sous-titres pour les seuls dialogues dans une autre langue, comme le na'vi dans Avatar."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "«Solo parti in lingua straniera» trova sottotitoli solo per i dialoghi in un'altra lingua, come il Na'vi in Avatar."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "「外国語部分のみ」は、『アバター』のナヴィ語のように、別の言語で話される台詞だけの字幕を探します。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "'외국어 부분만'은 아바타의 나비족 언어처럼 다른 언어로 된 대사만 옮긴 자막을 찾습니다."
-          }
-        },
-        "pt" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "\"Apenas partes estrangeiras\" encontra legendas só para os diálogos em outro idioma, como o na'vi em Avatar."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "“仅外语部分”只查找其他语言对白的字幕，例如《阿凡达》中的纳美语。"
-          }
-        }
-      }
-    },
     "Form" : {
       "comment" : "A team's recent results, shown as a form guide.",
       "localizations" : {

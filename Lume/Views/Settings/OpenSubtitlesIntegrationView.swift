@@ -124,14 +124,8 @@ struct OpenSubtitlesSignInSection: View {
                             Label("Subtitle Languages", systemImage: "globe")
                         }
                     }
-                    Toggle(isOn: $service.foreignPartsOnly) {
-                        Label("Foreign Parts Only", systemImage: "character.bubble")
-                    }
                 } footer: {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Subtitle search only returns these languages.")
-                        Text("Foreign Parts Only finds subtitles for just the dialogue in another language, like the Na'vi in Avatar.")
-                    }
+                    Text("Subtitle search only returns these languages.")
                 }
             }
             .platformNavigationTitle("OpenSubtitles")
