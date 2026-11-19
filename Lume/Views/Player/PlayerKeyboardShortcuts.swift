@@ -140,9 +140,8 @@ extension View {
 
         private func toggleFullScreen() -> KeyPress.Result {
             #if os(macOS)
-                guard let window = NSApp.keyWindow else { return .ignored }
-                window.toggleFullScreen(nil)
-                return .handled
+                // The player's own window, not the frontmost one.
+                return MacPlayerWindowRouter.shared.toggleFullScreen() ? .handled : .ignored
             #else
                 return .ignored
             #endif
