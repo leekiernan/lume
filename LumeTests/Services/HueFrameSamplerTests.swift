@@ -236,9 +236,15 @@ struct HueFrameSamplerTests {
         )
     }
 
+    /// IOSurface-backed, like every frame a decoder hands the sampler. On
+    /// macOS, VideoToolbox converts a plain (non-IOSurface) buffer with the
+    /// Rec. 601 matrix whatever its tag says: pure 709 red comes back at 233
+    /// instead of 255, a failure the app itself never sees.
+    private static let decoderAttributes = [kCVPixelBufferIOSurfacePropertiesKey: [String: Any]()] as CFDictionary
+
     private static func bgraBuffer(width: Int, height: Int, color: (Int, Int) -> RGB) throws -> CVPixelBuffer {
         var created: CVPixelBuffer?
-        CVPixelBufferCreate(nil, width, height, kCVPixelFormatType_32BGRA, nil, &created)
+        CVPixelBufferCreate(nil, width, height, kCVPixelFormatType_32BGRA, Self.decoderAttributes, &created)
         let buffer = try #require(created)
         CVPixelBufferLockBaseAddress(buffer, [])
         let base = try #require(CVPixelBufferGetBaseAddress(buffer)).assumingMemoryBound(to: UInt8.self)
@@ -263,7 +269,7 @@ struct HueFrameSamplerTests {
         format: OSType, width: Int, height: Int, luma: UInt8, chroma: (blue: UInt8, red: UInt8)
     ) throws -> CVPixelBuffer {
         var created: CVPixelBuffer?
-        CVPixelBufferCreate(nil, width, height, format, nil, &created)
+        CVPixelBufferCreate(nil, width, height, format, Self.decoderAttributes, &created)
         let buffer = try #require(created)
         let tenBit = format == kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange
         CVPixelBufferLockBaseAddress(buffer, [])
