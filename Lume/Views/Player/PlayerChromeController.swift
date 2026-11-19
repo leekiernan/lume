@@ -161,6 +161,12 @@ private struct PlayerPointerChrome: ViewModifier {
                     chrome.schedule(.pointerExit, mayHide: mayHide)
                 }
             }
+            // The window buttons come and go with the controls: left up, they
+            // are the one thing that never leaves a video.
+            .onChange(of: chrome.isVisible, initial: true) { _, visible in
+                MacPlayerWindowRouter.shared.setWindowButtonsVisible(visible)
+            }
+            .onDisappear { MacPlayerWindowRouter.shared.setWindowButtonsVisible(true) }
         #else
             content
         #endif

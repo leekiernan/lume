@@ -163,15 +163,19 @@ struct MainTabView: View {
             set: { router.selectedTab = policy.resolved($0) }
         )
         return tabView(selection: selection)
+        #if os(macOS)
+            // Innermost, so the player it shows inherits everything below.
+            .macInlinePlayerHost()
+        #endif
         // Profile-scoped preferences bind when tab contents are rebuilt; the
         // router remains outside this identity, so navigation paths survive.
         #if os(macOS)
-            .id(tabLayoutIdentity)
+        .id(tabLayoutIdentity)
         #else
-            .id(activeProfileToken)
+        .id(activeProfileToken)
         #endif
-            .onChange(of: policy, initial: true) { _, _ in repairSelectionIfNeeded() }
-            .onChange(of: activeProfileToken) { _, _ in repairSelectionIfNeeded() }
+        .onChange(of: policy, initial: true) { _, _ in repairSelectionIfNeeded() }
+        .onChange(of: activeProfileToken) { _, _ in repairSelectionIfNeeded() }
         #if os(tvOS)
             // Settings opens fresh each visit, as other tabs do; its route only
             // has to outlive a tab-set change while it's showing.

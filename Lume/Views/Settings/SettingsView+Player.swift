@@ -34,6 +34,10 @@
 
                 NavigationLink("Subtitle Style") { SubtitleStyleSettingsView() }
 
+                #if os(macOS)
+                    MacPlayerPresentationPicker()
+                #endif
+
                 NavigationLink("VLCKit Options") { VLCEngineSettingsScreen() }
                 NavigationLink("KSPlayer Options") { KSEngineSettingsScreen() }
                 #if !os(visionOS)
@@ -75,5 +79,24 @@
             }
         }
     }
+
+    #if os(macOS)
+
+        /// Where a stream opens: a player window of its own, or over the library
+        /// window it was started from (`MacPlayerPresentation`). Device-local.
+        private struct MacPlayerPresentationPicker: View {
+            @AppStorage(PlayerSettings.macPlayerPresentationKey)
+            private var presentationRaw = MacPlayerPresentation.default.rawValue
+
+            var body: some View {
+                Picker("Open Videos In", selection: $presentationRaw) {
+                    Text("New Window").tag(MacPlayerPresentation.newWindow.rawValue)
+                    Text("Current Window").tag(MacPlayerPresentation.currentWindow.rawValue)
+                }
+                .pickerStyle(.menu)
+            }
+        }
+
+    #endif
 
 #endif

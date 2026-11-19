@@ -191,6 +191,10 @@ enum PlayerSettings {
     /// that doesn't name a player (including the empty default) keeps playback
     /// in the built-in player.
     static let externalPlayerKey = "player.externalPlayer"
+    /// Where a stream opens on macOS: a player window of its own (the
+    /// default) or the library window it was started from. Device-local. See
+    /// `MacPlayerPresentation`.
+    nonisolated static let macPlayerPresentationKey = "player.macPresentation"
 
     /// Raw value of the `ExternalPlayerScope` the hand-off is limited to —
     /// VOD, live TV, or both. Unset (or unrecognised) means VOD only; see
