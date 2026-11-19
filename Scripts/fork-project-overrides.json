@@ -6,7 +6,7 @@
       "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=macosx*]\"": "\"\";",
       "ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES": "\"LumeIce LumeCoral LumeGreen LumeSignalPink LumeSignalIce LumeSignalCoral LumeSignalGreen LumeFloodlightPink LumeFloodlightIce LumeFloodlightCoral LumeFloodlightGreen\";",
       "CODE_SIGN_IDENTITY": "\"Apple Development\";",
-      "CURRENT_PROJECT_VERSION": "52;",
+      "CURRENT_PROJECT_VERSION": "53;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
@@ -14,7 +14,7 @@
       "INFOPLIST_KEY_NSSupportsLiveActivities": null,
       "INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates": null,
       "LUME_CLOUD_URL": null,
-      "MARKETING_VERSION": "3.2.1;",
+      "MARKETING_VERSION": "3.2.2;",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume;",
       "PROVISIONING_PROFILE_SPECIFIER": "\"\";"
     },
@@ -24,7 +24,7 @@
       "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=macosx*]\"": "\"\";",
       "ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES": "\"LumeIce LumeCoral LumeGreen LumeSignalPink LumeSignalIce LumeSignalCoral LumeSignalGreen LumeFloodlightPink LumeFloodlightIce LumeFloodlightCoral LumeFloodlightGreen\";",
       "CODE_SIGN_IDENTITY": "\"Apple Development\";",
-      "CURRENT_PROJECT_VERSION": "52;",
+      "CURRENT_PROJECT_VERSION": "53;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
@@ -32,7 +32,7 @@
       "INFOPLIST_KEY_NSSupportsLiveActivities": null,
       "INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates": null,
       "LUME_CLOUD_URL": null,
-      "MARKETING_VERSION": "3.2.1;",
+      "MARKETING_VERSION": "3.2.2;",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume;",
       "PROVISIONING_PROFILE_SPECIFIER": "\"\";"
     },
@@ -49,33 +49,33 @@
       "STRING_CATALOG_GENERATE_SYMBOLS": "YES;"
     },
     "C67C02EA2F880F2400842DBA": {
-      "CURRENT_PROJECT_VERSION": "52;",
+      "CURRENT_PROJECT_VERSION": "53;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "MARKETING_VERSION": "3.2.1;",
+      "MARKETING_VERSION": "3.2.2;",
       "OTHER_LDFLAGS": "\"$(inherited) -framework LumeAetherBridge\";",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;"
     },
     "C67C02EB2F880F2400842DBA": {
-      "CURRENT_PROJECT_VERSION": "52;",
+      "CURRENT_PROJECT_VERSION": "53;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "MARKETING_VERSION": "3.2.1;",
+      "MARKETING_VERSION": "3.2.2;",
       "OTHER_LDFLAGS": "\"$(inherited) -framework LumeAetherBridge\";",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;"
     },
     "C67C02ED2F880F2400842DBA": {
-      "CURRENT_PROJECT_VERSION": "52;",
+      "CURRENT_PROJECT_VERSION": "53;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "MARKETING_VERSION": "3.2.1;",
+      "MARKETING_VERSION": "3.2.2;",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeuitests;"
     },
     "C67C02EE2F880F2400842DBA": {
-      "CURRENT_PROJECT_VERSION": "52;",
+      "CURRENT_PROJECT_VERSION": "53;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "MARKETING_VERSION": "3.2.1;",
+      "MARKETING_VERSION": "3.2.2;",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeuitests;"
     },
     "C67C02F12F880F2400842DBA": {
@@ -90,7 +90,7 @@
       "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=macosx*]\"": "\"\";",
       "ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES": "\"LumeIce LumeCoral LumeGreen LumeSignalPink LumeSignalIce LumeSignalCoral LumeSignalGreen LumeFloodlightPink LumeFloodlightIce LumeFloodlightCoral LumeFloodlightGreen\";",
       "CODE_SIGN_IDENTITY": "\"Apple Development\";",
-      "CURRENT_PROJECT_VERSION": "52;",
+      "CURRENT_PROJECT_VERSION": "53;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
@@ -98,79 +98,79 @@
       "INFOPLIST_KEY_NSSupportsLiveActivities": null,
       "INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates": null,
       "LUME_CLOUD_URL": null,
-      "MARKETING_VERSION": "3.2.1;",
+      "MARKETING_VERSION": "3.2.2;",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume;",
       "PROVISIONING_PROFILE_SPECIFIER": "\"\";"
     },
     "C67C02F32F880F2400842DBA": {
-      "CURRENT_PROJECT_VERSION": "52;",
+      "CURRENT_PROJECT_VERSION": "53;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "MARKETING_VERSION": "3.2.1;",
+      "MARKETING_VERSION": "3.2.2;",
       "OTHER_LDFLAGS": "\"$(inherited) -framework LumeAetherBridge\";",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;"
     },
     "C67C02F42F880F2400842DBA": {
-      "CURRENT_PROJECT_VERSION": "52;",
+      "CURRENT_PROJECT_VERSION": "53;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "MARKETING_VERSION": "3.2.1;",
+      "MARKETING_VERSION": "3.2.2;",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeuitests;"
     },
     "C6BD5701000000000000E006": {
-      "CURRENT_PROJECT_VERSION": "52;",
+      "CURRENT_PROJECT_VERSION": "53;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
-      "MARKETING_VERSION": "3.2.1;",
+      "MARKETING_VERSION": "3.2.2;",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;"
     },
     "C6BD5701000000000000E007": {
-      "CURRENT_PROJECT_VERSION": "52;",
+      "CURRENT_PROJECT_VERSION": "53;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
-      "MARKETING_VERSION": "3.2.1;",
+      "MARKETING_VERSION": "3.2.2;",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;"
     },
     "C6BD5701000000000000E008": {
-      "CURRENT_PROJECT_VERSION": "52;",
+      "CURRENT_PROJECT_VERSION": "53;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
-      "MARKETING_VERSION": "3.2.1;",
+      "MARKETING_VERSION": "3.2.2;",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;"
     },
     "C6BD5701000000000000E009": {
-      "CURRENT_PROJECT_VERSION": "52;",
+      "CURRENT_PROJECT_VERSION": "53;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
-      "MARKETING_VERSION": "3.2.1;",
+      "MARKETING_VERSION": "3.2.2;",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.topshelf;"
     },
     "C6BE110000000000000000AA": {
-      "CURRENT_PROJECT_VERSION": "52;",
+      "CURRENT_PROJECT_VERSION": "53;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "MARKETING_VERSION": "3.2.1;",
+      "MARKETING_VERSION": "3.2.2;",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeperformancetests;"
     },
     "C6BE110000000000000000AB": {
-      "CURRENT_PROJECT_VERSION": "52;",
+      "CURRENT_PROJECT_VERSION": "53;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "MARKETING_VERSION": "3.2.1;",
+      "MARKETING_VERSION": "3.2.2;",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeperformancetests;"
     },
     "C6BE110000000000000000AC": {
-      "CURRENT_PROJECT_VERSION": "52;",
+      "CURRENT_PROJECT_VERSION": "53;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "MARKETING_VERSION": "3.2.1;",
+      "MARKETING_VERSION": "3.2.2;",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeperformancetests;"
     },
     "C6BE110000000000000000AD": {
-      "CURRENT_PROJECT_VERSION": "52;",
+      "CURRENT_PROJECT_VERSION": "53;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "MARKETING_VERSION": "3.2.1;",
+      "MARKETING_VERSION": "3.2.2;",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeperformancetests;"
     },
     "C6BE110000000000000000B1": {
@@ -185,7 +185,7 @@
       "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=macosx*]\"": "\"\";",
       "ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES": "\"LumeIce LumeCoral LumeGreen LumeSignalPink LumeSignalIce LumeSignalCoral LumeSignalGreen LumeFloodlightPink LumeFloodlightIce LumeFloodlightCoral LumeFloodlightGreen\";",
       "CODE_SIGN_IDENTITY": "\"Apple Development\";",
-      "CURRENT_PROJECT_VERSION": "52;",
+      "CURRENT_PROJECT_VERSION": "53;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
       "INFOPLIST_KEY_CFBundleDisplayName": "lume;",
@@ -193,23 +193,23 @@
       "INFOPLIST_KEY_NSSupportsLiveActivities": null,
       "INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates": null,
       "LUME_CLOUD_URL": null,
-      "MARKETING_VERSION": "3.2.1;",
+      "MARKETING_VERSION": "3.2.2;",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume;",
       "PROVISIONING_PROFILE_SPECIFIER": "\"\";"
     },
     "C6BE110000000000000000B3": {
-      "CURRENT_PROJECT_VERSION": "52;",
+      "CURRENT_PROJECT_VERSION": "53;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "MARKETING_VERSION": "3.2.1;",
+      "MARKETING_VERSION": "3.2.2;",
       "OTHER_LDFLAGS": "\"$(inherited) -framework LumeAetherBridge\";",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumetests;"
     },
     "C6BE110000000000000000B4": {
-      "CURRENT_PROJECT_VERSION": "52;",
+      "CURRENT_PROJECT_VERSION": "53;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "MARKETING_VERSION": "3.2.1;",
+      "MARKETING_VERSION": "3.2.2;",
       "PRODUCT_BUNDLE_IDENTIFIER": "com.leekiernan.lume.lumeuitests;"
     }
   },
