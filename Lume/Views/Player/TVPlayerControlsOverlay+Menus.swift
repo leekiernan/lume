@@ -4,8 +4,8 @@
 //
 //  The tvOS controls' native menus: audio track, subtitles and Source (another
 //  copy of what's playing — `PlayerSourceSwitch`). Each is
-//  a `focus` target, so focus leaving them means a menu is open and the chrome
-//  holds the controls up (`PlayerChromeMachine`).
+//  a `focus` target. A handoff from a present menu trigger holds the chrome;
+//  unrelated focus loss is recovered by the shared overlay.
 //
 
 import SwiftUI
