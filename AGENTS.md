@@ -10,19 +10,37 @@ Lume is a native, multi-platform IPTV player (iOS 18+, macOS 15+, tvOS 18+, visi
 # Open in Xcode
 open Lume.xcodeproj   # pick scheme "Lume", any destination
 
-# CLI build (iOS Simulator)
+# CLI build (macOS)
 xcodebuild build \
   -project Lume.xcodeproj -scheme Lume \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -destination 'platform=macOS' \
+  -clonedSourcePackagesDirPath ~/Library/Developer/Lume-SharedSPM
+
+# tvOS / iOS compile check: no simulator needed
+xcodebuild build \
+  -project Lume.xcodeproj -scheme Lume \
+  -destination 'generic/platform=tvOS Simulator' ARCHS=arm64 \
   -clonedSourcePackagesDirPath ~/Library/Developer/Lume-SharedSPM
 ```
+
+### No simulators
+
+The development Mac keeps **no simulators installed**: Xcode's simulator
+runtimes, device data and caches filled ~70 GB of a 228 GB disk. Don't create,
+download or boot one. Unit and UI tests run in the native **macOS app**; tvOS
+and iOS get a compile check against the generic simulator destination, which
+needs no installed device. `ARCHS=arm64` keeps that to Apple silicon — Intel
+isn't a target, and LibDovi ships no x86_64 simulator slice, so a generic build
+without it fails to link. Device testing is the board's (see **Who verifies
+what**).
 
 The project injects API secrets from a repo-root `.env` file via `Scripts/inject-env.sh`. The file is gitignored; features degrade gracefully when it's absent.
 
 ### Private DerivedData needs a shared package clone
 
 Parallel builds (per platform, per worker, per worktree) each need their own
-`-derivedDataPath /tmp/lume-dd-<label>` — the project has several DerivedData
+`-derivedDataPath /tmp/lume-dd-<label>`. Each one is 2–4 GB, so label it by
+platform and reuse it across branches rather than making one per branch — the project has several DerivedData
 dirs and a bare `xcodebuild` can install a stale app. **Always pair that with
 `-clonedSourcePackagesDirPath ~/Library/Developer/Lume-SharedSPM`.** Without it
 each private DerivedData re-clones the whole package graph — KSPlayer's FFmpeg
@@ -30,7 +48,8 @@ xcframeworks plus VLCKit's 865 MB xcframework, **6.4 GB per build dir**; eight
 of them once filled `/tmp` with 65 GB. Sharing one clone dir also builds faster
 and dodges the botched-checkout race that breaks multi-platform archiving.
 
-Delete your task-owned `-derivedDataPath` dir when the task is done using
+Delete your task-owned `-derivedDataPath` dir as soon as its checks finish (not
+at merge time) using
 `Scripts/cleanup.sh` as described below. For broader, explicitly requested
 maintenance, `Scripts/clean-build-cache.sh` is report-only by default; `--apply`
 reclaims build caches. Adding `--deep` also drops DeviceSupport and the SwiftPM
@@ -69,32 +88,34 @@ are outside this cleanup scope. Run without `--apply` to preview if uncertain.
 
 ## Testing
 
-Tests deploy to **iOS 26.4+ Simulator only** — never tvOS. Use an iPhone 17 Pro or newer sim; iOS 26.2 sims fail with a deployment-target mismatch (exit 65).
+Tests run in the native **macOS app** (`-destination 'platform=macOS'`) —
+never a simulator; see **No simulators** above. The test targets sign with the
+fork's team, so they run locally without extra setup.
 
 ```bash
 # Full suite
 xcodebuild test -project Lume.xcodeproj -scheme Lume \
   -collect-test-diagnostics never \
   -clonedSourcePackagesDirPath ~/Library/Developer/Lume-SharedSPM \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
+  -destination 'platform=macOS'
 
 # Unit tests only
 xcodebuild test -project Lume.xcodeproj -scheme Lume \
   -collect-test-diagnostics never \
   -clonedSourcePackagesDirPath ~/Library/Developer/Lume-SharedSPM \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -destination 'platform=macOS' \
   -only-testing:LumeTests
 
 # UI tests only
 xcodebuild test -project Lume.xcodeproj -scheme Lume \
   -collect-test-diagnostics never \
   -clonedSourcePackagesDirPath ~/Library/Developer/Lume-SharedSPM \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -destination 'platform=macOS' \
   -only-testing:LumeUITests
 ```
 
 Pass `-collect-test-diagnostics never` to every command-line test run. The
-default, `on-failure`, runs a `simctl diagnose` sysdiagnose (600 s timeout)
+default, `on-failure`, runs a sysdiagnose (600 s timeout)
 after any failing test, so one failure turns a ~2-minute run into 12–17
 minutes with nothing visibly happening.
 
@@ -102,7 +123,7 @@ Some suites read fixtures from the gitignored `ExampleData/` at the repo root.
 A fresh clone or worktree needs a copy (or a symlink to an existing one), or
 17 decoding/sync tests fail with "no such file".
 
-Every test `ModelConfiguration` must set `cloudKitDatabase: .none` — `@Attribute(.unique)` models + the default `.automatic` crashes on entitled simulator hosts.
+Every test `ModelConfiguration` must set `cloudKitDatabase: .none` — `@Attribute(.unique)` models + the default `.automatic` crashes on entitled test hosts.
 
 ---
 
@@ -280,8 +301,8 @@ Verification is split so nobody blocks on hardware they don't have:
 
 | Check | Owner | Notes |
 |-------|-------|-------|
-| Local unit tests (`LumeTests`) | Engineer **or** QA before handoff | iPhone 17 Pro sim, iOS 26.4+; see **Testing** above |
-| Build verification | Engineer **or** QA before handoff | `xcodebuild build` with the shared SPM clone |
+| Local unit tests (`LumeTests`) | Engineer **or** QA before handoff | macOS app, no simulator; see **Testing** above |
+| Build verification | Engineer **or** QA before handoff | macOS build plus generic tvOS/iOS `ARCHS=arm64` compile checks, shared SPM clone |
 | Linting / formatting | Engineer **or** QA before handoff | SwiftFormat + SwiftLint (pre-commit hook enforces) |
 | **Device testing** | **Board** | Physical-device runs are the board's job — **never block a handoff on device testing** |
 
