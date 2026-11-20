@@ -51,6 +51,9 @@ struct PlayerControlsActions {
         let clock: PlaybackClock
         let route: Route
         var itemNeighbours = PlayerItemNavigation.Neighbours.none
+        /// The engine the Advanced stream-info chips pull audio and bitrate
+        /// from, once a second while they're on screen.
+        var sampler: (any PlayerStreamSampling)?
 
         @Environment(\.modelContext) private var modelContext
         @Environment(PlayerControlsBridge.self) private var bridge: PlayerControlsBridge?
@@ -234,7 +237,8 @@ struct PlayerControlsActions {
                 StreamInfoCaption(
                     media: media,
                     videoInfo: presentation.videoInfo,
-                    engine: presentation.engine
+                    engine: presentation.engine,
+                    sampler: sampler
                 )
                 if let subtitle = media.subtitle, !subtitle.isEmpty {
                     Text(subtitle)

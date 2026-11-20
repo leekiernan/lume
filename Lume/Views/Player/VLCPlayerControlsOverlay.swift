@@ -52,7 +52,8 @@ import VLCKit
                 ),
                 media: media, isSeeking: $isSeeking, seekPosition: $seekPosition,
                 clock: clock, route: AirPlayRouteButton(),
-                itemNeighbours: itemNeighbours
+                itemNeighbours: itemNeighbours,
+                sampler: coordinator
             )
         }
 

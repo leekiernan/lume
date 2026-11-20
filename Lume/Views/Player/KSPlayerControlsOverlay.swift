@@ -72,7 +72,8 @@ import SwiftUI
                 ),
                 media: media, isSeeking: $isSeeking, seekPosition: $seekPosition,
                 clock: clock, route: AirPlayRouteButton(),
-                itemNeighbours: itemNeighbours
+                itemNeighbours: itemNeighbours,
+                sampler: coordinator
             )
             .onReceive(coordinator.subtitleModel.$subtitleInfos) { subtitleTracks = $0 }
             .onReceive(coordinator.subtitleModel.$selectedSubtitleInfo) { selectedSubtitle = $0 }

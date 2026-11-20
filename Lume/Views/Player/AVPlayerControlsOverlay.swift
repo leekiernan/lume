@@ -48,7 +48,8 @@ import SwiftUI
                 ),
                 media: media, isSeeking: $isSeeking, seekPosition: $seekPosition,
                 clock: clock, route: AirPlayRouteButton(player: coordinator.player),
-                itemNeighbours: itemNeighbours
+                itemNeighbours: itemNeighbours,
+                sampler: coordinator
             )
         }
 

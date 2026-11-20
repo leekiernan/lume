@@ -60,7 +60,13 @@
             if audio != audioTrackOptions { audioTrackOptions = audio }
             if text != textTrackOptions { textTrackOptions = text }
             if let info = session.videoInfo {
-                let published = PlayerVideoInfo(width: info.width, height: info.height, fps: info.frameRate ?? 0, codec: info.codec)
+                let published = PlayerVideoInfo(
+                    width: info.width,
+                    height: info.height,
+                    fps: info.frameRate ?? 0,
+                    codec: info.codec,
+                    dynamicRange: PlayerDynamicRange(session.dynamicRange)
+                )
                 if published != videoInfo { videoInfo = published }
             }
         }
