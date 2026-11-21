@@ -38,6 +38,8 @@
         var activeAudioTrackID: Int?
         var activeSubtitleTrackID: Int?
         var videoInfo: LumeAetherVideoInfo?
+        var dynamicRange: LumeAetherDynamicRange = .sdr
+        var playedBitrateMbps: Double?
 
         /// What the coordinator asked for, in order.
         private(set) var calls: [String] = []

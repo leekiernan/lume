@@ -92,7 +92,11 @@ extension VLCPlayerCoordinator {
                 if video.frameRate > 0 { fps = Double(video.frameRate) / Double(denominator) }
             }
             let name = track.codecName()
-            codec = name.isEmpty ? nil : name
+            // The fourcc maps onto the short names; VLC's own description
+            // ("H264 - MPEG-4 AVC (part 10)") is the fallback.
+            codec = PlayerCodecLabel.fourCC(track.codec)
+                ?? PlayerCodecLabel.fourCC(track.fourcc)
+                ?? (name.isEmpty ? nil : name)
         }
 
         let info = (width > 0 && height > 0)

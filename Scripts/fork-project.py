@@ -134,6 +134,18 @@ def apply(text: str, overrides: dict) -> str:
     return text
 
 
+def insert_object(text: str, section: str, object_id: str, block: str) -> str:
+    """Insert an object block where Xcode keeps it: sorted by id in its section."""
+    begin, end = f"/* Begin {section} section */\n", f"/* End {section} section */\n"
+    if begin not in text or end not in text:
+        raise ValueError(f"Expected an existing {section} section")
+    start = text.index(begin) + len(begin)
+    stop = text.index(end, start)
+    ids = [(m.start(), m[1]) for m in re.finditer(r"^\t\t([0-9A-F]{24}) ", text[start:stop], re.M)]
+    offset = next((position for position, other in ids if other > object_id), stop - start)
+    return text[:start + offset] + block + text[start + offset:]
+
+
 def localize_package(text: str, url: str, path: str) -> str:
     """Replace one remote package with a checked-in, same-product snapshot."""
     name = Path(path).name
@@ -150,15 +162,16 @@ def localize_package(text: str, url: str, path: str) -> str:
             return text
         raise ValueError(f"Remote package no longer in project: {url}")
     object_id = match["id"]
-    block = (f'\t\t{object_id} /* XCLocalSwiftPackageReference "{name}" */ = {{\n'
+    # Xcode names a local package by its relative path in these comments.
+    block = (f'\t\t{object_id} /* XCLocalSwiftPackageReference "{path}" */ = {{\n'
              f'\t\t\tisa = XCLocalSwiftPackageReference;\n\t\t\trelativePath = {path};\n\t\t}};\n')
     text = text[:match.start()] + text[match.end():]
-    marker = "/* Begin XCLocalSwiftPackageReference section */\n"
-    if marker not in text:
-        raise ValueError("Expected an existing local-package section")
-    text = text.replace(marker, marker + block, 1)
+    text = insert_object(text, "XCLocalSwiftPackageReference", object_id, block)
+    # Xcode drops a section once its last object is gone.
+    empty = "/* Begin XCRemoteSwiftPackageReference section */\n/* End XCRemoteSwiftPackageReference section */\n\n"
+    text = text.replace(empty, "")
     text = re.sub(rf'^\t\t\tpackage = {object_id} /\* [^\n]+ \*/;\n', "", text, flags=re.M)
-    return text.replace(f'XCRemoteSwiftPackageReference "{name}"', f'XCLocalSwiftPackageReference "{name}"')
+    return text.replace(f'XCRemoteSwiftPackageReference "{name}"', f'XCLocalSwiftPackageReference "{path}"')
 
 
 def add_local_package(text: str, path: str, object_id: str) -> str:
@@ -172,15 +185,14 @@ def add_local_package(text: str, path: str, object_id: str) -> str:
         if f"relativePath = {path};" not in text:
             raise ValueError(f"Local package id already used: {object_id}")
         return text
-    reference = f'{object_id} /* XCLocalSwiftPackageReference "{name}" */'
+    reference = f'{object_id} /* XCLocalSwiftPackageReference "{path}" */'
     marker = "\t\t\tpackageReferences = (\n"
     if marker not in text or "/* Begin XCLocalSwiftPackageReference section */\n" not in text:
         raise ValueError("Expected existing root and local package sections")
     text = text.replace(marker, marker + f"\t\t\t\t{reference},\n", 1)
-    marker = "/* Begin XCLocalSwiftPackageReference section */\n"
     block = (f"\t\t{reference} = {{\n\t\t\tisa = XCLocalSwiftPackageReference;\n"
              f"\t\t\trelativePath = {path};\n\t\t}};\n")
-    return text.replace(marker, marker + block, 1)
+    return insert_object(text, "XCLocalSwiftPackageReference", object_id, block)
 
 
 def add_archive_symbols_phase(text: str, config: dict) -> str:
@@ -201,14 +213,11 @@ def add_archive_symbols_phase(text: str, config: dict) -> str:
     # JSON string escaping is also valid for this PBX string value.
     block = (f"\t\t{reference} = {{\n\t\t\tisa = PBXShellScriptBuildPhase;\n"
              '\t\t\talwaysOutOfDate = 1;\n\t\t\tbuildActionMask = 2147483647;\n'
-             '\t\t\tfiles = ();\n\t\t\tinputPaths = ();\n'
-             '\t\t\tname = "Fetch playback archive symbols";\n\t\t\toutputPaths = ();\n'
+             '\t\t\tfiles = (\n\t\t\t);\n\t\t\tinputPaths = (\n\t\t\t);\n'
+             '\t\t\tname = "Fetch playback archive symbols";\n\t\t\toutputPaths = (\n\t\t\t);\n'
              '\t\t\trunOnlyForDeploymentPostprocessing = 1;\n\t\t\tshellPath = /bin/sh;\n'
              f'\t\t\tshellScript = {json.dumps(command)};\n\t\t}};\n')
-    marker = "/* Begin PBXShellScriptBuildPhase section */\n"
-    if marker not in text:
-        raise ValueError("Expected script build-phase section")
-    return text.replace(marker, marker + block, 1)
+    return insert_object(text, "PBXShellScriptBuildPhase", object_id, block)
 
 
 def remove_objects(text: str, object_ids: list[str]) -> str:

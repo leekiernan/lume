@@ -51,6 +51,9 @@ struct PlayerControlsActions {
         let clock: PlaybackClock
         let route: Route
         var itemNeighbours = PlayerItemNavigation.Neighbours.none
+        /// The engine the Advanced stream-info chips pull audio and bitrate
+        /// from, once a second while they're on screen.
+        var sampler: (any PlayerStreamSampling)?
 
         @Environment(\.modelContext) private var modelContext
         @Environment(PlayerControlsBridge.self) private var bridge: PlayerControlsBridge?
@@ -207,10 +210,21 @@ struct PlayerControlsActions {
 
         private var bottomControls: some View {
             VStack(spacing: 14) {
-                HStack(alignment: .bottom, spacing: 16) {
-                    titleBlock
-                    Spacer(minLength: 0)
-                    secondaryControls
+                // Above the title row, not inside it: beside the control pill the
+                // chips get only the title's column and wrap one per line.
+                VStack(alignment: .leading, spacing: 2) {
+                    StreamInfoCaption(
+                        media: media,
+                        videoInfo: presentation.videoInfo,
+                        engine: presentation.engine,
+                        sampler: sampler
+                    )
+                    .shadow(color: .black.opacity(0.35), radius: 4, y: 1)
+                    HStack(alignment: .bottom, spacing: 16) {
+                        titleBlock
+                        Spacer(minLength: 0)
+                        secondaryControls
+                    }
                 }
 
                 if media.isLive {
@@ -231,11 +245,6 @@ struct PlayerControlsActions {
 
         private var titleBlock: some View {
             VStack(alignment: .leading, spacing: 2) {
-                StreamInfoCaption(
-                    media: media,
-                    videoInfo: presentation.videoInfo,
-                    engine: presentation.engine
-                )
                 if let subtitle = media.subtitle, !subtitle.isEmpty {
                     Text(subtitle)
                         .font(.subheadline)

@@ -32,6 +32,8 @@
         var activeAudioTrackID: Int? { get }
         var activeSubtitleTrackID: Int? { get }
         var videoInfo: LumeAetherVideoInfo? { get }
+        var dynamicRange: LumeAetherDynamicRange { get }
+        var playedBitrateMbps: Double? { get }
 
         func load(_ request: LumeAetherLoadRequest) async throws
         func stop()

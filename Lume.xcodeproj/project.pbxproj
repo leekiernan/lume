@@ -392,11 +392,11 @@
 			mainGroup = C67C02B72F880F2200842DBA;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				C6DD5102000000000000AB02 /* XCLocalSwiftPackageReference "LibDovi" */,
-				C6DD5101000000000000AB01 /* XCLocalSwiftPackageReference "FFmpegBuild" */,
-				C6DD5103000000000000AB03 /* XCLocalSwiftPackageReference "FFmpegKit" */,
-				C66C81662FC5A59D0048468D /* XCLocalSwiftPackageReference "KSPlayer" */,
-				C6FF000C2FC5A59D00484603 /* XCLocalSwiftPackageReference "VLCKit" */,
+				C6DD5102000000000000AB02 /* XCLocalSwiftPackageReference "Dependencies/LibDovi" */,
+				C6DD5101000000000000AB01 /* XCLocalSwiftPackageReference "Dependencies/FFmpegBuild" */,
+				C6DD5103000000000000AB03 /* XCLocalSwiftPackageReference "Dependencies/FFmpegKit" */,
+				C66C81662FC5A59D0048468D /* XCLocalSwiftPackageReference "Dependencies/KSPlayer" */,
+				C6FF000C2FC5A59D00484603 /* XCLocalSwiftPackageReference "Dependencies/VLCKit" */,
 				C6DD50032FE100050000DD03 /* XCLocalSwiftPackageReference "LumeAetherBridge" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -452,18 +452,6 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		C6DD5201000000000000AC01 /* Fetch playback archive symbols */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = ();
-			inputPaths = ();
-			name = "Fetch playback archive symbols";
-			outputPaths = ();
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "if [ \"${ACTION}\" = \"install\" ]; then\n  /usr/bin/python3 \"${SRCROOT}/Scripts/playback-packages.py\" symbols --platform \"${PLATFORM_NAME}\" --frameworks \"${BUILT_PRODUCTS_DIR}\" --destination \"${DWARF_DSYM_FOLDER_PATH}\"\nfi\n";
-		};
 		C66C81692FC5A59D0048468D /* Fix Embedded Framework CFBundleIdentifier */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -482,6 +470,21 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${SRCROOT}/Scripts/fix-ksplayer-frameworks.sh\"\n";
+		};
+		C6DD5201000000000000AC01 /* Fetch playback archive symbols */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Fetch playback archive symbols";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"${ACTION}\" = \"install\" ]; then\n  /usr/bin/python3 \"${SRCROOT}/Scripts/playback-packages.py\" symbols --platform \"${PLATFORM_NAME}\" --frameworks \"${BUILT_PRODUCTS_DIR}\" --destination \"${DWARF_DSYM_FOLDER_PATH}\"\nfi\n";
 		};
 		C6FEED020000000000000002 /* Inject .env secrets */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1598,23 +1601,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		C6DD5102000000000000AB02 /* XCLocalSwiftPackageReference "LibDovi" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Dependencies/LibDovi;
-		};
-		C6DD5101000000000000AB01 /* XCLocalSwiftPackageReference "FFmpegBuild" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Dependencies/FFmpegBuild;
-		};
-		C6DD5103000000000000AB03 /* XCLocalSwiftPackageReference "FFmpegKit" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Dependencies/FFmpegKit;
-		};
-		C6FF000C2FC5A59D00484603 /* XCLocalSwiftPackageReference "VLCKit" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Dependencies/VLCKit;
-		};
-		C66C81662FC5A59D0048468D /* XCLocalSwiftPackageReference "KSPlayer" */ = {
+		C66C81662FC5A59D0048468D /* XCLocalSwiftPackageReference "Dependencies/KSPlayer" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Dependencies/KSPlayer;
 		};
@@ -1622,10 +1609,23 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = LumeAetherBridge;
 		};
+		C6DD5101000000000000AB01 /* XCLocalSwiftPackageReference "Dependencies/FFmpegBuild" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Dependencies/FFmpegBuild;
+		};
+		C6DD5102000000000000AB02 /* XCLocalSwiftPackageReference "Dependencies/LibDovi" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Dependencies/LibDovi;
+		};
+		C6DD5103000000000000AB03 /* XCLocalSwiftPackageReference "Dependencies/FFmpegKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Dependencies/FFmpegKit;
+		};
+		C6FF000C2FC5A59D00484603 /* XCLocalSwiftPackageReference "Dependencies/VLCKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Dependencies/VLCKit;
+		};
 /* End XCLocalSwiftPackageReference section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-/* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		C66C81682FC5A59D0048468D /* KSPlayer */ = {
