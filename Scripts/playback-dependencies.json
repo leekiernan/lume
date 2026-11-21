@@ -1,0 +1,84 @@
+{
+  "distribution": {
+    "architectures": [
+      "arm64"
+    ],
+    "platforms": [
+      "ios",
+      "macos",
+      "tvos",
+      "xros"
+    ],
+    "variants": [
+      null,
+      "simulator"
+    ]
+  },
+  "packages": [
+    {
+      "name": "KSPlayer",
+      "url": "https://github.com/kingslay/KSPlayer",
+      "revision": "be7f60d3b94a0941c643fe8699113cfce4f08e83",
+      "version": "be7f60d3",
+      "source": "https://github.com/kingslay/KSPlayer/archive/{revision}.tar.gz",
+      "paths": [
+        "Package.swift",
+        "Sources",
+        "Tests",
+        "LICENSE",
+        "README.md"
+      ],
+      "tree_sha256": "51cf9fdd6d9a3349bc103e38b526905e30bff40b6bfc81c85659650c8a8b90ca"
+    },
+    {
+      "name": "FFmpegKit",
+      "url": "https://github.com/kingslay/FFmpegKit",
+      "revision": "c32be9bfb628042737ad3ef622e930c5c7b15954",
+      "version": "6.1.4",
+      "source": "https://github.com/kingslay/FFmpegKit/archive/{revision}.tar.gz",
+      "tree_sha256": "7defbb51d4c2627145d3bdacc094645996e6353ae5fe2ff13e46d3778935a931"
+    },
+    {
+      "name": "FFmpegBuild",
+      "url": "https://github.com/superuser404notfound/FFmpegBuild",
+      "revision": "d445e6daa180db73f12d47606a00c914f682e278",
+      "version": "3.15.0",
+      "source": "https://github.com/superuser404notfound/FFmpegBuild/archive/{revision}.tar.gz",
+      "untouched_platforms": [
+        "macos"
+      ],
+      "tree_sha256": "5e4c502e159eefdcde3c079b7193cef5a7e194edc0b9902787c5f198d374c464"
+    },
+    {
+      "name": "LibDovi",
+      "url": "https://github.com/superuser404notfound/LibDovi",
+      "revision": "caff700968700467c089a3f38c8b4180620518b5",
+      "version": "2.2.0",
+      "source": "https://github.com/superuser404notfound/LibDovi/archive/{revision}.tar.gz",
+      "untouched_platforms": [
+        "macos"
+      ],
+      "tree_sha256": "136195a1fd980f5dd5f4340cafa6464ab19fc89eabaf89efde4a40d0a8206985"
+    },
+    {
+      "name": "VLCKit",
+      "url": "https://code.videolan.org/videolan/VLCKit",
+      "revision": "3d0f0fa7031eab1a67c817c98a495e1c68fc998c",
+      "version": "4.0.0-a26",
+      "source": "https://code.videolan.org/videolan/VLCKit/-/archive/{revision}/VLCKit-{revision}.tar.gz",
+      "paths": [
+        "Package.swift",
+        "COPYING",
+        "README.md"
+      ],
+      "binaries": {
+        "VLCKit.xcframework": {
+          "target": "VLCKit",
+          "url": "https://download.videolan.org/cocoapods/unstable/VLCKit-4.0-20261109-1916.zip",
+          "sha256": "1fec7232f88e706f44d9a015133e08d742166eb2666cb44915c9f570bf339463"
+        }
+      },
+      "tree_sha256": "d102b2dd1005bce6afe4359dc4526d632f4fb3fef90458cab30cad1d614c773e"
+    }
+  ]
+}

@@ -17,4 +17,9 @@ echo "Preparing SwiftFormat/SwiftLint (first run builds SwiftFormat once)…"
 swift run --build-path .build/tools swiftformat --version >/dev/null 2>&1 || true
 swift package --build-path .build/tools resolve >/dev/null 2>&1 || true
 
+# Playback engines (KSPlayer, FFmpeg, LibDovi, VLC) come from upstream into a shared
+# store, trimmed to Apple-silicon slices; Dependencies/ links to it. Downloads only
+# what this checkout's lock doesn't already have.
+/usr/bin/python3 Scripts/playback-packages.py fetch
+
 echo "✅ Dev environment ready. Git hooks run automatically on commit."

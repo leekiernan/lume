@@ -40,13 +40,15 @@
       "CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED": "YES;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "STRING_CATALOG_GENERATE_SYMBOLS": "YES;"
+      "STRING_CATALOG_GENERATE_SYMBOLS": "YES;",
+      "ARCHS": "arm64;"
     },
     "C67C02E82F880F2400842DBA": {
       "CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED": "YES;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "STRING_CATALOG_GENERATE_SYMBOLS": "YES;"
+      "STRING_CATALOG_GENERATE_SYMBOLS": "YES;",
+      "ARCHS": "arm64;"
     },
     "C67C02EA2F880F2400842DBA": {
       "CURRENT_PROJECT_VERSION": "53;",
@@ -82,7 +84,8 @@
       "CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED": "YES;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "STRING_CATALOG_GENERATE_SYMBOLS": "YES;"
+      "STRING_CATALOG_GENERATE_SYMBOLS": "YES;",
+      "ARCHS": "arm64;"
     },
     "C67C02F22F880F2400842DBA": {
       "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvos*]\"": "\"LumeIceTV LumeCoralTV LumeGreenTV LumeSignalPinkTV LumeSignalIceTV LumeSignalCoralTV LumeSignalGreenTV LumeFloodlightPinkTV LumeFloodlightIceTV LumeFloodlightCoralTV LumeFloodlightGreenTV\";",
@@ -177,7 +180,8 @@
       "CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED": "YES;",
       "DEAD_CODE_STRIPPING": "YES;",
       "DEVELOPMENT_TEAM": "2Q6FJ956B3;",
-      "STRING_CATALOG_GENERATE_SYMBOLS": "YES;"
+      "STRING_CATALOG_GENERATE_SYMBOLS": "YES;",
+      "ARCHS": "arm64;"
     },
     "C6BE110000000000000000B2": {
       "\"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=appletvos*]\"": "\"LumeIceTV LumeCoralTV LumeGreenTV LumeSignalPinkTV LumeSignalIceTV LumeSignalCoralTV LumeSignalGreenTV LumeFloodlightPinkTV LumeFloodlightIceTV LumeFloodlightCoralTV LumeFloodlightGreenTV\";",
@@ -247,8 +251,18 @@
     "C6CC40022FE000040000CC02",
     "C6CC40032FE000040000CC03"
   ],
-  "packageRequirements": {
-    "https://code.videolan.org/videolan/VLCKit.git": "\t\t\t\tkind = exactVersion;\n\t\t\t\tversion = \"4.0.0-a26\";\n",
-    "https://github.com/kingslay/KSPlayer": "\t\t\t\tkind = revision;\n\t\t\t\trevision = be7f60d3b94a0941c643fe8699113cfce4f08e83;\n"
+  "localPackages": {
+    "https://github.com/kingslay/KSPlayer": "Dependencies/KSPlayer",
+    "https://code.videolan.org/videolan/VLCKit.git": "Dependencies/VLCKit"
+  },
+  "packageRequirements": {},
+  "rootLocalPackages": {
+    "Dependencies/FFmpegKit": "C6DD5103000000000000AB03",
+    "Dependencies/FFmpegBuild": "C6DD5101000000000000AB01",
+    "Dependencies/LibDovi": "C6DD5102000000000000AB02"
+  },
+  "archiveSymbolsPhase": {
+    "id": "C6DD5201000000000000AC01",
+    "target": "C67C02BF2F880F2200842DBA"
   }
 }

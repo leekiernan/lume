@@ -1,5 +1,5 @@
 {
-  "originHash" : "6a37ac800debcd61861be366cfa677ae51bc10f5e48cc06aa08b62ad222b94ac",
+  "originHash" : "864eb9f58a32fd1d5b95de01232a9783338730213bd96c6ca9ea840091ca6f21",
   "pins" : [
     {
       "identity" : "aetherengine",
@@ -11,56 +11,12 @@
       }
     },
     {
-      "identity" : "ffmpegbuild",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/superuser404notfound/FFmpegBuild",
-      "state" : {
-        "revision" : "d445e6daa180db73f12d47606a00c914f682e278",
-        "version" : "3.15.0"
-      }
-    },
-    {
-      "identity" : "ffmpegkit",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/kingslay/FFmpegKit.git",
-      "state" : {
-        "revision" : "c32be9bfb628042737ad3ef622e930c5c7b15954",
-        "version" : "6.1.4"
-      }
-    },
-    {
-      "identity" : "ksplayer",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/kingslay/KSPlayer",
-      "state" : {
-        "revision" : "be7f60d3b94a0941c643fe8699113cfce4f08e83"
-      }
-    },
-    {
-      "identity" : "libdovi",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/superuser404notfound/LibDovi",
-      "state" : {
-        "revision" : "caff700968700467c089a3f38c8b4180620518b5",
-        "version" : "2.2.0"
-      }
-    },
-    {
       "identity" : "smbclient",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kishikawakatsumi/SMBClient",
       "state" : {
         "revision" : "e636c2b2458930770932a36d311ec9d478575b90",
         "version" : "0.3.1"
-      }
-    },
-    {
-      "identity" : "vlckit",
-      "kind" : "remoteSourceControl",
-      "location" : "https://code.videolan.org/videolan/VLCKit.git",
-      "state" : {
-        "revision" : "3d0f0fa7031eab1a67c817c98a495e1c68fc998c",
-        "version" : "4.0.0-a26"
       }
     }
   ],

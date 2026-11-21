@@ -46,6 +46,30 @@ class TargetRetirementTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             fork_project.remove_objects(self.upstream, [".*"])
 
+    def test_local_package_override_is_idempotent(self):
+        url = "https://github.com/kingslay/KSPlayer"
+        local = fork_project.localize_package(self.upstream, url, "Dependencies/KSPlayer")
+        self.assertEqual(fork_project.localize_package(local, url, "Dependencies/KSPlayer"), local)
+        self.assertNotIn(url, local)
+        self.assertIn("relativePath = Dependencies/KSPlayer;", local)
+        self.assertIn("productName = KSPlayer;", local)
+
+    def test_missing_remote_is_rejected(self):
+        with self.assertRaises(ValueError):
+            fork_project.localize_package(self.upstream, "https://invalid.example/Absent", "Dependencies/Absent")
+
+    def test_root_local_override_is_idempotent_and_keeps_other_packages(self):
+        path, object_id = "Dependencies/FFmpegBuild", "C6DD5101000000000000AB01"
+        local = fork_project.add_local_package(self.upstream, path, object_id)
+        self.assertEqual(fork_project.add_local_package(local, path, object_id), local)
+        self.assertEqual(local.count(object_id), 2)
+        self.assertIn("relativePath = Dependencies/FFmpegBuild;", local)
+        self.assertIn("https://code.videolan.org/videolan/VLCKit.git", local)
+
+    def test_missing_package_sections_are_rejected(self):
+        with self.assertRaises(ValueError):
+            fork_project.add_local_package("", "Dependencies/FFmpegBuild", "C6DD5101000000000000AB01")
+
 
 if __name__ == "__main__":
     unittest.main()
