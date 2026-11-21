@@ -61,9 +61,10 @@ struct StepRowView: View {
             .foregroundStyle(state == .pending ? .secondary : .primary)
     }
 
+    /// Live while the step runs, then its last report ("1200 of 1200").
     @ViewBuilder
     private var activeDetail: some View {
-        if state == .active, !detail.isEmpty {
+        if state != .pending, !detail.isEmpty {
             Text(verbatim: detail)
                 .font(SyncRowMetrics.detailFont)
                 .foregroundStyle(.secondary)

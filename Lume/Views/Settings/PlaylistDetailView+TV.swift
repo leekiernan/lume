@@ -32,11 +32,9 @@ import SwiftUI
             .frame(maxWidth: .infinity, alignment: .leading)
             .playlistDeletionConfirmation(isPresented: $showDeleteConfirmation) { deletePlaylist() }
             .fullScreenCover(isPresented: $showSync) {
-                SyncProgressView(playlist: playlist)
+                SyncActivityView()
             }
-            .fullScreenCover(isPresented: $showFullSync) {
-                SyncProgressView(playlist: playlist, full: true)
-            }
+            .fullCatalogConfirmation(isPresented: $confirmFullSync) { startSync(full: true) }
         }
 
         var tvServerSection: some View {
@@ -212,14 +210,12 @@ import SwiftUI
                         }
                     }
 
-                    Button("Sync Now") { showSync = true }
+                    Button("Sync Now") { startSync() }
                         .buttonStyle(TVSettingsRowButtonStyle())
-                        .disabled(playlist.syncStatus == .syncing)
 
                     if isStalker {
-                        Button("Download Full Catalog") { showFullSync = true }
+                        Button("Download Full Catalog") { confirmFullSync = true }
                             .buttonStyle(TVSettingsRowButtonStyle())
-                            .disabled(playlist.syncStatus == .syncing)
                     }
                 }
 

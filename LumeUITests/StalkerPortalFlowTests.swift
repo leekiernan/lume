@@ -110,18 +110,14 @@ final class StalkerPortalFlowTests: XCTestCase {
 
     /// Triggers a manual sync of the active portal and waits for it to finish.
     private func runManualSync(_ app: XCUIApplication) {
-        // Auto-sync is disabled under `-ui-testing`, so trigger a sync of the now-
-        // active portal manually through the toolbar sync button → Start Sync, and
-        // wait for it to finish (the sheet shows a "Done" button on success).
+        // Auto-sync is disabled under `-ui-testing`, so sync the now-active
+        // portal through the toolbar's Sync button, which starts it behind the
+        // library and opens the activity sheet, then wait for it to finish.
         let syncButton = app.syncToolbarButton
         XCTAssertTrue(syncButton.waitForExistence(timeout: 10), "Sync button not found")
         syncButton.tap()
-        let startSync = app.buttons["Start Sync"]
-        XCTAssertTrue(startSync.waitForExistence(timeout: 10), "Sync sheet didn't open")
-        startSync.tap()
-        let doneSync = app.buttons["Done"]
-        XCTAssertTrue(doneSync.waitForExistence(timeout: 180), "Stalker sync did not complete")
-        doneSync.tap()
+        XCTAssertTrue(app.staticTexts["Sync complete"].waitForExistence(timeout: 180), "Stalker sync did not complete")
+        app.buttons["Done"].firstMatch.tap()
     }
 
     /// Verifies Live TV lists synced content and attaches a screenshot.

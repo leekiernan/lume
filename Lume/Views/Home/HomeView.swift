@@ -181,11 +181,13 @@ struct HomeView: View {
                         description: Text("Add a playlist in Settings to get started")
                     )
                 case .empty:
-                    ContentUnavailableView(
-                        "Nothing Here Yet",
-                        systemImage: "house",
-                        description: Text("Watch something or mark titles as favorites and they'll show up here.")
-                    )
+                    SyncAwareEmptyState(playlistID: activePlaylist?.id) {
+                        ContentUnavailableView(
+                            "Nothing Here Yet",
+                            systemImage: "house",
+                            description: Text("Watch something or mark titles as favorites and they'll show up here.")
+                        )
+                    }
                 case let .content(hero):
                     HeroFeedPage(
                         heroItems: feed.heroItems, reservesHero: hero.reservesSpace,

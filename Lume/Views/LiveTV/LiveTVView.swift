@@ -18,6 +18,7 @@ extension LiveTVLayoutMode {
 struct LiveTVView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.contentRestriction) private var restriction
+    @Environment(PlaylistSyncCenter.self) private var syncCenter: PlaylistSyncCenter?
     #if os(macOS)
         @Environment(\.openWindow) private var openWindow
     #endif
@@ -223,7 +224,7 @@ struct LiveTVView: View {
                     systemImage: "antenna.radiowaves.left.and.right",
                     description: Text("Add a playlist in Settings to start watching live TV")
                 )
-            } else if let sections, !sections.isEmpty {
+            } else if let sections, !sections.isEmpty, !isAwaitingFirstImport {
                 LiveTVHubView(
                     playlistPrefix: playlistPrefix, syncedAt: activePlaylist?.lastSyncDate,
                     onOpenBrowse: { browse.isPresented = true },
@@ -236,9 +237,17 @@ struct LiveTVView: View {
                     onStartMultiView: startHubMultiView
                 )
             } else {
-                LiveTVEmptyState(sourceType: activePlaylist?.knownSourceType, playlistPrefix: playlistPrefix, restriction: restriction)
+                SyncAwareEmptyState(playlistID: activePlaylist?.id) {
+                    LiveTVEmptyState(sourceType: activePlaylist?.knownSourceType, playlistPrefix: playlistPrefix, restriction: restriction)
+                }
             }
         }
+    }
+
+    /// A first import that hasn't finished the channel list: the hub would
+    /// show the few channels in so far, so the tab shows the sync instead.
+    private var isAwaitingFirstImport: Bool {
+        syncCenter?.isFirstImportAwaiting(.liveStreams, playlistID: activePlaylist?.id) == true
     }
 
     private var shouldResolveSections: Bool {

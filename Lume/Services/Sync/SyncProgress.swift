@@ -3,8 +3,8 @@
 //  Lume
 //
 //  Observable progress tracker for ContentSyncManager. The sync actor publishes
-//  step transitions and batch counts into this object; the SyncProgressView
-//  renders the current state.
+//  step transitions and batch counts into this object; the sync activity
+//  surfaces render the current state.
 //
 
 import Foundation
@@ -169,6 +169,8 @@ final class SyncProgress {
     private(set) var currentStep: SyncStep?
     private(set) var completedSteps: Set<SyncStep> = []
     private(set) var stepDetail: String = ""
+    /// What each finished step last reported, e.g. "1200 of 1200".
+    private(set) var completedDetails: [SyncStep: String] = [:]
     /// 0...1 inside the active step. 0 means indeterminate / not applicable.
     private(set) var stepFraction: Double = 0
 
@@ -179,15 +181,29 @@ final class SyncProgress {
     }
 
     func complete(_ step: SyncStep) {
+        if currentStep == step, !stepDetail.isEmpty { completedDetails[step] = stepDetail }
         completedSteps.insert(step)
         if currentStep == step {
             currentStep = nil
         }
     }
 
+    /// Written only when changed: every write re-renders whatever is showing
+    /// the sync, and an import reports the same numbers more than once.
     func update(detail: String, fraction: Double = 0) {
-        stepDetail = detail
-        stepFraction = fraction
+        if stepDetail != detail { stepDetail = detail }
+        if stepFraction != fraction { stepFraction = fraction }
+    }
+
+    /// The detail to show beside `step`: live while it runs, its last report
+    /// once it is done.
+    func detail(for step: SyncStep) -> String {
+        currentStep == step ? stepDetail : completedDetails[step] ?? ""
+    }
+
+    /// Whether this sync has `step` and hasn't finished it.
+    func isAwaiting(_ step: SyncStep) -> Bool {
+        steps.contains(step) && !completedSteps.contains(step)
     }
 
     func state(for step: SyncStep) -> SyncStepState {

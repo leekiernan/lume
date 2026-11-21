@@ -39,9 +39,6 @@ struct MainTabView: View {
     var pendingLink: Binding<URL?> = .constant(nil)
     @State var linkDelivery = DeepLinkDeliveryMachine()
     @State private var preparedAutoSyncTrigger: AutoSyncTrigger?
-    /// A nil sync request starts dismissal; only onDismiss releases the host
-    /// for a linked player. Do not consume its URL mid-animation.
-    @State private var autoSyncCoverActive = false
     /// Selected tab and the Movies/Series navigation stacks, shared so a
     /// deep link can switch tabs and push a detail screen.
     @State var router = DeepLinkRouter()
@@ -60,38 +57,18 @@ struct MainTabView: View {
         @Environment(\.openWindow) var openWindow
     #endif
 
-    /// Not `private`: the auto-sync state below is driven by the
-    /// MainTabView+AutoSync extension (separate file).
-    ///
-    /// Playlists waiting to be auto-synced, and the one currently shown in the
-    /// blocking progress cover. Auto-sync is presented (not silent) so the user
-    /// sees progress and waits for it to finish — most importantly right after
-    /// adding a playlist, when the app would otherwise look empty and broken.
-    @State var syncQueue: [PlaylistSyncRequest] = []
-    @State var activeSyncRequest: PlaylistSyncRequest?
-    /// Playlists refreshing an area the viewer can already browse, with no
-    /// cover — see `PlaylistSyncRequest.runsInBackground`.
-    @State var backgroundSyncIDs: Set<UUID> = []
-    /// A viewer-requested refresh. Kept separate from the automatic queue so a
-    /// confirmed TV remote action never advances or dismisses auto-sync work.
-    @State private var manualSyncRequest: PlaylistSyncRequest?
-
-    /// Playlists we've already auto-synced (or attempted) this session, so the
-    /// launch / switch / foreground triggers don't re-present the cover for one
-    /// that's already been handled.
-    @State var autoSyncAttempted: Set<UUID> = []
-    /// Areas each playlist has had an automatic repair for this session —
-    /// see `AutoSync.RepairLedger`.
-    @State var repairLedger = AutoSync.RepairLedger()
+    /// Every playlist sync, automatic and manual, runs here behind the
+    /// library; this view only tells it when to look for due work (see
+    /// MainTabView+AutoSync).
+    @Environment(PlaylistSyncCenter.self) var syncCenter: PlaylistSyncCenter?
+    #if os(tvOS)
+        /// The long Play/Pause shortcut's offer to refresh the playlist on
+        /// screen, which waits for an explicit Sync Now.
+        @State private var syncOffer: Playlist?
+    #endif
 
     /// Memo behind `contentRestriction` — see `ContentRestrictionMemo`.
     @State private var restrictionMemo = ContentRestrictionMemo()
-
-    /// UI tests seed a fake playlist; auto-sync would present a blocking cover
-    /// that can never succeed against the stub server, so skip it there.
-    var isUITesting: Bool {
-        CommandLine.arguments.contains("-ui-testing")
-    }
 
     /// Whether the browse UI is covered, or the user is somewhere a rating
     /// sheet has no business appearing — the sync cover, the downloads sheet, or
@@ -107,15 +84,13 @@ struct MainTabView: View {
     }
 
     private var hasBlockingPresentation: Bool {
-        activeSyncRequest != nil
-            || manualSyncRequest != nil
-            || showsDownloads
+        showsDownloads
             || playlistSwitch?.isSwitching == true
             || profileManager?.isSwitching == true
     }
 
     private var linkReadiness: DeepLinkDeliveryMachine.Readiness {
-        var blocked = hasBlockingPresentation || autoSyncCoverActive || linkedMedia != nil
+        var blocked = hasBlockingPresentation || linkedMedia != nil
         #if os(tvOS)
             blocked = blocked || router.isQuickSwitchPresented || router.isMultiViewPresented
         #endif
@@ -123,7 +98,7 @@ struct MainTabView: View {
             profileReady: profileManager?.isReady ?? true,
             catalogReady: preparedAutoSyncTrigger == autoSyncTrigger,
             presentationBlocked: blocked,
-            catalogSyncing: isAutoSyncBusy || !backgroundSyncIDs.isEmpty || playlists.contains { $0.syncStatus == .syncing }
+            catalogSyncing: syncCenter?.isBusy == true || playlists.contains { $0.syncStatus == .syncing }
         )
     }
 
@@ -192,8 +167,8 @@ struct MainTabView: View {
                     onLongPress: presentManualProfileRefresh
                 )
             )
-            .fullScreenCover(item: $manualSyncRequest) { request in
-                SyncProgressView(playlist: request.playlist, repairingAreas: request.repairingAreas)
+            .fullScreenCover(item: $syncOffer) { playlist in
+                SyncActivityView(offer: playlist)
             }
             .launchSplash(homeShown: selection.wrappedValue == .home)
         #endif
@@ -232,6 +207,8 @@ struct MainTabView: View {
                 // sync the active playlist if it is due (plus any playlist that
                 // was just added), and repair catalog phases the active profile
                 // enables but that playlist's most recent successful sync skipped.
+                // A deleted playlist takes its waiting or running sync with it.
+                syncCenter?.dropSyncs(notIn: Set(playlists.map(\.id)))
                 enqueueDueSyncs(playlists)
                 preparedAutoSyncTrigger = autoSyncTrigger
                 // The guide is checked here too: a profile with Live TV off
@@ -263,22 +240,6 @@ struct MainTabView: View {
             .onChange(of: contentRestriction.visibilityToken) { topShelf?.refresh() }
             .onChange(of: cloudSync?.status.lastPlaylistReconnection) { _, reconnection in
                 if let reconnection { retryFailedSyncs(reconnection.ids) }
-            }
-            .onChange(of: activeSyncRequest?.id, initial: true) { _, id in
-                if id != nil { autoSyncCoverActive = true }
-            }
-            .syncCover(item: $activeSyncRequest) {
-                autoSyncCoverActive = false
-                promoteNextIfIdle()
-            }
-            .onChange(of: isAutoSyncBusy, initial: true) { _, busy in
-                EPGSyncService.shared.setAutoSyncQueued(busy)
-            }
-            .onDisappear {
-                // The queue goes with this view (deleting the last playlist
-                // swaps the root back to onboarding); don't leave the guide
-                // waiting on it.
-                EPGSyncService.shared.setAutoSyncQueued(false)
             }
             .downloadsSheet(isPresented: $showsDownloads)
             .switchProgressOverlay(playlist: playlistSwitch, profile: profileManager)
@@ -375,7 +336,34 @@ struct MainTabView: View {
                 } label: {
                     Image(systemName: "gear")
                 }
+
+                syncTab(selection: selection.wrappedValue)
             }
+        }
+
+        @TabContentBuilder<AppTab>
+        private func syncTab(selection: AppTab) -> some TabContent<AppTab> {
+            if showsSyncTab(selection: selection) {
+                Tab(value: AppTab.sync) {
+                    activeOnly(.sync, selection: selection) {
+                        SyncActivityView(onClose: { router.selectedTab = .home })
+                    }
+                } label: {
+                    Image(systemName: syncCenter?.recentFailure() == nil
+                        ? "arrow.triangle.2.circlepath"
+                        : "exclamationmark.arrow.triangle.2.circlepath")
+                        .accessibilityLabel(Text("Sync"))
+                }
+            }
+        }
+
+        /// tvOS has no library toolbar to carry the sync indicator, so a sync
+        /// that is running, waiting or has just failed gets a tab of its own at
+        /// the end of the bar: the system lays it out in any language, and the
+        /// remote reaches it like every other tab. It stays while selected, so
+        /// a sync finishing under the viewer doesn't pull the screen away.
+        private func showsSyncTab(selection: AppTab) -> Bool {
+            selection == .sync || syncCenter?.isBusy == true || syncCenter?.recentFailure() != nil
         }
 
         /// Whether something layered over the tabs owns the screen: tvOS focus is
@@ -385,8 +373,7 @@ struct MainTabView: View {
         /// it would move focus and hand it back somewhere else.
         private var blockingOverlayOwnsScreen: Bool {
             router.isMultiViewPresented
-                || activeSyncRequest != nil
-                || manualSyncRequest != nil
+                || syncOffer != nil
                 || profileManager?.isSwitching == true
         }
 
@@ -412,17 +399,17 @@ struct MainTabView: View {
             router.isQuickSwitchPresented.toggle()
         }
 
-        /// A long Play/Pause press refreshes only the catalog currently useful
-        /// to this profile. `SyncProgressView` shows that scope and waits for a
-        /// second explicit Start press before making any network request.
+        /// A long Play/Pause press offers to refresh the catalog this profile
+        /// uses. The sync activity screen shows that scope and waits for an
+        /// explicit Sync Now before making any network request; while a sync
+        /// is already running it shows that one instead.
         private func presentManualProfileRefresh() {
             guard !blockingOverlayOwnsScreen,
                   !router.isQuickSwitchPresented,
                   NowPlayingService.shared.currentMedia == nil,
-                  let playlist = playlists.active(for: selectedPlaylistID),
-                  playlist.syncStatus != .syncing
+                  let playlist = playlists.active(for: selectedPlaylistID)
             else { return }
-            manualSyncRequest = PlaylistSyncRequest(playlist: playlist, repairingAreas: nil)
+            syncOffer = playlist
         }
 
         /// tvOS `TabView` keeps every *visited* tab's view hierarchy alive, and
@@ -512,35 +499,6 @@ struct MainTabView: View {
             }
         }
     #endif
-}
-
-// MARK: - Sync cover presentation
-
-private extension View {
-    /// Presents the auto-sync progress UI as a blocking cover: a full-screen
-    /// cover on iOS/tvOS (no swipe-to-dismiss), a sheet on macOS where
-    /// `fullScreenCover` is unavailable.
-    @ViewBuilder
-    func syncCover(item: Binding<PlaylistSyncRequest?>, onDismiss: @escaping () -> Void) -> some View {
-        #if os(macOS)
-            sheet(item: item, onDismiss: onDismiss) { request in
-                SyncProgressView(
-                    playlist: request.playlist,
-                    autoStart: true,
-                    repairingAreas: request.repairingAreas
-                )
-                .frame(minWidth: 420, minHeight: 480)
-            }
-        #else
-            fullScreenCover(item: item, onDismiss: onDismiss) { request in
-                SyncProgressView(
-                    playlist: request.playlist,
-                    autoStart: true,
-                    repairingAreas: request.repairingAreas
-                )
-            }
-        #endif
-    }
 }
 
 #Preview("No Playlists") {

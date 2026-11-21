@@ -25,11 +25,7 @@ struct LibraryToolbarModifier: ViewModifier {
                 // menu rows (and VoiceOver) real names rather than the symbols'
                 // defaults.
                 ToolbarItem(placement: .automatic) {
-                    Button {
-                        showingSync = true
-                    } label: {
-                        Label("Sync", systemImage: "arrow.triangle.2.circlepath")
-                    }
+                    LibrarySyncButton(playlist: activePlaylist, showingSync: $showingSync)
                 }
 
                 ToolbarItem(placement: .automatic) {
@@ -52,10 +48,56 @@ struct LibraryToolbarModifier: ViewModifier {
                 }
             )
             .sheet(isPresented: $showingSync) {
-                if let playlist = activePlaylist {
-                    SyncProgressView(playlist: playlist)
-                }
+                SyncActivityView()
             }
+    }
+}
+
+/// Starts a sync of the playlist on screen behind the library and opens the
+/// activity sheet; while one is running, or after one failed, it shows that
+/// and only opens the sheet. Its own view so the center's state re-renders
+/// this button alone.
+private struct LibrarySyncButton: View {
+    let playlist: Playlist?
+    @Binding var showingSync: Bool
+    @Environment(PlaylistSyncCenter.self) private var center: PlaylistSyncCenter?
+
+    var body: some View {
+        Button {
+            startIfIdle()
+            showingSync = true
+        } label: {
+            if let center, center.running != nil, let progress = center.progress {
+                // A plain view rather than a `Label`: the bar draws a `Label`
+                // whose icon isn't an image as its title text.
+                SyncToolbarRing(progress: progress)
+            } else if center?.recentFailure() != nil {
+                Label("Sync", systemImage: "exclamationmark.arrow.triangle.2.circlepath")
+            } else {
+                Label("Sync", systemImage: "arrow.triangle.2.circlepath")
+            }
+        }
+    }
+
+    /// A failed sync is left for the sheet to show, with its own Try Again.
+    private func startIfIdle() {
+        guard let center, !center.isBusy, center.recentFailure() == nil, let playlist else { return }
+        center.sync(playlist)
+    }
+}
+
+/// The Sync button while a sync runs: its progress as a ring. Its own view so
+/// the per-batch progress writes re-render it alone.
+private struct SyncToolbarRing: View {
+    let progress: SyncProgress
+
+    var body: some View {
+        SyncProgressRing(fraction: progress.overallFraction, lineWidth: 2.5)
+            .foregroundStyle(Color.lumeAccent)
+            .frame(width: 22, height: 22)
+            .accessibilityElement()
+            .accessibilityLabel(Text("Sync"))
+            .accessibilityValue(progress.overallPercent)
     }
 }
 
