@@ -19,8 +19,9 @@ import Testing
 /// `ParentId` + `IncludeItemTypes` query items.
 ///
 /// Keyed by a per-test host so parallel suites can never collide. Registered
-/// only on the session handed to `JellyfinClient`, never globally.
-private final nonisolated class JellyfinServerStubProtocol: URLProtocol {
+/// only on the session handed to `JellyfinClient`, never globally. Shared with
+/// `MediaServerLibraryTests`.
+final nonisolated class JellyfinServerStubProtocol: URLProtocol {
     struct Reply {
         var status: Int
         var body: String
@@ -89,7 +90,7 @@ private final nonisolated class JellyfinServerStubProtocol: URLProtocol {
 
 // MARK: - Fixtures
 
-private func jellyfinMovie(id: String, name: String, tag: String = "tag1") -> String {
+func jellyfinMovie(id: String, name: String, tag: String = "tag1") -> String {
     """
     {"Id": "\(id)", "Name": "\(name)", "Type": "Movie", "CommunityRating": 7.5,
      "PremiereDate": "2007-07-07T22:00:00.0000000Z", "ProductionYear": 2007,
@@ -101,7 +102,7 @@ private func jellyfinMovie(id: String, name: String, tag: String = "tag1") -> St
     """
 }
 
-private func jellyfinSeries(id: String, name: String) -> String {
+func jellyfinSeries(id: String, name: String) -> String {
     """
     {"Id": "\(id)", "Name": "\(name)", "Type": "Series",
      "Overview": "Overview of \(name).", "Genres": ["Drama"],
@@ -114,7 +115,7 @@ private func jellyfinSeries(id: String, name: String) -> String {
 // Six fixture fields, one per episode identity axis — a struct would just move
 // the same six into an initializer.
 // swiftlint:disable:next function_parameter_count
-private func jellyfinEpisode(id: String, name: String, seriesId: String, seriesName: String?, season: Int, number: Int) -> String {
+func jellyfinEpisode(id: String, name: String, seriesId: String, seriesName: String?, season: Int, number: Int) -> String {
     let seriesNameField = seriesName.map { "\"SeriesName\": \"\($0)\"," } ?? ""
     return """
     {"Id": "\(id)", "Name": "\(name)", "Type": "Episode",
@@ -126,7 +127,7 @@ private func jellyfinEpisode(id: String, name: String, seriesId: String, seriesN
     """
 }
 
-private func jellyfinPage(_ items: [String], total: Int) -> JellyfinServerStubProtocol.Reply {
+func jellyfinPage(_ items: [String], total: Int) -> JellyfinServerStubProtocol.Reply {
     JellyfinServerStubProtocol.Reply(status: 200, body: """
     {"Items": [\(items.joined(separator: ","))], "TotalRecordCount": \(total)}
     """)
@@ -136,18 +137,18 @@ private func jellyfinPage(_ items: [String], total: Int) -> JellyfinServerStubPr
 
 @Suite(.readsGlobalState)
 struct MediaServerSyncTests {
-    private func uniqueHost() -> String {
+    func uniqueHost() -> String {
         "jellyfin-\(UUID().uuidString.prefix(8).lowercased()).test"
     }
 
-    private func makeManager(container: ModelContainer) -> ContentSyncManager {
+    func makeManager(container: ModelContainer) -> ContentSyncManager {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [JellyfinServerStubProtocol.self]
         let client = JellyfinClient(urlSession: URLSession(configuration: config))
         return ContentSyncManager(modelContainer: container, jellyfinClient: client)
     }
 
-    private func makePlaylist(container: ModelContainer, host: String, flavor: MediaServerFlavor = .jellyfin) throws -> Playlist {
+    func makePlaylist(container: ModelContainer, host: String, flavor: MediaServerFlavor = .jellyfin) throws -> Playlist {
         let context = ModelContext(container)
         let playlist = Playlist(
             name: "Test \(flavor.displayName)", serverURL: "http://\(host):8096",

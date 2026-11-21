@@ -16,10 +16,11 @@ import SwiftData
 extension ContentSyncManager {
     // MARK: - Series & episodes
 
-    func syncJellyfinShows(scope: JellyfinViewScope, seenSeries: inout Set<String>, seenEpisodes: inout Set<String>, progress: SyncProgress?) async throws {
+    /// One TV library's series and episodes; returns the ids it saw.
+    func syncJellyfinShows(scope: JellyfinViewScope, progress: SyncProgress?) async throws -> (series: Set<String>, episodes: Set<String>) {
         // Series shells first, so episodes below can link against them.
         var shells = JellyfinShellIndex()
-        var seen = seenSeries
+        var seen = Set<String>()
         _ = try await pageThroughJellyfinItems(types: ["Series"], scope: scope, progress: nil, unit: "series") { items in
             try seen.formUnion(upsertJellyfinSeries(items, scope: scope))
             shells.insert(items)
@@ -30,16 +31,15 @@ extension ContentSyncManager {
         // oddly) still imports, under the shell its `SeriesName` names — see
         // `JellyfinShellIndex` — so no playable file is ever dropped and a
         // mis-scanned library does not fan out into one show per file.
-        var seenEp = seenEpisodes
+        var seenEp = Set<String>()
         let resolvedShells = shells
         let episodeCount = try await pageThroughJellyfinItems(types: ["Episode"], scope: scope, progress: progress, unit: "episode(s)") { items in
             let (series, episodes) = try upsertJellyfinEpisodes(items, seriesShells: resolvedShells, scope: scope)
             seen.formUnion(series)
             seenEp.formUnion(episodes)
         }
-        seenSeries = seen
-        seenEpisodes = seenEp
         Logger.database.info("\(scope.flavor.displayName, privacy: .public) shows synced for library \(scope.view.name, privacy: .public): \(episodeCount, privacy: .public) episode(s)")
+        return (seen, seenEp)
     }
 
     private func upsertJellyfinSeries(_ items: [JellyfinItem], scope: JellyfinViewScope) throws -> Set<String> {
@@ -60,8 +60,9 @@ extension ContentSyncManager {
         if series.name != name {
             series.name = name
         }
-        if series.categoryId != scope.categoryId {
-            series.categoryId = scope.categoryId
+        let category = scope.category(keeping: series.categoryId)
+        if series.categoryId != category {
+            series.categoryId = category
         }
         if let tag = item.primaryImageTag,
            let url = JellyfinClient.imageURL(server: scope.server, itemId: item.id, tag: tag)?.absoluteString,

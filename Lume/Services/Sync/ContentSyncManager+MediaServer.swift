@@ -34,6 +34,17 @@ extension ContentSyncManager {
         var playlistId: UUID
         var view: JellyfinLibrary
         var categoryId: String
+        /// Every library of this kind in the sync. A title listed by two of
+        /// them stays under the one that already holds it, so libraries read
+        /// in parallel don't move it back and forth.
+        var libraryCategoryIds: Set<String> = []
+
+        /// The category a row should carry: its own library's for a new row or
+        /// one whose library is gone, otherwise the one it already has.
+        func category(keeping current: String?) -> String {
+            if let current, current != categoryId, libraryCategoryIds.contains(current) { return current }
+            return categoryId
+        }
 
         var server: URL {
             connection.server
@@ -111,23 +122,34 @@ extension ContentSyncManager {
         if let incomplete { throw incomplete }
     }
 
-    /// Every movie library, then the movie prune if all of them walked
-    /// completely. Returns the first incomplete walk.
+    /// A library without a fixed length is read this far (see
+    /// `ProviderTotalTracker`): about ten pages of fifty, instead of paging
+    /// until the source behind it runs dry, two seconds or more a page.
+    static let openEndedLibraryItemLimit = 500
+
+    /// Every movie library, up to four at a time, then the movie prune if all
+    /// of them walked completely. Returns the first incomplete walk.
     private func syncJellyfinMoviePhase(
         views: [JellyfinLibrary], connection: JellyfinConnection, playlistId: UUID, progress: SyncProgress?
     ) async throws -> ProviderImportError? {
         try syncJellyfinCategories(views: views, type: .vod, playlistId: playlistId)
         await progress?.start(.movies)
-        var seenMovies = Set<String>()
-        let incomplete = try await walkLibraries(views, name: \.name) { view in
-            let viewScope = scope(connection, playlistId: playlistId, view: view, type: .vod)
-            try await syncJellyfinMovies(scope: viewScope, seenIds: &seenMovies, progress: progress)
-        }
-        if incomplete == nil {
-            pruneJellyfinMovies(playlistId: playlistId, flavor: connection.flavor, seenIds: seenMovies, fetched: !views.isEmpty)
+        let scopes = jellyfinScopes(views, connection: connection, playlistId: playlistId, type: .vod)
+        // One library reports its own pages; several report libraries done,
+        // since their pages interleave.
+        let pageProgress = views.count == 1 ? progress : nil
+        let libraryProgress = views.count > 1 ? progress : nil
+        let walk = try await walkLibrariesConcurrently(
+            scopes, name: { $0.view.name }, isFatal: Self.endsJellyfinSync,
+            finished: { await Self.reportLibraries($0, of: $1, progress: libraryProgress) },
+            walk: { manager, scope in try await manager.syncJellyfinMovies(scope: scope, progress: pageProgress) }
+        )
+        if walk.incomplete == nil {
+            let seen = walk.seen.reduce(into: Set<String>()) { $0.formUnion($1) }
+            pruneJellyfinMovies(playlistId: playlistId, flavor: connection.flavor, seenIds: seen, fetched: !views.isEmpty)
         }
         await progress?.complete(.movies)
-        return incomplete
+        return walk.incomplete
     }
 
     /// Every TV library, then the series/episode prune if all of them walked
@@ -137,27 +159,43 @@ extension ContentSyncManager {
     ) async throws -> ProviderImportError? {
         try syncJellyfinCategories(views: views, type: .series, playlistId: playlistId)
         await progress?.start(.series)
-        var seenSeries = Set<String>()
-        var seenEpisodes = Set<String>()
-        let incomplete = try await walkLibraries(views, name: \.name) { view in
-            let viewScope = scope(connection, playlistId: playlistId, view: view, type: .series)
-            try await syncJellyfinShows(scope: viewScope, seenSeries: &seenSeries, seenEpisodes: &seenEpisodes, progress: progress)
-        }
-        if incomplete == nil {
+        let scopes = jellyfinScopes(views, connection: connection, playlistId: playlistId, type: .series)
+        let pageProgress = views.count == 1 ? progress : nil
+        let libraryProgress = views.count > 1 ? progress : nil
+        let walk = try await walkLibrariesConcurrently(
+            scopes, name: { $0.view.name }, isFatal: Self.endsJellyfinSync,
+            finished: { await Self.reportLibraries($0, of: $1, progress: libraryProgress) },
+            walk: { manager, scope in try await manager.syncJellyfinShows(scope: scope, progress: pageProgress) }
+        )
+        if walk.incomplete == nil {
             pruneJellyfinSeries(
                 playlistId: playlistId, flavor: connection.flavor,
-                seenSeries: seenSeries, seenEpisodes: seenEpisodes, fetched: !views.isEmpty
+                seenSeries: walk.seen.reduce(into: Set<String>()) { $0.formUnion($1.series) },
+                seenEpisodes: walk.seen.reduce(into: Set<String>()) { $0.formUnion($1.episodes) },
+                fetched: !views.isEmpty
             )
         }
         await progress?.complete(.series)
-        return incomplete
+        return walk.incomplete
     }
 
-    private func scope(_ connection: JellyfinConnection, playlistId: UUID, view: JellyfinLibrary, type: CategoryType) -> JellyfinViewScope {
-        JellyfinViewScope(
-            connection: connection, playlistId: playlistId, view: view,
-            categoryId: CatalogID.category(playlistId, type: type.rawValue, key: view.id)
-        )
+    private func jellyfinScopes(_ views: [JellyfinLibrary], connection: JellyfinConnection, playlistId: UUID, type: CategoryType) -> [JellyfinViewScope] {
+        let categoryIds = views.map { CatalogID.category(playlistId, type: type.rawValue, key: $0.id) }
+        return zip(views, categoryIds).map { view, categoryId in
+            JellyfinViewScope(connection: connection, playlistId: playlistId, view: view,
+                              categoryId: categoryId, libraryCategoryIds: Set(categoryIds))
+        }
+    }
+
+    /// A rejected login ends the sync; anything else one library hits only
+    /// skips that library.
+    private static func endsJellyfinSync(_ error: Error) -> Bool {
+        if case .unauthorized = error as? JellyfinError { return true }
+        return false
+    }
+
+    private static func reportLibraries(_ done: Int, of total: Int, progress: SyncProgress?) async {
+        await progress?.update(detail: "\(done) of \(total) libraries", fraction: total == 0 ? 1 : Double(done) / Double(total))
     }
 
     // MARK: - Paging
@@ -173,7 +211,7 @@ extension ContentSyncManager {
         unit: String,
         body: ([JellyfinItem]) throws -> Void
     ) async throws -> Int {
-        try await walkProviderPages { startIndex in
+        try await walkProviderPages(openEndedLimit: Self.openEndedLibraryItemLimit) { startIndex in
             let page = try await jellyfinClient.items(
                 server: scope.server, session: scope.session, parentId: scope.view.id, types: types,
                 startIndex: startIndex
@@ -209,13 +247,13 @@ extension ContentSyncManager {
 
     // MARK: - Movies
 
-    private func syncJellyfinMovies(scope: JellyfinViewScope, seenIds: inout Set<String>, progress: SyncProgress?) async throws {
-        var seen = seenIds
+    private func syncJellyfinMovies(scope: JellyfinViewScope, progress: SyncProgress?) async throws -> Set<String> {
+        var seen = Set<String>()
         let fetched = try await pageThroughJellyfinItems(types: ["Movie"], scope: scope, progress: progress, unit: "movie(s)") { items in
             try seen.formUnion(upsertJellyfinMovies(items, scope: scope))
         }
-        seenIds = seen
         Logger.database.info("\(scope.flavor.displayName, privacy: .public) movies synced for library \(scope.view.name, privacy: .public): \(fetched, privacy: .public) item(s)")
+        return seen
     }
 
     /// Upserts one page of movies, returning the ids it saw for the prune
@@ -248,8 +286,9 @@ extension ContentSyncManager {
         if movie.name != name {
             movie.name = name
         }
-        if movie.categoryId != scope.categoryId {
-            movie.categoryId = scope.categoryId
+        let category = scope.category(keeping: movie.categoryId)
+        if movie.categoryId != category {
+            movie.categoryId = category
         }
         if let url = JellyfinClient.streamURL(server: scope.server, itemId: item.id)?.absoluteString,
            movie.directURL != url
