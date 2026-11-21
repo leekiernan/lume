@@ -92,6 +92,7 @@
                 audioDelaySeconds: plan.audioDelaySeconds,
                 prepareNativeSubtitles: plan.prepareNativeSubtitles,
                 maxConcurrentSourceRequests: plan.maxConcurrentSourceRequests,
+                liveStartupGraceSeconds: plan.liveStartupGraceSeconds,
                 writesDisplayCriteria: plan.writesDisplayCriteria,
                 isSecondaryOutput: plan.sharedOutputRole == .secondary
             )
