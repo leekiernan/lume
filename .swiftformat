@@ -1,1 +1,2 @@
 --trailing-commas never
+--exclude Dependencies

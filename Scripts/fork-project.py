@@ -120,12 +120,95 @@ def apply(text: str, overrides: dict) -> str:
         )
         if url not in {m["url"] for m in PACKAGE.finditer(text)}:
             sys.exit(f"fork-project: package no longer in the project: {url}")
+    for url, path in overrides.get("localPackages", {}).items():
+        text = localize_package(text, url, path)
+    for path, object_id in overrides.get("rootLocalPackages", {}).items():
+        text = add_local_package(text, path, object_id)
+    if "archiveSymbolsPhase" in overrides:
+        text = add_archive_symbols_phase(text, overrides["archiveSymbolsPhase"])
     for name, minimum in overrides.get("attributes", {}).items():
         # Only ever raise: once upstream adopts a newer Xcode, theirs stands.
         text = ATTRIBUTE.sub(
             lambda m: m.group(0) if m[2] != name else f"{m[1]}{name} = {max(int(m[3]), minimum)};", text
         )
     return text
+
+
+def localize_package(text: str, url: str, path: str) -> str:
+    """Replace one remote package with a checked-in, same-product snapshot."""
+    name = Path(path).name
+    if not re.fullmatch(r"[A-Za-z0-9_/-]+", path) or ".." in Path(path).parts:
+        raise ValueError(f"Invalid local package path: {path}")
+    pattern = re.compile(
+        r'\t\t(?P<id>[0-9A-F]{24}) /\* XCRemoteSwiftPackageReference "[^"\n]+" \*/ = \{\n'
+        r'\t\t\tisa = XCRemoteSwiftPackageReference;\n'
+        rf'\t\t\trepositoryURL = "{re.escape(url)}";\n.*?^\t\t\}};\n', re.M | re.S
+    )
+    match = pattern.search(text)
+    if not match:
+        if f'\t\t\trelativePath = {path};\n' in text:
+            return text
+        raise ValueError(f"Remote package no longer in project: {url}")
+    object_id = match["id"]
+    block = (f'\t\t{object_id} /* XCLocalSwiftPackageReference "{name}" */ = {{\n'
+             f'\t\t\tisa = XCLocalSwiftPackageReference;\n\t\t\trelativePath = {path};\n\t\t}};\n')
+    text = text[:match.start()] + text[match.end():]
+    marker = "/* Begin XCLocalSwiftPackageReference section */\n"
+    if marker not in text:
+        raise ValueError("Expected an existing local-package section")
+    text = text.replace(marker, marker + block, 1)
+    text = re.sub(rf'^\t\t\tpackage = {object_id} /\* [^\n]+ \*/;\n', "", text, flags=re.M)
+    return text.replace(f'XCRemoteSwiftPackageReference "{name}"', f'XCLocalSwiftPackageReference "{name}"')
+
+
+def add_local_package(text: str, path: str, object_id: str) -> str:
+    """Promote a transitive local override to an Xcode root dependency."""
+    if not re.fullmatch(r"[A-Za-z0-9_/-]+", path) or ".." in Path(path).parts:
+        raise ValueError(f"Invalid local package path: {path}")
+    if not re.fullmatch(r"[0-9A-F]{24}", object_id):
+        raise ValueError(f"Invalid project object id: {object_id}")
+    name = Path(path).name
+    if object_id in text:
+        if f"relativePath = {path};" not in text:
+            raise ValueError(f"Local package id already used: {object_id}")
+        return text
+    reference = f'{object_id} /* XCLocalSwiftPackageReference "{name}" */'
+    marker = "\t\t\tpackageReferences = (\n"
+    if marker not in text or "/* Begin XCLocalSwiftPackageReference section */\n" not in text:
+        raise ValueError("Expected existing root and local package sections")
+    text = text.replace(marker, marker + f"\t\t\t\t{reference},\n", 1)
+    marker = "/* Begin XCLocalSwiftPackageReference section */\n"
+    block = (f"\t\t{reference} = {{\n\t\t\tisa = XCLocalSwiftPackageReference;\n"
+             f"\t\t\trelativePath = {path};\n\t\t}};\n")
+    return text.replace(marker, marker + block, 1)
+
+
+def add_archive_symbols_phase(text: str, config: dict) -> str:
+    object_id, target = config["id"], config["target"]
+    if not all(re.fullmatch(r"[0-9A-F]{24}", value) for value in (object_id, target)):
+        raise ValueError("Invalid archive-symbol phase or target id")
+    if object_id in text:
+        return text
+    reference = f"{object_id} /* Fetch playback archive symbols */"
+    target_pattern = rf"(\t\t{target} /\* [^\n]+ \*/ = \{{\n.*?\t\t\tbuildPhases = \(\n)(.*?)(\t\t\t\);)"
+    text, count = re.subn(target_pattern, lambda m: m[1] + m[2] + f"\t\t\t\t{reference},\n" + m[3], text, count=1, flags=re.S)
+    if count != 1:
+        raise ValueError("Archive-symbol target no longer exists")
+    command = ('if [ "${ACTION}" = "install" ]; then\n'
+               '  /usr/bin/python3 "${SRCROOT}/Scripts/playback-packages.py" symbols '
+               '--platform "${PLATFORM_NAME}" --frameworks "${BUILT_PRODUCTS_DIR}" '
+               '--destination "${DWARF_DSYM_FOLDER_PATH}"\nfi\n')
+    # JSON string escaping is also valid for this PBX string value.
+    block = (f"\t\t{reference} = {{\n\t\t\tisa = PBXShellScriptBuildPhase;\n"
+             '\t\t\talwaysOutOfDate = 1;\n\t\t\tbuildActionMask = 2147483647;\n'
+             '\t\t\tfiles = ();\n\t\t\tinputPaths = ();\n'
+             '\t\t\tname = "Fetch playback archive symbols";\n\t\t\toutputPaths = ();\n'
+             '\t\t\trunOnlyForDeploymentPostprocessing = 1;\n\t\t\tshellPath = /bin/sh;\n'
+             f'\t\t\tshellScript = {json.dumps(command)};\n\t\t}};\n')
+    marker = "/* Begin PBXShellScriptBuildPhase section */\n"
+    if marker not in text:
+        raise ValueError("Expected script build-phase section")
+    return text.replace(marker, marker + block, 1)
 
 
 def remove_objects(text: str, object_ids: list[str]) -> str:
@@ -151,7 +234,8 @@ def remove_objects(text: str, object_ids: list[str]) -> str:
 
 def capture(base_rev: str) -> dict:
     base_text, ours_text = git_show(base_rev), PROJECT.read_text()
-    removed = json.loads(OVERRIDES.read_text()).get("removedObjects", [])
+    existing = json.loads(OVERRIDES.read_text())
+    removed = existing.get("removedObjects", [])
     base_text = remove_objects(base_text, removed)
     base, ours = configs(base_text), configs(ours_text)
     if set(base) != set(ours):
@@ -159,6 +243,12 @@ def capture(base_rev: str) -> dict:
     result = {"configurations": {}, "attributes": {}}
     if removed:
         result["removedObjects"] = removed
+    if existing.get("localPackages"):
+        result["localPackages"] = existing["localPackages"]
+    if existing.get("rootLocalPackages"):
+        result["rootLocalPackages"] = existing["rootLocalPackages"]
+    if existing.get("archiveSymbolsPhase"):
+        result["archiveSymbolsPhase"] = existing["archiveSymbolsPhase"]
     for config_id in sorted(ours):
         changes = {k: v for k, v in ours[config_id].items() if base[config_id].get(k) != v}
         changes.update({k: None for k in base[config_id] if k not in ours[config_id]})

@@ -27,3 +27,7 @@ lefthook-local.yml
 .xcodebuildmcp/
 
 _NOTES/
+
+# Playback packages: symlinks into the shared store (Scripts/playback-packages.py fetch)
+/Dependencies/*
+!/Dependencies/README.md

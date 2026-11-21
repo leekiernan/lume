@@ -227,6 +227,7 @@
 				C6AA10052FDD00010000AA05 /* Embed Frameworks */,
 				C6AA310C2FDD00020000AB0C /* Embed Foundation Extensions */,
 				C6FEED020000000000000002 /* Inject .env secrets */,
+				C6DD5201000000000000AC01 /* Fetch playback archive symbols */,
 			);
 			buildRules = (
 			);
@@ -383,12 +384,19 @@
 				ko,
 				"zh-Hans",
 				ar,
+				tr,
+				nl,
+				pl,
+				ru,
 			);
 			mainGroup = C67C02B72F880F2200842DBA;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				C66C81662FC5A59D0048468D /* XCRemoteSwiftPackageReference "KSPlayer" */,
-				C6FF000C2FC5A59D00484603 /* XCRemoteSwiftPackageReference "VLCKit" */,
+				C6DD5102000000000000AB02 /* XCLocalSwiftPackageReference "LibDovi" */,
+				C6DD5101000000000000AB01 /* XCLocalSwiftPackageReference "FFmpegBuild" */,
+				C6DD5103000000000000AB03 /* XCLocalSwiftPackageReference "FFmpegKit" */,
+				C66C81662FC5A59D0048468D /* XCLocalSwiftPackageReference "KSPlayer" */,
+				C6FF000C2FC5A59D00484603 /* XCLocalSwiftPackageReference "VLCKit" */,
 				C6DD50032FE100050000DD03 /* XCLocalSwiftPackageReference "LumeAetherBridge" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -444,6 +452,18 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		C6DD5201000000000000AC01 /* Fetch playback archive symbols */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = ();
+			name = "Fetch playback archive symbols";
+			outputPaths = ();
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"${ACTION}\" = \"install\" ]; then\n  /usr/bin/python3 \"${SRCROOT}/Scripts/playback-packages.py\" symbols --platform \"${PLATFORM_NAME}\" --frameworks \"${BUILT_PRODUCTS_DIR}\" --destination \"${DWARF_DSYM_FOLDER_PATH}\"\nfi\n";
+		};
 		C66C81692FC5A59D0048468D /* Fix Embedded Framework CFBundleIdentifier */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -689,6 +709,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -754,6 +775,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -919,6 +941,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1330,6 +1353,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -1574,6 +1598,26 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
+		C6DD5102000000000000AB02 /* XCLocalSwiftPackageReference "LibDovi" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Dependencies/LibDovi;
+		};
+		C6DD5101000000000000AB01 /* XCLocalSwiftPackageReference "FFmpegBuild" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Dependencies/FFmpegBuild;
+		};
+		C6DD5103000000000000AB03 /* XCLocalSwiftPackageReference "FFmpegKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Dependencies/FFmpegKit;
+		};
+		C6FF000C2FC5A59D00484603 /* XCLocalSwiftPackageReference "VLCKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Dependencies/VLCKit;
+		};
+		C66C81662FC5A59D0048468D /* XCLocalSwiftPackageReference "KSPlayer" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Dependencies/KSPlayer;
+		};
 		C6DD50032FE100050000DD03 /* XCLocalSwiftPackageReference "LumeAetherBridge" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = LumeAetherBridge;
@@ -1581,28 +1625,11 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		C66C81662FC5A59D0048468D /* XCRemoteSwiftPackageReference "KSPlayer" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/kingslay/KSPlayer";
-			requirement = {
-				kind = revision;
-				revision = be7f60d3b94a0941c643fe8699113cfce4f08e83;
-			};
-		};
-		C6FF000C2FC5A59D00484603 /* XCRemoteSwiftPackageReference "VLCKit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://code.videolan.org/videolan/VLCKit.git";
-			requirement = {
-				kind = exactVersion;
-				version = "4.0.0-a26";
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		C66C81682FC5A59D0048468D /* KSPlayer */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = C66C81662FC5A59D0048468D /* XCRemoteSwiftPackageReference "KSPlayer" */;
 			productName = KSPlayer;
 		};
 		C6DD50022FE100050000DD02 /* LumeAetherBridge */ = {
@@ -1611,7 +1638,6 @@
 		};
 		C6FF000B2FC5A59D00484602 /* VLCKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = C6FF000C2FC5A59D00484603 /* XCRemoteSwiftPackageReference "VLCKit" */;
 			productName = VLCKit;
 		};
 /* End XCSwiftPackageProductDependency section */

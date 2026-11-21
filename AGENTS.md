@@ -7,6 +7,9 @@ Lume is a native, multi-platform IPTV player (iOS 18+, macOS 15+, tvOS 18+, visi
 ## Build & run
 
 ```bash
+# Once per clone/worktree (and after the playback lock changes)
+Scripts/setup.sh      # git hooks + playback packages (playback-packages.py fetch)
+
 # Open in Xcode
 open Lume.xcodeproj   # pick scheme "Lume", any destination
 
@@ -29,10 +32,33 @@ The development Mac keeps **no simulators installed**: Xcode's simulator
 runtimes, device data and caches filled ~70 GB of a 228 GB disk. Don't create,
 download or boot one. Unit and UI tests run in the native **macOS app**; tvOS
 and iOS get a compile check against the generic simulator destination, which
-needs no installed device. `ARCHS=arm64` keeps that to Apple silicon — Intel
-isn't a target, and LibDovi ships no x86_64 simulator slice, so a generic build
-without it fails to link. Device testing is the board's (see **Who verifies
+needs no installed device. Lume is Apple silicon only (`ARCHS = arm64` in the
+project), and the playback packages keep only ARM64 slices. Swift package
+targets don't inherit the project's `ARCHS`, so a generic simulator build still
+needs `ARCHS=arm64` on the command line. Without it, they also build x86_64 and
+fail to link. Device testing is the board's (see **Who verifies
 what**).
+
+### Playback packages
+
+KSPlayer, FFmpegKit, FFmpegBuild, LibDovi and VLCKit are **not** cloned by
+SwiftPM. `Scripts/playback-packages.py fetch` downloads upstream's snapshot at
+each pinned commit into `~/Library/Developer/Lume-PlaybackPackages` (~1.2 GB,
+shared by every checkout). It trims the frameworks to ARM64 iOS/macOS/tvOS/visionOS
+slices, keeping the machine code byte-identical, drops the dSYMs and checks a
+content hash. `Dependencies/<name>` is a gitignored symlink into that store, so
+a fresh clone or worktree must run it (via `Scripts/setup.sh`) before Xcode can
+resolve packages. "Missing package at Dependencies/…" means exactly that; it
+isn't a blocker.
+
+- Archives fetch the matching dSYMs from upstream in a build phase.
+- The local FFmpegKit, FFmpegBuild and LibDovi replace KSPlayer's and
+  AetherEngine's own dependencies, and SwiftPM never version-checks a local
+  package. After changing the AetherEngine pin, run
+  `Scripts/check-playback-dependencies.py`; the pre-commit hook also runs it.
+- Upgrade via `Dependencies/README.md`. Never edit the store or the fetched
+  sources.
+- Dependencies are excluded from local formatting/linting rules.
 
 The project injects API secrets from a repo-root `.env` file via `Scripts/inject-env.sh`. The file is gitignored; features degrade gracefully when it's absent.
 
@@ -43,9 +69,9 @@ Parallel builds (per platform, per worker, per worktree) each need their own
 platform and reuse it across branches rather than making one per branch — the project has several DerivedData
 dirs and a bare `xcodebuild` can install a stale app. **Always pair that with
 `-clonedSourcePackagesDirPath ~/Library/Developer/Lume-SharedSPM`.** Without it
-each private DerivedData re-clones the whole package graph — KSPlayer's FFmpeg
-xcframeworks plus VLCKit's 865 MB xcframework, **6.4 GB per build dir**; eight
-of them once filled `/tmp` with 65 GB. Sharing one clone dir also builds faster
+each private DerivedData re-clones the remote packages (AetherEngine, SMBClient).
+Before the playback engines moved to the shared store, that was **6.4 GB per
+build dir**; eight of them once filled `/tmp` with 65 GB. Sharing one clone dir also builds faster
 and dodges the botched-checkout race that breaks multi-platform archiving.
 
 Delete your task-owned `-derivedDataPath` dir as soon as its checks finish (not

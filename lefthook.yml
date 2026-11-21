@@ -21,11 +21,21 @@ pre-commit:
     swiftformat:
       priority: 2
       glob: "*.swift"
+      exclude: '^Dependencies/'
       run: swift run --build-path .build/tools swiftformat {staged_files}
       stage_fixed: true
+
+    # 2b. Local FFmpegKit/FFmpegBuild/LibDovi replace KSPlayer's and AetherEngine's
+    #     own pins, and a local package has no version for SwiftPM to check.
+    #     Re-check them whenever the engine pin or the playback lock changes.
+    playback-dependencies:
+      priority: 2
+      glob: "{LumeAetherBridge/Package.swift,Scripts/playback-dependencies.json}"
+      run: /usr/bin/python3 Scripts/check-playback-dependencies.py
 
     # 3. Lint staged Swift via the SwiftLint binary plugin — strict, so warnings block.
     swiftlint:
       priority: 3
       glob: "*.swift"
+      exclude: '^Dependencies/'
       run: swift package --build-path .build/tools plugin --allow-writing-to-package-directory swiftlint lint --strict --quiet {staged_files}

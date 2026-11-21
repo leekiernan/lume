@@ -70,6 +70,13 @@ jobs:
       - name: Download Metal Toolchain
         run: xcodebuild -downloadComponent MetalToolchain
 
+      # ── Playback packages ───────────────────────────────────────────────────
+      # KSPlayer, FFmpeg, LibDovi and VLC come from upstream snapshots, trimmed
+      # and checked against Scripts/playback-dependencies.json; Dependencies/
+      # links to them. Archiving later fetches only the matching dSYMs.
+      - name: Fetch playback packages
+        run: /usr/bin/python3 Scripts/playback-packages.py fetch
+
       # ── Inject API key secrets (optional) ───────────────────────────────────
       # Features degrade gracefully when absent (see Scripts/inject-env.sh).
       - name: Write .env
