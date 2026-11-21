@@ -6364,6 +6364,7 @@
     },
     "Adds the technical readout: quality, codec, frame rate, and playback engine." : {
       "comment" : "Description of the Advanced stream-information detail level.",
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
