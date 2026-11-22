@@ -52,6 +52,8 @@ final class FakeTracker {
     var deliveryResponses: [FakeDelivery] = []
     /// Every mutation the queue tried to send, in order.
     var deliveryAttempts: [TrackerMutation.Target] = []
+    /// Tokens used for mutation requests, excluding identity verification.
+    var deliveryTokens: [String] = []
     /// Access tokens the service refuses (HTTP 401) on any request, as when
     /// another device has refreshed the shared pair.
     var refusedTokens: Set<String> = []
@@ -116,6 +118,7 @@ struct FakeBackend: TrackerAccountBackend {
 
     func deliver(_ mutation: TrackerMutation, accessToken: String) async throws -> Bool {
         tracker.tokensUsed.append(accessToken)
+        tracker.deliveryTokens.append(accessToken)
         if tracker.refusedTokens.contains(accessToken) { throw FakeRefusedTokenError() }
         tracker.deliveryAttempts.append(mutation.target)
         let outcome = tracker.deliveryResponses.isEmpty ? .sent : tracker.deliveryResponses.removeFirst()

@@ -89,7 +89,7 @@ extension Episode {
 
     /// The per-episode mutation, without rescanning the series relationship.
     /// Bulk actions do this for every changed episode, then derive recency once.
-    private func applyWatched(_ watched: Bool) {
+    func applyWatched(_ watched: Bool) {
         isWatched = watched
         if watched {
             watchProgress = Double(durationSecs ?? 0)
@@ -129,29 +129,5 @@ extension Episode {
             ($0.seasonNum, $0.episodeNum) > (seasonNum, episodeNum)
                 && ($0.isWatched || $0.watchProgress > 0)
         }
-    }
-
-    /// Marks every episode in the series ordered before this one as watched.
-    func markEarlierEpisodesWatched() {
-        guard let series else { return }
-        for other in series.episodes
-            where (other.seasonNum, other.episodeNum) < (seasonNum, episodeNum) && !other.isWatched
-        {
-            other.applyWatched(true)
-        }
-        refreshSeriesRecency()
-    }
-
-    /// Marks every episode in the series ordered after this one as unwatched,
-    /// resetting their progress — used to rewind a series' viewing state.
-    func markLaterEpisodesUnwatched() {
-        guard let series else { return }
-        for other in series.episodes
-            where (other.seasonNum, other.episodeNum) > (seasonNum, episodeNum)
-            && (other.isWatched || other.watchProgress > 0)
-        {
-            other.applyWatched(false)
-        }
-        refreshSeriesRecency()
     }
 }

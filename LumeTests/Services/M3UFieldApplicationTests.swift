@@ -240,7 +240,7 @@ struct M3ULiveStreamFieldTests {
         let playlist = try M3UFieldFixtures.makePlaylist(container: container, fileURL: fileURL)
 
         let manager = ContentSyncManager(modelContainer: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         let afterFirst = ModelContext(container)
         let alphaNum = try #require(try afterFirst.fetch(FetchDescriptor<LiveStream>())
@@ -262,7 +262,7 @@ struct M3ULiveStreamFieldTests {
         http://example.com/live/bravo
         """
         try shiftedFile.write(to: fileURL, atomically: true, encoding: .utf8)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         let afterSecond = ModelContext(container)
         let streams = try afterSecond.fetch(FetchDescriptor<LiveStream>())
@@ -459,7 +459,7 @@ struct M3UMovieFieldTests {
         let playlist = try M3UFieldFixtures.makePlaylist(container: container, fileURL: fileURL)
 
         let manager = ContentSyncManager(modelContainer: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         let afterFirst = ModelContext(container)
         let movies = try afterFirst.fetch(FetchDescriptor<Movie>())
@@ -478,7 +478,7 @@ struct M3UMovieFieldTests {
         http://example.com/movie/u/p/1002.mkv
         """
         try shiftedFile.write(to: fileURL, atomically: true, encoding: .utf8)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         let afterSecond = ModelContext(container)
         let reSynced = try afterSecond.fetch(FetchDescriptor<Movie>())

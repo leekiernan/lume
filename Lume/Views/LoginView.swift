@@ -89,6 +89,7 @@ struct LoginView: View {
     @State var mediaServerURL = ""
 
     @State var onboarding = PlaylistOnboardingMachine()
+    @State var validationTask: Task<Void, Never>?
     /// The slim diagnostics screen — the only way to send a report before a
     /// playlist exists, since Settings isn't reachable until then.
     @State var showDiagnostics = false
@@ -131,11 +132,17 @@ struct LoginView: View {
     }
 
     var body: some View {
-        #if os(tvOS)
-            tvBody
-        #else
-            formBody
-        #endif
+        Group {
+            #if os(tvOS)
+                tvBody
+            #else
+                formBody
+            #endif
+        }
+        .onDisappear {
+            validationTask?.cancel()
+            onboarding.cancel()
+        }
     }
 
     #if !os(tvOS)
@@ -387,7 +394,7 @@ struct LoginView: View {
 
         let playlistName = trimmedName.isEmpty ? "My Playlist" : trimmedName
 
-        Task {
+        validationTask = Task {
             let playlist = Playlist(
                 name: playlistName,
                 serverURL: serverURL,
@@ -397,16 +404,14 @@ struct LoginView: View {
 
             let client = XtreamClient()
             do {
-                try await withConnectionTimeout {
-                    let info = try await client.getInfo(playlist: playlist)
-                    playlist.serverTimezone = info.serverInfo.timezone
-                    playlist.userStatus = info.userInfo.status
-                    playlist.maxConnections = String(info.userInfo.maxConnections ?? "0")
-                    playlist.activeConnections = String(info.userInfo.activeCons ?? "0")
-                    playlist.expDate = info.userInfo.expDate
-                    playlist.allowedOutputFormats = info.userInfo.allowedOutputFormats
-                    insertAndFinish(playlist, attempt: attempt)
-                }
+                let info = try await Self.connectionTest { try await client.getInfo(playlist: playlist) }
+                playlist.serverTimezone = info.serverInfo.timezone
+                playlist.userStatus = info.userInfo.status
+                playlist.maxConnections = String(info.userInfo.maxConnections ?? "0")
+                playlist.activeConnections = String(info.userInfo.activeCons ?? "0")
+                playlist.expDate = info.userInfo.expDate
+                playlist.allowedOutputFormats = info.userInfo.allowedOutputFormats
+                try insertAndFinish(playlist, attempt: attempt)
             } catch {
                 onboarding.fail(attempt, message: error.localizedDescription)
                 noteAddFailure(error)
@@ -424,16 +429,16 @@ struct LoginView: View {
         let epgURLString = epgURL.trimmingCharacters(in: .whitespacesAndNewlines)
         noteAddAttempt("m3u", address: urlString)
 
-        Task {
+        validationTask = Task {
             do {
-                try await withConnectionTimeout {
+                try await Self.connectionTest {
                     // Cheap validation: stream just the head of the file and check
                     // for m3u markers, so adding a huge playlist stays instant —
                     // the full download happens during the first sync.
                     try await M3UClient().validatePlaylist(at: urlString)
-                    let playlist = Playlist(name: playlistName, m3uURL: urlString, epgURL: epgURLString)
-                    insertAndFinish(playlist, attempt: attempt)
                 }
+                let playlist = Playlist(name: playlistName, m3uURL: urlString, epgURL: epgURLString)
+                try insertAndFinish(playlist, attempt: attempt)
             } catch {
                 onboarding.fail(attempt, message: error.localizedDescription)
                 noteAddFailure(error)
@@ -449,7 +454,7 @@ struct LoginView: View {
         let mac = macAddress.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         noteAddAttempt("stalker", address: portal)
 
-        Task {
+        validationTask = Task {
             let playlist = Playlist(
                 name: playlistName,
                 portalURL: portal,
@@ -460,13 +465,10 @@ struct LoginView: View {
 
             do {
                 let client = try StalkerClient(configuration: StalkerClient.Configuration(playlist: playlist))
-                try await withConnectionTimeout {
-                    // Handshake + profile doubles as the connection test.
-                    let profile = try await client.authenticate()
-                    playlist.userStatus = profile.status
-                    playlist.expDate = profile.expDate
-                    insertAndFinish(playlist, attempt: attempt)
-                }
+                let profile = try await Self.connectionTest { try await client.authenticate() }
+                playlist.userStatus = profile.status
+                playlist.expDate = profile.expDate
+                try insertAndFinish(playlist, attempt: attempt)
             } catch {
                 onboarding.fail(attempt, message: error.localizedDescription)
                 noteAddFailure(error)
@@ -474,20 +476,14 @@ struct LoginView: View {
         }
     }
 
-    func insertAndFinish(_ playlist: Playlist, attempt: PlaylistOnboardingMachine.Attempt) {
-        guard onboarding.succeed(attempt) else { return }
-        modelContext.insert(playlist)
+    func insertAndFinish(_ playlist: Playlist, attempt: PlaylistOnboardingMachine.Attempt) throws {
+        try Task.checkCancellation()
+        guard try onboarding.commit(attempt, persist: {
+            try PlaylistOnboardingStore.insert(playlist, in: modelContext.container)
+        }) else { return }
         // Adding doesn't select it, so auto-sync needs telling that this one
         // syncs anyway — see `AutoSync.addedThisSession`.
         AutoSync.addedThisSession.insert(playlist.id)
-        // Set up the playlist's EPG source so the guide refreshes on its own
-        // schedule — EPG is no longer part of the content sync.
-        EPGSourceReconciler.reconcile(playlist, in: modelContext)
-        // Persist immediately so the ContentSyncManager actor's
-        // separate ModelContext can fetch the playlist. Without this
-        // the autosave is deferred and the sync's fresh context
-        // fetches nil, silently completing without syncing.
-        try? modelContext.save()
         noteAddSuccess(playlist)
         // Only dismiss when presented modally (e.g. the Settings
         // sheet). On first launch LoginView is the window's root

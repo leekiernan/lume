@@ -191,7 +191,7 @@ struct MediaServerSyncTests {
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, host: host)
         let manager = makeManager(container: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
         let context = ModelContext(container)
         #expect(try context.fetchCount(FetchDescriptor<Movie>()) == 1)
         #expect(try context.fetchCount(FetchDescriptor<Series>()) == 1)
@@ -207,7 +207,7 @@ struct MediaServerSyncTests {
         storedEpisode.watchProgress = 456
         try context.save()
         let identity = storedEpisode.persistentModelID
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
         let check = ModelContext(container)
         let checkedMovie = try #require(try check.fetch(FetchDescriptor<Movie>()).first)
         let checkedShow = try #require(try check.fetch(FetchDescriptor<Series>()).first)
@@ -235,7 +235,7 @@ struct MediaServerSyncTests {
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, host: host)
         let playlistId = playlist.id
-        try await makeManager(container: container).syncPlaylist(playlist)
+        try await makeManager(container: container).syncPlaylist(playlistID: playlist.id)
 
         let context = ModelContext(container)
 
@@ -311,7 +311,7 @@ struct MediaServerSyncTests {
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, host: host)
         let manager = makeManager(container: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
         #expect(try ModelContext(container).fetchCount(FetchDescriptor<Movie>()) == 2)
 
         // Second sync: one movie gone, new session token.
@@ -332,7 +332,7 @@ struct MediaServerSyncTests {
                 total: 1
             )
         ])
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         let context = ModelContext(container)
         let movies = try context.fetch(FetchDescriptor<Movie>())
@@ -350,7 +350,7 @@ struct MediaServerSyncTests {
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, host: host, flavor: flavor)
         let manager = makeManager(container: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
         let seed = ModelContext(container)
         let survivor = try #require(try seed.fetch(FetchDescriptor<Movie>()).first { $0.name == "Keep" })
         survivor.isFavorite = true
@@ -360,7 +360,7 @@ struct MediaServerSyncTests {
         JellyfinServerStubProtocol.setReply(host: host, key: "/Users/user1/Items|libMovies|Movie|0", reply: jellyfinPage([jellyfinMovie(id: "m1", name: "Updated")], total: 3))
         JellyfinServerStubProtocol.setReply(host: host, key: "/Users/user1/Items|libMovies|Movie|1", reply: jellyfinPage([], total: 3))
         await #expect(throws: ProviderImportError.incompletePage(fetched: 1, expected: 3)) {
-            try await manager.syncPlaylist(playlist)
+            try await manager.syncPlaylist(playlistID: playlist.id)
         }
         let context = ModelContext(container)
         let movies = try context.fetch(FetchDescriptor<Movie>())
@@ -385,7 +385,7 @@ struct MediaServerSyncTests {
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, host: host)
         await #expect(throws: JellyfinError.self) {
-            try await makeManager(container: container).syncPlaylist(playlist)
+            try await makeManager(container: container).syncPlaylist(playlistID: playlist.id)
         }
 
         let context = ModelContext(container)
@@ -414,7 +414,7 @@ struct MediaServerSyncTests {
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, host: host, flavor: .emby)
         let playlistId = playlist.id
-        try await makeManager(container: container).syncPlaylist(playlist)
+        try await makeManager(container: container).syncPlaylist(playlistID: playlist.id)
 
         let context = ModelContext(container)
         let movie = try #require(try context.fetch(FetchDescriptor<Movie>()).first)
@@ -458,7 +458,7 @@ struct MediaServerSyncTests {
 
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, host: host, flavor: .emby)
-        try await makeManager(container: container).syncPlaylist(playlist)
+        try await makeManager(container: container).syncPlaylist(playlistID: playlist.id)
 
         let context = ModelContext(container)
         #expect(try context.fetch(FetchDescriptor<Movie>()).map(\.name) == ["Arrival"])
@@ -494,7 +494,7 @@ struct MediaServerSyncTests {
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, host: host, flavor: .emby)
         let playlistId = playlist.id
-        try await makeManager(container: container).syncPlaylist(playlist)
+        try await makeManager(container: container).syncPlaylist(playlistID: playlist.id)
 
         let context = ModelContext(container)
         let series = try context.fetch(FetchDescriptor<Series>())
@@ -522,7 +522,7 @@ struct MediaServerSyncTests {
 
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, host: host, flavor: .emby)
-        try await makeManager(container: container).syncPlaylist(playlist)
+        try await makeManager(container: container).syncPlaylist(playlistID: playlist.id)
 
         let context = ModelContext(container)
         let series = try context.fetch(FetchDescriptor<Series>())
@@ -550,7 +550,7 @@ struct MediaServerSyncTests {
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, host: host, flavor: .emby)
         let manager = makeManager(container: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
         #expect(try ModelContext(container).fetchCount(FetchDescriptor<Series>()) == 2)
 
         // Second sync: the server now names the show, collapsing both onto it.
@@ -562,7 +562,7 @@ struct MediaServerSyncTests {
                 jellyfinEpisode(id: "e2", name: "Two", seriesId: "s7", seriesName: "Reunited", season: 1, number: 2)
             ]
         )
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         let context = ModelContext(container)
         let series = try context.fetch(FetchDescriptor<Series>())
@@ -588,7 +588,7 @@ struct MediaServerSyncTests {
         seed.insert(Movie(id: "\(playlistId.uuidString)-jellyfin-zz", streamId: 9, name: "Foreign"))
         try seed.save()
 
-        try await makeManager(container: container).syncPlaylist(playlist)
+        try await makeManager(container: container).syncPlaylist(playlistID: playlist.id)
 
         let names = try Set(ModelContext(container).fetch(FetchDescriptor<Movie>()).map(\.name))
         #expect(names == ["Arrival", "Foreign"])

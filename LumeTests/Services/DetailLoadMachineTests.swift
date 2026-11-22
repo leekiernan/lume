@@ -5,6 +5,98 @@ import Testing
 
 @MainActor
 struct DetailLoadMachineTests {
+    @Test func `a collection is filtered before replacement tasks and restored from cached ids`() async throws {
+        let context = try ModelContext(makeTestContainer())
+        let owner = UUID().uuidString
+        let movie = Movie(id: "\(owner)-movie-1", streamId: 1, name: "Movie")
+        movie.tmdbId = 1
+        movie.collectionId = 10
+        movie.similarTitleIds = [2]
+        let part = Movie(id: "\(owner)-movie-2", streamId: 2, name: "Part")
+        part.tmdbId = 2
+        part.categoryId = "hidden"
+        context.insert(movie)
+        context.insert(part)
+        try context.save()
+        var reads = 0
+        let loader = MovieDetailLoadMachine(movie: movie, fetchCollection: { _, _ in reads += 1; return [2] })
+        loader.resolveSimilar(movie, in: context)
+        await loader.loadCollection(movie, in: context)
+        #expect(loader.snapshot(for: movie).collectionMovies == [.movie(part)])
+        let hidden = ContentRestriction(hiddenCategoryIDs: ["hidden"])
+        #expect(loader.snapshot(for: movie, restriction: hidden).collectionMovies.isEmpty)
+        #expect(loader.snapshot(for: movie, restriction: hidden).similar.isEmpty)
+        loader.restrict(hidden, movie: movie, in: context)
+        #expect(loader.collectionMovies.isEmpty)
+        loader.restrict(ContentRestriction(), movie: movie, in: context)
+        #expect(loader.collectionMovies == [.movie(part)])
+        #expect(reads == 1)
+    }
+
+    @Test func `a visibility change retires an in flight collection response`() async throws {
+        let context = try ModelContext(makeTestContainer())
+        let owner = UUID().uuidString
+        let movie = Movie(id: "\(owner)-movie-1", streamId: 1, name: "Movie")
+        movie.collectionId = 10
+        context.insert(movie)
+        var resume: CheckedContinuation<[Int], Never>?
+        let loader = MovieDetailLoadMachine(movie: movie, fetchCollection: { _, _ in
+            await withCheckedContinuation { resume = $0 }
+        })
+        let pending = Task { await loader.loadCollection(movie, in: context) }
+        try await waitUntil { resume != nil }
+        loader.restrict(ContentRestriction(hiddenCategoryIDs: ["hidden"]), movie: movie, in: context)
+        resume?.resume(returning: [2])
+        await pending.value
+        #expect(loader.snapshot(for: movie).collectionOutcome == nil)
+        #expect(loader.collectionMovies.isEmpty)
+    }
+
+    @Test func `episode failures differ from successful empty results and retry without stale errors`() async throws {
+        let context = try ModelContext(makeTestContainer())
+        let series = Series(id: "series", seriesId: 1, name: "Series")
+        let playlist = Playlist(name: "P", serverURL: "https://example.invalid", username: "u", password: "p")
+        context.insert(series)
+        var reads = 0
+        let loader = SeriesDetailLoadMachine(series: series, fetchEpisodes: { _, _, _, _ in
+            reads += 1
+            if reads == 1 { throw URLError(.cannotConnectToHost) }
+            return FetchedEpisodes(episodes: [])
+        })
+        await loader.loadEpisodes(series, playlist: playlist, in: context)
+        #expect(loader.snapshot(for: series).episodeOutcome == .failed)
+        #expect(series.episodesFetchedAt == nil)
+        await loader.loadEpisodes(series, playlist: playlist, in: context)
+        #expect(loader.snapshot(for: series).episodeOutcome == .loaded)
+        #expect(series.episodesFetchedAt != nil)
+    }
+
+    @Test func `collection failure retains cached content but is distinct from an empty collection`() async throws {
+        let context = try ModelContext(makeTestContainer())
+        let owner = UUID().uuidString
+        let movie = Movie(id: "\(owner)-movie-1", streamId: 1, name: "Movie")
+        movie.collectionId = 10
+        context.insert(movie)
+        let part = Movie(id: "\(owner)-movie-2", streamId: 2, name: "Part")
+        part.tmdbId = 2
+        context.insert(part)
+        try context.save()
+        var reads = 0
+        let loader = MovieDetailLoadMachine(movie: movie, fetchCollection: { _, _ in
+            reads += 1
+            if reads == 2 { throw URLError(.cannotConnectToHost) }
+            return reads == 1 ? [2] : []
+        })
+        await loader.loadCollection(movie, in: context)
+        #expect(loader.snapshot(for: movie).collectionMovies == [.movie(part)])
+        await loader.loadCollection(movie, in: context)
+        #expect(loader.snapshot(for: movie).collectionOutcome == .failed)
+        #expect(loader.snapshot(for: movie).collectionMovies == [.movie(part)])
+        await loader.loadCollection(movie, in: context)
+        #expect(loader.snapshot(for: movie).collectionOutcome == .loaded)
+        #expect(loader.snapshot(for: movie).collectionMovies.isEmpty)
+    }
+
     private func episode(_ number: Int, season: Int, series: Series) -> Episode {
         Episode(id: "\(series.id)-\(season)-\(number)", episodeId: "\(number)", title: "Episode",
                 containerExtension: "mp4", seasonNum: season, episodeNum: number, series: series)
@@ -72,7 +164,8 @@ struct DetailLoadMachineTests {
     @Test func `movie load without metadata settles and collection removal clears the lane`() async throws {
         let container = try makeTestContainer()
         let context = ModelContext(container)
-        let movie = Movie(id: "movie", streamId: 1, name: "Movie")
+        let owner = UUID().uuidString
+        let movie = Movie(id: "\(owner)-movie-1", streamId: 1, name: "Movie")
         context.insert(movie)
         let machine = MovieDetailLoadMachine(movie: movie)
         await machine.load(movie, in: context)

@@ -33,7 +33,7 @@ struct ExampleProviderTests {
             SweepSkipDefaults.removeAll(playlistId: playlistID)
         }
 
-        try await ContentSyncManager(modelContainer: container).syncPlaylist(playlist)
+        try await ContentSyncManager(modelContainer: container).syncPlaylist(playlistID: playlist.id)
 
         let context = ModelContext(container)
         #expect(try context.fetchCount(FetchDescriptor<LiveStream>()) == 3)

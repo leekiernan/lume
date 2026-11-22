@@ -23,10 +23,10 @@ extension ContentSyncManager {
     /// imported. Marks the category imported only when the walk reached its
     /// end, so a truncated fetch retries on the next open.
     @discardableResult
-    func importStalkerCategory(apiId: String, type: CategoryType, playlist: Playlist) async throws -> Int {
+    func importStalkerCategory(apiId: String, type: CategoryType, playlistID playlistId: UUID) async throws -> Int {
         guard type == .vod || type == .series, !apiId.isEmpty else { return 0 }
-        let client = try StalkerClient(configuration: StalkerClient.Configuration(playlist: playlist))
-        let playlistId = playlist.id
+        let configuration = try StalkerClient.Configuration(playlist: ownedPlaylist(playlistId).playlist)
+        let client = StalkerClient(configuration: configuration)
         let walk = try await client.getAllOrderedItems(
             type: type == .vod ? "vod" : "series", categoryId: apiId
         )

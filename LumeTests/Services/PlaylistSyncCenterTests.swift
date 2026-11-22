@@ -42,6 +42,21 @@ private final class SyncRunnerStub {
 @Suite(.readsGlobalState)
 @MainActor
 struct PlaylistSyncCenterTests {
+    @Test func `a reconnection during sync retries a later failure using the current profile plan`() async throws {
+        let playlist = try makePlaylist("a")
+        let active = playlist.id.uuidString
+        center.enqueueDue([playlist], activePlaylistID: active, disabledAreasRaw: "")
+        await settle { stub.isRunning(playlist.id) }
+        playlist.password = "replacement"
+        center.reconnected([playlist.id], playlists: [playlist], activePlaylistID: active, disabledAreasRaw: "")
+        center.enqueueDue([playlist], activePlaylistID: active, disabledAreasRaw: "series")
+        stub.end(playlist.id, throwing: SyncRunnerStub.Failure())
+        await settle { stub.started.count == 2 }
+        #expect(stub.started == [playlist.id, playlist.id])
+        #expect(center.running?.plan.syncAreas.contains(.series) == false)
+        await finish(playlist)
+    }
+
     private let container: ModelContainer
     private let stub = SyncRunnerStub()
     private let center: PlaylistSyncCenter

@@ -206,14 +206,14 @@ struct WebDAVDigestSkipTests {
         defer { clearDefaults(playlistId: playlistId) }
 
         let manager = makeManager(container: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
         #expect(
             WebDAVDigestStore.digest(playlistId: playlistId) != nil,
             "A completed walk and import must be fingerprinted"
         )
 
         try deleteAlpha(in: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         #expect(try hasAlpha(in: container) == false, "An unchanged listing must skip the import entirely")
         // The sweeps are skipped with it: Beta, which the listing still names,
@@ -232,7 +232,7 @@ struct WebDAVDigestSkipTests {
         defer { clearDefaults(playlistId: playlistId) }
 
         let manager = makeManager(container: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
         try deleteAlpha(in: container)
 
         // Same files, same sizes, same dates — one new etag. The share was
@@ -243,7 +243,7 @@ struct WebDAVDigestSkipTests {
                 StubFile(href: "/Share/Beta.2002.1080p.mkv")
             ])
         ])
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         #expect(try hasAlpha(in: container), "A changed etag must re-import")
     }
@@ -259,7 +259,7 @@ struct WebDAVDigestSkipTests {
         defer { clearDefaults(playlistId: playlistId) }
 
         let manager = makeManager(container: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
         let first = try #require(WebDAVDigestStore.digest(playlistId: playlistId))
 
         WebDAVDigestStubProtocol.install(host: host, replies: [
@@ -272,7 +272,7 @@ struct WebDAVDigestSkipTests {
             ])
         ])
         try deleteAlpha(in: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         #expect(try hasAlpha(in: container), "A changed size must re-import")
         #expect(
@@ -292,7 +292,7 @@ struct WebDAVDigestSkipTests {
         defer { clearDefaults(playlistId: playlistId) }
 
         let manager = makeManager(container: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
         try deleteAlpha(in: container)
 
         // Nothing changed but the order the server happened to list the
@@ -303,7 +303,7 @@ struct WebDAVDigestSkipTests {
                 StubFile(href: "/Share/Alpha.2001.1080p.mkv")
             ])
         ])
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         #expect(try hasAlpha(in: container) == false, "Listing order is not a content change")
     }
@@ -325,7 +325,7 @@ struct WebDAVDigestSkipTests {
 
         let manager = makeManager(container: container)
         await #expect(throws: WebDAVError.self) {
-            try await manager.syncPlaylist(playlist)
+            try await manager.syncPlaylist(playlistID: playlist.id)
         }
 
         #expect(
@@ -342,7 +342,7 @@ struct WebDAVDigestSkipTests {
                 StubFile(href: "/Share/Sub/Beta.2002.1080p.mkv")
             ])
         ])
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
         #expect(try ModelContext(container).fetchCount(FetchDescriptor<Movie>()) == 2)
     }
 
@@ -356,7 +356,7 @@ struct WebDAVDigestSkipTests {
         let playlistId = playlist.id
         defer { clearDefaults(playlistId: playlistId) }
 
-        try await makeManager(container: container).syncPlaylist(playlist)
+        try await makeManager(container: container).syncPlaylist(playlistID: playlist.id)
 
         // A misconfigured path looks exactly like this; fingerprinting it would
         // turn every later retry into an instant no-op.
@@ -374,7 +374,7 @@ struct WebDAVDigestSkipTests {
         defer { clearDefaults(playlistId: playlistId) }
 
         let manager = makeManager(container: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         let backdated = Date.distantPast
         do {
@@ -387,7 +387,7 @@ struct WebDAVDigestSkipTests {
             try context.save()
         }
 
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         let context = ModelContext(container)
         let stored = try #require(

@@ -14,6 +14,70 @@ import Testing
 
 @MainActor
 struct HuePairingModelTests {
+    @Test func `a retired pairing cannot settle a newer pairing attempt`() async throws {
+        try await withIsolatedDefaultsAsync { defaults in
+            let first = try Bridge(pressAfter: 0), second = try Bridge(pressAfter: 0)
+            let store = HueCredentialStore(defaults: defaults, storage: InMemoryCredentialStorage())
+            let response = try HuePairingOutcome(responseData: Data(fixture("hue-pairing-success.json").utf8))
+            guard case let .paired(credentials) = response else { Issue.record("Bad pairing fixture"); return }
+            var releases: [CheckedContinuation<HueBridgeCredentials, Never>] = []
+            let model = HuePairingModel(
+                makeClient: { HueBridgeClient(host: $0.host, applicationKey: nil, session: StubURLProtocol.makeSession()) },
+                store: store,
+                pairBridge: { _ in await withCheckedContinuation { releases.append($0) } }
+            )
+            #expect(await model.identify(first.target))
+            let old = Task { await model.pair() }
+            try await waitUntil { releases.count == 1 }
+            model.cancel()
+            #expect(await model.identify(second.target))
+            let current = Task { await model.pair() }
+            try await waitUntil { releases.count == 2 }
+            releases[0].resume(returning: credentials)
+            #expect(await !old.value)
+            #expect(model.isWaitingForLinkButton)
+            #expect(store.pairedBridge == nil)
+            releases[1].resume(returning: credentials)
+            #expect(await current.value)
+            #expect(store.pairedBridge?.host == second.host)
+        }
+    }
+
+    @Test func `cancelled pairing cannot persist a successful late response`() async throws {
+        try await withIsolatedDefaultsAsync { defaults in
+            let bridge = try Bridge(pressAfter: 0)
+            let store = HueCredentialStore(defaults: defaults, storage: InMemoryCredentialStorage())
+            var release: CheckedContinuation<HueBridgeCredentials, Never>?
+            let model = HuePairingModel(
+                makeClient: { HueBridgeClient(host: $0.host, applicationKey: nil, session: StubURLProtocol.makeSession()) },
+                store: store,
+                pairBridge: { _ in await withCheckedContinuation { release = $0 } }
+            )
+            #expect(await model.identify(bridge.target))
+            let pairing = Task { await model.pair() }
+            try await waitUntil { release != nil }
+            model.cancel()
+            let response = try HuePairingOutcome(responseData: Data(fixture("hue-pairing-success.json").utf8))
+            guard case let .paired(credentials) = response else { Issue.record("Bad pairing fixture"); return }
+            release?.resume(returning: credentials)
+            #expect(await !pairing.value)
+            #expect(store.pairedBridge == nil)
+            #expect(model.bridgeName == nil)
+            #expect(!model.isBusy)
+        }
+    }
+
+    @Test func `editing the address retires the identified bridge`() async throws {
+        try await withIsolatedDefaultsAsync { defaults in
+            let bridge = try Bridge(pressAfter: 0)
+            let model = model(store: HueCredentialStore(defaults: defaults, storage: InMemoryCredentialStorage()))
+            #expect(await model.identify(bridge.target))
+            model.addressDidChange()
+            #expect(model.bridgeName == nil)
+            #expect(await !model.pair())
+        }
+    }
+
     /// Answers `/api/0/config` with the fixture config and `POST /api` with
     /// "link button not pressed" until `pressAfter` attempts, then success.
     private final class Bridge: Sendable {

@@ -26,15 +26,15 @@
         /// The title's copies, when opened through `TitleSourceHost`.
         @Environment(TitleSourceSelection.self) private var sourceSelection: TitleSourceSelection?
         private var isLoadingTMDB: Bool {
-            loader.snapshot(for: movie).isLoadingTMDB
+            loader.snapshot(for: movie, restriction: restriction).isLoadingTMDB
         }
 
         private var similar: [HomeMediaItem] {
-            loader.snapshot(for: movie).similar
+            loader.snapshot(for: movie, restriction: restriction).similar
         }
 
         private var collectionMovies: [HomeMediaItem] {
-            loader.snapshot(for: movie).collectionMovies
+            loader.snapshot(for: movie, restriction: restriction).collectionMovies
         }
 
         @State private var showYouTubeUnavailable = false
@@ -110,6 +110,10 @@
                         PosterRail(title: Text("Part of \(name)"), items: collectionMovies, style: .detail) { item in
                             posterLink(for: item)
                                 .mediaFavoriteMenu(item, in: modelContext)
+                        }
+                    } else if collectionMovies.isEmpty, loader.snapshot(for: movie, restriction: restriction).collectionOutcome == .failed {
+                        DetailLoadFailure("Couldn't load this collection.") {
+                            await loader.loadCollection(movie, restriction: restriction, in: modelContext)
                         }
                     }
                 }

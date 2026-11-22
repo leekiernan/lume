@@ -2,6 +2,21 @@
 import Testing
 
 struct DetailLoadStateTests {
+    @Test func `failure retry and cancellation retain distinct outcomes`() {
+        var lane = DetailLoadState()
+        let first = lane.begin()
+        lane.finish(first, outcome: .failed)
+        #expect(lane.outcome == .failed)
+        let retry = lane.begin()
+        #expect(lane.outcome == nil)
+        lane.abandon(retry)
+        #expect(lane.outcome == nil)
+        #expect(!lane.isLoading)
+        let completed = lane.begin()
+        lane.finish(completed)
+        #expect(lane.outcome == .loaded)
+    }
+
     @Test func `one detail lane cannot consume another lane's request`() {
         var initial = DetailLoadState(isBlocking: true)
         var optional = DetailLoadState()

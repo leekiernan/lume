@@ -8,6 +8,24 @@ import Foundation
 import Testing
 
 struct PlaylistOnboardingMachineTests {
+    @Test func `save failures remain retryable and cancellation retires validation results`() throws {
+        var machine = PlaylistOnboardingMachine()
+        let begun = machine.begin(.xtream)
+        let attempt = try #require(begun)
+        #expect(throws: CocoaError.self) {
+            try machine.commit(attempt) { throw CocoaError(.fileWriteOutOfSpace) }
+        }
+        #expect(machine.errorMessage != nil)
+        #expect(!machine.isValidating)
+        let retried = machine.begin(.xtream)
+        let retry = try #require(retried)
+        machine.cancel()
+        var persisted = false
+        let accepted = try machine.commit(retry) { persisted = true }
+        #expect(!accepted)
+        #expect(!persisted)
+    }
+
     @Test func `only one validation attempt can own the form`() {
         var machine = PlaylistOnboardingMachine()
         let attempt = machine.begin(.xtream)
@@ -24,10 +42,10 @@ struct PlaylistOnboardingMachineTests {
         let active = try #require(begun)
         let stale = PlaylistOnboardingMachine.Attempt(id: UUID(), source: .stalker)
 
-        let staleSucceeded = machine.succeed(stale)
+        let staleSucceeded = try machine.commit(stale, persist: {})
         #expect(!staleSucceeded)
         #expect(machine.isValidating)
-        let activeSucceeded = machine.succeed(active)
+        let activeSucceeded = try machine.commit(active, persist: {})
         #expect(activeSucceeded)
         #expect(!machine.isValidating)
         #expect(machine.errorMessage == nil)
@@ -59,7 +77,7 @@ struct PlaylistOnboardingMachineTests {
         machine.fail(first, message: "Late failure")
 
         #expect(machine.isValidating)
-        let retrySucceeded = machine.succeed(retry)
+        let retrySucceeded = try machine.commit(retry, persist: {})
         #expect(retrySucceeded)
         #expect(machine.errorMessage == nil)
     }

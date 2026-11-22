@@ -69,17 +69,10 @@ final nonisolated class StalkerClient: Sendable {
     // MARK: - Session / handshake
 
     /// Returns a valid session (bearer token + pinned endpoint), handshaking if
-    /// none is cached. `forceRefresh` discards a cached session first — used when
-    /// a request comes back unauthorized (an expired token).
-    private func authorizedSession(forceRefresh: Bool = false) async throws -> StalkerSessionStore.Session {
-        if forceRefresh {
-            await StalkerSessionStore.shared.clear(sessionKey)
-        } else if let cached = await StalkerSessionStore.shared.session(for: sessionKey) {
-            return cached
-        }
-        let session = try await handshake()
-        await StalkerSessionStore.shared.store(session, for: sessionKey)
-        return session
+    /// none is cached, or joining the handshake already under way. `rejected`
+    /// is the session a request just had refused (an expired token).
+    private func authorizedSession(rejected: StalkerSessionStore.Session? = nil) async throws -> StalkerSessionStore.Session {
+        try await StalkerSessionStore.shared.session(for: sessionKey, rejected: rejected) { try await self.handshake() }
     }
 
     /// Performs the Stalker handshake against each candidate endpoint until one
@@ -176,11 +169,11 @@ final nonisolated class StalkerClient: Sendable {
         action: String,
         extraQuery: [URLQueryItem] = []
     ) async throws -> T {
-        var refreshedAuth = false
+        var rejected: StalkerSessionStore.Session?
         var attempt = 0
         while true {
             attempt += 1
-            let session = try await authorizedSession(forceRefresh: refreshedAuth)
+            let session = try await authorizedSession(rejected: rejected)
             let query = [
                 URLQueryItem(name: "type", value: type),
                 URLQueryItem(name: "action", value: action)
@@ -189,8 +182,8 @@ final nonisolated class StalkerClient: Sendable {
             do {
                 return try await perform(url: url, token: session.token)
             } catch let error as StalkerError {
-                if error.isAuthFailure, !refreshedAuth {
-                    refreshedAuth = true
+                if error.isAuthFailure, rejected == nil {
+                    rejected = session
                     continue
                 }
                 guard error.isRetriable, let delay = Self.retryPolicy.delay(afterFailedAttempt: attempt) else {

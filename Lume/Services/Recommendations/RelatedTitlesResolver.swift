@@ -5,6 +5,18 @@ import SwiftData
 enum RelatedTitlesResolver {
     static let similarLimit = 12
 
+    /// Also used at the read boundary, before visibility-keyed tasks run.
+    /// This only inspects the small published rail; it never fetches rows.
+    static func visible(_ items: [HomeMediaItem], restriction: ContentRestriction) -> [HomeMediaItem] {
+        items.filter { item in
+            switch item {
+            case let .movie(movie): !restriction.hides(categoryID: movie.categoryId)
+            case let .series(series): !restriction.hides(categoryID: series.categoryId)
+            case let .live(stream): !restriction.hides(categoryID: stream.categoryId)
+            }
+        }
+    }
+
     static func playlistPrefix(of id: String) -> String {
         let head = String(id.prefix(36))
         guard UUID(uuidString: head) != nil else { return "" }

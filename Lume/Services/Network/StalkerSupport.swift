@@ -240,23 +240,39 @@ nonisolated enum StalkerError: LocalizedError {
 actor StalkerSessionStore {
     static let shared = StalkerSessionStore()
 
-    struct Session {
+    nonisolated struct Session: Equatable {
         let token: String
         let endpoint: URL
     }
 
     private var sessions: [String: Session] = [:]
+    /// The handshake under way per key. Every caller arriving while one runs
+    /// waits for that one: portals allow one token per MAC, so parallel
+    /// handshakes (a catalogue walk's pages all meeting an expired token at
+    /// once) invalidated each other's tokens.
+    private var handshakes: [String: Task<Session, Error>] = [:]
 
-    func session(for key: String) -> Session? {
-        sessions[key]
-    }
-
-    func store(_ session: Session, for key: String) {
-        sessions[key] = session
-    }
-
-    func clear(_ key: String) {
-        sessions[key] = nil
+    /// The cached session, or the one being negotiated, or a new handshake.
+    ///
+    /// `rejected` is a session a request just had refused. It is cleared only
+    /// if it is still the cached one, so a caller holding an old token can't
+    /// throw away the fresh session another caller already negotiated.
+    func session(for key: String, rejected: Session? = nil, handshake: @escaping @Sendable () async throws -> Session) async throws -> Session {
+        try Task.checkCancellation()
+        if let rejected, sessions[key] == rejected { sessions[key] = nil }
+        if let cached = sessions[key] { return cached }
+        if let running = handshakes[key] { return try await TaskResult.value(of: running) }
+        // The handshake, rather than its first waiter, owns cache publication
+        // and retirement. A cancelled waiter must not start a second handshake
+        // which could invalidate a token another caller is still negotiating.
+        let task = Task {
+            defer { handshakes[key] = nil }
+            let session = try await handshake()
+            sessions[key] = session
+            return session
+        }
+        handshakes[key] = task
+        return try await TaskResult.value(of: task)
     }
 }
 

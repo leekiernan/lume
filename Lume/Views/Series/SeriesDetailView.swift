@@ -30,31 +30,31 @@ struct SeriesDetailView: View {
 
     @State private var loader: SeriesDetailLoadMachine
     private var isLoadingTMDB: Bool {
-        loader.snapshot(for: series).isLoadingTMDB
+        loader.snapshot(for: series, restriction: restriction).isLoadingTMDB
     }
 
     private var similar: [HomeMediaItem] {
-        loader.snapshot(for: series).similar
+        loader.snapshot(for: series, restriction: restriction).similar
     }
 
     @State private var playingMedia: PlayableMedia?
     /// The title's copies, when opened through `TitleSourceHost`.
     @Environment(TitleSourceSelection.self) private var sourceSelection: TitleSourceSelection?
     private var selectedSeason: Int {
-        get { loader.snapshot(for: series).selectedSeason }
+        get { loader.snapshot(for: series, restriction: restriction).selectedSeason }
         nonmutating set { loader.selectedSeason = newValue }
     }
 
     private var availableSeasons: [Int] {
-        loader.snapshot(for: series).availableSeasons
+        loader.snapshot(for: series, restriction: restriction).availableSeasons
     }
 
     private var episodesBySeason: [Int: [Episode]] {
-        loader.snapshot(for: series).episodesBySeason
+        loader.snapshot(for: series, restriction: restriction).episodesBySeason
     }
 
     private var isLoadingEpisodes: Bool {
-        loader.snapshot(for: series).isLoadingEpisodes
+        loader.snapshot(for: series, restriction: restriction).isLoadingEpisodes
     }
 
     #if !os(tvOS)
@@ -183,6 +183,10 @@ struct SeriesDetailView: View {
             VStack(spacing: 12) {
                 ProgressView()
                 Text("Loading episodes…").foregroundStyle(.secondary)
+            }
+        } else if loader.snapshot(for: series, restriction: restriction).episodeOutcome == .failed {
+            DetailLoadFailure("Couldn't load episodes.") {
+                await loader.loadEpisodes(series, playlist: seriesPlaylist, in: modelContext)
             }
         } else {
             VStack(spacing: 12) {
@@ -414,13 +418,11 @@ private extension SeriesDetailView {
     }
 
     func markPreviousWatched(_ episode: Episode) {
-        episode.markEarlierEpisodesWatched()
-        try? modelContext.save()
+        MediaWatchState.apply(.markEarlierWatched, relativeTo: episode, in: modelContext)
     }
 
     func markFollowingUnwatched(_ episode: Episode) {
-        episode.markLaterEpisodesUnwatched()
-        try? modelContext.save()
+        MediaWatchState.apply(.resetLater, relativeTo: episode, in: modelContext)
     }
 }
 

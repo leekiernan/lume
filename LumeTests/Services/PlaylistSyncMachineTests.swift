@@ -4,6 +4,36 @@ import Testing
 
 @MainActor
 struct PlaylistSyncMachineTests {
+    @Test func `reconnection during a running failure releases its attempt once for fresh planning`() {
+        var machine = PlaylistSyncMachine()
+        let running = job(.automatic, repaired: [.movies])
+        machine.enqueue(running)
+        _ = machine.startNext()
+        let immediateRetry = machine.reconnected([running.playlistID], failedIDs: [])
+        #expect(immediateRetry.isEmpty)
+        let deferredRetry = machine.finish(.failed("old connection"))
+        #expect(deferredRetry == running.playlistID)
+        #expect(!machine.wasAttempted(running.playlistID))
+        #expect(machine.repairLedger.untried([.movies], for: running.playlistID) == [.movies])
+        machine.enqueue(running)
+        _ = machine.startNext()
+        let repeatedRetry = machine.finish(.failed("new connection"))
+        #expect(repeatedRetry == nil)
+    }
+
+    @Test func `reconnection does not repeat a success or override a stop`() {
+        for result in [PlaylistSyncMachine.Result.succeeded, .stopped] {
+            var machine = PlaylistSyncMachine()
+            let running = job(.automatic)
+            machine.enqueue(running)
+            _ = machine.startNext()
+            _ = machine.reconnected([running.playlistID], failedIDs: [])
+            let retry = machine.finish(result)
+            #expect(retry == nil)
+            #expect(machine.pending.isEmpty)
+        }
+    }
+
     private func job(_ origin: PlaylistSyncJob.Origin, id: UUID = UUID(), firstImport: Bool = false,
                      repairing: Set<AppArea>? = nil, browsable: Bool = false, repaired: Set<AppArea> = []) -> PlaylistSyncJob
     {

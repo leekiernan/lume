@@ -196,7 +196,7 @@ struct PlexSyncTests {
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, host: host, token: "tok")
         let manager = makeManager(container: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
         let context = ModelContext(container)
         #expect(try context.fetchCount(FetchDescriptor<Movie>()) == 1)
         #expect(try context.fetchCount(FetchDescriptor<Series>()) == 1)
@@ -212,7 +212,7 @@ struct PlexSyncTests {
         storedEpisode.watchProgress = 456
         try context.save()
         let identity = storedEpisode.persistentModelID
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
         let check = ModelContext(container)
         let checkedMovie = try #require(try check.fetch(FetchDescriptor<Movie>()).first)
         let checkedShow = try #require(try check.fetch(FetchDescriptor<Series>()).first)
@@ -240,7 +240,7 @@ struct PlexSyncTests {
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, host: host, token: "tok")
         let playlistId = playlist.id
-        try await makeManager(container: container).syncPlaylist(playlist)
+        try await makeManager(container: container).syncPlaylist(playlistID: playlist.id)
 
         let context = ModelContext(container)
         let stored = try #require(try context.fetch(FetchDescriptor<Playlist>()).first)
@@ -301,7 +301,7 @@ struct PlexSyncTests {
 
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, host: host)
-        try await makeManager(container: container).syncPlaylist(playlist)
+        try await makeManager(container: container).syncPlaylist(playlistID: playlist.id)
 
         let context = ModelContext(container)
         let stored = try #require(try context.fetch(FetchDescriptor<Playlist>()).first)
@@ -328,7 +328,7 @@ struct PlexSyncTests {
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, host: host, token: "tok")
         let manager = makeManager(container: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
         #expect(try ModelContext(container).fetchCount(FetchDescriptor<Movie>()) == 2)
 
         installFullServer(
@@ -337,7 +337,7 @@ struct PlexSyncTests {
             shows: [plexShow(ratingKey: "3", title: "Harbor Lights")],
             episodes: [plexEpisode(ratingKey: "5", title: "Pilot", showKey: "3", season: 2, number: 1)]
         )
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         let context = ModelContext(container)
         let movies = try context.fetch(FetchDescriptor<Movie>())
@@ -364,7 +364,7 @@ struct PlexSyncTests {
         seed.insert(Movie(id: "\(playlistId.uuidString)-jellyfin-zz", streamId: 9, name: "Foreign"))
         try seed.save()
 
-        try await makeManager(container: container).syncPlaylist(playlist)
+        try await makeManager(container: container).syncPlaylist(playlistID: playlist.id)
 
         let names = try Set(ModelContext(container).fetch(FetchDescriptor<Movie>()).map(\.name))
         #expect(names == ["Arrival", "Foreign"])
@@ -377,7 +377,7 @@ struct PlexSyncTests {
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, host: host)
         let manager = makeManager(container: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
         let seed = ModelContext(container)
         let survivor = try #require(try seed.fetch(FetchDescriptor<Movie>()).first { $0.name == "Keep" })
         survivor.isFavorite = true
@@ -387,7 +387,7 @@ struct PlexSyncTests {
         PlexServerStubProtocol.setReply(host: host, key: "/library/sections/1/all|1|0", reply: plexPage([plexMovie(ratingKey: "1", title: "Updated")], total: 3))
         PlexServerStubProtocol.setReply(host: host, key: "/library/sections/1/all|1|1", reply: plexPage([], total: 3))
         await #expect(throws: ProviderImportError.incompletePage(fetched: 1, expected: 3)) {
-            try await manager.syncPlaylist(playlist)
+            try await manager.syncPlaylist(playlistID: playlist.id)
         }
         let context = ModelContext(container)
         let movies = try context.fetch(FetchDescriptor<Movie>())
@@ -412,14 +412,14 @@ struct PlexSyncTests {
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, host: host)
         let manager = makeManager(container: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         // Movies come back short; the TV section has a new show and lost one.
         PlexServerStubProtocol.setReply(host: host, key: "/library/sections/1/all|1|0", reply: plexPage([plexMovie(ratingKey: "1", title: "Updated")], total: 3))
         PlexServerStubProtocol.setReply(host: host, key: "/library/sections/1/all|1|1", reply: plexPage([], total: 3))
         PlexServerStubProtocol.setReply(host: host, key: "/library/sections/2/all|2", reply: plexPage([plexShow(ratingKey: "4", title: "New Show")], total: 1))
         await #expect(throws: ProviderImportError.incompletePage(fetched: 1, expected: 3)) {
-            try await manager.syncPlaylist(playlist)
+            try await manager.syncPlaylist(playlistID: playlist.id)
         }
 
         let context = ModelContext(container)
@@ -451,7 +451,7 @@ struct PlexSyncTests {
         )
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, host: host, username: "bilipp", password: "test")
-        try await ContentSyncManager(modelContainer: container, plexClient: client).syncPlaylist(playlist)
+        try await ContentSyncManager(modelContainer: container, plexClient: client).syncPlaylist(playlistID: playlist.id)
 
         let context = ModelContext(container)
         let stored = try #require(try context.fetch(FetchDescriptor<Playlist>()).first)
@@ -486,7 +486,7 @@ struct PlexSyncTests {
         )
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, host: host, token: "revoked", username: "bilipp", password: "test")
-        try await ContentSyncManager(modelContainer: container, plexClient: client).syncPlaylist(playlist)
+        try await ContentSyncManager(modelContainer: container, plexClient: client).syncPlaylist(playlistID: playlist.id)
 
         let context = ModelContext(container)
         let stored = try #require(try context.fetch(FetchDescriptor<Playlist>()).first)
@@ -504,7 +504,7 @@ struct PlexSyncTests {
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, host: host, token: "stale")
         await #expect(throws: PlexError.self) {
-            try await makeManager(container: container).syncPlaylist(playlist)
+            try await makeManager(container: container).syncPlaylist(playlistID: playlist.id)
         }
 
         let context = ModelContext(container)

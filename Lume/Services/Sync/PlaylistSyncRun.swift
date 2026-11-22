@@ -37,7 +37,7 @@ enum PlaylistSyncRun {
         do {
             try await BackgroundActivity.perform("Playlist sync") {
                 try await syncManager.syncPlaylist(
-                    playlist,
+                    playlistID: playlist.id,
                     progress: progress,
                     full: plan.full,
                     repairingAreas: plan.repairingAreas,

@@ -38,7 +38,7 @@ enum TitleSourcePlayback {
     private static func fetchEpisodesIfNone(_ series: Series, playlist: Playlist, in context: ModelContext) async {
         guard series.episodes.isEmpty, playlist.supportsPerSeriesEpisodeFetch,
               let parsed = try? await ContentSyncManager(modelContainer: context.container).fetchEpisodes(
-                  seriesId: series.seriesId, seriesElementId: series.id, playlist: playlist
+                  seriesId: series.seriesId, seriesElementId: series.id, playlistID: playlist.id
               ),
               // An empty answer may be a provider hiccup: stamping the episode
               // cache with it would suppress the detail page's own fetch.

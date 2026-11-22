@@ -6,6 +6,39 @@ import Testing
 @MainActor
 @Suite(.globalState)
 struct MediaWatchStateTests {
+    @Test func `bulk watched and reset intent reach every version and each tracker once per episode`() throws {
+        let (context, series, episodes) = try makeSeries(count: 4)
+        series.tmdbId = 123
+        let other = Series(id: "other", seriesId: 2, name: "Other version")
+        other.tmdbId = series.tmdbId
+        context.insert(other)
+        let copies = episodes.map { episode in
+            let copy = Episode(id: "copy-\(episode.id)", episodeId: "copy-\(episode.episodeId)", title: "Copy", containerExtension: "mkv",
+                               seasonNum: episode.seasonNum, episodeNum: episode.episodeNum, series: other)
+            copy.durationSecs = 600
+            context.insert(copy)
+            return copy
+        }
+        try context.save()
+        let first = HistorySpy(), second = HistorySpy()
+        MediaWatchState.apply(.markEarlierWatched, relativeTo: episodes[2], in: context, trackers: [first, second])
+        let originalsWatched = episodes.prefix(2).allSatisfy(\.isWatched)
+        let copiesWatched = copies.prefix(2).allSatisfy(\.isWatched)
+        #expect(originalsWatched)
+        #expect(copiesWatched)
+        #expect(!episodes[2].isWatched && !copies[2].isWatched)
+        #expect(series.lastWatchedDate != nil && other.lastWatchedDate != nil)
+        #expect(first.episodeStates == [true, true] && second.episodeStates == [true, true])
+        copies[3].watchProgress = 30
+        MediaWatchState.apply(.resetLater, relativeTo: episodes[0], in: context, trackers: [first, second])
+        #expect(episodes.dropFirst().allSatisfy { !$0.isWatched && $0.watchProgress == 0 })
+        #expect(copies.dropFirst().allSatisfy { !$0.isWatched && $0.watchProgress == 0 })
+        #expect(first.episodeStates == [true, true, false, false])
+        #expect(second.episodeStates == first.episodeStates)
+        #expect(first.clearedEpisodes == 2 && second.clearedEpisodes == 2)
+        #expect(!context.hasChanges)
+    }
+
     @Test func `early exit resets movie and episode through both trackers`() throws {
         let (context, series, episodes) = try makeSeries(count: 1)
         let movie = Movie(id: UUID().uuidString, streamId: 1, name: "Movie")
@@ -188,6 +221,7 @@ struct MediaWatchStateTests {
     private final class HistorySpy: TrackerHistorySynchronizing {
         var movieStates: [Bool] = []
         var episodeStates: [Bool] = []
+        var clearedEpisodes = 0
         func syncWatched(movie _: Movie, watched: Bool) {
             movieStates.append(watched)
         }
@@ -198,7 +232,9 @@ struct MediaWatchStateTests {
 
         func clearPausedProgress(movie _: Movie) {}
 
-        func clearPausedProgress(episode _: Episode) {}
+        func clearPausedProgress(episode _: Episode) {
+            clearedEpisodes += 1
+        }
 
         func recordPausedProgress(movie _: Movie, progress _: Double, pausedAt _: Date) {}
 

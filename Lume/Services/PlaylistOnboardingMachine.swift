@@ -25,14 +25,17 @@ nonisolated struct PlaylistOnboardingMachine: Equatable {
     enum State: Equatable {
         case ready
         case validating(Attempt)
+        case saving(Attempt)
         case failed(String)
     }
 
     private(set) var state: State = .ready
 
     var isValidating: Bool {
-        if case .validating = state { return true }
-        return false
+        switch state {
+        case .validating, .saving: true
+        case .ready, .failed: false
+        }
     }
 
     var errorMessage: String? {
@@ -52,18 +55,35 @@ nonisolated struct PlaylistOnboardingMachine: Equatable {
     /// Marks this exact attempt as failed. A completion belonging to an older
     /// attempt is intentionally ignored.
     mutating func fail(_ attempt: Attempt, message: String) {
-        guard case .validating(attempt) = state else { return }
+        guard owns(attempt) else { return }
         state = .failed(message)
     }
 
-    /// Returns whether this exact attempt still owns the form before its
-    /// playlist is inserted. A successful insert immediately leaves the form,
-    /// so returning to `.ready` is the correct terminal state here.
+    /// Persistence is part of the attempt: a save failure remains on the form,
+    /// and stale validation results cannot insert anything.
     @discardableResult
-    mutating func succeed(_ attempt: Attempt) -> Bool {
+    mutating func commit(_ attempt: Attempt, persist: () throws -> Void) throws -> Bool {
         guard case .validating(attempt) = state else { return false }
+        state = .saving(attempt)
+        do {
+            try persist()
+            state = .ready
+            return true
+        } catch {
+            state = .failed(error.localizedDescription)
+            throw error
+        }
+    }
+
+    mutating func cancel() {
         state = .ready
-        return true
+    }
+
+    private func owns(_ attempt: Attempt) -> Bool {
+        switch state {
+        case .validating(attempt), .saving(attempt): true
+        default: false
+        }
     }
 
     /// File-import errors happen before a network attempt, but present in the
