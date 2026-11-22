@@ -22,31 +22,31 @@
 
         @State private var loader: SeriesDetailLoadMachine
         private var isLoadingTMDB: Bool {
-            loader.snapshot(for: series).isLoadingTMDB
+            loader.snapshot(for: series, restriction: restriction).isLoadingTMDB
         }
 
         private var similar: [HomeMediaItem] {
-            loader.snapshot(for: series).similar
+            loader.snapshot(for: series, restriction: restriction).similar
         }
 
         @State private var playingMedia: PlayableMedia?
         /// The title's copies, when opened through `TitleSourceHost`.
         @Environment(TitleSourceSelection.self) private var sourceSelection: TitleSourceSelection?
         private var selectedSeason: Int {
-            get { loader.snapshot(for: series).selectedSeason }
+            get { loader.snapshot(for: series, restriction: restriction).selectedSeason }
             nonmutating set { loader.selectedSeason = newValue }
         }
 
         private var availableSeasons: [Int] {
-            loader.snapshot(for: series).availableSeasons
+            loader.snapshot(for: series, restriction: restriction).availableSeasons
         }
 
         private var episodesBySeason: [Int: [Episode]] {
-            loader.snapshot(for: series).episodesBySeason
+            loader.snapshot(for: series, restriction: restriction).episodesBySeason
         }
 
         private var isLoadingEpisodes: Bool {
-            loader.snapshot(for: series).isLoadingEpisodes
+            loader.snapshot(for: series, restriction: restriction).isLoadingEpisodes
         }
 
         @State private var showYouTubeUnavailable = false
@@ -247,6 +247,10 @@
                     Text("Loading episodes…")
                         .font(.system(size: 26))
                         .foregroundStyle(.white.opacity(0.6))
+                }
+            } else if loader.snapshot(for: series, restriction: restriction).episodeOutcome == .failed {
+                DetailLoadFailure("Couldn't load episodes.") {
+                    await loader.loadEpisodes(series, playlist: seriesPlaylist, in: modelContext)
                 }
             } else {
                 VStack(spacing: 16) {

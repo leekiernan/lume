@@ -34,15 +34,15 @@ struct MovieDetailView: View {
     @Environment(TitleSourceSelection.self) private var sourceSelection: TitleSourceSelection?
     @State private var loader: MovieDetailLoadMachine
     private var isLoadingTMDB: Bool {
-        loader.snapshot(for: movie).isLoadingTMDB
+        loader.snapshot(for: movie, restriction: restriction).isLoadingTMDB
     }
 
     private var similar: [HomeMediaItem] {
-        loader.snapshot(for: movie).similar
+        loader.snapshot(for: movie, restriction: restriction).similar
     }
 
     private var collectionMovies: [HomeMediaItem] {
-        loader.snapshot(for: movie).collectionMovies
+        loader.snapshot(for: movie, restriction: restriction).collectionMovies
     }
 
     #if !os(tvOS)
@@ -185,6 +185,10 @@ struct MovieDetailView: View {
                     if !collectionMovies.isEmpty, let name = movie.collectionName {
                         section(title: "Part of \(name)") {
                             SimilarRow(items: collectionMovies, animationNamespace: animationNamespace)
+                        }
+                    } else if collectionMovies.isEmpty, loader.snapshot(for: movie, restriction: restriction).collectionOutcome == .failed {
+                        DetailLoadFailure("Couldn't load this collection.") {
+                            await loader.loadCollection(movie, restriction: restriction, in: modelContext)
                         }
                     }
                 }

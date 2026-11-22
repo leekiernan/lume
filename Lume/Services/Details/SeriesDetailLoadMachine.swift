@@ -8,6 +8,7 @@ final class SeriesDetailLoadMachine {
     struct Snapshot {
         var isLoadingTMDB: Bool
         var isLoadingEpisodes = false
+        var episodeOutcome: DetailLoadState.Outcome?
         var similar: [HomeMediaItem] = []
         var availableSeasons: [Int] = []
         var episodesBySeason: [Int: [Episode]] = [:]
@@ -22,6 +23,7 @@ final class SeriesDetailLoadMachine {
     private(set) var availableSeasons: [Int] = []
     private(set) var episodesBySeason: [Int: [Episode]] = [:]
     var selectedSeason = 1
+    @ObservationIgnored private let fetchEpisodes: (Int, String, UUID, ModelContainer) async throws -> FetchedEpisodes
 
     var isLoadingTMDB: Bool {
         detail.isBlocking
@@ -31,19 +33,22 @@ final class SeriesDetailLoadMachine {
         episodeLoad.isLoading
     }
 
-    init(series: Series) {
+    init(series: Series, fetchEpisodes: @escaping (Int, String, UUID, ModelContainer) async throws -> FetchedEpisodes = { id, elementID, playlistID, container in
+        try await ContentSyncManager(modelContainer: container).fetchEpisodes(seriesId: id, seriesElementId: elementID, playlistID: playlistID)
+    }) {
         contentID = series.id
         detail = Self.initialDetail(for: series)
+        self.fetchEpisodes = fetchEpisodes
     }
 
     /// Publication belongs to one title even before the replacement task runs.
-    func snapshot(for series: Series) -> Snapshot {
+    func snapshot(for series: Series, restriction: ContentRestriction? = nil) -> Snapshot {
         guard contentID == series.id else {
             return Snapshot(isLoadingTMDB: Self.initialDetail(for: series).isBlocking)
         }
         return Snapshot(
-            isLoadingTMDB: isLoadingTMDB, isLoadingEpisodes: isLoadingEpisodes,
-            similar: similar, availableSeasons: availableSeasons,
+            isLoadingTMDB: isLoadingTMDB, isLoadingEpisodes: isLoadingEpisodes, episodeOutcome: episodeLoad.outcome,
+            similar: RelatedTitlesResolver.visible(similar, restriction: restriction ?? self.restriction), availableSeasons: availableSeasons,
             episodesBySeason: episodesBySeason, selectedSeason: selectedSeason
         )
     }
@@ -80,14 +85,20 @@ final class SeriesDetailLoadMachine {
         prepare(series)
         guard let playlist, !episodeLoad.isLoading else { return }
         let request = episodeLoad.begin()
-        defer { episodeLoad.finish(request) }
-        let manager = ContentSyncManager(modelContainer: context.container)
-        guard let parsed = try? await manager.fetchEpisodes(
-            seriesId: series.seriesId, seriesElementId: series.id, playlistID: playlist.id
-        ), !Task.isCancelled, episodeLoad.owns(request) else { return }
-        // A failed or cancelled fetch must not stamp the cache as fresh.
-        series.applyFetchedEpisodes(parsed, into: context)
-        recomputeSeasons(series)
+        do {
+            let parsed = try await fetchEpisodes(series.seriesId, series.id, playlist.id, context.container)
+            guard episodeLoad.owns(request) else { return }
+            guard !Task.isCancelled else { episodeLoad.abandon(request); return }
+            series.applyFetchedEpisodes(parsed, into: context)
+            recomputeSeasons(series)
+            episodeLoad.finish(request)
+        } catch {
+            if Task.isCancelled || error is CancellationError {
+                episodeLoad.abandon(request)
+            } else {
+                episodeLoad.finish(request, outcome: .failed)
+            }
+        }
     }
 
     func recomputeSeasons(_ series: Series) {
