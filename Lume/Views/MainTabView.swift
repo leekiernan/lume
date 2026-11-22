@@ -359,7 +359,6 @@ struct MainTabView: View {
                     Image(systemName: syncCenter?.recentFailure() == nil
                         ? "arrow.triangle.2.circlepath"
                         : "exclamationmark.arrow.triangle.2.circlepath")
-                        .symbolEffect(.rotate, options: .repeat(.continuous), isActive: syncCenter?.running != nil)
                         .accessibilityLabel(Text("Sync"))
                 }
             }
