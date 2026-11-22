@@ -4,14 +4,16 @@ import Testing
 struct DetailLoadStateTests {
     @Test func `failure retry and cancellation retain distinct outcomes`() {
         var lane = DetailLoadState()
-        lane.finish(lane.begin(), outcome: .failed)
+        let first = lane.begin()
+        lane.finish(first, outcome: .failed)
         #expect(lane.outcome == .failed)
         let retry = lane.begin()
         #expect(lane.outcome == nil)
         lane.abandon(retry)
         #expect(lane.outcome == nil)
         #expect(!lane.isLoading)
-        lane.finish(lane.begin())
+        let completed = lane.begin()
+        lane.finish(completed)
         #expect(lane.outcome == .loaded)
     }
 

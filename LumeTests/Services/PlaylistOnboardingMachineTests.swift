@@ -10,16 +10,19 @@ import Testing
 struct PlaylistOnboardingMachineTests {
     @Test func `save failures remain retryable and cancellation retires validation results`() throws {
         var machine = PlaylistOnboardingMachine()
-        let attempt = try #require(machine.begin(.xtream))
+        let begun = machine.begin(.xtream)
+        let attempt = try #require(begun)
         #expect(throws: CocoaError.self) {
             try machine.commit(attempt) { throw CocoaError(.fileWriteOutOfSpace) }
         }
         #expect(machine.errorMessage != nil)
         #expect(!machine.isValidating)
-        let retry = try #require(machine.begin(.xtream))
+        let retried = machine.begin(.xtream)
+        let retry = try #require(retried)
         machine.cancel()
         var persisted = false
-        #expect(try !machine.commit(retry) { persisted = true })
+        let accepted = try machine.commit(retry) { persisted = true }
+        #expect(!accepted)
         #expect(!persisted)
     }
 

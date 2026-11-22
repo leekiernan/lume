@@ -9,13 +9,16 @@ struct PlaylistSyncMachineTests {
         let running = job(.automatic, repaired: [.movies])
         machine.enqueue(running)
         _ = machine.startNext()
-        #expect(machine.reconnected([running.playlistID], failedIDs: []).isEmpty)
-        #expect(machine.finish(.failed("old connection")) == running.playlistID)
+        let immediateRetry = machine.reconnected([running.playlistID], failedIDs: [])
+        #expect(immediateRetry.isEmpty)
+        let deferredRetry = machine.finish(.failed("old connection"))
+        #expect(deferredRetry == running.playlistID)
         #expect(!machine.wasAttempted(running.playlistID))
         #expect(machine.repairLedger.untried([.movies], for: running.playlistID) == [.movies])
         machine.enqueue(running)
         _ = machine.startNext()
-        #expect(machine.finish(.failed("new connection")) == nil)
+        let repeatedRetry = machine.finish(.failed("new connection"))
+        #expect(repeatedRetry == nil)
     }
 
     @Test func `reconnection does not repeat a success or override a stop`() {
@@ -25,7 +28,8 @@ struct PlaylistSyncMachineTests {
             machine.enqueue(running)
             _ = machine.startNext()
             _ = machine.reconnected([running.playlistID], failedIDs: [])
-            #expect(machine.finish(result) == nil)
+            let retry = machine.finish(result)
+            #expect(retry == nil)
             #expect(machine.pending.isEmpty)
         }
     }
