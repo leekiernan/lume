@@ -397,13 +397,11 @@
         }
 
         func markPreviousWatched(_ episode: Episode) {
-            episode.markEarlierEpisodesWatched()
-            try? modelContext.save()
+            MediaWatchState.apply(.markEarlierWatched, relativeTo: episode, in: modelContext)
         }
 
         func markFollowingUnwatched(_ episode: Episode) {
-            episode.markLaterEpisodesUnwatched()
-            try? modelContext.save()
+            MediaWatchState.apply(.resetLater, relativeTo: episode, in: modelContext)
         }
     }
 

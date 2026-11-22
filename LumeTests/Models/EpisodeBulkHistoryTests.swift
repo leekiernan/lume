@@ -21,13 +21,13 @@ struct EpisodeBulkHistoryTests {
             return episode
         }
         try context.save()
-        episodes[2].markEarlierEpisodesWatched()
+        MediaWatchState.apply(.markEarlierWatched, relativeTo: episodes[2], in: context, trackers: [])
         #expect(episodes.prefix(2).allSatisfy { $0.isWatched && $0.watchProgress == 1800 })
         #expect(!episodes[2].isWatched && !episodes[3].isWatched)
         #expect(show.lastWatchedDate == episodes.prefix(2).compactMap(\.lastWatchedDate).max())
 
         episodes[3].setWatched(true)
-        episodes[0].markLaterEpisodesUnwatched()
+        MediaWatchState.apply(.resetLater, relativeTo: episodes[0], in: context, trackers: [])
         #expect(episodes.dropFirst().allSatisfy { !$0.isWatched && $0.watchProgress == 0 && $0.lastWatchedDate == nil })
         #expect(show.lastWatchedDate == episodes[0].lastWatchedDate)
         #expect(RecentResumePoints.position(for: .episode(episodes[3].id), stored: 99, storedAt: nil) == 0)

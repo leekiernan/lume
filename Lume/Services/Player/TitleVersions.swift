@@ -39,4 +39,14 @@ nonisolated enum TitleVersions {
         })
         return [episode] + ((try? context.fetch(descriptor)) ?? [])
     }
+
+    /// One lookup for a bulk action, rather than one query per episode.
+    static func episodes(of series: Series, in context: ModelContext) -> [Episode] {
+        guard let tmdbId = series.tmdbId else { return series.episodes }
+        let id = series.id
+        let descriptor = FetchDescriptor<Episode>(predicate: #Predicate {
+            $0.series?.tmdbId == tmdbId && $0.series?.id != id
+        })
+        return series.episodes + ((try? context.fetch(descriptor)) ?? [])
+    }
 }
