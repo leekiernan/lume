@@ -238,6 +238,13 @@ struct MainTabView: View {
                 SportsSyncService.shared.isForeground = phase == .active
             }
             .onChange(of: contentRestriction.visibilityToken) { topShelf?.refresh() }
+            .onChange(of: syncCenter?.isBusy) { _, busy in
+                // A playlist already syncing isn't queued again, so a profile
+                // switched to mid-sync that needs another area waits for this
+                // one; it gets that area as soon as the queue empties. The
+                // session ledger keeps this from retrying anything twice.
+                if busy == false { enqueueDueSyncs(playlists) }
+            }
             .onChange(of: cloudSync?.status.lastPlaylistReconnection) { _, reconnection in
                 if let reconnection { retryFailedSyncs(reconnection.ids) }
             }
@@ -352,6 +359,7 @@ struct MainTabView: View {
                     Image(systemName: syncCenter?.recentFailure() == nil
                         ? "arrow.triangle.2.circlepath"
                         : "exclamationmark.arrow.triangle.2.circlepath")
+                        .symbolEffect(.rotate, options: .repeat(.continuous), isActive: syncCenter?.running != nil)
                         .accessibilityLabel(Text("Sync"))
                 }
             }

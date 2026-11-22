@@ -38,6 +38,8 @@ private final class SyncRunnerStub {
     }
 }
 
+/// Reads the active profile's Library areas through each job's plan.
+@Suite(.readsGlobalState)
 @MainActor
 struct PlaylistSyncCenterTests {
     private let container: ModelContainer
