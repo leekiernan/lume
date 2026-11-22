@@ -89,6 +89,7 @@ struct PlaylistSyncMachine {
     private(set) var attempted: Set<UUID> = []
     /// Areas each playlist has had an automatic repair for this session.
     private(set) var repairLedger = AutoSync.RepairLedger()
+    private var runningWasReconnected = false
 
     var isBusy: Bool {
         running != nil || !pending.isEmpty
@@ -138,17 +139,31 @@ struct PlaylistSyncMachine {
         guard running == nil, !pending.isEmpty else { return nil }
         let job = pending.removeFirst()
         running = job
+        runningWasReconnected = false
         return job
     }
 
-    mutating func finish(_ result: Result, at date: Date = Date()) {
-        guard let job = running else { return }
+    /// Returns a playlist to plan again when its in-flight connection was
+    /// replaced before that attempt failed. Success and an explicit stop do
+    /// not repeat work.
+    @discardableResult
+    mutating func finish(_ result: Result, at date: Date = Date()) -> UUID? {
+        guard let job = running else { return nil }
+        let reconnected = runningWasReconnected
+        runningWasReconnected = false
         running = nil
         switch result {
         case .succeeded: recent = Outcome(job: job, failure: nil, finishedAt: date)
         case let .failed(message): recent = Outcome(job: job, failure: message, finishedAt: date)
         case .stopped: if recent?.job.playlistID == job.playlistID { recent = nil }
         }
+        if reconnected, case .failed = result {
+            attempted.remove(job.playlistID)
+            repairLedger.reset(job.playlistID)
+            recent = nil
+            return job.playlistID
+        }
+        return nil
     }
 
     /// Queues the last failed sync again, ahead of the automatic ones.
@@ -181,6 +196,7 @@ struct PlaylistSyncMachine {
     /// Returns the ones to plan again: all of them but any already queued,
     /// which will run against the new details anyway.
     mutating func reconnected(_ reconnectedIDs: Set<UUID>, failedIDs: Set<UUID>) -> Set<UUID> {
+        if let running, reconnectedIDs.contains(running.playlistID) { runningWasReconnected = true }
         var failed = failedIDs
         if let failure = recentFailure() { failed.insert(failure.job.playlistID) }
         let reset = reconnectedIDs.intersection(failed)

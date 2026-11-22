@@ -34,6 +34,7 @@ final class PlaylistSyncCenter {
     @ObservationIgnored private let busyChanged: (Bool) -> Void
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var reportedBusy = false
+    @ObservationIgnored private var automaticScope: (activePlaylistID: String, disabledAreasRaw: String)?
     /// UI tests seed a playlist against a stub server; an automatic sync could
     /// never succeed there, so only the ones the test asks for run.
     @ObservationIgnored private let runsAutomaticSyncs: Bool
@@ -96,6 +97,7 @@ final class PlaylistSyncCenter {
     /// switches to it.
     func enqueueDue(_ candidates: [Playlist], activePlaylistID: String, disabledAreasRaw: String) {
         guard runsAutomaticSyncs else { return }
+        automaticScope = (activePlaylistID, disabledAreasRaw)
         for playlist in candidates where !machine.isQueued(playlist.id) {
             guard let job = automaticJob(for: playlist, activePlaylistID: activePlaylistID, disabledAreasRaw: disabledAreasRaw) else { continue }
             machine.enqueue(job)
@@ -219,7 +221,12 @@ final class PlaylistSyncCenter {
             PlaylistSyncCoverage.deferAutomaticRepair(job.plan.skippedForProfile, playlistID: job.playlistID)
         }
         if result == .stopped { progress = nil }
-        machine.finish(result)
+        let reconnected = machine.finish(result)
+        if let id = reconnected, let scope = automaticScope,
+           let playlist = try? container.mainContext.fetch(FetchDescriptor<Playlist>(predicate: #Predicate { $0.id == id })).first
+        {
+            enqueueDue([playlist], activePlaylistID: scope.activePlaylistID, disabledAreasRaw: scope.disabledAreasRaw)
+        }
         startNextIfIdle()
     }
 
