@@ -17,6 +17,7 @@
 
         @State private var model = HuePairingModel()
         @State private var pairing: Task<Void, Never>?
+        @State private var identification: Task<Void, Never>?
         @FocusState private var focus: Field?
 
         private enum Field: Hashable {
@@ -68,7 +69,7 @@
                     Task { @MainActor in focus = .address }
                 }
             }
-            .onDisappear { pairing?.cancel() }
+            .onDisappear { cancelWork() }
         }
 
         private var addressInput: some View {
@@ -82,7 +83,10 @@
                 .keyboardType(.numbersAndPunctuation)
                 .focused($focus, equals: .address)
                 .onSubmit { connectToAddress() }
-                .onChange(of: model.address) { model.addressDidChange() }
+                .onChange(of: model.address) {
+                    identification?.cancel()
+                    model.addressDidChange()
+                }
 
                 Text(String(
                     localized: "settings.hue.address.footer",
@@ -139,14 +143,12 @@
         private func connectToAddress() {
             let host = trimmedAddress
             guard !host.isEmpty, !model.isIdentifying else { return }
-            Task {
+            identification = Task {
                 if await model.identify(HuePairingTarget(host: host, bridgeID: nil)) {
-                    Task { @MainActor in
-                        // Submitting from the keyboard hands focus back to the
-                        // field as it dismisses, after a write made right away.
-                        try? await Task.sleep(for: .milliseconds(500))
-                        focus = .pair
-                    }
+                    // Let the keyboard release focus before landing on Pair.
+                    do { try await Task.sleep(for: .milliseconds(500)) } catch { return }
+                    guard model.bridgeName != nil else { return }
+                    focus = .pair
                 }
             }
         }
@@ -161,8 +163,14 @@
         }
 
         private func cancel() {
-            pairing?.cancel()
+            cancelWork()
             onCancel()
+        }
+
+        private func cancelWork() {
+            model.cancel()
+            identification?.cancel()
+            pairing?.cancel()
         }
     }
 

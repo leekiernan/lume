@@ -30,9 +30,9 @@ final class HuePairingModel {
 
     enum Phase {
         case idle
-        case identifying
+        case identifying(RequestToken)
         case identified(Bridge)
-        case waitingForLinkButton(Bridge)
+        case waitingForLinkButton(Bridge, RequestToken)
     }
 
     /// The link button stays armed for 30 s; polling stops there.
@@ -47,6 +47,7 @@ final class HuePairingModel {
     @ObservationIgnored private let store: HueCredentialStore
     @ObservationIgnored private let pollWindow: Duration
     @ObservationIgnored private let pollInterval: Duration
+    @ObservationIgnored private let pairBridge: (HueBridgeClient) async throws(HueBridgeError) -> HueBridgeCredentials
 
     init(
         makeClient: @escaping (HuePairingTarget) -> HueBridgeClient? = {
@@ -54,17 +55,19 @@ final class HuePairingModel {
         },
         store: HueCredentialStore = HueCredentialStore(),
         pollWindow: Duration = HuePairingModel.pollWindow,
-        pollInterval: Duration = HuePairingModel.pollInterval
+        pollInterval: Duration = HuePairingModel.pollInterval,
+        pairBridge: @escaping (HueBridgeClient) async throws(HueBridgeError) -> HueBridgeCredentials = { try await $0.pair() }
     ) {
         self.makeClient = makeClient
         self.store = store
         self.pollWindow = pollWindow
         self.pollInterval = pollInterval
+        self.pairBridge = pairBridge
     }
 
     var bridgeName: String? {
         switch phase {
-        case let .identified(bridge), let .waitingForLinkButton(bridge): bridge.config.name
+        case let .identified(bridge), let .waitingForLinkButton(bridge, _): bridge.config.name
         case .idle, .identifying: nil
         }
     }
@@ -82,23 +85,34 @@ final class HuePairingModel {
     }
 
     func addressDidChange() {
+        cancel()
+    }
+
+    func cancel() {
+        phase = .idle
         errorMessage = nil
     }
 
     func identify(_ target: HuePairingTarget) async -> Bool {
+        guard !Task.isCancelled else { return false }
+        cancel()
         guard let client = makeClient(target) else {
             errorMessage = HuePairingStrings.invalidAddress
             return false
         }
-        phase = .identifying
+        let request = RequestToken()
+        phase = .identifying(request)
+        defer { if owns(request) { phase = .idle } }
         errorMessage = nil
         do {
             let config = try await client.identify()
+            guard accepts(request) else { return false }
             phase = .identified(Bridge(client: client, config: config, host: target.host))
             return true
         } catch {
+            guard owns(request) else { return false }
             phase = .idle
-            errorMessage = HuePairingStrings.message(for: error)
+            if !Task.isCancelled { errorMessage = HuePairingStrings.message(for: error) }
             return false
         }
     }
@@ -107,38 +121,53 @@ final class HuePairingModel {
     /// button not pressed" comes back, or the poll window runs out. True once
     /// the bridge is stored as this device's only bridge.
     func pair() async -> Bool {
-        guard case let .identified(bridge) = phase else { return false }
-        phase = .waitingForLinkButton(bridge)
+        guard !Task.isCancelled, case let .identified(bridge) = phase else { return false }
+        let request = RequestToken()
+        phase = .waitingForLinkButton(bridge, request)
         errorMessage = nil
-        defer { if isWaitingForLinkButton { phase = .identified(bridge) } }
+        defer { if owns(request) { phase = .identified(bridge) } }
 
+        guard let credentials = await poll(bridge.client, request: request), accepts(request) else { return false }
+        let secrets = HueBridgeSecrets(credentials: credentials, certificatePin: bridge.client.firstUsePin)
+        guard store.savePairing(secrets, for: HueBridgeAddress(id: bridge.config.normalizedID, host: bridge.host)) else {
+            errorMessage = HuePairingStrings.saveFailed
+            return false
+        }
+        return true
+    }
+
+    private func poll(_ client: HueBridgeClient, request: RequestToken) async -> HueBridgeCredentials? {
         let deadline = ContinuousClock.now + pollWindow
-        while true {
+        while accepts(request) {
             do {
-                let credentials = try await bridge.client.pair()
-                let secrets = HueBridgeSecrets(credentials: credentials, certificatePin: bridge.client.firstUsePin)
-                guard store.savePairing(secrets, for: HueBridgeAddress(id: bridge.config.normalizedID, host: bridge.host)) else {
-                    errorMessage = HuePairingStrings.saveFailed
-                    return false
-                }
-                return true
+                return try await pairBridge(client)
             } catch .linkButtonNotPressed {
+                guard accepts(request) else { return nil }
                 guard ContinuousClock.now + pollInterval < deadline else {
                     errorMessage = HuePairingStrings.linkButtonTimedOut
-                    return false
+                    return nil
                 }
-                do {
-                    try await Task.sleep(for: pollInterval)
-                } catch {
-                    return false
-                }
+                do { try await Task.sleep(for: pollInterval) } catch { return nil }
             } catch .cancelled {
-                return false
+                return nil
             } catch {
+                guard accepts(request) else { return nil }
                 errorMessage = HuePairingStrings.message(for: error)
-                return false
+                return nil
             }
         }
+        return nil
+    }
+
+    private func owns(_ request: RequestToken) -> Bool {
+        switch phase {
+        case .identifying(request), .waitingForLinkButton(_, request): true
+        default: false
+        }
+    }
+
+    private func accepts(_ request: RequestToken) -> Bool {
+        owns(request) && !Task.isCancelled
     }
 }
 
