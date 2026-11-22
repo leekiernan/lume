@@ -209,7 +209,9 @@ final nonisolated class JellyfinClient: Sendable {
 
     private static func makeSession() -> URLSession {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 30
+        // A cold page of a large on-demand library can take well over 30 s on
+        // the server; logging in stays bounded at 20 s (`authenticate`).
+        config.timeoutIntervalForRequest = 90
         config.timeoutIntervalForResource = 600
         config.httpAdditionalHeaders = ["User-Agent": lumeCatalogUserAgent]
         return URLSession(configuration: config)
@@ -224,6 +226,7 @@ final nonisolated class JellyfinClient: Sendable {
         let url = server.appendingPathComponent("Users/AuthenticateByName")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.timeoutInterval = 20
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(Self.clientAuthorization, forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONEncoder().encode(["Username": username, "Pw": password])
