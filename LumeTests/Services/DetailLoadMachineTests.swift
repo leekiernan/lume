@@ -74,16 +74,24 @@ struct DetailLoadMachineTests {
         let movie = Movie(id: "movie", streamId: 1, name: "Movie")
         movie.collectionId = 10
         context.insert(movie)
-        var fails = true
+        let part = Movie(id: "part", streamId: 2, name: "Part")
+        part.tmdbId = 2
+        context.insert(part)
+        try context.save()
+        var reads = 0
         let loader = MovieDetailLoadMachine(movie: movie, fetchCollection: { _, _ in
-            if fails { throw URLError(.cannotConnectToHost) }
-            return []
+            reads += 1
+            if reads == 2 { throw URLError(.cannotConnectToHost) }
+            return reads == 1 ? [2] : []
         })
         await loader.loadCollection(movie, in: context)
+        #expect(loader.snapshot(for: movie).collectionMovies == [.movie(part)])
+        await loader.loadCollection(movie, in: context)
         #expect(loader.snapshot(for: movie).collectionOutcome == .failed)
-        fails = false
+        #expect(loader.snapshot(for: movie).collectionMovies == [.movie(part)])
         await loader.loadCollection(movie, in: context)
         #expect(loader.snapshot(for: movie).collectionOutcome == .loaded)
+        #expect(loader.snapshot(for: movie).collectionMovies.isEmpty)
     }
 
     private func episode(_ number: Int, season: Int, series: Series) -> Episode {
