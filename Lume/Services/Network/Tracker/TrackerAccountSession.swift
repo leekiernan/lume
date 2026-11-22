@@ -209,16 +209,22 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
             let token = await validAccessToken()
             if generation != request { continue }
             guard let token else { return nil }
-            if verifiedDeliveryGeneration != request {
-                let fresh = await lookUpIdentity(token)
-                // A refused token is refreshed on the next pass.
-                if generation != request || (fresh == nil && refusedAccessToken == token) { continue }
-                guard let fresh, delivery.isCurrent, isConnected, !Task.isCancelled else { return nil }
-                adopt(fresh)
-            }
-            return delivery.isCurrent && isConnected && !Task.isCancelled ? token : nil
+            if await confirmDeliveryIdentity(token, generation: request, permit: delivery) { return token }
+            // A refused token is refreshed on the next pass.
+            if generation != request || refusedAccessToken == token { continue }
+            return nil
         }
         return nil
+    }
+
+    private func confirmDeliveryIdentity(_ token: String, generation request: RequestToken, permit: TrackerAccountPermit) async -> Bool {
+        guard permit.isCurrent, generation == request, isConnected, !Task.isCancelled else { return false }
+        if verifiedDeliveryGeneration != request {
+            let fresh = await lookUpIdentity(token)
+            guard let fresh, generation == request, permit.isCurrent, isConnected, !Task.isCancelled else { return false }
+            adopt(fresh)
+        }
+        return generation == request && permit.isCurrent && isConnected && !Task.isCancelled
     }
 
     /// A usable access token, refreshing first if the pair is stale.
@@ -259,15 +265,22 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
     /// Sends `request` with `accessToken`. If the service refuses the token,
     /// it is refreshed and the request sent once more with the new one.
     func retryingRefusedToken<T>(_ accessToken: String, _ request: (String) async throws -> T) async throws -> T {
+        let permit = operationPermit
+        try Task.checkCancellation()
         do {
             return try await request(accessToken)
         } catch where Backend.refusesAccessToken(error) {
+            guard permit.isCurrent, !Task.isCancelled else { throw CancellationError() }
             accessTokenRefused(accessToken)
             guard let renewed = await validAccessToken(), renewed != accessToken else { throw error }
+            // The replacement can belong to another account, including when
+            // iCloud initially supplied only a remembered identity. Verify it
+            // before reusing the original operation with the replacement pair.
+            guard await confirmDeliveryIdentity(renewed, generation: generation, permit: permit) else { throw error }
             do {
                 return try await request(renewed)
             } catch where Backend.refusesAccessToken(error) {
-                accessTokenRefused(renewed)
+                if permit.isCurrent { accessTokenRefused(renewed) }
                 throw error
             }
         }

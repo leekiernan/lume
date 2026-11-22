@@ -244,7 +244,7 @@ final class TrackerMutationQueue<Backend: TrackerAccountBackend> {
         }
 
         while !Task.isCancelled, self.account == account, let mutation = outbox.firstMutation(account: account) {
-            guard let accessToken = await session.validAccessToken() else {
+            guard let accessToken = await session.operationAccessToken() else {
                 guard !Task.isCancelled, drainID == id, self.account == account else { break }
                 outbox.recordFailure(id: mutation.id, account: account)
                 syncError = "Couldn't sync changes to \(Backend.name). Please try again."
@@ -266,6 +266,7 @@ final class TrackerMutationQueue<Backend: TrackerAccountBackend> {
                     refreshWatchlistSoon()
                 }
             } catch {
+                guard !Task.isCancelled, drainID == id, self.account == account else { break }
                 outbox.recordFailure(id: mutation.id, account: account)
                 Logger.network.warning("\(Backend.name, privacy: .public) \(mutation.kind.rawValue, privacy: .public) mutation failed: \(LogRedaction.describe(error), privacy: .public)")
                 syncError = "Couldn't sync changes to \(Backend.name). Please try again."

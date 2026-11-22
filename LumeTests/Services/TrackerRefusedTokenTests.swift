@@ -88,7 +88,6 @@ struct TrackerRefusedTokenTests {
 
     @Test func `a token refused twice is not refreshed again`() async {
         let (tracker, session, _) = await connected()
-        tracker.refusedTokens = ["a", "b"]
         var sent: [String] = []
 
         await #expect(throws: FakeRefusedTokenError.self) {
@@ -99,5 +98,67 @@ struct TrackerRefusedTokenTests {
         }
         #expect(sent == ["a", "b"])
         #expect(tracker.refreshCalls == 1)
+    }
+
+    @Test func `a refused request cannot retry under a replacement account`() async {
+        let (tracker, session, _) = await connected()
+        var sent: [String] = []
+        await #expect(throws: CancellationError.self) {
+            try await session.retryingRefusedToken("a") { token in
+                sent.append(token)
+                tracker.storedTokens = renewed
+                tracker.identityResponses = [bob]
+                _ = await session.restore()
+                throw FakeRefusedTokenError()
+            }
+        }
+        #expect(sent == ["a"])
+        #expect(session.identity == bob)
+    }
+
+    @Test func `a refused request survives a verified same account cloud rotation`() async throws {
+        let (tracker, session, _) = await connected()
+        var sent: [String] = []
+        try await session.retryingRefusedToken("a") { token in
+            sent.append(token)
+            if token == "a" {
+                tracker.storedTokens = renewed
+                tracker.identityResponses = [alice]
+                _ = await session.restore()
+                throw FakeRefusedTokenError()
+            }
+        }
+        #expect(sent == ["a", "b"])
+        #expect(tracker.refreshCalls == 0)
+    }
+
+    @Test func `a refused request cannot cross a disconnect and reconnect to the same account`() async {
+        let (tracker, session, _) = await connected()
+        var sent: [String] = []
+        await #expect(throws: CancellationError.self) {
+            try await session.retryingRefusedToken("a") { token in
+                sent.append(token)
+                await session.disconnect()
+                tracker.storedTokens = renewed
+                tracker.identityResponses = [alice]
+                _ = await session.restore()
+                throw FakeRefusedTokenError()
+            }
+        }
+        #expect(sent == ["a"])
+    }
+
+    @Test func `a refreshed pair must still identify as the original account before retrying`() async {
+        let (tracker, session, _) = await connected()
+        tracker.identityResponses = [bob]
+        var sent: [String] = []
+        await #expect(throws: FakeRefusedTokenError.self) {
+            try await session.retryingRefusedToken("a") { token in
+                sent.append(token)
+                throw FakeRefusedTokenError()
+            }
+        }
+        #expect(sent == ["a"])
+        #expect(session.identity == bob)
     }
 }
