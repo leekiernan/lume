@@ -7,7 +7,7 @@ enum PlaylistOnboardingStore {
         let context = ModelContext(container)
         context.autosaveEnabled = false
         context.insert(playlist)
-        EPGSourceReconciler.reconcile(playlist, in: context)
+        EPGSourceReconciler.apply(playlist, in: context)
         do {
             try save(context)
         } catch {
