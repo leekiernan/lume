@@ -52,7 +52,7 @@ struct TrackerRefusedTokenTests {
 
         #expect(tracker.refreshCalls == 1)
         #expect(tracker.deliveryAttempts == [.movie(tmdbID: 1)])
-        #expect(Array(tracker.tokensUsed.suffix(2)) == ["a", "b"])
+        #expect(tracker.deliveryTokens == ["a", "b"])
         #expect(queue.pendingCount == 0)
         #expect(queue.syncError == nil)
     }

@@ -7,11 +7,12 @@ import Testing
 struct DetailLoadMachineTests {
     @Test func `a collection is filtered before replacement tasks and restored from cached ids`() async throws {
         let context = try ModelContext(makeTestContainer())
-        let movie = Movie(id: "movie", streamId: 1, name: "Movie")
+        let owner = UUID().uuidString
+        let movie = Movie(id: "\(owner)-movie-1", streamId: 1, name: "Movie")
         movie.tmdbId = 1
         movie.collectionId = 10
         movie.similarTitleIds = [2]
-        let part = Movie(id: "part", streamId: 2, name: "Part")
+        let part = Movie(id: "\(owner)-movie-2", streamId: 2, name: "Part")
         part.tmdbId = 2
         part.categoryId = "hidden"
         context.insert(movie)
@@ -34,7 +35,8 @@ struct DetailLoadMachineTests {
 
     @Test func `a visibility change retires an in flight collection response`() async throws {
         let context = try ModelContext(makeTestContainer())
-        let movie = Movie(id: "movie", streamId: 1, name: "Movie")
+        let owner = UUID().uuidString
+        let movie = Movie(id: "\(owner)-movie-1", streamId: 1, name: "Movie")
         movie.collectionId = 10
         context.insert(movie)
         var resume: CheckedContinuation<[Int], Never>?
@@ -71,10 +73,11 @@ struct DetailLoadMachineTests {
 
     @Test func `collection failure retains cached content but is distinct from an empty collection`() async throws {
         let context = try ModelContext(makeTestContainer())
-        let movie = Movie(id: "movie", streamId: 1, name: "Movie")
+        let owner = UUID().uuidString
+        let movie = Movie(id: "\(owner)-movie-1", streamId: 1, name: "Movie")
         movie.collectionId = 10
         context.insert(movie)
-        let part = Movie(id: "part", streamId: 2, name: "Part")
+        let part = Movie(id: "\(owner)-movie-2", streamId: 2, name: "Part")
         part.tmdbId = 2
         context.insert(part)
         try context.save()
@@ -161,7 +164,8 @@ struct DetailLoadMachineTests {
     @Test func `movie load without metadata settles and collection removal clears the lane`() async throws {
         let container = try makeTestContainer()
         let context = ModelContext(container)
-        let movie = Movie(id: "movie", streamId: 1, name: "Movie")
+        let owner = UUID().uuidString
+        let movie = Movie(id: "\(owner)-movie-1", streamId: 1, name: "Movie")
         context.insert(movie)
         let machine = MovieDetailLoadMachine(movie: movie)
         await machine.load(movie, in: context)
