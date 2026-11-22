@@ -23,18 +23,26 @@ extension LoginView {
     /// tuned for *sync*, where retries matter; left unbounded, a wrong URL or
     /// dead host can hang the add sheet for ~30–90s on a spinner with no way out.
     /// This caps the test (default 20s) without weakening the sync path.
-    func withConnectionTimeout(_ seconds: Double = 20, _ operation: @escaping () async throws -> Void) async throws {
-        let work = Task { try await operation() }
+    /// The deadline settles independently of cancellation-cooperation by a
+    /// provider. Callers commit model changes only after this returns.
+    static func connectionTest<Value: Sendable>(timeout: Duration = .seconds(20), _ operation: @escaping () async throws -> Value) async throws -> Value {
+        let result = TaskResult<Value>()
+        let work = Task {
+            do {
+                try await result.resolve(.success(operation()))
+            } catch {
+                result.resolve(.failure(error))
+            }
+        }
         let watchdog = Task {
-            try? await Task.sleep(for: .seconds(seconds))
+            do { try await Task.sleep(for: timeout) } catch { return }
+            result.resolve(.failure(ConnectionTimeoutError()))
             work.cancel()
         }
-        defer { watchdog.cancel() }
-        do {
-            try await work.value
-        } catch {
-            if work.isCancelled { throw ConnectionTimeoutError() }
-            throw error
+        defer {
+            watchdog.cancel()
+            work.cancel()
         }
+        return try await result.value()
     }
 }

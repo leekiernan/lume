@@ -76,42 +76,41 @@ extension LoginView {
         let input = MediaServerAddCheck.Input(url: mediaServerURL, username: user, password: password)
         noteAddAttempt("media server", address: mediaServerURL)
 
-        Task {
+        validationTask = Task {
             do {
-                try await withConnectionTimeout {
-                    switch try await MediaServerAddCheck.verify(input) {
-                    case let .mediaServer(serverURL, flavor, session):
-                        insertAndFinish(Playlist(
-                            name: playlistName,
-                            mediaServerURL: serverURL,
-                            flavor: flavor,
-                            username: user,
-                            password: password,
-                            accessToken: session.accessToken,
-                            userId: session.userId
-                        ), attempt: attempt)
-                    case let .plex(serverURL, token):
-                        // Only the resolved token is stored: the plex.tv
-                        // password bought it and has no further use, and a
-                        // server that answers unauthenticated stores nothing
-                        // at all.
-                        insertAndFinish(Playlist(
-                            name: playlistName,
-                            plexURL: serverURL,
-                            username: user,
-                            accessToken: token
-                        ), attempt: attempt)
-                    case let .webdav(url):
-                        // An anonymous share stores no password: a stray one
-                        // would be sent as a Basic header the server never
-                        // asked for.
-                        insertAndFinish(Playlist(
-                            name: playlistName,
-                            webdavURL: url,
-                            username: user,
-                            password: user.isEmpty ? "" : password
-                        ), attempt: attempt)
-                    }
+                let verified = try await Self.connectionTest { try await MediaServerAddCheck.verify(input) }
+                switch verified {
+                case let .mediaServer(serverURL, flavor, session):
+                    try insertAndFinish(Playlist(
+                        name: playlistName,
+                        mediaServerURL: serverURL,
+                        flavor: flavor,
+                        username: user,
+                        password: password,
+                        accessToken: session.accessToken,
+                        userId: session.userId
+                    ), attempt: attempt)
+                case let .plex(serverURL, token):
+                    // Only the resolved token is stored: the plex.tv
+                    // password bought it and has no further use, and a
+                    // server that answers unauthenticated stores nothing
+                    // at all.
+                    try insertAndFinish(Playlist(
+                        name: playlistName,
+                        plexURL: serverURL,
+                        username: user,
+                        accessToken: token
+                    ), attempt: attempt)
+                case let .webdav(url):
+                    // An anonymous share stores no password: a stray one
+                    // would be sent as a Basic header the server never
+                    // asked for.
+                    try insertAndFinish(Playlist(
+                        name: playlistName,
+                        webdavURL: url,
+                        username: user,
+                        password: user.isEmpty ? "" : password
+                    ), attempt: attempt)
                 }
             } catch {
                 onboarding.fail(
