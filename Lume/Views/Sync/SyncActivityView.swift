@@ -28,6 +28,8 @@ struct SyncActivityView: View {
     /// screen reports and never waits for (`SyncGuideStatus`).
     @State private var epg = EPGSyncService.shared
     @State private var sawGuideRunning = false
+    /// Sync Now was pressed here, so how that sync ends is this screen's news.
+    @State private var tookOffer = false
 
     /// What the sheet is showing. The running sync wins over the last result.
     enum Phase: Equatable {
@@ -40,6 +42,9 @@ struct SyncActivityView: View {
     var phase: Phase {
         if center?.running != nil { return .syncing }
         guard let recent = center?.recent else { return .idle }
+        // Offered a fresh sync, an earlier run that went fine is old news; a
+        // failure still shows, with Try Again.
+        if offer != nil, !tookOffer, !recent.failed { return .idle }
         return recent.failure.map(Phase.failed) ?? .finished
     }
 
@@ -71,6 +76,10 @@ struct SyncActivityView: View {
 
     var body: some View {
         content
+            // Its own toast host, above the root and Settings ones it covers:
+            // without it, the result of a sync finishing under this screen
+            // was drawn behind it and expired unseen.
+            .inAppToasts(priority: 2)
             .onChange(of: epg.isSyncing) { _, running in
                 if running, center?.recent != nil, center?.running == nil { sawGuideRunning = true }
             }
@@ -92,7 +101,9 @@ struct SyncActivityView: View {
     }
 
     func syncOffer() {
-        if let offer { center?.sync(offer) }
+        guard let offer else { return }
+        tookOffer = true
+        center?.sync(offer)
     }
 
     var title: LocalizedStringKey {
