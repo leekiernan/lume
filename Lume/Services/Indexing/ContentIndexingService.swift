@@ -103,7 +103,22 @@ final class ContentIndexingService {
     }
 
     private var container: ModelContainer?
-    private var task: Task<Void, Never>?
+    private struct Pass {
+        let id: RequestToken
+        let task: Task<Void, Never>
+    }
+
+    private nonisolated enum PassContext {
+        @TaskLocal static var request: RequestToken?
+    }
+
+    private var pass: Pass?
+
+    private var ownsProgress: Bool {
+        guard let pass else { return false }
+        return pass.id == PassContext.request && !Task.isCancelled
+    }
+
     private let runPass: (ModelContainer, ContentIndexingService) async throws -> Void
 
     private convenience init() {
@@ -128,34 +143,44 @@ final class ContentIndexingService {
     /// `delay` lets the post-sync caller hold the pass off briefly: a sync just
     /// grew the catalog and the user is about to browse it, so loading the
     /// embedding model and the per-chunk saves (each forces a main-context merge
-    /// that re-runs every `@Query`) shouldn't fight that first browse. `task` is
+    /// that re-runs every `@Query`) shouldn't fight that first browse. the pass is
     /// claimed immediately, so a second kick during the delay coalesces to a no-op.
     func kick(after delay: Duration = .zero) {
-        guard let container, task == nil, state != .unavailable else { return }
+        guard let container, pass == nil, state != .unavailable else { return }
         // `.utility` so the embedding passes (each chunk embeds a vector per
         // title) run below the UI's QoS and yield to browsing — matching
         // `EPGSyncService`. Without it the pass inherited the caller's
         // `.userInitiated` QoS and its CPU bursts competed with the main thread.
-        task = Task(priority: .utility) {
-            defer { task = nil }
-            if delay > .zero {
-                try? await Task.sleep(for: delay)
-                guard !Task.isCancelled else { return }
+        let id = RequestToken()
+        let task = Task(priority: .utility) {
+            await PassContext.$request.withValue(id) {
+                await performPass(container: container, id: id, delay: delay)
             }
-            do {
-                try await runPass(container, self)
-            } catch is CancellationError {
+        }
+        pass = Pass(id: id, task: task)
+    }
+
+    private func performPass(container: ModelContainer, id: RequestToken, delay: Duration) async {
+        defer { if pass?.id == id { pass = nil } }
+        if delay > .zero {
+            do { try await Task.sleep(for: delay) } catch { return }
+        }
+        do {
+            try await runPass(container, self)
+        } catch {
+            guard pass?.id == id else { return }
+            if error is CancellationError {
                 state = .interrupted
-            } catch TextEmbedder.EmbedderError.modelUnavailable {
-                // A nil OS lookup is not proof of permanent lack of support.
-                // Discovery already exhausted its short budget; end this pass
-                // without a retry loop, and allow the next launch/sync kick.
-                state = .interrupted
-                Logger.indexing.warning("Embedding model acquisition exhausted; a later indexing kick will retry")
-            } catch is TextEmbedder.EmbedderError {
-                state = .unavailable
-                Logger.indexing.error("Embedding model unavailable; content indexing disabled")
-            } catch {
+            } else if let error = error as? TextEmbedder.EmbedderError {
+                switch error {
+                case .modelUnavailable:
+                    state = .interrupted
+                    Logger.indexing.warning("Embedding model acquisition exhausted; a later indexing kick will retry")
+                default:
+                    state = .unavailable
+                    Logger.indexing.error("Embedding model unavailable; content indexing disabled")
+                }
+            } else {
                 state = .interrupted
                 Logger.indexing.error("Indexing pass interrupted: \(error)")
             }
@@ -164,7 +189,7 @@ final class ContentIndexingService {
 
     /// Waits for the pass claimed at call time, not any future indexing work.
     func waitForCurrentPass() async {
-        await task?.value
+        await pass?.task.value
     }
 
     #if DEBUG
@@ -172,8 +197,9 @@ final class ContentIndexingService {
         /// status reflects a freshly-wiped index. Pair with
         /// `StorageManager.clearIndex` then `kick()` to rebuild from scratch.
         func reset() {
-            task?.cancel()
-            task = nil
+            let retired = pass
+            pass = nil
+            retired?.task.cancel()
             if state != .unavailable {
                 state = .idle
             }
@@ -185,20 +211,24 @@ final class ContentIndexingService {
     // MARK: - Progress (called by ContentIndexer)
 
     func setPreparing() {
+        guard ownsProgress else { return }
         state = .preparing
     }
 
     func setWaiting() {
+        guard ownsProgress else { return }
         state = .waiting
     }
 
     func update(indexed: Int, total: Int) {
+        guard ownsProgress else { return }
         indexedCount = indexed
         totalCount = total
         state = .indexing
     }
 
     func finish(indexed: Int, total: Int) {
+        guard ownsProgress else { return }
         indexedCount = indexed
         totalCount = total
         state = .upToDate
