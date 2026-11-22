@@ -59,6 +59,6 @@ struct CatalogCategoryView<Kind: CatalogBrowseKind>: View {
 
     private func importContent(_ category: Category, _ playlist: Playlist) async throws {
         let manager = ContentSyncManager(modelContainer: modelContext.container)
-        _ = try await manager.importStalkerCategory(apiId: category.apiId, type: Kind.categoryType, playlist: playlist)
+        _ = try await manager.importStalkerCategory(apiId: category.apiId, type: Kind.categoryType, playlistID: playlist.id)
     }
 }

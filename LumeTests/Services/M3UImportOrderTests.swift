@@ -29,7 +29,7 @@ struct M3UImportOrderTests {
         let container = try makeTestContainer()
         let playlist = try M3UFieldFixtures.makePlaylist(container: container, fileURL: fileURL)
         let playlistId = playlist.id
-        try await ContentSyncManager(modelContainer: container).syncPlaylist(playlist)
+        try await ContentSyncManager(modelContainer: container).syncPlaylist(playlistID: playlist.id)
         M3UDigestStore.remove(playlistId: playlistId)
         return (container, playlistId)
     }

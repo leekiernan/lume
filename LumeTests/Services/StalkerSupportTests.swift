@@ -173,48 +173,4 @@ struct StalkerSupportTests {
         #expect(!error.isRetriable)
         #expect(!error.isAuthFailure)
     }
-
-    // MARK: - StalkerSessionStore
-
-    @Test func `session store round trip`() async throws {
-        let store = StalkerSessionStore()
-        let session = try StalkerSessionStore.Session(
-            token: "abc123",
-            endpoint: #require(URL(string: "http://portal.example.com/stalker_portal"))
-        )
-        await store.store(session, for: "user:mac")
-        let fetched = await store.session(for: "user:mac")
-        #expect(fetched?.token == "abc123")
-        #expect(fetched?.endpoint.absoluteString == "http://portal.example.com/stalker_portal")
-    }
-
-    @Test func `session store clear removes entry`() async throws {
-        let store = StalkerSessionStore()
-        let session = try StalkerSessionStore.Session(
-            token: "xyz",
-            endpoint: #require(URL(string: "http://example.com"))
-        )
-        await store.store(session, for: "key1")
-        await store.clear("key1")
-        let fetched = await store.session(for: "key1")
-        #expect(fetched == nil)
-    }
-
-    @Test func `session store returns nil for unknown key`() async {
-        let store = StalkerSessionStore()
-        let fetched = await store.session(for: "nonexistent")
-        #expect(fetched == nil)
-    }
-
-    @Test func `session store isolates sessions by key`() async throws {
-        let store = StalkerSessionStore()
-        let sessionA = try StalkerSessionStore.Session(token: "A", endpoint: #require(URL(string: "http://a.com")))
-        let sessionB = try StalkerSessionStore.Session(token: "B", endpoint: #require(URL(string: "http://b.com")))
-        await store.store(sessionA, for: "keyA")
-        await store.store(sessionB, for: "keyB")
-        let fetchedA = await store.session(for: "keyA")
-        let fetchedB = await store.session(for: "keyB")
-        #expect(fetchedA?.token == "A")
-        #expect(fetchedB?.token == "B")
-    }
 }

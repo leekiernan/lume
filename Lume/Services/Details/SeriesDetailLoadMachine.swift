@@ -83,7 +83,7 @@ final class SeriesDetailLoadMachine {
         defer { episodeLoad.finish(request) }
         let manager = ContentSyncManager(modelContainer: context.container)
         guard let parsed = try? await manager.fetchEpisodes(
-            seriesId: series.seriesId, seriesElementId: series.id, playlist: playlist
+            seriesId: series.seriesId, seriesElementId: series.id, playlistID: playlist.id
         ), !Task.isCancelled, episodeLoad.owns(request) else { return }
         // A failed or cancelled fetch must not stamp the cache as fresh.
         series.applyFetchedEpisodes(parsed, into: context)

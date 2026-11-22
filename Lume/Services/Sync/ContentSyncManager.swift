@@ -54,16 +54,16 @@ actor ContentSyncManager {
 
     // MARK: - Playlist Sync
 
-    /// Performs a full sync of a playlist (categories and content)
+    /// Performs a full sync of a playlist (categories and content). Takes the
+    /// id, never the model: a `Playlist` from the caller's context must not be
+    /// read on this actor (see `ownedPlaylist`).
     func syncPlaylist(
-        _ playlist: Playlist,
+        playlistID playlistId: UUID,
         progress: SyncProgress? = nil,
         full: Bool = false,
         repairingAreas: Set<AppArea>? = nil,
         syncAreas: Set<AppArea>? = nil
     ) async throws {
-        let playlistId = playlist.id
-
         guard !activeSyncPlaylistIDs.contains(playlistId) else {
             throw SyncError.syncInProgress
         }
@@ -239,8 +239,10 @@ actor ContentSyncManager {
     /// `episodes` relationship stale until a later cross-context merge — which
     /// races the UI refresh and, on tvOS, loses (episodes only appear after
     /// navigating away and back). Returning value types sidesteps that entirely.
-    func fetchEpisodes(seriesId: Int, seriesElementId: String, playlist: Playlist) async throws -> FetchedEpisodes {
-        switch playlist.sourceType {
+    func fetchEpisodes(seriesId: Int, seriesElementId: String, playlistID: UUID) async throws -> FetchedEpisodes {
+        let (context, playlist) = try ownedPlaylist(playlistID)
+        defer { _ = context }
+        return switch playlist.sourceType {
         case .xtream:
             try await fetchXtreamEpisodes(seriesId: seriesId, seriesElementId: seriesElementId, playlist: playlist)
         case .stalker:
@@ -309,5 +311,20 @@ actor ContentSyncManager {
 
         let separators = CharacterSet(charactersIn: " -–—·:|.").union(.whitespacesAndNewlines)
         return raw[match.upperBound...].trimmingCharacters(in: separators)
+    }
+}
+
+extension ContentSyncManager {
+    /// The playlist read on this actor, through a context of its own. A model
+    /// belongs to the context that fetched it, and reading one from the
+    /// caller's (usually the main) context here races that context's merges
+    /// and faults. The context is returned so it outlives the reads.
+    func ownedPlaylist(_ id: UUID) throws -> (context: ModelContext, playlist: Playlist) {
+        let context = ModelContext(modelContainer)
+        context.autosaveEnabled = false
+        guard let playlist = try context.fetch(FetchDescriptor<Playlist>(predicate: #Predicate { $0.id == id })).first else {
+            throw SyncError.playlistNotFound
+        }
+        return (context, playlist)
     }
 }

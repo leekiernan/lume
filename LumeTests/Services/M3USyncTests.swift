@@ -68,7 +68,7 @@ struct M3USyncTests {
         let playlistId = playlist.id
 
         let manager = ContentSyncManager(modelContainer: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         let context = ModelContext(container)
 
@@ -116,7 +116,7 @@ struct M3USyncTests {
         let playlist = try makePlaylist(container: container, fileURL: fileURL)
 
         let manager = ContentSyncManager(modelContainer: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         // Mark user state between syncs.
         do {
@@ -134,7 +134,7 @@ struct M3USyncTests {
         // which is the thing it exists to pin. The skip has its own coverage in
         // `M3UDigestSkipTests`.
         M3UDigestStore.remove(playlistId: playlist.id)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
         defer { M3UDigestStore.remove(playlistId: playlist.id) }
 
         let context = ModelContext(container)
@@ -158,7 +158,7 @@ struct M3USyncTests {
 
         let manager = ContentSyncManager(modelContainer: container)
         let recorder = CatalogWriteRecorder()
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         let context = ModelContext(container)
         let store = try #require(
@@ -175,7 +175,7 @@ struct M3USyncTests {
         // the assertion below would pass vacuously. `M3UDigestSkipTests` covers
         // the skip itself.
         M3UDigestStore.remove(playlistId: playlist.id)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
         defer { M3UDigestStore.remove(playlistId: playlist.id) }
 
         #expect(
@@ -209,7 +209,7 @@ struct M3USyncTests {
         let playlist = try makePlaylist(container: container, fileURL: fileURL)
 
         let manager = ContentSyncManager(modelContainer: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         // Favorite a survivor to prove pruning leaves untouched rows (and their
         // user state) alone.
@@ -222,7 +222,7 @@ struct M3USyncTests {
 
         // The provider drops several items; re-sync reads the shrunken file.
         try reducedPlaylist.write(to: fileURL, atomically: true, encoding: .utf8)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         let context = ModelContext(container)
         #expect(try context.fetchCount(FetchDescriptor<LiveStream>()) == 2)
@@ -255,14 +255,14 @@ struct M3USyncTests {
         let playlist = try makePlaylist(container: container, fileURL: fileURL)
 
         let manager = ContentSyncManager(modelContainer: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         // A truncated download does not repeat; a provider that really dropped
         // its series section sends the same short file every sync, so the gate's
         // bounded tolerance has to converge or the rows strand forever.
         try reducedPlaylist.write(to: fileURL, atomically: true, encoding: .utf8)
         for _ in 0 ..< 3 {
-            try await manager.syncPlaylist(playlist)
+            try await manager.syncPlaylist(playlistID: playlist.id)
         }
 
         let context = ModelContext(container)
@@ -279,12 +279,12 @@ struct M3USyncTests {
         let playlist = try makePlaylist(container: container, fileURL: fileURL)
 
         let manager = ContentSyncManager(modelContainer: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         // A transient failure looks like an empty file: header only, no entries.
         // The guard must keep the catalog rather than wipe it.
         try "#EXTM3U\n".write(to: fileURL, atomically: true, encoding: .utf8)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         let context = ModelContext(container)
         #expect(try context.fetchCount(FetchDescriptor<LiveStream>()) == 3)
@@ -326,7 +326,7 @@ struct M3USyncTests {
 
         // Content sync brings in the channels the guide is matched against, but
         // imports no EPG itself.
-        try await ContentSyncManager(modelContainer: container).syncPlaylist(playlist)
+        try await ContentSyncManager(modelContainer: container).syncPlaylist(playlistID: playlist.id)
         #expect(try setupContext.fetchCount(FetchDescriptor<EPGListing>()) == 0)
 
         // The dedicated EPG sync imports the guide, filtered to known channels.
@@ -405,7 +405,7 @@ struct M3USyncTests {
         try seedRowsNoSweepMayDelete(in: container, playlistId: playlistId, liveCount: staleCount)
 
         let manager = ContentSyncManager(modelContainer: container)
-        let sync = Task { try await manager.syncPlaylist(playlist) }
+        let sync = Task { try await manager.syncPlaylist(playlistID: playlist.id) }
 
         // Cancel once the first batch has committed, so the cancel lands with
         // the file only partly imported.
@@ -466,7 +466,7 @@ struct M3USyncTests {
 
         let manager = ContentSyncManager(modelContainer: container)
         let start = ContinuousClock.now
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
         let elapsed = ContinuousClock.now - start
 
         let context = ModelContext(container)
@@ -521,7 +521,7 @@ struct M3USyncTests {
 
         let manager = ContentSyncManager(modelContainer: container)
         let start = ContinuousClock.now
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
         let elapsed = ContinuousClock.now - start
 
         let context = ModelContext(container)

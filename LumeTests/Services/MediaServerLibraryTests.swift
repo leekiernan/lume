@@ -39,12 +39,12 @@ extension MediaServerSyncTests {
         let manager = makeManager(container: container)
         let prefix = playlist.id.uuidString
 
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
         let first = try #require(try ModelContext(container).fetch(FetchDescriptor<Movie>()).first?.categoryId)
         #expect([prefix + "-vod-libA", prefix + "-vod-libB"].contains(first))
 
         for _ in 0 ..< 3 {
-            try await manager.syncPlaylist(playlist)
+            try await manager.syncPlaylist(playlistID: playlist.id)
             let movies = try ModelContext(container).fetch(FetchDescriptor<Movie>())
             #expect(movies.count == 1)
             #expect(movies.first?.categoryId == first, "parallel reads must not move it back and forth")
@@ -60,14 +60,14 @@ extension MediaServerSyncTests {
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, host: host)
         let manager = makeManager(container: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         // The second library now fails, and the first has a new title.
         JellyfinServerStubProtocol.setReply(host: host, key: "/Users/user1/Items|libB|Movie", reply: .init(status: 500, body: ""))
         JellyfinServerStubProtocol.setReply(host: host, key: "/Users/user1/Items|libA|Movie", reply: jellyfinPage([
             jellyfinMovie(id: "m1", name: "Arrival"), jellyfinMovie(id: "m3", name: "Sicario")
         ], total: 2))
-        await #expect(throws: ProviderImportError.self) { try await manager.syncPlaylist(playlist) }
+        await #expect(throws: ProviderImportError.self) { try await manager.syncPlaylist(playlistID: playlist.id) }
 
         let names = try Set(ModelContext(container).fetch(FetchDescriptor<Movie>()).map(\.name))
         #expect(names == ["Arrival", "Contact", "Sicario"], "the failed library's rows aren't pruned")
@@ -79,6 +79,6 @@ extension MediaServerSyncTests {
         installTwoMovieLibraries(host: host, first: .init(status: 401, body: ""), second: .init(status: 401, body: ""))
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, host: host)
-        await #expect(throws: JellyfinError.self) { try await makeManager(container: container).syncPlaylist(playlist) }
+        await #expect(throws: JellyfinError.self) { try await makeManager(container: container).syncPlaylist(playlistID: playlist.id) }
     }
 }

@@ -210,7 +210,7 @@ struct WebDAVSyncTests {
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, url: "http://\(host)/Movies/")
         let playlistId = playlist.id
-        try await makeManager(container: container).syncPlaylist(playlist)
+        try await makeManager(container: container).syncPlaylist(playlistID: playlist.id)
 
         let context = ModelContext(container)
         let movies = try context.fetch(FetchDescriptor<Movie>())
@@ -281,7 +281,7 @@ struct WebDAVSyncTests {
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, url: "http://\(host)/Movies/")
         let playlistId = playlist.id
-        try await makeManager(container: container).syncPlaylist(playlist)
+        try await makeManager(container: container).syncPlaylist(playlistID: playlist.id)
 
         let context = ModelContext(container)
         let series = try context.fetch(FetchDescriptor<Series>())
@@ -325,7 +325,7 @@ struct WebDAVSyncTests {
 
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, url: "http://\(host)/Share")
-        try await makeManager(container: container).syncPlaylist(playlist)
+        try await makeManager(container: container).syncPlaylist(playlistID: playlist.id)
 
         // Three directories, one PROPFIND each. Without the visited set this
         // never returns.
@@ -354,7 +354,7 @@ struct WebDAVSyncTests {
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, url: "https://\(host)/Share/")
         let manager = makeManager(container: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
         #expect(try ModelContext(container).fetchCount(FetchDescriptor<Movie>()) == 1)
 
         // A TLS proxy in front: the same share answers with its backend's address.
@@ -364,7 +364,7 @@ struct WebDAVSyncTests {
             ])
         ])
         await #expect(throws: (any Error).self) {
-            try await manager.syncPlaylist(playlist)
+            try await manager.syncPlaylist(playlistID: playlist.id)
         }
         #expect(try ModelContext(container).fetchCount(FetchDescriptor<Movie>()) == 1)
     }
@@ -390,7 +390,7 @@ struct WebDAVSyncTests {
         let container = try makeTestContainer()
         let playlist = try makePlaylist(container: container, url: "http://\(host)/Share/")
         let manager = makeManager(container: container)
-        try await manager.syncPlaylist(playlist)
+        try await manager.syncPlaylist(playlistID: playlist.id)
 
         let context = ModelContext(container)
         #expect(try context.fetchCount(FetchDescriptor<Movie>()) == WebDAVWalkProducer.batchSize + 1)
@@ -402,7 +402,7 @@ struct WebDAVSyncTests {
         WebDAVTreeStubProtocol.install(host: host, replies: brokenTree)
 
         await #expect(throws: WebDAVError.self) {
-            try await manager.syncPlaylist(playlist)
+            try await manager.syncPlaylist(playlistID: playlist.id)
         }
 
         let after = ModelContext(container)

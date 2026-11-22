@@ -240,6 +240,32 @@ Two separate `ModelContainer`s:
 ### Swift concurrency
 `SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor` is set project-wide. Value types and DTOs used by `nonisolated` callers must be explicitly marked `nonisolated` (type + every extension).
 
+The app builds in Swift 5 mode with approachable concurrency and *without*
+strict concurrency checking, so the compiler won't catch the mistakes below;
+review has to. (Turning on `SWIFT_STRICT_CONCURRENCY = complete` as warnings
+is the intended next step.)
+
+- **Where state lives.** Heavy work belongs in an `actor` (`ContentSyncManager`,
+  `EPGSyncManager`, `CloudSyncEngine`). State SwiftUI reads belongs in a
+  main-actor `@Observable` (`EPGSyncService`, `PlaylistSyncCenter`): SwiftUI
+  can't observe an actor's state synchronously. Rules go in a pure value-type
+  state machine (`EPGRefreshMachine`, `PlaylistSyncMachine`), tested without
+  SwiftUI.
+- **Never pass a `@Model` or `ModelContext` across an isolation boundary.** Pass
+  the id (or `PersistentIdentifier`, or a `Sendable` snapshot) and fetch on the
+  receiving side — `ContentSyncManager.ownedPlaylist(_:)`. An actor API takes
+  `playlistID: UUID`, never `Playlist`.
+- **An actor that caches an async result keeps the in-flight `Task`**, not just
+  the result, and joins it; check-await-store races on reentrancy
+  (`StalkerSessionStore`). Invalidate compare-and-clear: drop a cached value only
+  if it is still the one that failed.
+- **Off-main reads:** prefer a `@concurrent nonisolated` function to
+  `Task.detached { … }.value`, which drops cancellation and priority. Keep
+  `Task.detached` for work that must outlive or be shared beyond its caller.
+- `MainActor.assumeIsolated`, `nonisolated(unsafe)` and `@unchecked Sendable`
+  need a comment naming what guarantees them (main-queue delivery, a lock, a
+  queue, immutability).
+
 ### SwiftData
 - Enrichment saves run on a **background** `ModelContext` (`ContentSyncManager.enrich*`) — not the view context.
 - Main-thread saves during playback stall KSPlayer every ~5 s. Buffer to `UserDefaults`; flush at playback boundaries.

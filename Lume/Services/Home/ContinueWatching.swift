@@ -196,7 +196,7 @@ enum ContinueWatchingEpisodes {
             attempted.insert(show.id)
             guard let playlist = playlists.owner(ofContentID: show.id), playlist.supportsPerSeriesEpisodeFetch,
                   let parsed = try? await manager.fetchEpisodes(
-                      seriesId: show.seriesId, seriesElementId: show.id, playlist: playlist
+                      seriesId: show.seriesId, seriesElementId: show.id, playlistID: playlist.id
                   ),
                   !Task.isCancelled
             else { continue }

@@ -102,11 +102,11 @@ struct M3UDigestSkipTests {
         defer { clearDefaults(playlistId: playlistId) }
 
         let manager = ContentSyncManager(modelContainer: container)
-        try await manager.syncPlaylist(entry)
+        try await manager.syncPlaylist(playlistID: entry.id)
         #expect(M3UDigestStore.digest(playlistId: playlistId) != nil, "A completed import must be fingerprinted")
 
         try deleteNewsOne(in: container)
-        try await manager.syncPlaylist(entry)
+        try await manager.syncPlaylist(playlistID: entry.id)
 
         #expect(try hasNewsOne(in: container) == false, "An unchanged file must skip the import entirely")
         // The sweeps are skipped with it: nothing the file still names is
@@ -124,11 +124,11 @@ struct M3UDigestSkipTests {
         defer { clearDefaults(playlistId: playlistId) }
 
         let manager = ContentSyncManager(modelContainer: container)
-        try await manager.syncPlaylist(entry)
+        try await manager.syncPlaylist(playlistID: entry.id)
 
         try deleteNewsOne(in: container)
         try extendedPlaylist.write(to: fileURL, atomically: true, encoding: .utf8)
-        try await manager.syncPlaylist(entry)
+        try await manager.syncPlaylist(playlistID: entry.id)
 
         #expect(try hasNewsOne(in: container), "A changed file must import")
         #expect(try ModelContext(container).fetchCount(FetchDescriptor<LiveStream>()) == 3)
@@ -143,13 +143,13 @@ struct M3UDigestSkipTests {
         defer { clearDefaults(playlistId: playlistId) }
 
         let manager = ContentSyncManager(modelContainer: container)
-        try await manager.syncPlaylist(entry)
+        try await manager.syncPlaylist(playlistID: entry.id)
 
         // What a fresh install, or a second device, sees: same file, no record
         // of ever having imported it.
         M3UDigestStore.remove(playlistId: playlistId)
         try deleteNewsOne(in: container)
-        try await manager.syncPlaylist(entry)
+        try await manager.syncPlaylist(playlistID: entry.id)
 
         #expect(try hasNewsOne(in: container), "Without a stored digest the import must run")
     }
@@ -163,7 +163,7 @@ struct M3UDigestSkipTests {
         defer { clearDefaults(playlistId: playlistId) }
 
         let manager = ContentSyncManager(modelContainer: container)
-        try await manager.syncPlaylist(entry)
+        try await manager.syncPlaylist(playlistID: entry.id)
 
         let backdated = Date.distantPast
         do {
@@ -176,7 +176,7 @@ struct M3UDigestSkipTests {
             try context.save()
         }
 
-        try await manager.syncPlaylist(entry)
+        try await manager.syncPlaylist(playlistID: entry.id)
 
         let context = ModelContext(container)
         let stored = try #require(
@@ -200,7 +200,7 @@ struct M3UDigestSkipTests {
         defer { clearDefaults(playlistId: playlistId) }
 
         let manager = ContentSyncManager(modelContainer: container)
-        try await manager.syncPlaylist(playlistModel)
+        try await manager.syncPlaylist(playlistID: playlistModel.id)
 
         // The user clears their guide URL between syncs.
         do {
@@ -217,7 +217,7 @@ struct M3UDigestSkipTests {
         // Same bytes, so the import is skipped — but the header still has to be
         // read, or clearing the guide URL would strand the playlist without one
         // until the provider's file happens to change.
-        try await manager.syncPlaylist(playlistModel)
+        try await manager.syncPlaylist(playlistID: playlistModel.id)
 
         #expect(try !hasNewsOne(in: container), "Sanity: the import really was skipped, not re-run")
         let stored = try #require(try ModelContext(container).fetch(FetchDescriptor<Playlist>()).first)
