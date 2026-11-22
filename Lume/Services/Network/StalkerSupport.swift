@@ -240,7 +240,7 @@ nonisolated enum StalkerError: LocalizedError {
 actor StalkerSessionStore {
     static let shared = StalkerSessionStore()
 
-    struct Session: Equatable {
+    nonisolated struct Session: Equatable {
         let token: String
         let endpoint: URL
     }
@@ -258,15 +258,21 @@ actor StalkerSessionStore {
     /// if it is still the cached one, so a caller holding an old token can't
     /// throw away the fresh session another caller already negotiated.
     func session(for key: String, rejected: Session? = nil, handshake: @escaping @Sendable () async throws -> Session) async throws -> Session {
+        try Task.checkCancellation()
         if let rejected, sessions[key] == rejected { sessions[key] = nil }
         if let cached = sessions[key] { return cached }
-        if let running = handshakes[key] { return try await running.value }
-        let task = Task { try await handshake() }
+        if let running = handshakes[key] { return try await TaskResult.value(of: running) }
+        // The handshake, rather than its first waiter, owns cache publication
+        // and retirement. A cancelled waiter must not start a second handshake
+        // which could invalidate a token another caller is still negotiating.
+        let task = Task {
+            defer { handshakes[key] = nil }
+            let session = try await handshake()
+            sessions[key] = session
+            return session
+        }
         handshakes[key] = task
-        defer { if handshakes[key] == task { handshakes[key] = nil } }
-        let session = try await task.value
-        sessions[key] = session
-        return session
+        return try await TaskResult.value(of: task)
     }
 }
 

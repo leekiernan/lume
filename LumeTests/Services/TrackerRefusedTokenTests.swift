@@ -14,6 +14,7 @@ import Testing
 
 @MainActor
 struct TrackerRefusedTokenTests {
+    private let bob = FakeIdentity(username: "bob", scope: "fake:2")
     private let renewed = FakeTokens(accessToken: "b", refreshToken: "r", issuedAt: 2)
 
     private func connected(refusing tokens: Set<String> = []) async -> (FakeTracker, TrackerAccountSession<FakeBackend>, TrackerMutationQueue<FakeBackend>) {

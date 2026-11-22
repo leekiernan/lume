@@ -3,6 +3,39 @@ import Foundation
 import Testing
 
 struct StalkerSessionStoreTests {
+    @MainActor @Test func `cancelling a waiter releases it without retiring the shared handshake`() async throws {
+        let store = StalkerSessionStore()
+        let handshakes = Handshakes()
+        let started = TaskResult<Void>()
+        let release = TaskResult<Void>()
+        let handshake: @Sendable () async throws -> StalkerSessionStore.Session = {
+            let session = await handshakes.next()
+            started.resolve(.success(()))
+            try await release.value()
+            return session
+        }
+        var cancelledReturned = false
+        let first = Task {
+            do {
+                _ = try await store.session(for: "key", handshake: handshake)
+                Issue.record("A cancelled waiter must not receive a session")
+            } catch { #expect(error is CancellationError) }
+            cancelledReturned = true
+        }
+        try await started.value()
+        first.cancel()
+        try await waitUntil { cancelledReturned }
+        #expect(cancelledReturned, "the waiter returns before the handshake is released")
+        // With its original waiter gone, a new caller must still join that
+        // same handshake, rather than negotiate a token which invalidates it.
+        let second = Task { try await store.session(for: "key", handshake: handshake) }
+        release.resolve(.success(()))
+        await first.value
+        #expect(try await second.value.token == "token-1")
+        #expect(await handshakes.count == 1)
+        #expect(try await store.session(for: "key", handshake: handshake).token == "token-1")
+    }
+
     private actor Handshakes {
         private(set) var count = 0
 
