@@ -12,6 +12,7 @@ struct LibraryAreaView<Kind: LibraryAreaKind>: View {
     @Environment(ProfileManager.self) private var profiles: ProfileManager?
     // Optional so previews (which don't inject it) fall back to a local path.
     @Environment(DeepLinkRouter.self) private var router: DeepLinkRouter?
+    @Environment(PlaylistSyncCenter.self) private var syncCenter: PlaylistSyncCenter?
     @State private var fallbackPath = NavigationPath()
     @Query private var playlists: [Playlist]
     /// The active playlist's visible categories, scoped in SQL — see `init`.
@@ -69,12 +70,14 @@ struct LibraryAreaView<Kind: LibraryAreaKind>: View {
                         systemImage: Kind.playlistEmptyIcon,
                         description: Text(Kind.playlistEmptyDescription)
                     )
-                } else if sortedCategories.isEmpty {
-                    ContentUnavailableView(
-                        Kind.emptyTitle,
-                        systemImage: Kind.emptyIcon,
-                        description: Text(Kind.libraryEmptyDescription)
-                    )
+                } else if sortedCategories.isEmpty || isAwaitingFirstImport {
+                    SyncAwareEmptyState(playlistID: activePlaylist?.id) {
+                        ContentUnavailableView(
+                            Kind.emptyTitle,
+                            systemImage: Kind.emptyIcon,
+                            description: Text(Kind.libraryEmptyDescription)
+                        )
+                    }
                 } else {
                     sections
                 }
@@ -237,6 +240,14 @@ struct LibraryAreaView<Kind: LibraryAreaKind>: View {
     /// selection. Falls back to the first playlist until the user picks one.
     private var activePlaylist: Playlist? {
         playlists.active(for: selectedPlaylistID)
+    }
+
+    /// A first import that hasn't reached this tab's titles yet: its
+    /// categories can land first, as empty shells, so the tab shows the sync
+    /// until they fill.
+    private var isAwaitingFirstImport: Bool {
+        let step: SyncStep = Kind.categoryType == .vod ? .movies : .series
+        return syncCenter?.isFirstImportAwaiting(step, playlistID: activePlaylist?.id) == true
     }
 
     /// The id prefix every Movie/Category of the active playlist shares. Scopes

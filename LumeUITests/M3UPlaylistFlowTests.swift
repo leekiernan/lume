@@ -120,15 +120,13 @@ final class M3UPlaylistFlowTests: XCTestCase {
     private func runManualSync(_ app: XCUIApplication) {
         let syncButton = app.syncToolbarButton
         XCTAssertTrue(syncButton.waitForExistence(timeout: 10), "Sync button not found")
+        // The tap starts the sync behind the library and opens the activity
+        // sheet, which only reports it.
         syncButton.tap()
-        let startSync = app.buttons["Start Sync"]
-        XCTAssertTrue(startSync.waitForExistence(timeout: 10), "Sync sheet didn't open")
-        startSync.tap()
         // Generous: this downloads and imports roughly ten thousand channels
         // from a third-party host.
-        let doneSync = app.buttons["Done"]
-        XCTAssertTrue(doneSync.waitForExistence(timeout: 420), "m3u sync did not complete")
-        doneSync.tap()
+        XCTAssertTrue(app.staticTexts["Sync complete"].waitForExistence(timeout: 420), "m3u sync did not complete")
+        app.buttons["Done"].firstMatch.tap()
     }
 
     /// Verifies Live TV lists synced content and attaches a screenshot.

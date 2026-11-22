@@ -66,4 +66,10 @@ struct AppTabSelectionTests {
         #expect(!policy.showsSports)
         #expect(policy.resolved(.sports) == .home)
     }
+
+    @Test func `the tvOS sync tab stays selected rather than being repaired to the launch tab`() {
+        let policy = AppTabSelection(disabledAreasRaw: "", showsSports: false, showsSettings: true)
+        #expect(policy.resolved(.sync) == .sync)
+        #expect(policy.initialTab != .sync, "never a launch tab")
+    }
 }

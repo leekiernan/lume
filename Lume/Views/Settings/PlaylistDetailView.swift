@@ -40,10 +40,13 @@ struct PlaylistDetailView: View {
     @State var editEPGURL = ""
     @State var editMacAddress = ""
     @State var showDeleteConfirmation = false
+    /// The sync activity sheet. Sync Now starts the sync behind the app; the
+    /// sheet only reports it.
     @State var showSync = false
-    /// Presents the full-catalog download (Stalker only). Kept separate from
-    /// `showSync` so the two sheets carry different `full` flags.
-    @State var showFullSync = false
+    /// Asks before Stalker's full-catalog download, which walks every movie
+    /// and series the portal serves.
+    @State var confirmFullSync = false
+    @Environment(PlaylistSyncCenter.self) var syncCenter: PlaylistSyncCenter?
 
     var isM3U: Bool {
         playlist.sourceType == .m3u
@@ -150,11 +153,9 @@ struct PlaylistDetailView: View {
                 }
                 .playlistDeletionConfirmation(isPresented: $showDeleteConfirmation) { deletePlaylist() }
                 .sheet(isPresented: $showSync) {
-                    SyncProgressView(playlist: playlist)
+                    SyncActivityView()
                 }
-                .sheet(isPresented: $showFullSync) {
-                    SyncProgressView(playlist: playlist, full: true)
-                }
+                .fullCatalogConfirmation(isPresented: $confirmFullSync) { startSync(full: true) }
         }
     #endif
 
@@ -288,15 +289,13 @@ struct PlaylistDetailView: View {
                 }
 
                 Button("Sync Now") {
-                    showSync = true
+                    startSync()
                 }
-                .disabled(playlist.syncStatus == .syncing)
 
                 if isStalker {
                     Button("Download Full Catalog") {
-                        showFullSync = true
+                        confirmFullSync = true
                     }
-                    .disabled(playlist.syncStatus == .syncing)
                 }
             } header: {
                 Text("Sync")
@@ -395,6 +394,13 @@ extension PlaylistDetailView {
         withAnimation { isEditing = false }
     }
 
+    /// Starts the sync behind the app (ahead of any automatic ones waiting)
+    /// and opens the activity sheet, which only reports it.
+    func startSync(full: Bool = false) {
+        syncCenter?.sync(playlist, full: full)
+        showSync = true
+    }
+
     func deletePlaylist() {
         PlaylistDeletion.deleteFromUI(playlist, cloudSync: cloudSync, in: modelContext)
         #if os(tvOS)
@@ -437,6 +443,18 @@ extension View {
             Button("Delete", role: .destructive, action: onDelete)
         } message: {
             Text("All synced content for this playlist will also be removed.")
+        }
+    }
+
+    /// Asked before Stalker's full-catalog download: every other manual sync
+    /// starts at once, but this one walks every movie and series the portal
+    /// serves, a page of a dozen or so at a time.
+    func fullCatalogConfirmation(isPresented: Binding<Bool>, onConfirm: @escaping () -> Void) -> some View {
+        alert("Download Full Catalog?", isPresented: isPresented) {
+            Button("Cancel", role: .cancel) {}
+            Button("Download", action: onConfirm)
+        } message: {
+            Text("Every movie and series on this portal is downloaded now instead of as you browse. On a large portal this can take a long time.")
         }
     }
 }

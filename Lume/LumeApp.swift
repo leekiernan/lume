@@ -29,6 +29,9 @@ struct LumeApp: App {
     @State private var parentalControls: ParentalControls
     /// Rebuilds the Top Shelf snapshot — see `TopShelfRefresher`.
     @State private var topShelf: TopShelfRefresher
+    /// Every playlist sync, run behind the library. App-level so it outlives
+    /// the root's swap to onboarding and reaches the macOS Settings window.
+    @State private var playlistSync: PlaylistSyncCenter
     #if os(iOS)
         @UIApplicationDelegateAdaptor(LumeAppDelegate.self) private var appDelegate
     #endif
@@ -58,6 +61,7 @@ struct LumeApp: App {
         _profileManager = State(initialValue: profiles)
         _parentalControls = State(initialValue: ParentalControls(profileManager: profiles))
         _topShelf = State(initialValue: TopShelfRefresher(container: catalog, profiles: profiles))
+        _playlistSync = State(initialValue: PlaylistSyncCenter(container: catalog))
     }
 
     /// Builds **two separate containers** (the foreground-freeze fix):
@@ -296,6 +300,7 @@ struct LumeApp: App {
                     .environment(profileManager)
                     .environment(playlistSwitch)
                     .environment(parentalControls)
+                    .environment(playlistSync)
                     .environment(\.topShelfRefresher, topShelf)
                     .task {
                         // Subscribe to MetricKit before anything else: payloads for a
@@ -540,6 +545,7 @@ struct LumeApp: App {
             .environment(profileManager)
             .environment(playlistSwitch)
             .environment(parentalControls)
+            .environment(playlistSync)
 
             WindowGroup(id: "player", for: PlayableMedia.self) { $media in
                 if let media {

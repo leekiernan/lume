@@ -124,8 +124,13 @@ extension ContentSyncManager {
         let reuse = !full
         var ranAPhase = false
         var syncedAreas: Set<AppArea> = []
+        /// The run's areas are the plan its caller showed the viewer, captured
+        /// at the start. Re-reading the active profile's toggles before each
+        /// phase let a profile switch during a long phase silently skip the
+        /// next one (a 166,000-movie import ran, then 30,000 series didn't),
+        /// while the sync still reported success.
         func includes(_ area: AppArea) -> Bool {
-            AppAreaSettings.isEnabled(area) && (areas?.contains(area) ?? true)
+            areas?.contains(area) ?? AppAreaSettings.isEnabled(area)
         }
 
         if includes(.movies) {

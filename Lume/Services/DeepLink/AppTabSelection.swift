@@ -24,7 +24,12 @@ nonisolated struct AppTabSelection: Equatable {
 
     /// User-selected Search and Settings remain valid where rendered, but are
     /// never candidates for a launch or unavailable-tab fallback.
+    ///
+    /// tvOS's sync tab is always valid once selected: it is rendered whenever
+    /// it is the selection (`showsSyncTab`), and only while a sync runs, waits
+    /// or has failed otherwise. Repairing it to the launch tab moved focus to
+    /// Home the moment the viewer reached it, and left its page blank.
     func resolved(_ selection: AppTab) -> AppTab {
-        availableTabs.contains(selection) ? selection : initialTab
+        selection == .sync || availableTabs.contains(selection) ? selection : initialTab
     }
 }
