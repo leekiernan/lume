@@ -5,34 +5,32 @@ import Testing
 @MainActor
 struct ConnectionTimeoutTests {
     @Test func `deadline returns before an uncooperative validation finishes`() async {
-        var release: CheckedContinuation<Int, Never>?
+        let response = TaskResult<Int>()
+        let provider = Task { try await response.value() }
         let validation = Task {
             try await LoginView.connectionTest(timeout: .milliseconds(10)) {
-                await withCheckedContinuation { release = $0 }
+                try await provider.value
             }
         }
         await #expect(throws: LoginView.ConnectionTimeoutError.self) { try await validation.value }
-        #expect(release != nil)
-        release?.resume(returning: 1)
+        response.resolve(.success(1))
+        _ = try? await provider.value
     }
 
     @Test func `cancelling validation returns without awaiting provider cooperation`() async throws {
-        var release: CheckedContinuation<Int, Never>?
-        var cancelledReturned = false
+        let response = TaskResult<Int>()
+        let started = TaskResult<Void>()
+        let provider = Task { try await response.value() }
         let validation = Task {
-            do {
-                _ = try await LoginView.connectionTest {
-                    await withCheckedContinuation { release = $0 }
-                }
-                Issue.record("Cancelled validation succeeded")
-            } catch { #expect(error is CancellationError) }
-            cancelledReturned = true
+            try await LoginView.connectionTest {
+                started.resolve(.success(()))
+                return try await provider.value
+            }
         }
-        try await waitUntil { release != nil }
+        try await started.value()
         validation.cancel()
-        try await waitUntil { cancelledReturned }
-        #expect(cancelledReturned)
-        release?.resume(returning: 1)
-        await validation.value
+        await #expect(throws: CancellationError.self) { try await validation.value }
+        response.resolve(.success(1))
+        _ = try? await provider.value
     }
 }
