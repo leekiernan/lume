@@ -314,6 +314,7 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
         if let current = tokens, current.issuedAt > newTokens.issuedAt {
             return
         }
+        if tokens != newTokens { verifiedDeliveryGeneration = nil }
         tokens = newTokens
         refreshFailedForToken = nil
         if backend.saveTokens(newTokens) {
