@@ -591,7 +591,7 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = "Lume/Lume-iOS.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 58;
+				CURRENT_PROJECT_VERSION = 59;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 2Q6FJ956B3;
 				ENABLE_APP_SANDBOX = YES;
@@ -621,7 +621,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 3.4.2;
+				MARKETING_VERSION = 3.4.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -658,7 +658,7 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = "Lume/Lume-iOS.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 58;
+				CURRENT_PROJECT_VERSION = 59;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 2Q6FJ956B3;
 				ENABLE_APP_SANDBOX = YES;
@@ -688,7 +688,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 3.4.2;
+				MARKETING_VERSION = 3.4.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -837,14 +837,18 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 58;
+				CURRENT_PROJECT_VERSION = 59;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 2Q6FJ956B3;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 3.4.2;
-				OTHER_LDFLAGS = "$(inherited) -framework LumeAetherBridge";
+				MARKETING_VERSION = 3.4.3;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					LumeAetherBridge,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume.lumetests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -865,14 +869,18 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 58;
+				CURRENT_PROJECT_VERSION = 59;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 2Q6FJ956B3;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 3.4.2;
-				OTHER_LDFLAGS = "$(inherited) -framework LumeAetherBridge";
+				MARKETING_VERSION = 3.4.3;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					LumeAetherBridge,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume.lumetests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -892,13 +900,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 58;
+				CURRENT_PROJECT_VERSION = 59;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 2Q6FJ956B3;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 3.4.2;
+				MARKETING_VERSION = 3.4.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume.lumeuitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -918,13 +926,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 58;
+				CURRENT_PROJECT_VERSION = 59;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 2Q6FJ956B3;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 3.4.2;
+				MARKETING_VERSION = 3.4.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume.lumeuitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -1016,7 +1024,7 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = "Lume/Lume-iOS.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 58;
+				CURRENT_PROJECT_VERSION = 59;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 2Q6FJ956B3;
 				ENABLE_APP_SANDBOX = YES;
@@ -1046,7 +1054,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 3.4.2;
+				MARKETING_VERSION = 3.4.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1071,14 +1079,18 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 58;
+				CURRENT_PROJECT_VERSION = 59;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 2Q6FJ956B3;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 3.4.2;
-				OTHER_LDFLAGS = "$(inherited) -framework LumeAetherBridge";
+				MARKETING_VERSION = 3.4.3;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					LumeAetherBridge,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume.lumetests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -1098,13 +1110,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 58;
+				CURRENT_PROJECT_VERSION = 59;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 2Q6FJ956B3;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 3.4.2;
+				MARKETING_VERSION = 3.4.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume.lumeuitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -1125,7 +1137,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = LumeTopShelf/LumeTopShelf.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 58;
+				CURRENT_PROJECT_VERSION = 59;
 				DEVELOPMENT_TEAM = 2Q6FJ956B3;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LumeTopShelf/Info.plist;
@@ -1134,7 +1146,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 3.4.2;
+				MARKETING_VERSION = 3.4.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume.topshelf;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -1156,7 +1168,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = LumeTopShelf/LumeTopShelf.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 58;
+				CURRENT_PROJECT_VERSION = 59;
 				DEVELOPMENT_TEAM = 2Q6FJ956B3;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LumeTopShelf/Info.plist;
@@ -1165,7 +1177,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 3.4.2;
+				MARKETING_VERSION = 3.4.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume.topshelf;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -1187,7 +1199,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = LumeTopShelf/LumeTopShelf.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 58;
+				CURRENT_PROJECT_VERSION = 59;
 				DEVELOPMENT_TEAM = 2Q6FJ956B3;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LumeTopShelf/Info.plist;
@@ -1196,7 +1208,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 3.4.2;
+				MARKETING_VERSION = 3.4.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume.topshelf;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -1218,7 +1230,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = LumeTopShelf/LumeTopShelf.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 58;
+				CURRENT_PROJECT_VERSION = 59;
 				DEVELOPMENT_TEAM = 2Q6FJ956B3;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LumeTopShelf/Info.plist;
@@ -1227,7 +1239,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 3.4.2;
+				MARKETING_VERSION = 3.4.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume.topshelf;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -1249,13 +1261,13 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 58;
+				CURRENT_PROJECT_VERSION = 59;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 2Q6FJ956B3;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 3.4.2;
+				MARKETING_VERSION = 3.4.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume.lumeperformancetests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -1276,13 +1288,13 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 58;
+				CURRENT_PROJECT_VERSION = 59;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 2Q6FJ956B3;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 3.4.2;
+				MARKETING_VERSION = 3.4.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume.lumeperformancetests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -1303,13 +1315,13 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 58;
+				CURRENT_PROJECT_VERSION = 59;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 2Q6FJ956B3;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 3.4.2;
+				MARKETING_VERSION = 3.4.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume.lumeperformancetests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -1330,13 +1342,13 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 58;
+				CURRENT_PROJECT_VERSION = 59;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 2Q6FJ956B3;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 3.4.2;
+				MARKETING_VERSION = 3.4.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume.lumeperformancetests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -1425,7 +1437,7 @@
 				CODE_SIGN_ENTITLEMENTS = Lume/Lume.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 58;
+				CURRENT_PROJECT_VERSION = 59;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 2Q6FJ956B3;
 				ENABLE_APP_SANDBOX = YES;
@@ -1455,7 +1467,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 3.4.2;
+				MARKETING_VERSION = 3.4.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1480,14 +1492,18 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 58;
+				CURRENT_PROJECT_VERSION = 59;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 2Q6FJ956B3;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 3.4.2;
-				OTHER_LDFLAGS = "$(inherited) -framework LumeAetherBridge";
+				MARKETING_VERSION = 3.4.3;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					LumeAetherBridge,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume.lumetests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -1507,13 +1523,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 58;
+				CURRENT_PROJECT_VERSION = 59;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 2Q6FJ956B3;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 3.4.2;
+				MARKETING_VERSION = 3.4.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.leekiernan.lume.lumeuitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
