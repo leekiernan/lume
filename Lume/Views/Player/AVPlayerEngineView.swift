@@ -69,7 +69,9 @@ struct AVPlayerEngineView: View {
     var session: PlaybackSession?
     var nowPlayingOwner: ActivityLease?
 
-    @StateObject var coordinator = AVPlayerCoordinator()
+    /// `@LazyState`, not `@State`: the coordinator builds its `AVPlayer` in
+    /// `init`, which must run once per view, not on every parent update.
+    @LazyState var coordinator = AVPlayerCoordinator()
     @State private var chrome = PlayerChromeController()
     private var isControlsVisible: Bool {
         chrome.isVisible

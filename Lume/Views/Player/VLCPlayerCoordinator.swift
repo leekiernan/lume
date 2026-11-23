@@ -1,5 +1,5 @@
-import Combine
 import Foundation
+import Observation
 import OSLog
 import VLCKit
 
@@ -24,29 +24,36 @@ import VLCKit
 ///
 /// VLC delegate callbacks may arrive off the main thread, so every UI-facing
 /// mutation hops to the main actor.
-final class VLCPlayerCoordinator: NSObject, ObservableObject {
-    @Published var isPlaying = false
-    @Published var isPipActive = false
-    @Published private(set) var isPipSupported = false
+///
+/// `@Observable`: views track only the properties they read. The track lists
+/// and rate live in `mediaPlayer`, which observation can't see, so every
+/// computed property reading them also reads `revision`, bumped wherever that
+/// player state may have changed. Players, timers, callbacks and per-tick
+/// bookkeeping are `@ObservationIgnored`.
+@Observable
+final class VLCPlayerCoordinator: NSObject {
+    var isPlaying = false
+    var isPipActive = false
+    private(set) var isPipSupported = false
 
     /// True once the stream has actually started rendering. The host uses this
     /// to decide whether a failure is an initial-load failure (eligible for
     /// engine fallback) or a mid-stream drop.
-    @Published private(set) var hasStartedPlayback = false
+    private(set) var hasStartedPlayback = false
     /// Startup proof from engine state, playhead or displayed frames.
-    private var startTracker = PlaybackStartTracker()
+    @ObservationIgnored private var startTracker = PlaybackStartTracker()
     /// True from a (re)load until the stream plays, so the host can show a
     /// loading indicator (parity with the other engines).
-    @Published private(set) var isBuffering = true
+    private(set) var isBuffering = true
 
     /// Invoked when the stream can't be started: a hard `.error` before the
     /// first frame, or no frame at all within `startupTimeout`. The engine view
     /// either falls back to the next engine or raises the failure overlay.
-    var onPlaybackFailure: (() -> Void)?
+    @ObservationIgnored var onPlaybackFailure: (() -> Void)?
 
     /// Invoked when the PiP window goes away, so the host can end the session
     /// if the user closed it rather than restoring the player.
-    var onPictureInPictureStop: (() -> Void)?
+    @ObservationIgnored var onPictureInPictureStop: (() -> Void)?
 
     /// How long to wait for the first frame before declaring the stream dead.
     /// Set by the host before `configure` — shorter when a fallback engine is
@@ -59,14 +66,28 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
     /// the tvOS overlay's right-hand caption. `nil` until the demuxer has
     /// parsed the stream. Settable internally so `refreshVideoInfo()` can live
     /// in the +Media file, which exists to keep this one under the size cap.
-    @Published var videoInfo: PlayerVideoInfo?
+    var videoInfo: PlayerVideoInfo?
+
+    /// Bumped whenever state read straight from `mediaPlayer` (track lists,
+    /// selection, rate) may have changed, so the computed properties that
+    /// read it re-render their views. Stands in for the `objectWillChange`
+    /// sends of the `ObservableObject` era.
+    private(set) var revision = 0
+
+    /// Re-renders views that read `mediaPlayer` state through `revision`.
+    func invalidatePlayerState() {
+        revision &+= 1
+    }
 
     /// Current playback rate (1.0 == normal).
     var playbackRate: Float {
-        get { mediaPlayer.rate }
+        get {
+            _ = revision
+            return mediaPlayer.rate
+        }
         set {
             mediaPlayer.rate = newValue
-            objectWillChange.send()
+            invalidatePlayerState()
         }
     }
 
@@ -75,15 +96,15 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
     /// rest of the embedded surface lives in `VLCPlayerCoordinator+MultiView`.
     var isEmbedded = false
 
-    var onTime: ((TimeInterval) -> Void)?
-    var onDuration: ((TimeInterval) -> Void)?
+    @ObservationIgnored var onTime: ((TimeInterval) -> Void)?
+    @ObservationIgnored var onDuration: ((TimeInterval) -> Void)?
 
     /// Catch-up seeks and programme-clock mapping — see `CatchupSeekRouter`.
     let catchup = CatchupSeekRouter()
 
     let mediaPlayer = VLCMediaPlayer()
 
-    private weak var hostView: VLCHostView?
+    @ObservationIgnored private weak var hostView: VLCHostView?
     private var isLive = false
     private var didConfigure = false
 
@@ -108,18 +129,19 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
     /// cleared when the URL changes, so it cannot leak into the next channel.
     var hasManualTrackSelection = false
 
-    private var resumeSeek = VLCResumeSeekMachine()
+    /// Ignored: consulted on every time tick.
+    @ObservationIgnored private var resumeSeek = VLCResumeSeekMachine()
 
     /// PiP window controller, delivered by VLC once PiP is ready to use.
-    private var pipController: (any VLCPictureInPictureWindowControlling)?
+    @ObservationIgnored private var pipController: (any VLCPictureInPictureWindowControlling)?
 
-    var statsTimer: Timer?
-    var startupFrameTimer: Timer?
-    var lastStats: VLCMedia.Stats?
+    @ObservationIgnored var statsTimer: Timer?
+    @ObservationIgnored var startupFrameTimer: Timer?
+    @ObservationIgnored var lastStats: VLCMedia.Stats?
     /// Internal so `logStateChange()` can live in the +Diagnostics file, which
     /// exists to keep this one under the project's 600-line cap.
-    var lastStateName: String?
-    private var bufferingStartedAt: Date?
+    @ObservationIgnored var lastStateName: String?
+    @ObservationIgnored private var bufferingStartedAt: Date?
 
     /// Drives bounded backoff reconnects when the stream drops (see
     /// `handleRetry`).
@@ -133,7 +155,7 @@ final class VLCPlayerCoordinator: NSObject, ObservableObject {
     let resourcePreparation = PlaybackResourcePreparation()
     /// Last playback position reported to the UI — a reconnect resumes VOD here
     /// rather than restarting from the top.
-    private var lastKnownTime: TimeInterval = 0
+    @ObservationIgnored private var lastKnownTime: TimeInterval = 0
     /// True between issuing a reconnect and the new media starting to open, so
     /// the old media's trailing `.stopped` callback isn't mistaken for a fresh
     /// drop.
@@ -429,6 +451,10 @@ extension VLCPlayerCoordinator: VLCMediaPlayerDelegate {
             pipController?.invalidatePlaybackState()
             refreshVideoInfo()
             applyPreferredLanguagesIfNeeded()
+            // libvlc lists tracks progressively across state changes. Under
+            // `ObservableObject` the `isPlaying` assignment above re-rendered
+            // the overlay on every change, re-reading them; keep that.
+            invalidatePlayerState()
         }
     }
 

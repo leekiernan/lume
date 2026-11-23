@@ -13,7 +13,7 @@
     import SwiftUI
 
     struct AetherSubtitleOverlay: View {
-        @ObservedObject var cues: SubtitleCueModel
+        let cues: SubtitleCueModel
         /// The picture's size, for placing bitmap cues on the video rect.
         let videoSize: CGSize?
         @AppStorage(SubtitleStyle.storageKey) private var style = SubtitleStyle.default

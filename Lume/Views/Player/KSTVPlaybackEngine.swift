@@ -6,32 +6,38 @@
 //  engine drives the very same tvOS overlay as VLCKit. The coordinator's
 //  `state` is a computed (non-published) property and it has no `videoInfo`
 //  concept, so this adapter republishes both — the host view pumps it from
-//  KSPlayer's state / time callbacks.
+//  KSPlayer's state / time callbacks. The track lists are read live from the
+//  coordinator, so they go through the observed `revision`.
 //
 
 #if os(tvOS)
 
     import AVFoundation
-    import Combine
     import KSPlayer
+    import Observation
 
     @MainActor
-    final class KSTVPlaybackEngine: ObservableObject, TVPlaybackEngine {
+    @Observable
+    final class KSTVPlaybackEngine: TVPlaybackEngine {
         static var engineKind: PlayerEngineKind {
             .ksPlayer
         }
 
-        @Published private(set) var isPlaying = false
-        @Published private(set) var videoInfo: PlayerVideoInfo?
+        private(set) var isPlaying = false
+        private(set) var videoInfo: PlayerVideoInfo?
+        /// Bumped where KSPlayer's track or subtitle state changes under the
+        /// overlay (a pick, a side-loaded file); the computed track lists read
+        /// it so observation re-renders them.
+        private(set) var revision = 0
 
         /// Weakly-held so the engine never outlives or retains the coordinator
         /// the host view owns. Set once the view mounts via `attach(coordinator:)`
         /// — keeping a default `init()` lets the host declare it as a plain
-        /// `@StateObject` without an initializer-ordering dance.
-        private weak var coordinator: KSVideoPlayer.Coordinator?
+        /// `@LazyState` without an initializer-ordering dance.
+        @ObservationIgnored private weak var coordinator: KSVideoPlayer.Coordinator?
         /// The host view's catch-up router, so the overlay's seeks on a
         /// catch-up programme reach the host like every other KSPlayer seek.
-        private weak var catchupRouter: CatchupSeekRouter?
+        @ObservationIgnored private weak var catchupRouter: CatchupSeekRouter?
 
         init() {}
 
@@ -69,6 +75,7 @@
         }
 
         var audioTrackOptions: [PlayerTrackOption] {
+            _ = revision
             let tracks = coordinator?.playerLayer?.player.tracks(mediaType: .audio) ?? []
             return tracks.map { track in
                 PlayerTrackOption(id: String(track.trackID), label: track.name, isSelected: track.isEnabled)
@@ -76,6 +83,7 @@
         }
 
         var textTrackOptions: [PlayerTrackOption] {
+            _ = revision
             guard let subtitleModel = coordinator?.subtitleModel else { return [] }
             let selectedID = subtitleModel.selectedSubtitleInfo?.subtitleID
             return subtitleModel.subtitleInfos.map { info in
@@ -98,13 +106,13 @@
                   let track = coordinator.playerLayer?.player
                   .tracks(mediaType: .audio).first(where: { String($0.trackID) == id }) else { return }
             coordinator.selectAudioTrack(track)
-            objectWillChange.send()
+            revision &+= 1
         }
 
         func selectTextTrack(id: String?) {
             guard let coordinator else { return }
             coordinator.selectSubtitle(id.flatMap { id in coordinator.subtitleModel.subtitleInfos.first { $0.subtitleID == id } })
-            objectWillChange.send()
+            revision &+= 1
         }
 
         // MARK: - External subtitles
@@ -112,12 +120,13 @@
         /// Only while a coordinator is attached — without one there is no
         /// `SubtitleModel` to add the track to.
         var supportsExternalSubtitles: Bool {
-            coordinator != nil
+            _ = revision
+            return coordinator != nil
         }
 
         func loadExternalSubtitle(_ subtitle: ExternalSubtitle) {
             coordinator?.loadExternalSubtitle(subtitle)
-            objectWillChange.send()
+            revision &+= 1
         }
     }
 

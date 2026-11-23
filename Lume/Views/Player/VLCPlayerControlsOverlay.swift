@@ -4,7 +4,7 @@ import VLCKit
 // Engine observation and scrubbing adapter for the shared standard overlay.
 #if !os(tvOS)
     struct VLCPlayerControlsOverlay: View {
-        @ObservedObject var coordinator: VLCPlayerCoordinator
+        let coordinator: VLCPlayerCoordinator
         let media: PlayableMedia
         @Binding var isSeeking: Bool
         @Binding var seekPosition: TimeInterval

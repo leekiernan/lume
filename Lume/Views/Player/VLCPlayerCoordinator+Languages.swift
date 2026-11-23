@@ -8,19 +8,22 @@
 //  project's size limit.
 //
 
-import Combine
 import Foundation
 import VLCKit
 
 extension VLCPlayerCoordinator {
     // MARK: - Tracks
 
+    /// Read `revision` so observation re-renders on a track change, which
+    /// `mediaPlayer` itself can't report.
     var audioTracks: [VLCMediaPlayer.Track] {
-        mediaPlayer.audioTracks
+        _ = revision
+        return mediaPlayer.audioTracks
     }
 
     var textTracks: [VLCMediaPlayer.Track] {
-        mediaPlayer.textTracks
+        _ = revision
+        return mediaPlayer.textTracks
     }
 
     /// Manual audio pick. Outranks the preferred audio language for the rest of
@@ -29,7 +32,7 @@ extension VLCPlayerCoordinator {
     func selectAudioTrack(_ track: VLCMediaPlayer.Track) {
         hasManualTrackSelection = true
         track.isSelectedExclusively = true
-        objectWillChange.send()
+        invalidatePlayerState()
     }
 
     /// Manual subtitle pick; `nil` is "Off".
@@ -40,7 +43,7 @@ extension VLCPlayerCoordinator {
         } else {
             mediaPlayer.deselectAllTextTracks()
         }
-        objectWillChange.send()
+        invalidatePlayerState()
     }
 
     // MARK: - Preferred languages
@@ -81,7 +84,7 @@ extension VLCPlayerCoordinator {
             preferring: audioLanguages
         ), !tracks[index].isSelectedExclusively else { return }
         tracks[index].isSelectedExclusively = true
-        objectWillChange.send()
+        invalidatePlayerState()
     }
 
     private nonisolated static func matcherTrack(_ track: VLCMediaPlayer.Track) -> TrackLanguageMatcher.Track {

@@ -11,48 +11,52 @@
 
 #if !os(visionOS)
 
-    import Combine
     import Foundation
     import LumeAetherBridge
+    import Observation
     import OSLog
 
+    /// `@Observable`: views track only what they read. The engine session's
+    /// callbacks, tasks and the PiP controller are `@ObservationIgnored`;
+    /// subtitle cues live on their own `SubtitleCueModel`.
     @MainActor
-    final class AetherEngineCoordinator: ObservableObject {
-        @Published private(set) var isPlaying = false
-        @Published private(set) var isBuffering = false
-        @Published private(set) var hasStartedPlayback = false
+    @Observable
+    final class AetherEngineCoordinator {
+        private(set) var isPlaying = false
+        private(set) var isBuffering = false
+        private(set) var hasStartedPlayback = false
         /// What `PlaybackSessionMachine` hears (`reportsPlayback`).
-        @Published private(set) var report = PlaybackSessionMachine.EngineReport(started: false, buffering: false, playing: false, failed: false)
-        @Published var videoInfo: PlayerVideoInfo?
-        @Published var audioTrackOptions: [PlayerTrackOption] = []
-        @Published var textTrackOptions: [PlayerTrackOption] = []
-        /// Published so the host installs the engine's view once the first
+        private(set) var report = PlaybackSessionMachine.EngineReport(started: false, buffering: false, playing: false, failed: false)
+        var videoInfo: PlayerVideoInfo?
+        var audioTrackOptions: [PlayerTrackOption] = []
+        var textTrackOptions: [PlayerTrackOption] = []
+        /// Observed so the host installs the engine's view once the first
         /// `configure` builds the session.
-        @Published private(set) var session: (any AetherSessionDriving)?
+        private(set) var session: (any AetherSessionDriving)?
         /// Active cues on their own observable, so a cue change invalidates
         /// only the subtitle leaf.
         let subtitleCues = SubtitleCueModel()
-        @Published var isPipActive = false
+        var isPipActive = false
         /// Follows the route: the PiP layer comes and goes with the session.
-        @Published var isPipSupported = false
-        var pictureInPicture: AetherPictureInPictureController?
+        var isPipSupported = false
+        @ObservationIgnored var pictureInPicture: AetherPictureInPictureController?
         /// The PiP window went away, so the host can end the session if the
         /// viewer closed it rather than restoring the player.
-        var onPictureInPictureStop: (() -> Void)?
+        @ObservationIgnored var onPictureInPictureStop: (() -> Void)?
         /// Sends a catch-up programme's seeks to the host and maps this
         /// player's playhead onto the programme clock.
         let catchup = CatchupSeekRouter()
 
         /// The engine's playback tick: (current, duration) in seconds, only
         /// while it describes the current stream.
-        var onTime: ((TimeInterval, TimeInterval) -> Void)?
+        @ObservationIgnored var onTime: ((TimeInterval, TimeInterval) -> Void)?
         /// The stream can't play here. `allowsNextEngine` is false for a
         /// stream that is gone (404) or a drop after the first frame whose
         /// reconnect budget ran out: show the overlay rather than fall back.
-        var onPlaybackFailure: ((_ allowsNextEngine: Bool) -> Void)?
+        @ObservationIgnored var onPlaybackFailure: ((_ allowsNextEngine: Bool) -> Void)?
         /// Re-resolves a stream URL whose token expired (Stalker); nil keeps
         /// the current one.
-        var resolveFreshURL: (() async -> URL?)?
+        @ObservationIgnored var resolveFreshURL: (() async -> URL?)?
 
         var startupTimeout = PlaybackPolicy.startupTimeout
         /// No engine is left to fall back to, so a stream that never played
@@ -81,17 +85,17 @@
         let retry: PlaybackRetryController
         private let makeSession: () throws -> any AetherSessionDriving
         private let sleep: (Duration) async throws -> Void
-        private var loadTask: Task<Void, Never>?
+        @ObservationIgnored private var loadTask: Task<Void, Never>?
         /// The values registered with the engine's log redaction for the
         /// current load (`AetherLogSecrets`). Never logged.
-        private var registeredLogSecrets: Set<String> = []
+        @ObservationIgnored private var registeredLogSecrets: Set<String> = []
         /// An audio track picked by hand, carried into a reload of the same
         /// URL so it outranks the preferred languages.
         var manualAudioTrackID: Int?
         var externalSubtitle: ExternalSubtitle?
         /// The full-screen player's hand-picked tracks, carried into the same
         /// stream again and the next episode; nil in a Multi-View tile.
-        weak var trackCarryOver: TrackCarryOverSession?
+        @ObservationIgnored weak var trackCarryOver: TrackCarryOverSession?
         /// The carried subtitle pick waits for the engine to list the
         /// stream's tracks, which can come after `load` returns.
         var hasPendingCarriedSubtitle = false

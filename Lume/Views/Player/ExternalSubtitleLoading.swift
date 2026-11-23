@@ -14,7 +14,6 @@
 //  engine choice).
 //
 
-import Combine
 import Foundation
 import KSPlayer
 import SwiftUI
@@ -68,7 +67,7 @@ extension VLCPlayerCoordinator: ExternalSubtitleLoading {
         // `enforce: true` selects the new track immediately; VLC appends it to
         // `textTracks`, which the overlays re-read on the next render.
         mediaPlayer.addPlaybackSlave(subtitle.fileURL, type: .subtitle, enforce: true)
-        objectWillChange.send()
+        invalidatePlayerState()
     }
 }
 

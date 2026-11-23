@@ -41,7 +41,8 @@
         var session: PlaybackSession?
         var nowPlayingOwner: ActivityLease?
 
-        @StateObject var coordinator = AetherEngineCoordinator()
+        /// `@LazyState`, not `@State`: built once per view (see `LazyState`).
+        @LazyState var coordinator = AetherEngineCoordinator()
         @State var chrome = PlayerChromeController()
         var isControlsVisible: Bool {
             chrome.isVisible

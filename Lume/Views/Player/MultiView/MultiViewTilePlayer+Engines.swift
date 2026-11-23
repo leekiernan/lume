@@ -101,7 +101,8 @@ struct MultiViewVLCTile: View {
     var onPlaybackStarted: () -> Void
     var onPlaybackFailed: () -> Void
 
-    @StateObject private var coordinator = VLCPlayerCoordinator(isEmbedded: true)
+    /// Built once per tile, not per parent update — see `LazyState`.
+    @LazyState private var coordinator = VLCPlayerCoordinator(isEmbedded: true)
 
     var body: some View {
         VLCVideoContainer(coordinator: coordinator)
@@ -134,7 +135,8 @@ struct MultiViewAVTile: View {
     var onPlaybackStarted: () -> Void
     var onPlaybackFailed: () -> Void
 
-    @StateObject private var coordinator = AVPlayerCoordinator(isEmbedded: true)
+    /// Built once per tile, not per parent update — see `LazyState`.
+    @LazyState private var coordinator = AVPlayerCoordinator(isEmbedded: true)
 
     var body: some View {
         AVPlayerVideoContainer(coordinator: coordinator)

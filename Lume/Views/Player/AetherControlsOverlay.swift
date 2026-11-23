@@ -11,7 +11,7 @@
     import SwiftUI
 
     struct AetherControlsOverlay: View {
-        @ObservedObject var coordinator: AetherEngineCoordinator
+        let coordinator: AetherEngineCoordinator
         let media: PlayableMedia
         @Binding var isSeeking: Bool
         @Binding var seekPosition: TimeInterval

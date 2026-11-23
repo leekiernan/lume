@@ -12,8 +12,8 @@
 
 #if os(tvOS)
 
-    import Combine
     import Foundation
+    import Observation
     import VLCKit
 
     /// The playback surface the tvOS overlay reads and commands. Marked
@@ -23,9 +23,14 @@
     /// Refines `ExternalSubtitleLoading` so the overlay's subtitle menu can
     /// offer the OpenSubtitles search against any engine that can side-load a
     /// file (all of them but AVPlayer, which declares itself unsupported).
+    ///
+    /// Conformers are `@Observable`: the overlay holds the engine as a plain
+    /// `let` and observation tracks whatever its body reads. State a conformer
+    /// reads from its player rather than storing must go through an observed
+    /// property (see `VLCPlayerCoordinator.revision`).
     @MainActor
-    protocol TVPlaybackEngine: ObservableObject, ExternalSubtitleLoading, PlayerStreamSampling {
-        /// Drives the central play / pause glyph; must be published so the
+    protocol TVPlaybackEngine: Observable, ExternalSubtitleLoading, PlayerStreamSampling {
+        /// Drives the central play / pause glyph; must be observed so the
         /// overlay re-renders when playback state flips.
         var isPlaying: Bool { get }
 
@@ -74,7 +79,7 @@
         }
 
         var audioTrackOptions: [PlayerTrackOption] {
-            mediaPlayer.audioTracks.enumerated().map { index, track in
+            audioTracks.enumerated().map { index, track in
                 PlayerTrackOption(
                     id: String(index),
                     label: track.trackName,
@@ -84,7 +89,7 @@
         }
 
         var textTrackOptions: [PlayerTrackOption] {
-            mediaPlayer.textTracks.enumerated().map { index, track in
+            textTracks.enumerated().map { index, track in
                 PlayerTrackOption(
                     id: String(index),
                     label: track.trackName,

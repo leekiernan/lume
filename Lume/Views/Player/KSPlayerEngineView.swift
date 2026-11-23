@@ -166,7 +166,7 @@ struct KSPlayerEngineView: View {
     #if os(tvOS)
         /// Republishes KSPlayer state to the shared overlay (`isPlaying`,
         /// `videoInfo`) and bridges its track / seek API.
-        @StateObject var engine = KSTVPlaybackEngine()
+        @LazyState var engine = KSTVPlaybackEngine()
         /// While an overlay panel (episodes / info) is open the controls must
         /// not auto-hide out from under the viewer.
         @State var isPanelOpen = false
@@ -262,7 +262,7 @@ struct KSPlayerEngineView: View {
                             // Defer for the same reason as onStateChanged; also
                             // prevents rapid back-to-back transitions (e.g.
                             // bufferFinished → buffering) from publishing two
-                            // @ObservableObject changes in the same SwiftUI frame,
+                            // observed changes in the same SwiftUI frame,
                             // which triggers "onChange updated multiple times per
                             // frame" warnings.
                             DispatchQueue.main.async {
