@@ -29,10 +29,13 @@ struct PosterGridContent<Item: Identifiable, Cell: View>: View {
     var empty: PosterGridEmptyState?
     /// Asked when the last poster appears; nil when everything is loaded.
     var onReachEnd: (() -> Void)?
+    /// Set when the next page failed: the grid offers Try Again, calling it,
+    /// where it would otherwise look empty or end early.
+    var onRetry: (() -> Void)?
     @ViewBuilder let cell: (Item) -> Cell
 
     var body: some View {
-        switch CollectionGridPresentation.resolve(hasItems: !items.isEmpty, isLoading: isLoading) {
+        switch CollectionGridPresentation.resolve(hasItems: !items.isEmpty, isLoading: isLoading, hasFailed: onRetry != nil) {
         case .loading:
             ProgressView("Loading…")
                 .frame(maxWidth: .infinity)
@@ -46,6 +49,15 @@ struct PosterGridContent<Item: Identifiable, Cell: View>: View {
                 }
                 .padding(.top, 40)
             }
+        case .failed:
+            ContentUnavailableView {
+                Label("Couldn't Load", systemImage: "exclamationmark.triangle")
+            } description: {
+                Text("Check your connection and try again.")
+            } actions: {
+                retryButton
+            }
+            .padding(.top, 40)
         case .content:
             PosterGrid {
                 ForEach(items) { item in
@@ -58,9 +70,16 @@ struct PosterGridContent<Item: Identifiable, Cell: View>: View {
                 if isLoadingMore {
                     ProgressView()
                         .frame(maxWidth: .infinity)
+                } else if onRetry != nil {
+                    retryButton
+                        .frame(maxWidth: .infinity)
                 }
             }
             .padding()
         }
+    }
+
+    private var retryButton: some View {
+        Button("Try Again") { onRetry?() }
     }
 }

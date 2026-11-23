@@ -81,16 +81,27 @@ struct SectionCollectionLoadMachineTests {
         #expect(loader.pagination.nextOffset == 1)
     }
 
-    @Test func `failed page releases ownership without advancing or removing visible titles`() async throws {
+    @Test func `a failed page shows as failed without advancing or removing visible titles`() async throws {
         let loader = SectionCollectionLoadMachine()
-        let fetch: SectionCollectionLoadMachine.Fetch = { _ in throw URLError(.timedOut) }
+        var fails = true
+        let fetch: SectionCollectionLoadMachine.Fetch = { request in
+            if fails { throw URLError(.timedOut) }
+            return SectionCollectionPage(items: [], nextOffset: request.offset + 1, hasMoreCandidates: false)
+        }
         loader.open(key: "list", snapshot: snapshot(), fetch: fetch)
         let task = try #require(loader.requestNextPage(fetch: fetch))
         await task.value
         #expect(!loader.pagination.isLoading)
-        #expect(loader.pagination.canLoadMore)
+        #expect(loader.pagination.hasFailed, "the grid offers Try Again instead of ending")
+        #expect(!loader.pagination.canLoadMore)
         #expect(loader.pagination.nextOffset == 1)
         #expect(loader.items.map(\.id) == [item(1).id])
+
+        fails = false
+        let retry = try #require(loader.retry(fetch: fetch))
+        await retry.value
+        #expect(!loader.pagination.hasFailed)
+        #expect(loader.pagination.nextOffset == 2, "the retried page is the one that failed")
     }
 
     @Test func `empty zero progress page cannot loop indefinitely`() async throws {

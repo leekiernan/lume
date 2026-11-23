@@ -112,8 +112,9 @@
                         }
                     }
 
-                    if !series.trailers.isEmpty {
-                        PosterRail(title: Text("Videos"), items: series.trailers, style: .detail) { video in
+                    let videos = series.trailers // Decoded from JSON on every read.
+                    if !videos.isEmpty {
+                        PosterRail(title: Text("Videos"), items: videos, style: .detail) { video in
                             TVVideoCard(video: video) {
                                 openVideo(video) { showYouTubeUnavailable = true }
                             }
@@ -277,8 +278,9 @@
                             .foregroundStyle(.white.opacity(0.6))
                     }
 
-                    if !series.externalRatings.isEmpty {
-                        TVExternalRatingsView(ratings: series.externalRatings)
+                    let ratings = series.externalRatings // Decoded from JSON on every read.
+                    if !ratings.isEmpty {
+                        TVExternalRatingsView(ratings: ratings)
                             .padding(.top, 8)
                     }
                 }
@@ -332,25 +334,7 @@
         }
 
         private var informationItems: [TVMetaItem] {
-            var items: [TVMetaItem] = []
-            items.append(TVMetaItem(label: "Playlist Title", value: series.name))
-            if let director = series.director, !director.isEmpty {
-                items.append(TVMetaItem(label: "Creator", value: director))
-            }
-            if let genre = series.genre, !genre.isEmpty {
-                items.append(TVMetaItem(label: "Genre", value: genre))
-            }
-            if let cast = series.cast, !cast.isEmpty, series.orderedCast.isEmpty {
-                items.append(TVMetaItem(label: "Cast", value: cast))
-            }
-            if let cert = series.contentRating, !cert.isEmpty {
-                items.append(TVMetaItem(label: "Rated", value: cert))
-            }
-            return items
-        }
-
-        private var seasonCountLabel: String {
-            availableSeasons.count == 1 ? "1 Season" : "\(availableSeasons.count) Seasons"
+            DetailInformation.rows(for: series).map { TVMetaItem(label: $0.label, value: $0.value) }
         }
 
         private var seasonEpisodes: [Episode] {
@@ -366,7 +350,7 @@
 
         private var playTitle: LocalizedStringKey {
             guard let episode = nextEpisode else { return "Play" }
-            if !episode.isWatched, episode.watchProgress > 1 {
+            if episode.resumePoint > 1 {
                 return "Resume S\(episode.seasonNum) E\(episode.episodeNum)"
             }
             return "Play S\(episode.seasonNum) E\(episode.episodeNum)"

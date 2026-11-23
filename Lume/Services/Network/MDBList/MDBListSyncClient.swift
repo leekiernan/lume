@@ -288,12 +288,8 @@ nonisolated struct MDBListSyncClient {
 
     /// `application/x-www-form-urlencoded`, keys sorted so the body is stable.
     static func formBody(_ fields: [String: String]) -> Data {
-        var allowed = CharacterSet.alphanumerics
-        allowed.insert(charactersIn: "-._~")
         let pairs = fields.sorted { $0.key < $1.key }.map { key, value in
-            let encodedKey = key.addingPercentEncoding(withAllowedCharacters: allowed) ?? key
-            let encodedValue = value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
-            return "\(encodedKey)=\(encodedValue)"
+            "\(key.urlQueryValueEncoded)=\(value.urlQueryValueEncoded)"
         }
         return Data(pairs.joined(separator: "&").utf8)
     }

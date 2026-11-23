@@ -46,8 +46,11 @@ struct TrackerSessionMachine<Code: Equatable>: Equatable {
         case codeIssued(Code)
         case connectFailed(TrackerConnectFailure)
         case connectCancelled
-        /// Tokens landed: the device flow was approved, or they were restored
-        /// at launch or pulled from iCloud. `account` when already known.
+        /// This device's flow was approved. The flow is finishing on its own
+        /// task, which must not be cancelled: it goes on to import history.
+        case approved(account: String?)
+        /// Tokens landed from elsewhere: restored at launch or pulled from
+        /// iCloud. `account` when already known.
         case tokensHeld(account: String?)
         case identityResolved(account: String)
         /// No tokens here any more (never connected, or removed elsewhere).
@@ -114,16 +117,12 @@ struct TrackerSessionMachine<Code: Equatable>: Equatable {
             state = .signedOut
             return [.cancelDeviceFlow]
 
+        case let (.requestingCode, .approved(account)), let (.awaitingApproval, .approved(account)):
+            state = .connected(account: account)
+            return account == nil ? [.resolveIdentity] : []
+
         case let (_, .tokensHeld(account)):
-            // Tokens arriving mid-connect (another device finished first, via
-            // iCloud) end the device flow too. A known name is never dropped
-            // for an unknown one.
-            let known = account ?? self.account
-            let wasConnecting = isConnecting
-            state = .connected(account: known)
-            var effects: [Effect] = wasConnecting ? [.cancelDeviceFlow] : []
-            if known == nil { effects.append(.resolveIdentity) }
-            return effects
+            return tokensArrived(account: account)
 
         case let (.connected, .identityResolved(account)):
             state = .connected(account: account)
@@ -143,6 +142,18 @@ struct TrackerSessionMachine<Code: Equatable>: Equatable {
         default:
             return nil
         }
+    }
+
+    /// Tokens arriving mid-connect (another device finished first, via
+    /// iCloud) end this device's flow. A known name is never dropped for an
+    /// unknown one.
+    private mutating func tokensArrived(account: String?) -> [Effect] {
+        let known = account ?? self.account
+        let wasConnecting = isConnecting
+        state = .connected(account: known)
+        var effects: [Effect] = wasConnecting ? [.cancelDeviceFlow] : []
+        if known == nil { effects.append(.resolveIdentity) }
+        return effects
     }
 }
 
@@ -169,6 +180,7 @@ extension TrackerSessionMachine.Event {
         case .codeIssued: "codeIssued"
         case let .connectFailed(failure): "connectFailed(\(failure))"
         case .connectCancelled: "connectCancelled"
+        case let .approved(account): account == nil ? "approved(account unknown)" : "approved"
         case let .tokensHeld(account): account == nil ? "tokensHeld(account unknown)" : "tokensHeld"
         case .identityResolved: "identityResolved"
         case .tokensGone: "tokensGone"

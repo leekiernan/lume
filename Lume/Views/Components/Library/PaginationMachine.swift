@@ -16,6 +16,9 @@ struct PaginationMachine: Equatable {
         case idle
         case ready
         case loading(Request)
+        /// The page at the cursor failed. Nothing loads until `retry()`: the
+        /// grid shows the failure rather than spinning or looking empty.
+        case failed
         case exhausted
     }
 
@@ -32,13 +35,17 @@ struct PaginationMachine: Equatable {
         return false
     }
 
+    var hasFailed: Bool {
+        state == .failed
+    }
+
     /// True while the current result set may produce another source page. It
     /// intentionally remains true during an active request so loading spinners
     /// can remain attached to the trailing item.
     var canLoadMore: Bool {
         switch state {
         case .ready, .loading: true
-        case .idle, .exhausted: false
+        case .idle, .failed, .exhausted: false
         }
     }
 
@@ -90,8 +97,26 @@ struct PaginationMachine: Equatable {
         return true
     }
 
-    /// Releases the active request after a fetch error or task cancellation,
-    /// preserving the cursor so a later appearance can retry it.
+    /// Records that the active request's fetch failed, keeping the cursor for
+    /// `retry()`. Cancellation isn't a failure: use `abandon`.
+    @discardableResult
+    mutating func fail(_ request: Request) -> Bool {
+        guard state == .loading(request) else { return false }
+        state = .failed
+        return true
+    }
+
+    /// Lets the failed page be asked for again.
+    @discardableResult
+    mutating func retry() -> Bool {
+        guard state == .failed else { return false }
+        state = .ready
+        return true
+    }
+
+    /// Releases the active request after task cancellation (or a failure the
+    /// caller doesn't surface), preserving the cursor so a later appearance
+    /// can retry it.
     @discardableResult
     mutating func abandon(_ request: Request) -> Bool {
         guard state == .loading(request) else { return false }

@@ -85,23 +85,29 @@ extension ContentSyncManager {
         let playlistId: UUID
     }
 
-    /// Every movie section, then the movie prune if all of them walked
-    /// completely. Returns the first incomplete walk.
+    /// Every movie section, up to four at a time, then the movie prune if all
+    /// of them walked completely. Returns the first incomplete walk. A section
+    /// that fails is skipped like a Jellyfin library
+    /// (`walkLibrariesConcurrently`); a rejected token ends the sync.
     private func syncPlexMoviePhase(
         sections: [PlexSection], connection: PlexPhaseConnection, progress: SyncProgress?
     ) async throws -> ProviderImportError? {
         try syncPlexCategories(sections: sections, type: .vod, playlistId: connection.playlistId)
         await progress?.start(.movies)
-        var seenMovies = Set<String>()
-        let incomplete = try await walkLibraries(sections, name: \.title) { section in
-            let scope = scope(server: connection.server, token: connection.token, playlistId: connection.playlistId, section: section, type: .vod)
-            try await syncPlexMovies(scope: scope, seenIds: &seenMovies, progress: progress)
-        }
-        if incomplete == nil {
-            prunePlexMovies(playlistId: connection.playlistId, seenIds: seenMovies, fetched: !sections.isEmpty)
+        let scopes = sections.map { scope(connection: connection, section: $0, type: .vod) }
+        let pageProgress = sections.count == 1 ? progress : nil
+        let libraryProgress = sections.count > 1 ? progress : nil
+        let walk = try await walkLibrariesConcurrently(
+            scopes, name: { $0.section.title }, isFatal: Self.endsPlexSync,
+            finished: { await Self.reportSections($0, of: $1, progress: libraryProgress) },
+            walk: { manager, scope in try await manager.syncPlexMovies(scope: scope, progress: pageProgress) }
+        )
+        if walk.incomplete == nil {
+            let seen = walk.seen.reduce(into: Set<String>()) { $0.formUnion($1) }
+            prunePlexMovies(playlistId: connection.playlistId, seenIds: seen, fetched: !sections.isEmpty)
         }
         await progress?.complete(.movies)
-        return incomplete
+        return walk.incomplete
     }
 
     /// Every TV section, then the series/episode prune if all of them walked
@@ -111,17 +117,39 @@ extension ContentSyncManager {
     ) async throws -> ProviderImportError? {
         try syncPlexCategories(sections: sections, type: .series, playlistId: connection.playlistId)
         await progress?.start(.series)
-        var seenSeries = Set<String>()
-        var seenEpisodes = Set<String>()
-        let incomplete = try await walkLibraries(sections, name: \.title) { section in
-            let scope = scope(server: connection.server, token: connection.token, playlistId: connection.playlistId, section: section, type: .series)
-            try await syncPlexShows(scope: scope, seenSeries: &seenSeries, seenEpisodes: &seenEpisodes, progress: progress)
-        }
-        if incomplete == nil {
-            prunePlexSeries(playlistId: connection.playlistId, seenSeries: seenSeries, seenEpisodes: seenEpisodes, fetched: !sections.isEmpty)
+        let scopes = sections.map { scope(connection: connection, section: $0, type: .series) }
+        let pageProgress = sections.count == 1 ? progress : nil
+        let libraryProgress = sections.count > 1 ? progress : nil
+        let walk = try await walkLibrariesConcurrently(
+            scopes, name: { $0.section.title }, isFatal: Self.endsPlexSync,
+            finished: { await Self.reportSections($0, of: $1, progress: libraryProgress) },
+            walk: { manager, scope in try await manager.syncPlexShows(scope: scope, progress: pageProgress) }
+        )
+        if walk.incomplete == nil {
+            prunePlexSeries(
+                playlistId: connection.playlistId,
+                seenSeries: walk.seen.reduce(into: Set<String>()) { $0.formUnion($1.series) },
+                seenEpisodes: walk.seen.reduce(into: Set<String>()) { $0.formUnion($1.episodes) },
+                fetched: !sections.isEmpty
+            )
         }
         await progress?.complete(.series)
-        return incomplete
+        return walk.incomplete
+    }
+
+    /// A rejected token ends the sync; anything else one section hits only
+    /// skips that section.
+    private static func endsPlexSync(_ error: Error) -> Bool {
+        if case .unauthorized = error as? PlexError { return true }
+        return false
+    }
+
+    private static func reportSections(_ done: Int, of total: Int, progress: SyncProgress?) async {
+        await progress?.update(detail: "\(done) of \(total) libraries", fraction: total == 0 ? 1 : Double(done) / Double(total))
+    }
+
+    private func scope(connection: PlexPhaseConnection, section: PlexSection, type: CategoryType) -> PlexSectionScope {
+        scope(server: connection.server, token: connection.token, playlistId: connection.playlistId, section: section, type: type)
     }
 
     private func scope(server: URL, token: String?, playlistId: UUID, section: PlexSection, type: CategoryType) -> PlexSectionScope {
@@ -201,9 +229,18 @@ extension ContentSyncManager {
         body: ([PlexMetadata]) throws -> Void
     ) async throws -> Int {
         try await walkProviderPages { start in
-            let page = try await plexClient.items(
-                server: scope.server, token: scope.token, sectionKey: scope.section.key,
-                type: type, start: start
+            let page = try await ProviderRetryPolicy.catalog.run(
+                isRetriable: { ($0 as? PlexError)?.isRetriable ?? false },
+                onRetry: { error, attempt, delay in
+                    let reason = error.localizedDescription
+                    Logger.database.warning("Plex page at \(start, privacy: .public) failed (\(reason, privacy: .public)); retry \(attempt, privacy: .public) in \(delay, privacy: .public)s")
+                },
+                operation: {
+                    try await plexClient.items(
+                        server: scope.server, token: scope.token, sectionKey: scope.section.key,
+                        type: type, start: start
+                    )
+                }
             )
             return ProviderImportPage(items: page.items, total: page.totalSize)
         } consume: { items in
@@ -228,15 +265,15 @@ extension ContentSyncManager {
 
     // MARK: - Movies
 
-    private func syncPlexMovies(scope: PlexSectionScope, seenIds: inout Set<String>, progress: SyncProgress?) async throws {
-        var seen = seenIds
+    private func syncPlexMovies(scope: PlexSectionScope, progress: SyncProgress?) async throws -> Set<String> {
+        var seen = Set<String>()
         let fetched = try await pageThroughPlexItems(
             type: PlexClient.movieType, scope: scope, progress: progress, unit: "movie(s)"
         ) { items in
             try seen.formUnion(upsertPlexMovies(items, scope: scope))
         }
-        seenIds = seen
         Logger.database.info("Plex movies synced for section \(scope.section.title, privacy: .public): \(fetched, privacy: .public) item(s)")
+        return seen
     }
 
     /// Upserts one page of movies, returning the ids it saw for the prune

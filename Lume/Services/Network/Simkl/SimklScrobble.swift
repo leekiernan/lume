@@ -76,7 +76,7 @@ nonisolated extension SimklClient {
     /// for the title, from another device or a later session here.
     func recordPausedProgress(_ target: TraktScrobbleTarget, progress: Double, pausedAt: Date, accessToken: String) async throws {
         let paused = try await playback(accessToken: accessToken).filter { $0.matches(target.mutationTarget) }
-        guard !paused.contains(where: { (TraktWatchedImporter.parse($0.pausedAt) ?? .distantPast) >= pausedAt }) else { return }
+        guard !TrackerPausedProgress.holdsNewer(paused.map { LenientISO8601.date(from: $0.pausedAt) }, than: pausedAt) else { return }
         try await scrobble(target, action: .pause, progress: progress, accessToken: accessToken)
     }
 }

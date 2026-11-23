@@ -2,23 +2,12 @@
 //  TraktWatchedImporter.swift
 //  Lume
 //
-//  Applies the watched history fetched from Trakt onto the local catalog: marks
-//  matching movies and episodes as watched. The reverse direction of the
-//  scrobbling in `TraktService`, run at startup and on demand from Settings.
-//
-//  Matching is by TMDB id (the only external id the library carries), so titles
-//  without a resolved `tmdbId` are skipped. Already-watched items are left
-//  untouched so the import is idempotent and the returned counts reflect only
-//  what actually changed.
-//
-//  Series need one extra step. Xtream and Stalker episodes are fetched lazily by
-//  the series detail screen, so a show the user has never opened has a `Series`
-//  row but no `Episode` rows — nothing for the import to mark. Rather than pull
-//  every watched show's episodes here (one ~250 KB provider request each), the
-//  import parks that state in `TraktPendingWatchedStore` and
-//  `Series.insertEpisodes` applies it when the detail screen fetches the
-//  episodes anyway. The series' `lastWatchedDate` is stamped immediately either
-//  way, so Home's Recently Watched row is right the moment the import finishes.
+//  Applies the watched history fetched from Trakt onto the local catalog. The
+//  reverse direction of the scrobbling in `TraktService`, run at startup and on
+//  demand from Settings. Trakt's payload is reduced to a
+//  `TrackerWatchedHistory` and applied by the importer every tracker shares
+//  (`TrackerWatchedImporter`), so the rules — matching, rewatches, parking a
+//  show's episodes until they're fetched — are the same for all of them.
 //
 
 import Foundation
@@ -43,6 +32,8 @@ nonisolated struct TraktImportSummary: Equatable, TrackerPagedSummary {
 }
 
 nonisolated enum TraktWatchedImporter {
+    private typealias Importer = TrackerWatchedImporter<TraktPendingWatchedStore>
+
     /// Marks the local movies and episodes that Trakt reports as watched, writing
     /// through the given catalog context. Returns what changed.
     static func apply(
@@ -51,232 +42,39 @@ nonisolated enum TraktWatchedImporter {
         in context: ModelContext,
         pendingScope: TrackerScope = .trakt
     ) -> TraktImportSummary {
-        let moviesMarked = importMovies(movies, in: context, profileID: pendingScope.profileID)
-        let shows = importShows(shows, in: context, pendingScope: pendingScope)
-
-        if context.hasChanges {
-            do {
-                try context.save()
-            } catch {
-                return TraktImportSummary(
-                    moviesMarked: moviesMarked,
-                    episodesMarked: shows.marked,
-                    showsQueued: shows.queued,
-                    failed: true
-                )
-            }
-        }
+        let summary = Importer.apply(history(movies: movies, shows: shows), in: context, pendingScope: pendingScope)
         return TraktImportSummary(
-            moviesMarked: moviesMarked,
-            episodesMarked: shows.marked,
-            showsQueued: shows.queued,
-            failed: false
+            moviesMarked: summary.moviesMarked,
+            episodesMarked: summary.episodesMarked,
+            showsQueued: summary.showsQueued,
+            failed: summary.failed
         )
     }
 
-    // MARK: - Movies
-
-    private static func importMovies(_ watched: [TraktWatchedMovie], in context: ModelContext, profileID: UUID?) -> Int {
-        var watchedIDs = Set<Int>()
-        var dates: [Int: Date] = [:]
-        for item in watched {
-            guard let tmdb = item.movie.ids.tmdb else { continue }
-            watchedIDs.insert(tmdb)
-            if let date = parse(item.lastWatchedAt) {
-                dates[tmdb] = date
-            }
-        }
-        guard !watchedIDs.isEmpty else { return 0 }
-
-        let candidates = TrackerCatalogLookup.movies(tmdbIDs: watchedIDs, in: context)
-
-        var count = 0
-        for movie in candidates {
-            guard let tmdb = movie.tmdbId, watchedIDs.contains(tmdb),
-                  WatchHistoryClears.shared.allows(dates[tmdb], for: movie.id, profileID: profileID)
-            else { continue }
-            guard !movie.isWatched else {
-                // Watched again elsewhere since: move it up Recently Watched.
-                // Not counted — nothing about it was marked.
-                if let date = dates[tmdb], date > (movie.lastWatchedDate ?? .distantPast) {
-                    movie.lastWatchedDate = date
-                }
-                continue
-            }
-            // A rewatch/local unwatched decision made after the remote play
-            // must survive routine imports, not just paused-playback imports.
-            if let local = movie.lastWatchedDate, (dates[tmdb] ?? .distantPast) <= local { continue }
-            movie.isWatched = true
-            movie.watchProgress = Double(movie.durationSecs ?? 0)
-            if let date = dates[tmdb] {
-                movie.lastWatchedDate = date
-            }
-            count += 1
-        }
-        return count
-    }
-
-    // MARK: - Shows
-
-    struct SeasonEpisode: Hashable {
-        let season: Int
-        let episode: Int
-    }
-
-    private static func importShows(
-        _ watched: [TraktWatchedShow],
-        in context: ModelContext,
-        pendingScope: TrackerScope
-    ) -> (marked: Int, queued: Int) {
-        var showsByTMDB: [Int: TraktWatchedShow] = [:]
-        for show in watched {
-            // A show Trakt reports without any season progress has nothing to
-            // apply, now or later.
-            guard let tmdb = show.show.ids.tmdb, !show.seasons.isEmpty else { continue }
-            showsByTMDB[tmdb] = show
-        }
-        guard !showsByTMDB.isEmpty else { return (0, 0) }
-
-        let candidates = TrackerCatalogLookup.series(tmdbIDs: Set(showsByTMDB.keys), in: context)
-
-        var pending = TraktPendingWatchedStore.load(scope: pendingScope)
-        var pendingChanged = false
-        var marked = 0
-        var queued = 0
-
-        for series in candidates {
-            guard let tmdb = series.tmdbId, let show = showsByTMDB[tmdb] else { continue }
-            let progress = Progress(show: show)
-
-            // Home's Recently Watched row queries this column, and playback
-            // stamps it too (`WatchProgressWriter`). Set it whether or not the
-            // episodes exist yet, so an imported show surfaces right away.
-            if series.episodes.isEmpty, let newest = progress.newest, newest > (series.lastWatchedDate ?? .distantPast) {
-                series.lastWatchedDate = newest
-            }
-
-            if series.episodes.isEmpty {
-                // Nothing to mark yet. Park it for `Series.insertEpisodes`, which
-                // runs when the detail screen fetches the episodes anyway.
-                // Replaces the watched half only: pauses parked by an earlier
-                // playback import still wait for the same episodes.
-                let updated = TraktPendingShow(episodes: progress.parked.episodes, paused: pending[tmdb]?.paused)
-                if pending[tmdb] != updated {
-                    pending[tmdb] = updated
-                    pendingChanged = true
-                }
-                queued += 1
-            } else {
-                marked += markEpisodes(of: series, using: progress, profileID: pendingScope.profileID)
-                series.refreshWatchRecency(onlyAdvancing: true)
-                // Episodes are present, so watched state parked by an earlier
-                // import has just been superseded. Parked pauses stay: theirs is
-                // an episode the provider may not list yet.
-                if let parked = pending[tmdb], !parked.episodes.isEmpty {
-                    let rest = TraktPendingShow(paused: parked.paused)
-                    pending[tmdb] = rest.isEmpty ? nil : rest
-                    pendingChanged = true
-                }
-            }
-        }
-
-        if pendingChanged {
-            TraktPendingWatchedStore.save(pending)
-        }
-        return (marked, queued)
-    }
-
-    // MARK: - Trakt-side progress
-
-    /// One show's watched episodes, in both the form the marking loop wants and
-    /// the form that gets parked on disk.
-    struct Progress {
-        var dates: [SeasonEpisode: Date?] = [:]
-        var newest: Date?
-
-        init(show: TraktWatchedShow) {
-            for season in show.seasons {
-                for episode in season.episodes {
-                    let key = SeasonEpisode(season: season.number, episode: episode.number)
-                    let date = parse(episode.lastWatchedAt)
-                    dates[key] = date
-                    if let date, date > (newest ?? .distantPast) {
-                        newest = date
-                    }
-                }
-            }
-        }
-
-        init(parked: TraktPendingShow) {
-            for (key, seconds) in parked.episodes {
-                let parts = key.split(separator: "x")
-                guard parts.count == 2, let season = Int(parts[0]), let episode = Int(parts[1]) else { continue }
-                let date = seconds.map { Date(timeIntervalSince1970: TimeInterval($0)) }
-                dates[SeasonEpisode(season: season, episode: episode)] = date
-                if let date, date > (newest ?? .distantPast) {
-                    newest = date
-                }
-            }
-        }
-
-        var parked: TraktPendingShow {
-            var episodes: [String: Int?] = [:]
-            for (key, date) in dates {
-                episodes[TraktPendingShow.key(season: key.season, episode: key.episode)] =
-                    date.map { Int($0.timeIntervalSince1970) }
-            }
-            return TraktPendingShow(episodes: episodes)
-        }
-    }
-
-    /// Applies parked Trakt progress to episodes that have just been fetched from
-    /// the provider, and drops what has been used. Called from
-    /// `Series.insertEpisodes`, the single place episodes ever materialize.
-    /// Watched state goes first, so a pause never reopens an episode finished
-    /// since; a pause whose episode is still missing stays parked
-    /// (`TraktPlaybackImporter.applyParked`).
+    /// Applies parked watched state, then parked pauses, to episodes that have
+    /// just been fetched (`TrackerWatchedImporter.applyPending`).
     @discardableResult
     static func applyPending(to series: Series, now: Date = .now) -> Int {
-        guard let tmdb = series.tmdbId, !series.episodes.isEmpty else { return 0 }
-        var pending = TraktPendingWatchedStore.load()
-        guard let parked = pending[tmdb] else { return 0 }
-
-        let progress = Progress(parked: parked)
-        let marked = markEpisodes(of: series, using: progress, profileID: ActiveProfileStore.current)
-        series.refreshWatchRecency(onlyAdvancing: true)
-        let waiting = TraktPlaybackImporter.applyParked(parked.paused ?? [:], to: series, now: now)
-        pending[tmdb] = waiting.isEmpty ? nil : TraktPendingShow(paused: waiting)
-        TraktPendingWatchedStore.save(pending)
-        return marked
+        Importer.applyPending(to: series, now: now)
     }
 
-    /// Marks the episodes of `series` that Trakt reports watched, returning how
-    /// many changed.
-    private static func markEpisodes(of series: Series, using progress: Progress, profileID: UUID?) -> Int {
-        var count = 0
-        for episode in series.episodes {
-            let key = SeasonEpisode(season: episode.seasonNum, episode: episode.episodeNum)
-            guard let date = progress.dates[key] else { continue }
-            if TrackerEpisodeHistory.applyCompletion(date, to: episode, profileID: profileID) { count += 1 }
-        }
-        return count
-    }
-
-    // MARK: - Dates
-
-    /// Parses Trakt's ISO-8601 timestamps. They normally carry fractional
-    /// seconds (e.g. `2014-10-11T17:00:54.000Z`), but a formatter set up for
-    /// those rejects a plain `2014-10-11T17:00:54Z`, so both forms are tried.
-    private static let fractionalFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
-
-    private static let formatter = ISO8601DateFormatter()
-
-    static func parse(_ string: String?) -> Date? {
-        guard let string else { return nil }
-        return fractionalFormatter.date(from: string) ?? formatter.date(from: string)
+    static func history(movies: [TraktWatchedMovie], shows: [TraktWatchedShow]) -> TrackerWatchedHistory {
+        TrackerWatchedHistory(
+            movies: movies.compactMap { item in
+                item.movie.ids.tmdb.map { .init(tmdbID: $0, watchedAt: LenientISO8601.date(from: item.lastWatchedAt)) }
+            },
+            shows: shows.compactMap { show in
+                // A show Trakt reports without any season progress has nothing
+                // to apply, now or later.
+                guard let tmdb = show.show.ids.tmdb, !show.seasons.isEmpty else { return nil }
+                var episodes: [TrackerEpisodeKey: Date?] = [:]
+                for season in show.seasons {
+                    for episode in season.episodes {
+                        episodes[TrackerEpisodeKey(season: season.number, episode: episode.number)] = LenientISO8601.date(from: episode.lastWatchedAt)
+                    }
+                }
+                return .init(tmdbID: tmdb, episodes: episodes)
+            }
+        )
     }
 }

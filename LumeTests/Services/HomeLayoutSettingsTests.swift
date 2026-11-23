@@ -224,15 +224,23 @@ struct HomeLayoutSettingsTests {
     }
 
     @Test func `isEnabled tracks a hidden custom section`() {
-        let raw = HomeLayoutSettings.settingEnabled(false, for: .custom(Self.alpha.id), disabledRaw: "")
-        #expect(!HomeLayoutSettings.isEnabled(.custom(Self.alpha.id), disabledRaw: raw))
-        #expect(HomeLayoutSettings.isEnabled(.custom(Self.beta.id), disabledRaw: raw))
+        var disabled = DisabledSections()
+        disabled.setEnabled(false, for: .custom(Self.alpha.id))
+        #expect(!HomeLayoutSettings.isEnabled(.custom(Self.alpha.id), disabledRaw: disabled.rawValue))
+        #expect(HomeLayoutSettings.isEnabled(.custom(Self.beta.id), disabledRaw: disabled.rawValue))
     }
 
-    @Test func `settingEnabled clears a hidden row`() {
-        let hidden = HomeLayoutSettings.settingEnabled(false, for: .builtin(.favorites), disabledRaw: "")
-        let shown = HomeLayoutSettings.settingEnabled(true, for: .builtin(.favorites), disabledRaw: hidden)
-        #expect(shown.isEmpty)
+    @Test func `showing a hidden row clears it`() {
+        var disabled = DisabledSections()
+        disabled.setEnabled(false, for: .builtin(.favorites))
+        disabled.setEnabled(true, for: .builtin(.favorites))
+        #expect(disabled.rawValue.isEmpty)
+    }
+
+    @Test func `the stored form is stable and drops unknown tokens`() {
+        let disabled = DisabledSections(rawValue: "recentlyAdded,no-such-row,favorites")
+        #expect(disabled.rawValue == "favorites,recentlyAdded")
+        #expect(DisabledSections(rawValue: disabled.rawValue) == disabled)
     }
 
     // MARK: - HomeSection properties

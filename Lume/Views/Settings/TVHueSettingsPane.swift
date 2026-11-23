@@ -22,8 +22,24 @@
         @State private var pairedBridge: HueBridgeAddress?
         @State private var route: Route?
         @State private var areas: [HueEntertainmentConfiguration] = []
-        @State private var isLoadingAreas = false
-        @State private var areaError: String?
+        /// Where loading the bridge's entertainment areas stands. One load at a
+        /// time: Reload re-keys the loading task (`areaReload`) rather than
+        /// starting a second, so Forget or a new bridge cancels it like any
+        /// other load.
+        @State private var areaLoad = AreaLoad.idle
+        @State private var areaReload = 0
+
+        private enum AreaLoad: Equatable {
+            case idle
+            case loading
+            case failed(String)
+        }
+
+        private struct AreaLoadKey: Equatable {
+            var bridge: HueBridgeAddress?
+            var reload: Int
+        }
+
         @State private var showsSensitivityNotice = false
         /// What the sensitivity notice unlocks once confirmed.
         @State private var noticeConfirms: NoticeAction = .enable
@@ -98,7 +114,7 @@
                 lightTest?.cancel()
             }
             .onChange(of: shouldBrowse) { updateDiscovery() }
-            .task(id: pairedBridge) { await loadAreas() }
+            .task(id: AreaLoadKey(bridge: pairedBridge, reload: areaReload)) { await loadAreas() }
             .hueSensitivityNotice(isPresented: $showsSensitivityNotice) {
                 switch noticeConfirms {
                 case .enable: isEnabled = true
@@ -245,7 +261,7 @@
             HueCredentialStore().forget()
             pairedBridge = nil
             areas = []
-            areaError = nil
+            areaLoad = .idle
             Task { @MainActor in focus = .manualAddress }
         }
 
@@ -267,7 +283,7 @@
                     areaRow(area)
                 }
 
-                if isLoadingAreas, areas.isEmpty {
+                if areaLoad == .loading, areas.isEmpty {
                     HStack(spacing: 16) {
                         ProgressView()
                         Text(String(localized: "settings.hue.area.loading", defaultValue: "Loading entertainment areas…"))
@@ -275,19 +291,19 @@
                     }
                     .font(.system(size: TVSettingsMetrics.rowFontSize))
                     .padding(.horizontal, TVSettingsMetrics.rowHPadding)
-                } else if let areaError {
+                } else if case let .failed(areaError) = areaLoad {
                     Text(verbatim: areaError)
                         .font(.system(size: TVSettingsMetrics.explanatoryFontSize))
                         .foregroundStyle(.red)
                         .padding(.horizontal, TVSettingsMetrics.rowHPadding)
                     Button {
-                        Task { await loadAreas() }
+                        areaReload += 1
                     } label: {
                         SettingsActionLabel(title: "settings.hue.area.reload", systemImage: "arrow.clockwise")
                     }
                     .buttonStyle(TVSettingsRowButtonStyle())
                     .focused($focus, equals: .reloadAreas)
-                } else if !isLoadingAreas, areas.isEmpty {
+                } else if areaLoad == .idle, areas.isEmpty {
                     footnote(String(
                         localized: "settings.hue.area.empty",
                         defaultValue: "This bridge has no entertainment areas. Create one in the Hue app under Settings › Entertainment areas."
@@ -399,18 +415,22 @@
                   let client = HueBridgeClient(bridge: pairedBridge, secrets: secrets)
             else {
                 areas = []
+                areaLoad = .idle
                 return
             }
-            isLoadingAreas = true
-            areaError = nil
-            defer { isLoadingAreas = false }
+            areaLoad = .loading
             do {
                 let loaded = try await client.entertainmentConfigurations()
+                // Forgotten or re-keyed while the request ran: the next load
+                // (or none) owns the list.
+                guard !Task.isCancelled else { return }
                 areas = loaded.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+                areaLoad = .idle
             } catch .cancelled {
                 return
             } catch {
-                areaError = HuePairingStrings.message(for: error)
+                guard !Task.isCancelled else { return }
+                areaLoad = .failed(HuePairingStrings.message(for: error))
             }
         }
     }

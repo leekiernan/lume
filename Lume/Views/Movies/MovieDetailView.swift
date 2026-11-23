@@ -144,8 +144,9 @@ struct MovieDetailView: View {
                             .padding(.horizontal, DetailMetrics.contentPadding)
                     }
 
-                    if !movie.externalRatings.isEmpty {
-                        ExternalRatingsView(ratings: movie.externalRatings)
+                    let ratings = movie.externalRatings // Decoded from JSON on every read.
+                    if !ratings.isEmpty {
+                        ExternalRatingsView(ratings: ratings)
                             .padding(.horizontal, DetailMetrics.contentPadding)
                     }
 
@@ -165,9 +166,10 @@ struct MovieDetailView: View {
                         }
                     }
 
-                    if !movie.trailers.isEmpty {
+                    let videos = movie.trailers // Decoded from JSON on every read.
+                    if !videos.isEmpty {
                         section(title: "Videos") {
-                            VideoRow(videos: movie.trailers) { video in
+                            VideoRow(videos: videos) { video in
                                 openVideo(video)
                             }
                         }
@@ -213,7 +215,7 @@ struct MovieDetailView: View {
     private var actions: some View {
         HStack(spacing: 10) {
             PrimaryPlayButton(
-                title: movie.watchProgress > 1 ? "Resume" : "Play",
+                title: movie.resumePoint > 1 ? "Resume" : "Play",
                 isEnabled: moviePlaylist != nil,
                 action: startPlayback
             )
@@ -225,11 +227,11 @@ struct MovieDetailView: View {
 
     @ViewBuilder
     private var information: some View {
-        let rows = informationRows
+        let rows = DetailInformation.rows(for: movie)
         if !rows.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 DetailSectionHeader(title: "Information")
-                ForEach(rows, id: \.label) { row in
+                ForEach(rows) { row in
                     VStack(alignment: .leading, spacing: 2) {
                         Text(LocalizedStringKey(row.label))
                             .font(.caption)
@@ -240,21 +242,6 @@ struct MovieDetailView: View {
                 }
             }
         }
-    }
-
-    private var informationRows: [(label: String, value: String)] {
-        var rows: [(String, String)] = []
-        rows.append(("Title", movie.name))
-        if let director = movie.director, !director.isEmpty {
-            rows.append(("Director", director))
-        }
-        if let genre = movie.genre, !genre.isEmpty {
-            rows.append(("Genre", genre))
-        }
-        if let actors = movie.actors, !actors.isEmpty, movie.orderedCast.isEmpty {
-            rows.append(("Cast", actors))
-        }
-        return rows
     }
 
     // MARK: - Derived data

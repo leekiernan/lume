@@ -29,7 +29,10 @@
 
     import SwiftUI
 
-    struct TVReorderableContentList<Item: ReorderableRowItem>: View {
+    /// Rows can carry an accessory after the title and actions at rest
+    /// (`rowAccessory`, `rowActions`); both are plain generic views, so the
+    /// list diffs them like any other row content.
+    struct TVReorderableContentList<Item: ReorderableRowItem, Accessory: View, Actions: View>: View {
         /// The persisted order (already sorted by the caller). Shown whenever no
         /// row is lifted.
         let items: [Item]
@@ -60,10 +63,10 @@
         var icon: ((Item) -> String?)?
         /// Drawn after the title inside the grab control: a tag ("Primary"),
         /// a premium badge.
-        var accessory: ((Item) -> AnyView)?
+        private var accessory: (Item) -> Accessory
         /// The row's own actions (promote, edit, remove), shown at rest after
         /// the title; hide always leads the row, in every list.
-        var actions: ((Item) -> AnyView)?
+        private var actions: (Item) -> Actions
         /// Proxy for the host's enclosing `ScrollView`. tvOS only auto-scrolls
         /// when focus *moves* between views; while a row is lifted it keeps focus
         /// and merely changes position, so we scroll it back into view ourselves
@@ -76,38 +79,41 @@
         @State private var liftedID: String?
         @FocusState private var focusedID: String?
 
-        init(
-            items: [Item],
-            title: @escaping (Item) -> String,
-            isHidden: @escaping (Item) -> Bool,
-            drillValue: ((Item) -> Category)? = nil,
-            onToggleHidden: ((Item) -> Void)?,
-            onCommitOrder: @escaping ([Item]) -> Void,
-            isReordering: Binding<Bool>,
-            scrollProxy: ScrollViewProxy,
-            isRestricted: ((Item) -> Bool)? = nil,
-            onToggleRestricted: ((Item) -> Void)? = nil,
-            toggleImage: @escaping (Bool) -> String = { $0 ? "eye.slash" : "eye" },
-            toggleAccessibility: @escaping (Bool, String) -> String = { $0 ? "Show \($1)" : "Hide \($1)" },
-            icon: ((Item) -> String?)? = nil,
-            accessory: ((Item) -> AnyView)? = nil,
-            actions: ((Item) -> AnyView)? = nil
+        /// Copies `other` with new row slots; see `rowAccessory` and `rowActions`.
+        fileprivate init(
+            _ other: TVReorderableContentList<Item, some Any, some Any>,
+            accessory: @escaping (Item) -> Accessory,
+            actions: @escaping (Item) -> Actions
         ) {
-            self.items = items
-            self.title = title
-            self.isHidden = isHidden
-            self.drillValue = drillValue
-            self.onToggleHidden = onToggleHidden
-            self.onCommitOrder = onCommitOrder
-            _isReordering = isReordering
-            self.scrollProxy = scrollProxy
-            self.isRestricted = isRestricted
-            self.onToggleRestricted = onToggleRestricted
-            self.toggleImage = toggleImage
-            self.toggleAccessibility = toggleAccessibility
-            self.icon = icon
+            items = other.items
+            title = other.title
+            isHidden = other.isHidden
+            drillValue = other.drillValue
+            onToggleHidden = other.onToggleHidden
+            toggleImage = other.toggleImage
+            toggleAccessibility = other.toggleAccessibility
+            onCommitOrder = other.onCommitOrder
+            isRestricted = other.isRestricted
+            onToggleRestricted = other.onToggleRestricted
+            _isReordering = other._isReordering
+            icon = other.icon
+            scrollProxy = other.scrollProxy
             self.accessory = accessory
             self.actions = actions
+        }
+
+        /// A view drawn after each row's title.
+        func rowAccessory<NewAccessory: View>(
+            @ViewBuilder _ accessory: @escaping (Item) -> NewAccessory
+        ) -> TVReorderableContentList<Item, NewAccessory, Actions> {
+            .init(self, accessory: accessory, actions: actions)
+        }
+
+        /// Each row's own actions, shown at rest.
+        func rowActions<NewActions: View>(
+            @ViewBuilder _ actions: @escaping (Item) -> NewActions
+        ) -> TVReorderableContentList<Item, Accessory, NewActions> {
+            .init(self, accessory: accessory, actions: actions)
         }
 
         private var displayed: [Item] {
@@ -144,8 +150,8 @@
                         isMoving: liftedID != nil,
                         drillValue: drillValue?(item),
                         icon: icon?(item),
-                        accessory: accessory?(item),
-                        actions: actions?(item),
+                        accessory: accessory(item),
+                        actions: actions(item),
                         toggleImageName: toggleImage(isHidden(item)),
                         toggleAccessibilityLabel: toggleAccessibility(isHidden(item), title(item)),
                         isRestricted: isRestricted?(item),
@@ -251,7 +257,7 @@
     /// exist at rest — while any row is lifted they're gone and every non-lifted
     /// row is disabled, which is what traps the remote's up/down on the lifted
     /// row so `onMoveCommand` can reorder instead of focus moving away.
-    private struct TVReorderRow: View {
+    private struct TVReorderRow<Accessory: View, Actions: View>: View {
         let id: String
         let title: String
         let isHidden: Bool
@@ -259,8 +265,8 @@
         let isMoving: Bool
         let drillValue: Category?
         let icon: String?
-        let accessory: AnyView?
-        let actions: AnyView?
+        let accessory: Accessory
+        let actions: Actions
         let toggleImageName: String
         let toggleAccessibilityLabel: String
         /// nil when the row has no restriction toggle (e.g. the channel list).
@@ -444,6 +450,40 @@
                     )
                     .animation(.easeOut(duration: 0.15), value: isFocused)
             }
+        }
+    }
+
+    extension TVReorderableContentList where Accessory == EmptyView, Actions == EmptyView {
+        init(
+            items: [Item],
+            title: @escaping (Item) -> String,
+            isHidden: @escaping (Item) -> Bool,
+            drillValue: ((Item) -> Category)? = nil,
+            onToggleHidden: ((Item) -> Void)?,
+            onCommitOrder: @escaping ([Item]) -> Void,
+            isReordering: Binding<Bool>,
+            scrollProxy: ScrollViewProxy,
+            isRestricted: ((Item) -> Bool)? = nil,
+            onToggleRestricted: ((Item) -> Void)? = nil,
+            toggleImage: @escaping (Bool) -> String = { $0 ? "eye.slash" : "eye" },
+            toggleAccessibility: @escaping (Bool, String) -> String = { $0 ? "Show \($1)" : "Hide \($1)" },
+            icon: ((Item) -> String?)? = nil
+        ) {
+            self.items = items
+            self.title = title
+            self.isHidden = isHidden
+            self.drillValue = drillValue
+            self.onToggleHidden = onToggleHidden
+            self.onCommitOrder = onCommitOrder
+            _isReordering = isReordering
+            self.scrollProxy = scrollProxy
+            self.isRestricted = isRestricted
+            self.onToggleRestricted = onToggleRestricted
+            self.toggleImage = toggleImage
+            self.toggleAccessibility = toggleAccessibility
+            self.icon = icon
+            accessory = { _ in EmptyView() }
+            actions = { _ in EmptyView() }
         }
     }
 

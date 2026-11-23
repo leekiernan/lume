@@ -3,15 +3,15 @@
 //  Lume
 //
 //  Applies a tracker's watched history onto the local catalog: marks matching
-//  movies and episodes as watched. Shared by the trackers whose import carries
-//  watched state only (Simkl, MDBList); each decodes its own payload into a
-//  `TrackerWatchedHistory` first. Run on connect and on demand from the
-//  tracker's settings screen.
+//  movies and episodes as watched. Shared by every tracker (Trakt, Simkl,
+//  MDBList); each decodes its own payload into a `TrackerWatchedHistory`
+//  first. Run on connect and on demand from the tracker's settings screen.
 //
 //  Matching is by TMDB id (the only external id the library carries), so titles
-//  without a resolved `tmdbId` are skipped. Already-watched items are left
-//  untouched so the import is idempotent and the returned counts reflect only
-//  what actually changed.
+//  without a resolved `tmdbId` are skipped. Already-watched items aren't marked
+//  again, so the import is idempotent and the returned counts reflect only
+//  what actually changed; a newer remote watch of one still moves it up
+//  Recently Watched.
 //
 //  Series need one extra step. Xtream and Stalker episodes are fetched lazily by
 //  the series detail screen, so a show the user has never opened has a `Series`
@@ -107,11 +107,20 @@ nonisolated enum TrackerWatchedImporter<Store: TrackerPendingWatchedStoring> {
         let candidates = TrackerCatalogLookup.movies(tmdbIDs: watchedIDs, in: context)
 
         var count = 0
-        for movie in candidates where !movie.isWatched {
-            guard let tmdb = movie.tmdbId, watchedIDs.contains(tmdb) else { continue }
-            guard WatchHistoryClears.shared.allows(dates[tmdb], for: movie.id, profileID: profileID) else { continue }
+        for movie in candidates {
+            guard let tmdb = movie.tmdbId, watchedIDs.contains(tmdb),
+                  WatchHistoryClears.shared.allows(dates[tmdb], for: movie.id, profileID: profileID)
+            else { continue }
+            guard !movie.isWatched else {
+                // Watched again elsewhere since: move it up Recently Watched.
+                // Not counted — nothing about it was marked.
+                if let date = dates[tmdb], date > (movie.lastWatchedDate ?? .distantPast) {
+                    movie.lastWatchedDate = date
+                }
+                continue
+            }
             // A rewatch or local unwatched decision made after the remote play
-            // must survive the import, as on Trakt.
+            // must survive the import.
             if let local = movie.lastWatchedDate, (dates[tmdb] ?? .distantPast) <= local { continue }
             movie.isWatched = true
             movie.watchProgress = Double(movie.durationSecs ?? 0)
@@ -157,7 +166,9 @@ nonisolated enum TrackerWatchedImporter<Store: TrackerPendingWatchedStoring> {
             if series.episodes.isEmpty {
                 // Nothing to mark yet. Park it for `Series.insertEpisodes`, which
                 // runs when the detail screen fetches the episodes anyway.
-                let updated = progress.parked
+                // Replaces the watched half only: pauses parked by an earlier
+                // playback import still wait for the same episodes.
+                let updated = TrackerPendingShow(episodes: progress.parked.episodes, paused: pending[tmdb]?.paused)
                 if pending[tmdb] != updated {
                     pending[tmdb] = updated
                     pendingChanged = true
@@ -166,10 +177,12 @@ nonisolated enum TrackerWatchedImporter<Store: TrackerPendingWatchedStoring> {
             } else {
                 marked += markEpisodes(of: series, using: progress, profileID: pendingScope.profileID)
                 series.refreshWatchRecency(onlyAdvancing: true)
-                // Episodes are present, so anything parked by an earlier import
-                // has just been superseded.
-                if pending[tmdb] != nil {
-                    pending[tmdb] = nil
+                // Episodes are present, so watched state parked by an earlier
+                // import has just been superseded. Parked pauses stay: theirs is
+                // an episode the provider may not list yet.
+                if let parked = pending[tmdb], !parked.episodes.isEmpty {
+                    let rest = TrackerPendingShow(paused: parked.paused)
+                    pending[tmdb] = rest.isEmpty ? nil : rest
                     pendingChanged = true
                 }
             }
@@ -213,17 +226,23 @@ nonisolated enum TrackerWatchedImporter<Store: TrackerPendingWatchedStoring> {
     }
 
     /// Applies parked progress to episodes that have just been fetched from the
-    /// provider, and drops the entry once it has been used. Called from
+    /// provider, and drops what has been used. Called from
     /// `Series.insertEpisodes`, the single place episodes ever materialize.
+    /// Watched state goes first, so a pause never reopens an episode finished
+    /// since; a pause whose episode is still missing stays parked
+    /// (`TrackerPendingWatchedStoring.applyParkedPauses`).
     @discardableResult
-    static func applyPending(to series: Series) -> Int {
+    static func applyPending(to series: Series, now: Date = .now) -> Int {
         guard let tmdb = series.tmdbId, !series.episodes.isEmpty else { return 0 }
-        guard let parked = Store.load()[tmdb] else { return 0 }
+        var pending = Store.load()
+        guard let parked = pending[tmdb] else { return 0 }
 
         let progress = Progress(parked: parked)
         let marked = markEpisodes(of: series, using: progress, profileID: ActiveProfileStore.current)
         series.refreshWatchRecency(onlyAdvancing: true)
-        Store.clear(tmdbID: tmdb)
+        let waiting = parked.paused.map { Store.applyParkedPauses($0, to: series, now: now) } ?? [:]
+        pending[tmdb] = waiting.isEmpty ? nil : TrackerPendingShow(paused: waiting)
+        Store.save(pending)
         return marked
     }
 

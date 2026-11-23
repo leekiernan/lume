@@ -15,7 +15,7 @@ extension HomeView {
         HomeLayoutSettings.resolve(orderRaw: sectionOrderRaw, custom: customSections, surface: .home).filter { ref in
             switch ref {
             case let .builtin(section): isSectionEnabled(section)
-            case .custom: vodAvailable && HomeLayoutSettings.isEnabled(ref, disabledRaw: disabledSectionsRaw)
+            case .custom: vodAvailable && disabledSections.isEnabled(ref)
             }
         }
     }

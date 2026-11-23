@@ -2,9 +2,8 @@
 //  TrackerPendingWatched.swift
 //  Lume
 //
-//  Holds the watched episodes a tracker import could not apply yet, for the
-//  trackers whose import parks watched state only (Simkl, MDBList; Trakt's
-//  own store also parks pauses).
+//  Holds the watched episodes a tracker import could not apply yet, and, for
+//  Trakt, the episodes paused part-way (`TraktPlaybackImporter`).
 //
 //  Xtream and Stalker only expose episodes through a per-series
 //  `get_series_info` call that the series detail screen makes on first open, so
@@ -34,10 +33,36 @@ nonisolated struct TrackerPendingShow: Codable, Equatable {
     /// Keys are `"<season>x<episode>"`; values are epoch seconds, or nil when
     /// the tracker reported no timestamp for that episode.
     var episodes: [String: Int?]
+    /// Episodes paused part-way, keyed like `episodes`. Only Trakt's import
+    /// parks pauses. Optional so a file written before pauses were parked
+    /// still decodes.
+    var paused: [String: TrackerPendingPause]?
+
+    init(episodes: [String: Int?] = [:], paused: [String: TrackerPendingPause]? = nil) {
+        self.episodes = episodes
+        self.paused = paused
+    }
 
     static func key(season: Int, episode: Int) -> String {
         "\(season)x\(episode)"
     }
+
+    var isEmpty: Bool {
+        episodes.isEmpty && (paused ?? [:]).isEmpty
+    }
+}
+
+/// One paused episode waiting for its row.
+nonisolated struct TrackerPendingPause: Codable, Equatable {
+    /// The tracker's percent, 0...100. Kept as a percent: seconds need the
+    /// episode's duration, which arrives with the episode.
+    var progress: Double
+    /// When the tracker paused it, epoch seconds.
+    var pausedAt: Int
+    /// When the import parked it, epoch seconds. Unlike watched state, a pause
+    /// outlives its series' first fetch — the provider may be a season behind
+    /// the tracker and list the episode later — so it needs its own expiry.
+    var parkedAt: Int
 }
 
 /// The parked watched state, keyed by the show's TMDB id (as a string, so the
@@ -94,9 +119,16 @@ nonisolated protocol TrackerPendingWatchedStoring {
     /// directory before any test runs (`PendingStoreIsolation`).
     static var directory: URL? { get set }
     static var cache: TrackerPendingWatchedCache { get }
+    /// Applies parked pauses to a series whose episodes just arrived, returning
+    /// the ones whose episode is still missing. Only Trakt parks pauses.
+    static func applyParkedPauses(_ paused: [String: TrackerPendingPause], to series: Series, now: Date) -> [String: TrackerPendingPause]
 }
 
 nonisolated extension TrackerPendingWatchedStoring {
+    static func applyParkedPauses(_: [String: TrackerPendingPause], to _: Series, now _: Date) -> [String: TrackerPendingPause] {
+        [:]
+    }
+
     /// Where the parked state lives. Excluded from backup — the next import
     /// rebuilds it from the tracker.
     static var fileURL: URL? {

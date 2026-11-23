@@ -207,7 +207,7 @@ extension KSPlayerEngineView {
     func startStallWatchdog() {
         guard stallWatchdog == nil else { return }
         stallWatchdog = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: UInt64(stallTimeout * 1_000_000_000))
+            try? await Task.sleep(for: .seconds(stallTimeout))
             guard !Task.isCancelled else { return }
             stallWatchdog = nil
             let kind = media.isLive ? "live" : "VOD"
@@ -504,7 +504,7 @@ extension KSPlayerEngineView {
                 pipObservationTask = Task { @MainActor in
                     var attempts = 0
                     while coordinator.playerLayer == nil, attempts < 50 {
-                        try? await Task.sleep(nanoseconds: 100_000_000)
+                        try? await Task.sleep(for: .milliseconds(100))
                         attempts += 1
                     }
                     guard !Task.isCancelled, let playerLayer = coordinator.playerLayer else { return }

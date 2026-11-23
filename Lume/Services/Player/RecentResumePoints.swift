@@ -83,3 +83,26 @@ nonisolated enum RecentResumePoints {
         return isWatched && resume == stored ? 0 : resume
     }
 }
+
+// The detail pages' Play / Resume label reads the same point playback opens
+// at, so a watched title never offers Resume and then starts from the top.
+
+extension Movie {
+    /// Where playback of this movie opens (`RecentResumePoints.start`).
+    nonisolated var resumePoint: TimeInterval {
+        RecentResumePoints.start(
+            for: .movie(id), stored: watchProgress, storedAt: lastWatchedDate,
+            isWatched: isWatched, duration: durationSecs
+        )
+    }
+}
+
+extension Episode {
+    /// Where playback of this episode opens (`RecentResumePoints.start`).
+    nonisolated var resumePoint: TimeInterval {
+        RecentResumePoints.start(
+            for: .episode(id), stored: watchProgress, storedAt: lastWatchedDate,
+            isWatched: isWatched, duration: durationSecs
+        )
+    }
+}

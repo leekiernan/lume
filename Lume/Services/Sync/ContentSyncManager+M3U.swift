@@ -106,11 +106,13 @@ nonisolated enum M3UClassifier {
         return path[filenameStart...].hasPrefix("index.")
     }
 
-    /// Finds the first `SxxExx` / `NxM` token in a title and splits it into the
-    /// series name (everything before the token), the season/episode numbers,
-    /// and the episode title (everything after it — byte-identical to what
-    /// `ContentSyncManager.cleanEpisodeTitle` derives from the same name).
-    static func episodeInfo(in name: String) -> (series: String, season: Int, episode: Int, title: String)? {
+    /// What separates a season/episode token from the names around it.
+    static let titleSeparators = CharacterSet(charactersIn: " -–—·:|.").union(.whitespacesAndNewlines)
+
+    /// The first `SxxExx` / `NxM` token in a title, with its numbers. The one
+    /// matcher for both the m3u import and Xtream's episode titles
+    /// (`ContentSyncManager.cleanEpisodeTitle`).
+    static func seasonEpisodeToken(in name: String) -> (range: Range<String.Index>, season: Int, episode: Int)? {
         guard let found = episodeToken.firstMatch(in: name, range: NSRange(name.startIndex..., in: name)),
               let match = Range(found.range, in: name)
         else {
@@ -133,8 +135,17 @@ nonisolated enum M3UClassifier {
             return nil
         }
         guard let season, let episode else { return nil }
+        return (match, season, episode)
+    }
 
-        let separators = CharacterSet(charactersIn: " -–—·:|.").union(.whitespacesAndNewlines)
+    /// Finds the first `SxxExx` / `NxM` token in a title and splits it into the
+    /// series name (everything before the token), the season/episode numbers,
+    /// and the episode title (everything after it — what
+    /// `ContentSyncManager.cleanEpisodeTitle` derives from the same name).
+    static func episodeInfo(in name: String) -> (series: String, season: Int, episode: Int, title: String)? {
+        guard let token = seasonEpisodeToken(in: name) else { return nil }
+        let (match, season, episode) = token
+        let separators = titleSeparators
         var series = String(name[..<match.lowerBound]).trimmingCharacters(in: separators)
         if series.isEmpty {
             // Token-first titles ("S01E01 Pilot"): fall back to whatever

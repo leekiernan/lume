@@ -201,11 +201,11 @@ struct SeriesDetailView: View {
 
     @ViewBuilder
     private var information: some View {
-        let rows = informationRows
+        let rows = DetailInformation.rows(for: series)
         if !rows.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 DetailSectionHeader(title: "Information")
-                ForEach(rows, id: \.label) { row in
+                ForEach(rows) { row in
                     VStack(alignment: .leading, spacing: 2) {
                         Text(LocalizedStringKey(row.label))
                             .font(.caption)
@@ -216,21 +216,6 @@ struct SeriesDetailView: View {
                 }
             }
         }
-    }
-
-    private var informationRows: [(label: String, value: String)] {
-        var rows: [(String, String)] = []
-        rows.append(("Title", series.name))
-        if let director = series.director, !director.isEmpty {
-            rows.append(("Director", director))
-        }
-        if let genre = series.genre, !genre.isEmpty {
-            rows.append(("Genre", genre))
-        }
-        if let cast = series.cast, !cast.isEmpty, series.orderedCast.isEmpty {
-            rows.append(("Cast", cast))
-        }
-        return rows
     }
 
     // MARK: - Toolbar
@@ -321,8 +306,9 @@ struct SeriesDetailView: View {
                                 .padding(.horizontal, DetailMetrics.contentPadding)
                         }
 
-                        if !series.externalRatings.isEmpty {
-                            ExternalRatingsView(ratings: series.externalRatings)
+                        let ratings = series.externalRatings // Decoded from JSON on every read.
+                        if !ratings.isEmpty {
+                            ExternalRatingsView(ratings: ratings)
                                 .padding(.horizontal, DetailMetrics.contentPadding)
                         }
 
@@ -334,9 +320,10 @@ struct SeriesDetailView: View {
                             }
                         }
 
-                        if !series.trailers.isEmpty {
+                        let videos = series.trailers // Decoded from JSON on every read.
+                        if !videos.isEmpty {
                             section(title: "Videos") {
-                                VideoRow(videos: series.trailers) { video in
+                                VideoRow(videos: videos) { video in
                                     openVideo(video)
                                 }
                             }
@@ -431,7 +418,7 @@ private extension SeriesDetailView {
 private extension SeriesDetailView {
     var playTitle: LocalizedStringKey {
         guard let episode = nextEpisode else { return "Play" }
-        let resume = !episode.isWatched && episode.watchProgress > 1
+        let resume = episode.resumePoint > 1
         return resume ? "Resume S\(episode.seasonNum) E\(episode.episodeNum)" : "Play S\(episode.seasonNum) E\(episode.episodeNum)"
     }
 }

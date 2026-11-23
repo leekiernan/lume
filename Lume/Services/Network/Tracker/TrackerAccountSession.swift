@@ -439,7 +439,10 @@ final class TrackerAccountSession<Backend: TrackerAccountBackend> {
             backend.saveIdentity(fresh)
             setIdentity(fresh, confirmed: true)
         }
-        send(.tokensHeld(account: fresh?.username))
+        // `.approved`, not `.tokensHeld`: this runs on the polling task, and
+        // cancelling it here would cancel the history import below.
+        send(.approved(account: fresh?.username))
+        pollingTask = nil
         await didConnect?()
     }
 

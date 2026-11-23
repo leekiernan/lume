@@ -33,12 +33,7 @@ nonisolated struct LumeMetadataAvailability: Decodable, Equatable {
         case .artwork: artwork
         case .ratings: ratings
         }
-        guard let value else { return nil }
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let fractional = formatter.date(from: value)
-        formatter.formatOptions = [.withInternetDateTime]
-        guard let date = fractional ?? formatter.date(from: value), date <= now else { return nil }
+        guard let date = LenientISO8601.date(from: value), date <= now else { return nil }
         return date
     }
 }

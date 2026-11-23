@@ -154,23 +154,8 @@ nonisolated struct ESPNClient: SportsDataProvider {
     /// ESPN emits ISO-8601 instants that are usually `…:ssZ` but sometimes drop
     /// the seconds (`…:mmZ`). Both are UTC.
     static func parseDate(_ string: String?) -> Date? {
-        guard let string, !string.isEmpty else { return nil }
-        if let date = isoWithSeconds.date(from: string) { return date }
-        if let date = isoFractional.date(from: string) { return date }
-        return isoNoSeconds.date(from: string)
+        LenientISO8601.date(from: string) ?? string.flatMap(isoNoSeconds.date(from:))
     }
-
-    private static let isoWithSeconds: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter
-    }()
-
-    private static let isoFractional: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
 
     private static let isoNoSeconds: DateFormatter = {
         let formatter = DateFormatter()

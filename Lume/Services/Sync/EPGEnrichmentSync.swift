@@ -121,11 +121,12 @@ actor EPGEnrichmentSync {
         let enabledIDs = Set(sources.map(\.id))
         var changedSources: Set<UUID> = []
         var changed = 0
+        let noSupplements = EPGProgrammeEnrichment.Index()
         for row in rows {
             try Task.checkCancellation()
             let active = row.sourceID.map { enabledIDs.contains($0) } == true
             let matched = active && index.metadata(channelID: row.channelId, start: row.start, end: row.end, title: row.title) != nil
-            let edited = try EPGProgrammeEnrichment.apply(active ? index : .init(), to: row)
+            let edited = try EPGProgrammeEnrichment.apply(active ? index : noSupplements, to: row)
             if edited {
                 changed += 1
                 if let id = row.sourceID { changedSources.insert(id) }

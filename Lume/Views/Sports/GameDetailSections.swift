@@ -157,7 +157,7 @@ private struct TimelineSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            ForEach(Array(events.enumerated()), id: \.offset) { _, event in
+            ForEach(events) { event in
                 row(event)
             }
         }
@@ -218,7 +218,7 @@ private struct StatsSection: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            ForEach(Array(stats.enumerated()), id: \.offset) { _, stat in
+            ForEach(stats) { stat in
                 statRow(stat)
             }
         }
@@ -277,7 +277,7 @@ struct LineupSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            ForEach(Array(lineups.enumerated()), id: \.offset) { _, lineup in
+            ForEach(lineups) { lineup in
                 teamLineup(lineup)
             }
         }
@@ -298,7 +298,7 @@ struct LineupSection: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            ForEach(Array(lineup.starters.enumerated()), id: \.offset) { _, player in
+            ForEach(lineup.starters) { player in
                 playerRow(player)
             }
         }

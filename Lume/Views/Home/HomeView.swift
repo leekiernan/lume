@@ -69,7 +69,7 @@ struct HomeView: View {
     @AppStorage(HomeLayoutSettings.sectionOrderKey(.home)) var sectionOrderRaw = ""
     /// Sections the user switched off (Settings › Layout › Home). "For You" is
     /// gated by `recommendationsEnabled` instead — see `HomeLayoutSettings`.
-    @AppStorage(HomeLayoutSettings.disabledSectionsKey(.home)) var disabledSectionsRaw = ""
+    @AppStorage(HomeLayoutSettings.disabledSectionsKey(.home)) var disabledSections = DisabledSections()
     /// The user's custom list-backed rows (Settings › Layout › Home › Add Section).
     @AppStorage(CustomHomeSections.storageKey(.home)) private var customSectionsRaw = ""
     /// Which row Home shows as its hero, and whether its starting hero has been
@@ -287,7 +287,7 @@ struct HomeView: View {
             // gate as the built-in trending rows.
             if vodAvailable, ref != heroRef,
                let section = content.customSections.first(where: { $0.id == id }),
-               HomeLayoutSettings.isEnabled(ref, disabledRaw: disabledSectionsRaw)
+               disabledSections.isEnabled(ref)
             {
                 rail(Text(verbatim: section.title), feed.items(for: ref), section: ref, title: section.title)
             }
@@ -351,17 +351,17 @@ struct HomeView: View {
             recommendationsEnabled && premium.isPremium
         case .sports:
             AppAreaSettings.isEnabled(.liveTV, disabledRaw: disabledAreasRaw)
-                && HomeLayoutSettings.isEnabled(.builtin(section), disabledRaw: disabledSectionsRaw)
+                && disabledSections.isEnabled(.builtin(section))
         case .trendingMovies:
             AppAreaSettings.isEnabled(.movies, disabledRaw: disabledAreasRaw)
-                && HomeLayoutSettings.isEnabled(.builtin(section), disabledRaw: disabledSectionsRaw)
+                && disabledSections.isEnabled(.builtin(section))
         case .trendingSeries:
             AppAreaSettings.isEnabled(.series, disabledRaw: disabledAreasRaw)
-                && HomeLayoutSettings.isEnabled(.builtin(section), disabledRaw: disabledSectionsRaw)
+                && disabledSections.isEnabled(.builtin(section))
         case .traktWatchlist, .simklWatchlist, .mdblistWatchlist:
-            vodAvailable && HomeLayoutSettings.isEnabled(.builtin(section), disabledRaw: disabledSectionsRaw)
+            vodAvailable && disabledSections.isEnabled(.builtin(section))
         default:
-            HomeLayoutSettings.isEnabled(.builtin(section), disabledRaw: disabledSectionsRaw)
+            disabledSections.isEnabled(.builtin(section))
         }
     }
 
@@ -424,7 +424,7 @@ struct HomeView: View {
             // The promoted section is still fetched — it feeds the hero even
             // though it draws no row.
             .custom($0.id) == heroRef
-                || HomeLayoutSettings.isEnabled(.custom($0.id), disabledRaw: disabledSectionsRaw)
+                || disabledSections.isEnabled(.custom($0.id))
         }
     }
 

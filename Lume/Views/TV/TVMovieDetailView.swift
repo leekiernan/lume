@@ -91,8 +91,9 @@
                         }
                     }
 
-                    if !movie.trailers.isEmpty {
-                        PosterRail(title: Text("Videos"), items: movie.trailers, style: .detail) { video in
+                    let videos = movie.trailers // Decoded from JSON on every read.
+                    if !videos.isEmpty {
+                        PosterRail(title: Text("Videos"), items: videos, style: .detail) { video in
                             TVVideoCard(video: video) {
                                 openVideo(video) { showYouTubeUnavailable = true }
                             }
@@ -140,7 +141,7 @@
             ) {
                 HStack(spacing: 18) {
                     TVPlayButton(
-                        title: movie.watchProgress > 1 ? "Resume" : "Play",
+                        title: movie.resumePoint > 1 ? "Resume" : "Play",
                         isEnabled: moviePlaylist != nil,
                         action: startPlayback
                     )
@@ -178,8 +179,9 @@
                             .foregroundStyle(.white.opacity(0.6))
                     }
 
-                    if !movie.externalRatings.isEmpty {
-                        TVExternalRatingsView(ratings: movie.externalRatings)
+                    let ratings = movie.externalRatings // Decoded from JSON on every read.
+                    if !ratings.isEmpty {
+                        TVExternalRatingsView(ratings: ratings)
                             .padding(.top, 8)
                     }
                 }
@@ -233,21 +235,7 @@
         }
 
         private var informationItems: [TVMetaItem] {
-            var items: [TVMetaItem] = []
-            items.append(TVMetaItem(label: "Playlist Title", value: movie.name))
-            if let director = movie.director, !director.isEmpty {
-                items.append(TVMetaItem(label: "Director", value: director))
-            }
-            if let genre = movie.genre, !genre.isEmpty {
-                items.append(TVMetaItem(label: "Genre", value: genre))
-            }
-            if let actors = movie.actors, !actors.isEmpty, movie.orderedCast.isEmpty {
-                items.append(TVMetaItem(label: "Cast", value: actors))
-            }
-            if let cert = movie.contentRating, !cert.isEmpty {
-                items.append(TVMetaItem(label: "Rated", value: cert))
-            }
-            return items
+            DetailInformation.rows(for: movie).map { TVMetaItem(label: $0.label, value: $0.value) }
         }
 
         /// The playlist this movie actually belongs to (ids are `"<playlistUUID>-…"`),

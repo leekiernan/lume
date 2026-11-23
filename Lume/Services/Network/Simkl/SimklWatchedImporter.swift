@@ -43,36 +43,18 @@ nonisolated enum SimklWatchedImporter {
         TrackerWatchedHistory(
             movies: movies.compactMap { item in
                 guard item.isWatched, let tmdb = item.movie.ids.tmdb else { return nil }
-                return TrackerWatchedHistory.WatchedMovie(tmdbID: tmdb, watchedAt: parse(item.lastWatchedAt))
+                return TrackerWatchedHistory.WatchedMovie(tmdbID: tmdb, watchedAt: LenientISO8601.date(from: item.lastWatchedAt))
             },
             shows: shows.compactMap { show in
                 guard let tmdb = show.show.ids.tmdb, !show.seasons.isEmpty else { return nil }
                 var episodes: [TrackerEpisodeKey: Date?] = [:]
                 for season in show.seasons {
                     for episode in season.episodes {
-                        episodes[TrackerEpisodeKey(season: season.number, episode: episode.number)] = parse(episode.lastWatchedAt)
+                        episodes[TrackerEpisodeKey(season: season.number, episode: episode.number)] = LenientISO8601.date(from: episode.lastWatchedAt)
                     }
                 }
                 return TrackerWatchedHistory.WatchedShow(tmdbID: tmdb, episodes: episodes)
             }
         )
-    }
-
-    // MARK: - Dates
-
-    /// Simkl documents ISO-8601 timestamps without fractional seconds
-    /// (`2015-03-15T15:30:11Z`), but some fields carry them
-    /// (`2018-06-12T14:23:08.000Z`), so both forms are tried.
-    private static let fractionalFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
-
-    private static let formatter = ISO8601DateFormatter()
-
-    private static func parse(_ string: String?) -> Date? {
-        guard let string else { return nil }
-        return fractionalFormatter.date(from: string) ?? formatter.date(from: string)
     }
 }

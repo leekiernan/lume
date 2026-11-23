@@ -29,7 +29,8 @@ struct SectionCollectionView: View {
                 isLoading: !loader.pagination.isPrepared || loader.pagination.isLoading,
                 isLoadingMore: loader.pagination.isLoading,
                 animationNamespace: animationNamespace,
-                onReachEnd: { loader.requestNextPage(fetch: fetch) }
+                onReachEnd: { loader.requestNextPage(fetch: fetch) },
+                onRetry: loader.pagination.hasFailed ? { loader.retry(fetch: fetch) } : nil
             )
         }
         .task(id: selection.section.token) {

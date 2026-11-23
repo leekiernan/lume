@@ -19,7 +19,7 @@
         /// flag that gates the recommendation recompute on Home.
         @AppStorage(RecommendationSettings.enabledKey) private var recommendationsEnabled = RecommendationSettings.enabledDefault
         @AppStorage private var sectionOrderRaw: String
-        @AppStorage private var disabledSectionsRaw: String
+        @AppStorage private var disabledSections: DisabledSections
         @AppStorage private var customSectionsRaw: String
         @AppStorage private var heroSectionRaw: String
         @AppStorage private var heroSeeded: Bool
@@ -39,7 +39,7 @@
             self.surface = surface
             self.categoryType = categoryType
             _sectionOrderRaw = AppStorage(wrappedValue: "", HomeLayoutSettings.sectionOrderKey(surface))
-            _disabledSectionsRaw = AppStorage(wrappedValue: "", HomeLayoutSettings.disabledSectionsKey(surface))
+            _disabledSections = AppStorage(wrappedValue: DisabledSections(), HomeLayoutSettings.disabledSectionsKey(surface))
             _customSectionsRaw = AppStorage(wrappedValue: "", CustomHomeSections.storageKey(surface))
             _heroSectionRaw = AppStorage(wrappedValue: "", HomeLayoutSettings.heroSectionKey(surface))
             _heroSeeded = AppStorage(wrappedValue: false, HomeLayoutSettings.heroSeededKey(surface))
@@ -274,16 +274,14 @@
             guard section == .forYou else {
                 guard section == .sports else { return enabledBinding(for: .builtin(section)) }
                 return Binding(
-                    get: { HomeLayoutSettings.isEnabled(.builtin(section), disabledRaw: disabledSectionsRaw) },
+                    get: { disabledSections.isEnabled(.builtin(section)) },
                     set: { isOn in
                         if isOn, !premium.isPremium {
                             paywallHighlight = .sportsHub
                             showPaywall = true
                             return
                         }
-                        disabledSectionsRaw = HomeLayoutSettings.settingEnabled(
-                            isOn, for: .builtin(section), disabledRaw: disabledSectionsRaw
-                        )
+                        disabledSections.setEnabled(isOn, for: .builtin(section))
                     }
                 )
             }
@@ -306,11 +304,9 @@
         /// section but "For You", and every custom one.
         private func enabledBinding(for ref: HomeSectionRef) -> Binding<Bool> {
             Binding(
-                get: { HomeLayoutSettings.isEnabled(ref, disabledRaw: disabledSectionsRaw) },
+                get: { disabledSections.isEnabled(ref) },
                 set: { isOn in
-                    disabledSectionsRaw = HomeLayoutSettings.settingEnabled(
-                        isOn, for: ref, disabledRaw: disabledSectionsRaw
-                    )
+                    disabledSections.setEnabled(isOn, for: ref)
                 }
             )
         }
@@ -342,9 +338,7 @@
                     sections.filter { $0 != .custom(id) }, custom: remaining, surface: surface
                 )
             )
-            disabledSectionsRaw = HomeLayoutSettings.settingEnabled(
-                true, for: .custom(id), disabledRaw: disabledSectionsRaw
-            )
+            disabledSections.setEnabled(true, for: .custom(id))
         }
     }
 

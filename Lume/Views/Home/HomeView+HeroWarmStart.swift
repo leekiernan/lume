@@ -21,7 +21,7 @@ extension HomeView {
     var heroRef: HomeSectionRef? {
         guard vodAvailable,
               let ref = HomeLayoutSettings.heroRef(heroSectionRaw),
-              HomeLayoutSettings.isEnabled(ref, disabledRaw: disabledSectionsRaw)
+              disabledSections.isEnabled(ref)
         else { return nil }
         return ref
     }

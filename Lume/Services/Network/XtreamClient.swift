@@ -90,33 +90,24 @@ final nonisolated class XtreamClient: Sendable {
         retryAuthFailure: Bool = true,
         _ attempt: () async throws -> R
     ) async throws -> R {
-        var attemptCount = 0
-        while true {
-            attemptCount += 1
-            do {
-                return try await attempt()
-            } catch let error as XtreamError {
-                let retriable = error.isRetriable || (retryAuthFailure && error.isAuthFailure)
-                guard retriable, let delay = Self.retryPolicy.delay(afterFailedAttempt: attemptCount) else {
-                    Logger.network.error(
-                        "Xtream \(action, privacy: .public) request failed permanently (\(error.logDescription, privacy: .public)) after \(attemptCount, privacy: .public) attempt(s)"
-                    )
-                    throw error
-                }
-
-                // Exponential backoff: 2s, then 4s. Gives the provider time to
-                // release the connection slot / clear the rate-limit window.
-                let reason = error.logDescription
-                let retryLabel = "\(attemptCount)/\(Self.retryPolicy.maxAttempts - 1)"
-                Logger.network.warning(
-                    "Xtream \(action, privacy: .public) failed (\(reason, privacy: .public)); retry \(retryLabel, privacy: .public) after \(delay, privacy: .public)s"
-                )
-                try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-                Logger.network.warning(
-                    "Xtream \(action, privacy: .public) backoff of \(delay, privacy: .public)s elapsed; retrying (attempt \(attemptCount + 1, privacy: .public))"
-                )
-            }
-        }
+        let policy = Self.retryPolicy
+        return try await policy.run(isRetriable: { error in
+            guard let error = error as? XtreamError else { return false }
+            return error.isRetriable || (retryAuthFailure && error.isAuthFailure)
+        }, onRetry: { error, attemptCount, delay in
+            // Exponential backoff: 2s, then 4s. Gives the provider time to
+            // release the connection slot / clear the rate-limit window.
+            let reason = (error as? XtreamError)?.logDescription ?? LogRedaction.describe(error)
+            let retryLabel = "\(attemptCount)/\(policy.maxAttempts - 1)"
+            Logger.network.warning(
+                "Xtream \(action, privacy: .public) failed (\(reason, privacy: .public)); retry \(retryLabel, privacy: .public) after \(delay, privacy: .public)s"
+            )
+        }, onGiveUp: { error, attemptCount in
+            guard let error = error as? XtreamError else { return }
+            Logger.network.error(
+                "Xtream \(action, privacy: .public) request failed permanently (\(error.logDescription, privacy: .public)) after \(attemptCount, privacy: .public) attempt(s)"
+            )
+        }, operation: attempt)
     }
 
     /// Downloads `url` and checks the HTTP status. Network-level failures are

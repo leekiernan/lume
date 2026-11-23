@@ -268,23 +268,10 @@ nonisolated struct TraktAccountIdentity: Codable, Equatable {
     let scope: String
 }
 
-/// The account identity is not secret. Remembering it alongside the keychain
-/// token lets the app keep queueing account-scoped intent during an offline cold
-/// launch; the next successful `/users/settings` response refreshes it.
-nonisolated enum TraktAccountIdentityStore {
-    private static let key = "trakt.lastAccountIdentity.v1"
-
-    static func load(defaults: UserDefaults = .standard) -> TraktAccountIdentity? {
-        guard let data = defaults.data(forKey: key) else { return nil }
-        return try? JSONDecoder().decode(TraktAccountIdentity.self, from: data)
-    }
-
-    static func save(_ identity: TraktAccountIdentity, defaults: UserDefaults = .standard) {
-        guard let data = try? JSONEncoder().encode(identity) else { return }
-        defaults.set(data, forKey: key)
-    }
-
-    static func clear(defaults: UserDefaults = .standard) {
-        defaults.removeObject(forKey: key)
-    }
+/// Remembers the Trakt account (`TrackerAccountIdentityStoring`), so the app
+/// keeps queueing account-scoped intent during an offline cold launch; the
+/// next successful `/users/settings` response refreshes it.
+nonisolated enum TraktAccountIdentityStore: TrackerAccountIdentityStoring {
+    typealias Identity = TraktAccountIdentity
+    static let key = "trakt.lastAccountIdentity.v1"
 }

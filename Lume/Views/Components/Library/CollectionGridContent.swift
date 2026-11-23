@@ -19,12 +19,15 @@ struct CollectionGridContent: View {
     var emptyMessage: Text?
     var animationNamespace: Namespace.ID?
     let onReachEnd: () -> Void
+    /// See `PosterGridContent.onRetry`.
+    var onRetry: (() -> Void)?
 
     var body: some View {
         PosterGridContent(
             items: items, isLoading: isLoading, isLoadingMore: isLoadingMore,
             empty: .init(title: emptyTitle, systemImage: "rectangle.stack", description: emptyMessage),
             onReachEnd: onReachEnd,
+            onRetry: onRetry,
             cell: itemLink
         )
     }

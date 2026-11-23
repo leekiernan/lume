@@ -155,7 +155,7 @@ extension FullScreenPlayerView {
         // length would re-fire auto-advance and save against the new title.
         clock.holdEngineReports(from: activeMedia.id)
         // Restart the fallback chain from the primary engine for the new stream.
-        engineAttempt = 0
+        engines.restart()
         remountForTitleSwap(to: newMedia)
         activeMedia = newMedia
         // Slide the outgoing channel into the recall slot so `right` can jump back.
@@ -238,8 +238,6 @@ extension FullScreenPlayerView {
     /// engine taking over would start from the stand-in's stale `startTime`.
     func resumeActiveMedia(at position: TimeInterval) {
         activeMedia = activeMedia.resuming(at: position)
-        if let resolved = resolvedMedia, resolved.id == activeMedia.id {
-            resolvedMedia = resolved.resuming(at: position)
-        }
+        resolution.rebase(activeMedia.id, at: position)
     }
 }

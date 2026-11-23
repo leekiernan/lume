@@ -43,19 +43,13 @@ struct FullScreenPlayerView: View {
     /// `FullScreenPlayerView+Navigation` can claim the ref before swapping.
     @State var completedRef: PlayableMedia.ContentRef?
 
-    /// The user's ordered engine fallback list, read once when the player opens.
-    /// Settings changes don't reshuffle a session already in flight; reopening
-    /// the player picks up the new order. See `PlayerEnginePriority`.
-    private let enginePriority: [PlayerEngineKind]
-
-    /// Index into `enginePriority` of the engine currently driving playback.
-    /// Advanced when an engine fails to start a stream, falling the player back
-    /// to the next engine in the list. Reset to the primary engine whenever the
-    /// active stream changes — a catch-up segment included — so a fallback only
-    /// ever applies to the stream that failed.
-    /// Non-private so the swap path in `FullScreenPlayerView+Navigation` can
-    /// restart the fallback chain for a newly selected stream.
-    @State var engineAttempt = 0
+    /// The user's ordered engine fallback list, read when the player opens, and
+    /// how far down it the active stream has fallen. Settings changes don't
+    /// reshuffle a session already in flight. Restarted whenever the active
+    /// stream changes — a catch-up segment included — so a fallback only ever
+    /// applies to the stream that failed. Non-private so the swap path in
+    /// `FullScreenPlayerView+Navigation` can restart it.
+    @State var engines = EngineFallbackChain()
 
     /// Observes the active AirPlay route. Full-screen AirPlay *video* is only
     /// possible through `AVPlayer` (KSPlayer/VLCKit render into their own layers,
@@ -121,14 +115,13 @@ struct FullScreenPlayerView: View {
 
     /// The Stalker-resolved stand-in for `activeMedia`. Stalker streams arrive as
     /// a `lumestalker://` placeholder whose real URL is fetched via `create_link`
-    /// at playback time; this holds the resolved copy once it lands. `nil` while
-    /// resolution is in flight (the loading indicator shows). Engines that play a
-    /// directly usable URL (Xtream / m3u) bypass this entirely — see `displayMedia`.
-    @State var resolvedMedia: PlayableMedia?
-
-    /// Set when Stalker `create_link` resolution fails, so the host shows the
-    /// failure overlay instead of an endless spinner.
-    @State private var resolveError: String?
+    /// at playback time. While that's in flight the loading indicator shows; a
+    /// failure shows the error overlay. Engines that play a directly usable URL
+    /// (Xtream / m3u) bypass this entirely — see `displayMedia`.
+    @State var resolution = StreamResolution()
+    /// Bumped by Try Again after a failed resolve: it re-keys the resolve task,
+    /// so a later channel change cancels the retry like any other resolve.
+    @State private var resolveAttempt = 0
 
     /// The episode queued to play after `activeMedia`, resolved whenever the
     /// active stream changes. Drives both the in-player Next Episode button and
@@ -177,19 +170,12 @@ struct FullScreenPlayerView: View {
         let clock = PlaybackClock()
         clock.reset(for: media)
         _clock = State(initialValue: clock)
-        let defaults = UserDefaults.standard
-        enginePriority = PlayerEnginePriority.resolve(
-            priorityRaw: defaults.string(forKey: PlayerSettings.enginePriorityKey) ?? "",
-            legacyEngineRaw: defaults.string(forKey: PlayerSettings.engineKey)
-                ?? PlayerEngineKind.defaultValue.rawValue
-        )
     }
 
     /// The engine the user's priority list selects for the current attempt,
     /// before any AirPlay override.
     private var priorityEngine: PlayerEngineKind {
-        guard enginePriority.indices.contains(engineAttempt) else { return .defaultValue }
-        return enginePriority[engineAttempt]
+        engines.current
     }
 
     /// The engine driving the current playback attempt. While an AirPlay route is
@@ -214,7 +200,7 @@ struct FullScreenPlayerView: View {
     /// shows its error overlay, rather than looping through the fallback chain
     /// (which would only land back on engines that can't cast video).
     var hasFallbackEngine: Bool {
-        !isAirPlayOverride && engineAttempt + 1 < enginePriority.count
+        !isAirPlayOverride && engines.hasNext
     }
 
     /// Called by an engine when it can't start the stream. Advances to the next
@@ -226,7 +212,7 @@ struct FullScreenPlayerView: View {
         guard hasFallbackEngine else { return }
         let failed = engine
         startCause = .fallback
-        engineAttempt += 1
+        engines.advance()
         PlaybackQoE.shared.noteEngineFallback(to: engine)
         Logger.player.log("engine \(failed.rawValue, privacy: .public) could not start the stream; falling back to \(engine.rawValue, privacy: .public)")
     }
@@ -331,7 +317,7 @@ struct FullScreenPlayerView: View {
             guard !Task.isCancelled else { return }
             isReadyToMount = true
         }
-        .task(id: activeMedia.id) {
+        .task(id: "\(activeMedia.id)#\(resolveAttempt)") {
             // Resolve a deferred Stalker placeholder into a real (short-lived)
             // stream URL before the engine loads it. No-op for Xtream / m3u.
             await resolveActiveMedia()
@@ -440,15 +426,14 @@ struct FullScreenPlayerView: View {
     /// never reaches the engine during a channel/episode switch.
     private var displayMedia: PlayableMedia? {
         guard StalkerLink.isPlaceholder(activeMedia.url) else { return activeMedia }
-        guard let resolvedMedia, resolvedMedia.id == activeMedia.id else { return nil }
-        return resolvedMedia
+        return resolution.media(for: activeMedia.id)
     }
 
     @ViewBuilder
     private var playerView: some View {
         if let media = displayMedia, isReadyToMount {
             engineView(for: media)
-        } else if resolveError != nil {
+        } else if resolution.hasFailed(activeMedia.id) {
             // Stalker `create_link` failed — surface the failure with a retry
             // rather than spinning forever.
             PlayerErrorIndicator(title: activeMedia.title, onRetry: retryResolve, onClose: closePlayer)
@@ -462,7 +447,7 @@ struct FullScreenPlayerView: View {
     /// Rebuilt on an engine fallback, and on a catch-up seek that restarts the
     /// segment already playing.
     var engineIdentity: [Int] {
-        [engineAttempt, catchupRestartCount, titleRemountCount]
+        [engines.attempt, catchupRestartCount, titleRemountCount]
     }
 
     /// KSPlayer gets a fresh player for each new movie or episode instead of
@@ -537,13 +522,16 @@ struct FullScreenPlayerView: View {
     /// short-lived URL.
     private func resolveActiveMedia() async {
         guard StalkerLink.isPlaceholder(activeMedia.url) else { return }
-        resolvedMedia = nil
-        resolveError = nil
+        let media = activeMedia
+        let ticket = resolution.begin(media.id)
         session.send(.resolving)
         do {
-            resolvedMedia = try await StalkerStreamResolver.resolve(activeMedia, container: modelContext.container)
+            let resolved = try await StalkerStreamResolver.resolve(media, container: modelContext.container)
+            resolution.finish(ticket, with: resolved)
         } catch {
-            resolveError = error.localizedDescription
+            // A resolve cancelled by a channel change or Try Again fails too;
+            // its failure belongs to a stream no longer on screen.
+            guard !Task.isCancelled, resolution.fail(ticket) else { return }
             session.send(.resolveFailed)
             let detail = (error as? StalkerError)?.logDescription ?? LogRedaction.describe(error)
             Logger.player.error("Stalker stream resolution failed: \(detail, privacy: .public)")
@@ -552,8 +540,8 @@ struct FullScreenPlayerView: View {
 
     private func retryResolve() {
         startCause = .retry
-        engineAttempt = 0
-        Task { await resolveActiveMedia() }
+        engines.restart()
+        resolveAttempt += 1
     }
 
     private func closePlayer() {

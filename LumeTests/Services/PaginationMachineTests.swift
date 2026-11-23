@@ -124,4 +124,26 @@ struct PaginationMachineTests {
         let next = try #require(nextRequest)
         #expect(next.offset == 40)
     }
+
+    @Test func `a failed page holds its cursor until retried`() throws {
+        var machine = PaginationMachine()
+        machine.prepare(for: "grid")
+        machine.seed(nextOffset: 30, canLoadMore: true)
+        let pending = machine.beginLoading()
+        let request = try #require(pending)
+        let failed = machine.fail(request)
+        #expect(failed)
+        #expect(machine.hasFailed)
+        #expect(!machine.canLoadMore, "the grid stops asking for the end until Try Again")
+        let blocked = machine.beginLoading()
+        #expect(blocked == nil)
+        let failedTwice = machine.fail(request)
+        #expect(!failedTwice, "only once")
+
+        let retried = machine.retry()
+        #expect(retried)
+        let retryRequest = machine.beginLoading()
+        let again = try #require(retryRequest)
+        #expect(again.offset == 30)
+    }
 }

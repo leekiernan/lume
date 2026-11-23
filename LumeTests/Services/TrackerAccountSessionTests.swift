@@ -154,11 +154,16 @@ struct TrackerAccountSessionTests {
         tracker.identityResponses = [alice]
         let session = makeSession(tracker)
         var connected = false
-        session.didConnect = { connected = true }
+        var importCancelled = true
+        session.didConnect = {
+            importCancelled = Task.isCancelled
+            connected = true
+        }
 
         session.connect()
         #expect(session.isConnecting)
         try await waitUntil { connected }
+        #expect(!importCancelled, "the history import runs on the flow's task")
 
         #expect(session.username == "alice")
         #expect(tracker.storedTokens?.accessToken == "new")
@@ -210,8 +215,16 @@ struct TrackerSessionMachineTests {
         #expect(machine.handle(.connectRequested) == [.startDeviceFlow])
         #expect(machine.handle(.codeIssued(FakeCode())) == [])
         #expect(machine.pendingCode == FakeCode())
-        #expect(machine.handle(.tokensHeld(account: "alice")) == [.cancelDeviceFlow])
+        #expect(machine.handle(.approved(account: "alice")) == [], "the flow ends itself; cancelling it would cancel the import")
         #expect(machine.state == .connected(account: "alice"))
+    }
+
+    @Test func `tokens from elsewhere end a connect in progress`() {
+        var machine = Machine()
+        _ = machine.handle(.connectRequested)
+        _ = machine.handle(.codeIssued(FakeCode()))
+        #expect(machine.handle(.tokensHeld(account: "alice")) == [.cancelDeviceFlow])
+        #expect(machine.handle(.approved(account: "alice")) == nil, "a late approval after that is ignored")
     }
 
     @Test func `a late code after a cancel is ignored`() {

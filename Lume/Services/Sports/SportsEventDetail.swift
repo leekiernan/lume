@@ -122,3 +122,34 @@ nonisolated struct SportsEventDetail: Codable, Hashable {
         self.draw = draw
     }
 }
+
+// Stable row identities. A live match inserts key events and reorders nothing
+// else, so rows keyed by position all took on new identities after an insert:
+// they re-animated and focus moved to the wrong row.
+
+extension SportsKeyEvent: Identifiable {
+    /// What happened, when and to whom: two identical events at one clock
+    /// tick would be one row, which they are on screen anyway.
+    nonisolated var id: String {
+        [clock, typeId ?? type, teamId ?? "", participants.joined(separator: ",")].joined(separator: "|")
+    }
+}
+
+extension SportsTeamStat: Identifiable {
+    /// The stat, not its value: a value change updates the row in place.
+    nonisolated var id: String {
+        key ?? name
+    }
+}
+
+extension SportsLineup: Identifiable {
+    nonisolated var id: String {
+        teamId
+    }
+}
+
+extension SportsLineupPlayer: Identifiable {
+    nonisolated var id: String {
+        "\(jersey ?? "")|\(name)"
+    }
+}

@@ -353,10 +353,12 @@
         /// deferred off the focus engine's animated context so the list swap
         /// doesn't pick up an implicit move animation.
         private func scheduleChannelLoad(sectionID: String) {
-            guard sectionID != selectedSectionID else { return }
+            // Cancel first: focus returning to the section already shown must
+            // still call off the load pending for the one it swept past.
             loadTask?.cancel()
+            guard sectionID != selectedSectionID else { return }
             loadTask = Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 150_000_000)
+                try? await Task.sleep(for: .milliseconds(150))
                 guard !Task.isCancelled,
                       let section = sections.first(where: { $0.id == sectionID }) else { return }
                 selectedSectionID = sectionID
@@ -374,10 +376,10 @@
         /// same way as the channel column so sweeping the list doesn't fetch a
         /// guide for every channel it passes.
         private func scheduleGuideLoad(channelID: String) {
-            guard channelID != guideChannelID else { return }
             guideLoadTask?.cancel()
+            guard channelID != guideChannelID else { return }
             guideLoadTask = Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 150_000_000)
+                try? await Task.sleep(for: .milliseconds(150))
                 guard !Task.isCancelled else { return }
                 await loadGuide(channelID: channelID)
             }
@@ -424,7 +426,7 @@
                     proxy.scrollTo(channelTarget, anchor: .center)
                 }
                 // Let the scroll realise the lazy rows before focusing one.
-                try? await Task.sleep(nanoseconds: 60_000_000)
+                try? await Task.sleep(for: .milliseconds(60))
                 if let channelTarget {
                     focus = channelTarget
                 } else if let selectedSectionID {

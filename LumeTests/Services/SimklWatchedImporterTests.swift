@@ -270,4 +270,19 @@ struct SimklWatchedImporterTests {
         #expect(summary.moviesMarked == 0)
         #expect(movie.isWatched == false)
     }
+
+    @Test func `a newer rewatch moves a watched movie up Recently Watched without counting it`() throws {
+        let context = try makeContext()
+        let movie = makeMovie(id: "rewatched", tmdbId: 100)
+        movie.isWatched = true
+        movie.lastWatchedDate = Date(timeIntervalSince1970: 1000)
+        context.insert(movie)
+
+        let summary = SimklWatchedImporter.apply(
+            movies: [watchedMovie(tmdb: 100, lastWatchedAt: "2014-10-11T17:00:54Z")], shows: [], in: context
+        )
+
+        #expect(summary.moviesMarked == 0)
+        #expect(movie.lastWatchedDate == watchedDate)
+    }
 }

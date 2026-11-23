@@ -41,6 +41,13 @@ nonisolated struct SeriesContinuation: Equatable {
 }
 
 nonisolated enum ContinueWatching {
+    /// Whether an episode is one to resume: started past the first second and
+    /// not finished. The one threshold the rail and the series page's
+    /// Resume/Play button (`SeriesEpisodeProgress`) both pick by.
+    static func isInProgress(progress: Double, isWatched: Bool) -> Bool {
+        progress > 1 && !isWatched
+    }
+
     /// The episode a series continues with — the furthest one in progress,
     /// else the one after the furthest watched, else the first — or nil when
     /// there's nothing left: the last episode is watched and nothing is in
@@ -48,8 +55,7 @@ nonisolated enum ContinueWatching {
     /// (`SeriesEpisodeProgress`), without its wrap to the premiere.
     static func continuation(from marks: [EpisodeMark]) -> SeriesContinuation? {
         guard let first = marks.min(by: { $0.order < $1.order }) else { return nil }
-        // Same thresholds as `SeriesEpisodeProgress.markers`.
-        if let inProgress = marks.filter({ $0.progress > 1 && !$0.isWatched }).max(by: { $0.order < $1.order }) {
+        if let inProgress = marks.filter({ isInProgress(progress: $0.progress, isWatched: $0.isWatched) }).max(by: { $0.order < $1.order }) {
             return SeriesContinuation(
                 season: inProgress.season, episode: inProgress.episode,
                 fraction: fraction(progress: inProgress.progress, duration: inProgress.duration),

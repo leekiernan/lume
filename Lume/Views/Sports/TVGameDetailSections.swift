@@ -299,7 +299,7 @@
 
         var body: some View {
             VStack(alignment: .leading, spacing: 18) {
-                ForEach(Array(events.enumerated()), id: \.offset) { _, event in
+                ForEach(events) { event in
                     row(event)
                 }
             }
@@ -361,7 +361,7 @@
 
         var body: some View {
             VStack(spacing: 22) {
-                ForEach(Array(stats.enumerated()), id: \.offset) { _, stat in
+                ForEach(stats) { stat in
                     statRow(stat)
                 }
             }
@@ -425,7 +425,7 @@
 
         var body: some View {
             HStack(alignment: .top, spacing: 60) {
-                ForEach(Array(lineups.enumerated()), id: \.offset) { _, lineup in
+                ForEach(lineups) { lineup in
                     teamLineup(lineup)
                 }
             }
@@ -447,7 +447,7 @@
                             .foregroundStyle(.white.opacity(0.6))
                     }
                 }
-                ForEach(Array(lineup.starters.enumerated()), id: \.offset) { _, player in
+                ForEach(lineup.starters) { player in
                     playerRow(player)
                 }
             }
