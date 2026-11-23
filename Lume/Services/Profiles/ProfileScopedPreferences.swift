@@ -37,6 +37,16 @@ nonisolated enum ProfileScopedPreferences {
         return "profile.\(id.uuidString).\(base)"
     }
 
+    /// Removes every key scoped to a deleted profile — the layout keys above
+    /// and anything else stored under its `profile.<id>.` prefix (the area
+    /// generation, warm-start hero picks).
+    static func removeAll(profileID: UUID, defaults: UserDefaults = .standard) {
+        let prefix = key("", profileID: profileID)
+        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix(prefix) {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
     /// How a scoped key's value is stored: a string, or a boolean with the
     /// value it reads as before anything is written.
     enum Kind: Equatable {
