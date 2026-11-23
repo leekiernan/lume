@@ -144,7 +144,7 @@ final class M3UColdImportBenchmarks: XCTestCase {
             let manager = ContentSyncManager(modelContainer: store.container)
             startMeasuring()
             let outcome = syncPlaylistSynchronously(
-                manager: manager, playlistId: playlistId, container: store.container
+                manager: manager, playlistId: playlistId
             )
             stopMeasuring()
 

@@ -547,20 +547,14 @@ extension XCTestCase {
     func syncPlaylistSynchronously(
         manager: ContentSyncManager,
         playlistId: UUID,
-        container: ModelContainer,
         timeout: TimeInterval = 3600
     ) -> PerfSyncOutcome {
         let outcome = PerfSyncOutcome()
         let finished = expectation(description: "m3u sync")
         Task.detached {
             do {
-                let context = ModelContext(container)
-                guard let playlist = try context.fetch(
-                    FetchDescriptor<Playlist>(predicate: #Predicate { $0.id == playlistId })
-                ).first else {
-                    throw M3UError.fileNotFound
-                }
-                try await manager.syncPlaylist(playlist)
+                // The sync manager fetches the playlist on its own context.
+                try await manager.syncPlaylist(playlistID: playlistId)
             } catch {
                 outcome.error = error
             }
