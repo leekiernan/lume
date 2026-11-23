@@ -38,6 +38,9 @@ struct LumeApp: App {
 
     init() {
         LaunchTimeline.appCodeStarts()
+        // Before anything writes: the keys the machine had, so the test run's
+        // additions can be removed again as it exits.
+        if Self.isUnitTestHost { UnitTestHostDefaults.removeAddedKeysOnExit() }
         // First, so the launch marker precedes anything the setup below logs.
         DiagnosticSession.start()
         if !Self.isUnitTestHost { MainThreadStallWatch.shared.start() }
@@ -361,6 +364,10 @@ struct LumeApp: App {
                         // content state before the first sync, so the catalog the
                         // reconciler reads is already scoped to a profile.
                         await profileManager.bootstrap()
+
+                        // Both rosters are known now: drop settings named after a
+                        // playlist or profile that is gone.
+                        OrphanedDeviceStateSweep.schedule(catalog: catalogContainer, profiles: profileManager)
 
                         // Wire the Sports Hub as soon as the profile is known, ahead
                         // of the tracker restores and iCloud below: those are network

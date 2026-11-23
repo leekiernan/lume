@@ -78,6 +78,7 @@ nonisolated enum PlaylistDeletion {
         SweepSkipDefaults.removeAll(playlistId: playlistID)
         M3UDigestStore.remove(playlistId: playlistID)
         PlaylistSyncCoverage.remove(playlistID: playlistID)
+        LiveChannelVariants.removeStamp(playlistID: playlistID)
         WebDAVDigestStore.remove(playlistId: playlistID)
         XtreamDigestStore.removeAll(playlistId: playlistID)
         // Remembered sports channel picks name a channel in this playlist; drop

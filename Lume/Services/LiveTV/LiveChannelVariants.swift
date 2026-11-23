@@ -165,6 +165,11 @@ nonisolated enum LiveChannelVariants {
     private static func stamp(_ playlistID: UUID, defaults: UserDefaults = .standard) {
         defaults.set(version, forKey: stampKey(playlistID))
     }
+
+    /// Forgets a deleted playlist's grouping stamp (`PlaylistDeletion`).
+    static func removeStamp(playlistID: UUID, defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: stampKey(playlistID))
+    }
 }
 
 // MARK: - Choosing a quality
