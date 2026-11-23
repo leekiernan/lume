@@ -11,21 +11,44 @@ import Foundation
 
 extension ContentIndexer {
     /// Provider year tags are often wrong, so a year-constrained search that
-    /// finds nothing is retried without the year.
-    func searchMovieID(query: String, year: Int?) async throws -> Int? {
-        if let id = try await tmdbClient.searchMovieID(query: query, year: year) {
-            return id.rawValue
+    /// finds nothing is retried without the year. When the year was a bare
+    /// number in the name, the first retry puts it back into the title
+    /// ("Blade Runner 2049"): retrying the shortened title first would match
+    /// the wrong film. Extra requests are spent only on misses.
+    func searchMovieID(query: String, year: Int?, titleKeepingYear: String? = nil) async throws -> Int? {
+        try await search(query: query, year: year, titleKeepingYear: titleKeepingYear) {
+            try await self.tmdbClient.searchMovieID(query: $0, year: $1)?.rawValue
         }
-        guard year != nil else { return nil }
-        return try await tmdbClient.searchMovieID(query: query, year: nil)?.rawValue
     }
 
-    func searchTVID(query: String, year: Int?) async throws -> Int? {
-        if let id = try await tmdbClient.searchTVID(query: query, year: year) {
-            return id.rawValue
+    func searchTVID(query: String, year: Int?, titleKeepingYear: String? = nil) async throws -> Int? {
+        try await search(query: query, year: year, titleKeepingYear: titleKeepingYear) {
+            try await self.tmdbClient.searchTVID(query: $0, year: $1)?.rawValue
         }
-        guard year != nil else { return nil }
-        return try await tmdbClient.searchTVID(query: query, year: nil)?.rawValue
+    }
+
+    struct SearchAttempt: Equatable {
+        let title: String
+        let year: Int?
+    }
+
+    /// The searches to try, in order, until one matches.
+    nonisolated static func searchAttempts(query: String, year: Int?, titleKeepingYear: String?) -> [SearchAttempt] {
+        guard year != nil else { return [SearchAttempt(title: query, year: nil)] }
+        var attempts = [SearchAttempt(title: query, year: year)]
+        if let titleKeepingYear { attempts.append(SearchAttempt(title: titleKeepingYear, year: nil)) }
+        attempts.append(SearchAttempt(title: query, year: nil))
+        return attempts
+    }
+
+    private func search(
+        query: String, year: Int?, titleKeepingYear: String?,
+        _ lookUp: (String, Int?) async throws -> Int?
+    ) async throws -> Int? {
+        for attempt in Self.searchAttempts(query: query, year: year, titleKeepingYear: titleKeepingYear) {
+            if let id = try await lookUp(attempt.title, attempt.year) { return id }
+        }
+        return nil
     }
 
     /// Runs a TMDB request, converting *permanent* failures (no match, bad

@@ -7,6 +7,8 @@ extension ContentIndexer {
         let id: String
         let title: String
         let year: Int?
+        /// The title with a bare year left in (`ContentIndexText.titleKeepingBareYear`).
+        var titleKeepingYear: String?
         let existingTMDBId: Int?
         let needsEnrichment: Bool
         let source: LumeProxySource?
@@ -95,8 +97,8 @@ extension ContentIndexer {
             usedNetwork = true
             tmdbId = try await skippingPermanentFailures {
                 switch item.kind {
-                case .movie: try await self.searchMovieID(query: item.title, year: item.year)
-                case .series: try await self.searchTVID(query: item.title, year: item.year)
+                case .movie: try await self.searchMovieID(query: item.title, year: item.year, titleKeepingYear: item.titleKeepingYear)
+                case .series: try await self.searchTVID(query: item.title, year: item.year, titleKeepingYear: item.titleKeepingYear)
                 }
             }
         }

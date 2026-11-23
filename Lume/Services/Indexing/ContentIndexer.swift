@@ -387,6 +387,7 @@ actor ContentIndexer {
                 id: movie.id,
                 title: query.title,
                 year: ContentIndexText.year(fromReleaseDate: movie.releaseDate) ?? query.year,
+                titleKeepingYear: ContentIndexText.titleKeepingBareYear(for: movie.name),
                 existingTMDBId: movie.tmdbId,
                 needsEnrichment: !movie.hasFreshTMDBArtwork(source: LumeProxySource.snapshot(contentID: movie.id, from: sources), language: tmdbClient.language),
                 source: LumeProxySource.snapshot(contentID: movie.id, from: sources)
@@ -404,6 +405,7 @@ actor ContentIndexer {
                     id: item.id,
                     title: query.title,
                     year: ContentIndexText.year(fromReleaseDate: item.releaseDate) ?? query.year,
+                    titleKeepingYear: ContentIndexText.titleKeepingBareYear(for: item.name),
                     existingTMDBId: item.tmdbId,
                     needsEnrichment: !item.hasFreshTMDBArtwork(source: LumeProxySource.snapshot(contentID: item.id, from: sources), language: tmdbClient.language),
                     source: LumeProxySource.snapshot(contentID: item.id, from: sources)
