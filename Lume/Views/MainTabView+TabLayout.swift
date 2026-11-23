@@ -23,7 +23,7 @@ extension MainTabView {
         #else
             let showsSettings = false
         #endif
-        return AppTabSelection(disabledAreasRaw: disabledAreasRaw, showsSports: showsSportsTab, showsSettings: showsSettings)
+        return AppTabSelection(disabledAreas: disabledAreas, showsSports: showsSportsTab, showsSettings: showsSettings)
     }
 
     #if os(macOS)
@@ -31,7 +31,7 @@ extension MainTabView {
         /// role-based Search tab. Include the complete visible layout so its
         /// native tab host is recreated once profile preferences have bound.
         var tabLayoutIdentity: String {
-            "\(activeProfileToken)|\(disabledAreasRaw)|\(showsSportsTab)"
+            "\(activeProfileToken)|\(disabledAreas.rawValue)|\(showsSportsTab)"
         }
     #endif
 

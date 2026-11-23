@@ -62,7 +62,7 @@ import SwiftUI
         @AppStorage private var heroSeeded: Bool
         /// Sports is a Live TV feature (fixtures matched to EPG channels), so it
         /// only offers itself as a row when this profile has Live TV on.
-        @AppStorage(AppAreaSettings.disabledAreasKey) private var disabledAreasRaw = ""
+        @AppStorage(AppAreaSettings.disabledAreasKey) private var disabledAreas = DisabledAreas()
 
         @State private var premium = PremiumManager.shared
         @State private var showPaywall = false
@@ -117,7 +117,7 @@ import SwiftUI
         private var sections: [HomeSectionRef] {
             HomeLayoutSettings.resolve(
                 orderRaw: sectionOrderRaw, custom: customSections, surface: surface,
-                liveTVEnabled: AppAreaSettings.isEnabled(.liveTV, disabledRaw: disabledAreasRaw)
+                liveTVEnabled: disabledAreas.isEnabled(.liveTV)
             )
         }
 

@@ -45,11 +45,11 @@ struct PlaylistSyncCenterTests {
     @Test func `a reconnection during sync retries a later failure using the current profile plan`() async throws {
         let playlist = try makePlaylist("a")
         let active = playlist.id.uuidString
-        center.enqueueDue([playlist], activePlaylistID: active, disabledAreasRaw: "")
+        center.enqueueDue([playlist], activePlaylistID: active, disabledAreas: DisabledAreas(rawValue: ""))
         await settle { stub.isRunning(playlist.id) }
         playlist.password = "replacement"
-        center.reconnected([playlist.id], playlists: [playlist], activePlaylistID: active, disabledAreasRaw: "")
-        center.enqueueDue([playlist], activePlaylistID: active, disabledAreasRaw: "series")
+        center.reconnected([playlist.id], playlists: [playlist], activePlaylistID: active, disabledAreas: DisabledAreas(rawValue: ""))
+        center.enqueueDue([playlist], activePlaylistID: active, disabledAreas: DisabledAreas(rawValue: "series"))
         stub.end(playlist.id, throwing: SyncRunnerStub.Failure())
         await settle { stub.started.count == 2 }
         #expect(stub.started == [playlist.id, playlist.id])
@@ -121,7 +121,7 @@ struct PlaylistSyncCenterTests {
     @Test func `a manual sync goes ahead of the automatic ones waiting`() throws {
         let running = try makePlaylist("a"), automatic = try makePlaylist("b"), manual = try makePlaylist("c")
         center.sync(running)
-        center.enqueueDue([automatic], activePlaylistID: automatic.id.uuidString, disabledAreasRaw: "")
+        center.enqueueDue([automatic], activePlaylistID: automatic.id.uuidString, disabledAreas: DisabledAreas(rawValue: ""))
         center.sync(manual)
 
         #expect(center.upNext.map(\.playlistID) == [manual.id, automatic.id])
@@ -132,8 +132,8 @@ struct PlaylistSyncCenterTests {
         let active = try makePlaylist("a"), other = try makePlaylist("b", synced: true)
         let blocker = try makePlaylist("c")
         center.sync(blocker)
-        center.enqueueDue([active, other], activePlaylistID: active.id.uuidString, disabledAreasRaw: "")
-        center.enqueueDue([active, other], activePlaylistID: active.id.uuidString, disabledAreasRaw: "")
+        center.enqueueDue([active, other], activePlaylistID: active.id.uuidString, disabledAreas: DisabledAreas(rawValue: ""))
+        center.enqueueDue([active, other], activePlaylistID: active.id.uuidString, disabledAreas: DisabledAreas(rawValue: ""))
 
         #expect(center.upNext.map(\.playlistID) == [active.id])
         #expect(center.upNext.first?.isFirstImport == true)
@@ -142,7 +142,7 @@ struct PlaylistSyncCenterTests {
     @Test func `automatic syncs stay off where the host asks`() throws {
         let quiet = PlaylistSyncCenter(container: container, runsAutomaticSyncs: false, busyChanged: { _ in }, run: { _, _, _, _ in })
         let playlist = try makePlaylist("a")
-        quiet.enqueueDue([playlist], activePlaylistID: playlist.id.uuidString, disabledAreasRaw: "")
+        quiet.enqueueDue([playlist], activePlaylistID: playlist.id.uuidString, disabledAreas: DisabledAreas(rawValue: ""))
 
         #expect(!quiet.isBusy)
     }
@@ -219,14 +219,14 @@ struct PlaylistSyncCenterTests {
     @Test func `a reconnection re-plans a playlist whose sync failed, and only that one`() async throws {
         let failed = try makePlaylist("a"), healthy = try makePlaylist("b", synced: true)
         let active = failed.id.uuidString
-        center.enqueueDue([failed], activePlaylistID: active, disabledAreasRaw: "")
+        center.enqueueDue([failed], activePlaylistID: active, disabledAreas: DisabledAreas(rawValue: ""))
         await finish(failed, throwing: SyncRunnerStub.Failure())
         #expect(!center.isBusy)
 
-        center.reconnected([healthy.id], playlists: [failed, healthy], activePlaylistID: active, disabledAreasRaw: "")
+        center.reconnected([healthy.id], playlists: [failed, healthy], activePlaylistID: active, disabledAreas: DisabledAreas(rawValue: ""))
         #expect(!center.isBusy, "new details for a playlist that didn't fail change nothing")
 
-        center.reconnected([failed.id, healthy.id], playlists: [failed, healthy], activePlaylistID: active, disabledAreasRaw: "")
+        center.reconnected([failed.id, healthy.id], playlists: [failed, healthy], activePlaylistID: active, disabledAreas: DisabledAreas(rawValue: ""))
         #expect(center.running?.playlistID == failed.id)
         #expect(center.upNext.isEmpty)
         #expect(center.recent == nil, "the old failure is cleared for the new attempt")

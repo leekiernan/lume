@@ -15,7 +15,7 @@ nonisolated protocol StoredSetElement: Hashable {
     var token: String { get }
 }
 
-nonisolated struct DisabledSet<Element: StoredSetElement>: RawRepresentable, Equatable {
+nonisolated struct DisabledSet<Element: StoredSetElement>: RawRepresentable, Hashable {
     private(set) var elements: Set<Element>
 
     init(_ elements: Set<Element> = []) {

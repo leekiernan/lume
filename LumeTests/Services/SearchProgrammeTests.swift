@@ -101,10 +101,10 @@ struct SearchProgrammeTests {
     // MARK: - Areas
 
     @Test func `filters offer only the areas switched on`() {
-        #expect(ContentFilter.available(disabledRaw: "") == [.all, .movies, .series, .liveTV])
-        #expect(ContentFilter.available(disabledRaw: "series") == [.all, .movies, .liveTV])
+        #expect(ContentFilter.available(disabled: DisabledAreas(rawValue: "")) == [.all, .movies, .series, .liveTV])
+        #expect(ContentFilter.available(disabled: DisabledAreas(rawValue: "series")) == [.all, .movies, .liveTV])
         // One area left: nothing to narrow, so no filter at all.
-        #expect(ContentFilter.available(disabledRaw: "movies,series").isEmpty)
+        #expect(ContentFilter.available(disabled: DisabledAreas(rawValue: "movies,series")).isEmpty)
     }
 
     @Test func `the hint names only the areas switched on`() {

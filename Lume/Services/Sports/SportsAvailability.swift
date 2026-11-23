@@ -16,7 +16,7 @@ nonisolated struct SportsAvailability: Equatable {
         let sportsKey = ProfileScopedPreferences.key(SportsSyncService.baseEnabledKey, profileID: profileID)
         return Self(
             profileID: profileID,
-            liveTVEnabled: AppAreaSettings.isEnabled(.liveTV, disabledRaw: defaults.string(forKey: disabledKey) ?? ""),
+            liveTVEnabled: DisabledAreas(rawValue: defaults.string(forKey: disabledKey) ?? "").isEnabled(.liveTV),
             sportsEnabled: defaults.object(forKey: sportsKey) == nil || defaults.bool(forKey: sportsKey)
         )
     }

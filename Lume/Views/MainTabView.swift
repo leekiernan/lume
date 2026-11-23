@@ -25,7 +25,7 @@ struct MainTabView: View {
 
     /// Areas switched off in Settings › Library. A disabled area has no tab —
     /// and `ContentSyncManager` skips its content entirely. See `AppAreaSettings`.
-    @AppStorage(AppAreaSettings.disabledAreasKey) var disabledAreasRaw: String = ""
+    @AppStorage(AppAreaSettings.disabledAreasKey) var disabledAreas = DisabledAreas()
     /// Changes when the viewer switches profile — see `activeProfileToken`.
     @AppStorage(ActiveProfileStore.key) var activeProfileToken: String = ""
     @AppStorage(PlaylistSelectionStore.key) var selectedPlaylistID: String = ""

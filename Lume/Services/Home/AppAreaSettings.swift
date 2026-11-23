@@ -10,7 +10,7 @@
 //
 //  This is the single place the preference's key is built and read. When the
 //  layout eventually moves per-profile, that scoping lands here rather than in
-//  every caller — see `enabledAreas(disabledRaw:)`'s callers, which all pass a
+//  every caller — see `DisabledAreas.enabledAreas`'s callers, which all use a
 //  value they were handed rather than reading defaults themselves.
 //
 
@@ -27,59 +27,13 @@ nonisolated enum AppAreaSettings {
     /// The unscoped form — see `HomeLayoutSettings.baseSectionOrderKey`.
     static let baseDisabledAreasKey = "nav.disabledAreas.v1"
 
-    static func decodeDisabled(_ raw: String) -> Set<AppArea> {
-        Set(raw.split(separator: ",").compactMap { AppArea(rawValue: String($0)) })
-    }
-
-    /// Encode in a stable order so the stored value doesn't churn as the set is
-    /// mutated.
-    static func encodeDisabled(_ areas: Set<AppArea>) -> String {
-        areas.map(\.rawValue).sorted().joined(separator: ",")
-    }
-
-    static func isEnabled(_ area: AppArea, disabledRaw: String) -> Bool {
-        !decodeDisabled(disabledRaw).contains(area)
-    }
-
-    /// The areas to show, in declaration order. Never empty: if every area were
-    /// somehow disabled the app would have no navigation at all, so Home is
-    /// restored as the floor.
-    static func enabledAreas(disabledRaw: String) -> [AppArea] {
-        let enabled = AppArea.allCases.filter { isEnabled($0, disabledRaw: disabledRaw) }
-        return enabled.isEmpty ? [.home] : enabled
-    }
-
-    /// Enabled areas that own a provider catalog phase. Home is navigation and
-    /// layout only, so it never makes a playlist sync incomplete by itself.
-    static func enabledContentAreas(disabledRaw: String) -> Set<AppArea> {
-        Set(AppArea.allCases.filter {
-            $0.categoryType != nil && isEnabled($0, disabledRaw: disabledRaw)
-        })
-    }
-
-    /// Flip one area's state, returning the new encoded set. Switching off the
-    /// last enabled area is refused — the caller's toggle snaps back, because
-    /// the getter still reports it as on.
-    static func settingEnabled(
-        _ isOn: Bool,
-        for area: AppArea,
-        disabledRaw: String
-    ) -> String {
-        var disabled = decodeDisabled(disabledRaw)
-        if isOn {
-            disabled.remove(area)
-        } else {
-            guard enabledAreas(disabledRaw: disabledRaw).count > 1 else { return disabledRaw }
-            disabled.insert(area)
-        }
-        return encodeDisabled(disabled)
-    }
-
-    /// Whether switching `area` off is allowed — false for the last one left.
-    /// Lets the UI disable the control rather than silently ignoring a tap.
-    static func canDisable(_ area: AppArea, disabledRaw: String) -> Bool {
-        guard isEnabled(area, disabledRaw: disabledRaw) else { return true }
-        return enabledAreas(disabledRaw: disabledRaw).count > 1
+    /// Flip one area's state. Switching off the last enabled area is refused —
+    /// the caller's toggle snaps back, because the getter still reports it as on.
+    static func settingEnabled(_ isOn: Bool, for area: AppArea, in disabled: DisabledAreas) -> DisabledAreas {
+        guard isOn || disabled.canDisable(area) else { return disabled }
+        var updated = disabled
+        updated.setEnabled(isOn, for: area)
+        return updated
     }
 
     // MARK: - Non-view readers
@@ -88,15 +42,53 @@ nonisolated enum AppAreaSettings {
     /// run on background contexts and have no @AppStorage to observe. Reads the
     /// same key the settings screen writes.
     static func isEnabled(_ area: AppArea) -> Bool {
-        isEnabled(area, disabledRaw: storedValue)
+        stored.isEnabled(area)
     }
 
     /// Reads only the area set. Deliberately *not* routed through
     /// `areaState()`: this runs per item inside the sync loops, and a job that
     /// needs the generation needs it captured once at request start, not
     /// re-read here. Fenced callers use `areaState(profileID:defaults:)`.
-    static var storedValue: String {
-        UserDefaults.standard.string(forKey: disabledAreasKey) ?? ""
+    static var stored: DisabledAreas {
+        DisabledAreas(rawValue: UserDefaults.standard.string(forKey: disabledAreasKey) ?? "")
+    }
+}
+
+/// The areas switched off, as `@AppStorage` and the settings sync keep them
+/// (`DisabledSet`). Views and the sync planner hold this rather than the raw
+/// string.
+typealias DisabledAreas = DisabledSet<AppArea>
+
+extension AppArea: StoredSetElement {
+    init?(token: String) {
+        self.init(rawValue: token)
+    }
+
+    var token: String {
+        rawValue
+    }
+}
+
+nonisolated extension DisabledSet where Element == AppArea {
+    /// The areas to show, in declaration order. Never empty: if every area were
+    /// somehow disabled the app would have no navigation at all, so Home is
+    /// restored as the floor.
+    var enabledAreas: [AppArea] {
+        let enabled = AppArea.allCases.filter(isEnabled)
+        return enabled.isEmpty ? [.home] : enabled
+    }
+
+    /// Enabled areas that own a provider catalog phase. Home is navigation and
+    /// layout only, so it never makes a playlist sync incomplete by itself.
+    var enabledContentAreas: Set<AppArea> {
+        Set(AppArea.allCases.filter { $0.categoryType != nil && isEnabled($0) })
+    }
+
+    /// Whether switching `area` off is allowed — false for the last one left.
+    /// Lets the UI disable the control rather than silently ignoring a tap.
+    func canDisable(_ area: AppArea) -> Bool {
+        guard isEnabled(area) else { return true }
+        return enabledAreas.count > 1
     }
 }
 
@@ -129,8 +121,13 @@ nonisolated extension AppAreaSettings {
     /// The enabled-area set and the generation that stamps it. These two are
     /// only ever read and written together — see `persist(disabledRaw:...)`.
     nonisolated struct AreaState: Equatable {
+        /// The stored form, as written; also the fence's fingerprint.
         let disabledRaw: String
         let generation: AreaGenerationToken
+
+        var disabled: DisabledAreas {
+            DisabledAreas(rawValue: disabledRaw)
+        }
     }
 
     /// The unscoped generation key — the scoped form is per profile, like the
@@ -202,9 +199,9 @@ nonisolated extension AppAreaSettings {
         pairLock.lock()
         defer { pairLock.unlock() }
         let current = unlockedAreaState(profileID: profileID, defaults: defaults)
-        let updated = settingEnabled(isOn, for: area, disabledRaw: current.disabledRaw)
-        guard updated != current.disabledRaw else { return current }
-        return persist(disabledRaw: updated, profileID: profileID, defaults: defaults)
+        let updated = settingEnabled(isOn, for: area, in: current.disabled)
+        guard updated != current.disabled else { return current }
+        return persist(disabledRaw: updated.rawValue, profileID: profileID, defaults: defaults)
     }
 
     private static let pairLock = NSRecursiveLock()

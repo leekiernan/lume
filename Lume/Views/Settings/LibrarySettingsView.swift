@@ -22,7 +22,7 @@
     struct LibrarySettingsView: View {
         @Environment(\.defaultMinListRowHeight) private var minimumRowHeight
         @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-        @AppStorage(AppAreaSettings.disabledAreasKey) private var disabledAreasRaw = ""
+        @AppStorage(AppAreaSettings.disabledAreasKey) private var disabledAreas = DisabledAreas()
         @AppStorage(SportsSyncService.enabledKey) private var sportsEnabled = SportsSyncService.enabledDefault
 
         var body: some View {
@@ -54,7 +54,7 @@
         /// it reads the same as the per-row switches inside.
         private func row(for area: AppArea) -> some View {
             areaRow(title: area.title, systemImage: area.systemImage,
-                    enabled: enabledBinding(for: area), canDisable: AppAreaSettings.canDisable(area, disabledRaw: disabledAreasRaw))
+                    enabled: enabledBinding(for: area), canDisable: disabledAreas.canDisable(area))
             {
                 LibraryAreaSettingsView(area: area)
             }
@@ -89,7 +89,7 @@
 
         private func enabledBinding(for area: AppArea) -> Binding<Bool> {
             Binding(
-                get: { AppAreaSettings.isEnabled(area, disabledRaw: disabledAreasRaw) },
+                get: { disabledAreas.isEnabled(area) },
                 set: { isOn in
                     // `setEnabled` is the sole persistent writer. Assigning to
                     // AppStorage afterwards can race another paired write and

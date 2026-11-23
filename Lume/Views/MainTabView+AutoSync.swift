@@ -17,7 +17,7 @@ extension MainTabView {
         AutoSyncTrigger(
             playlistCount: playlists.count,
             activeProfileToken: activeProfileToken,
-            disabledAreasRaw: disabledAreasRaw
+            disabledAreas: disabledAreas
         )
     }
 
@@ -34,18 +34,18 @@ extension MainTabView {
     /// never-synced first launch as well as periodic refreshes and repairs of
     /// areas the active profile enables but whose own refresh is missing.
     func enqueueDueSyncs(_ candidates: [Playlist]) {
-        syncCenter?.enqueueDue(candidates, activePlaylistID: activePlaylistID, disabledAreasRaw: disabledAreasRaw)
+        syncCenter?.enqueueDue(candidates, activePlaylistID: activePlaylistID, disabledAreas: disabledAreas)
     }
 
     /// iCloud brought new connection details for these playlists; any whose
     /// sync failed this session against the old ones is tried again.
     func retryFailedSyncs(_ ids: Set<UUID>) {
-        syncCenter?.reconnected(ids, playlists: playlists, activePlaylistID: activePlaylistID, disabledAreasRaw: disabledAreasRaw)
+        syncCenter?.reconnected(ids, playlists: playlists, activePlaylistID: activePlaylistID, disabledAreas: disabledAreas)
     }
 }
 
 struct AutoSyncTrigger: Hashable {
     let playlistCount: Int
     let activeProfileToken: String
-    let disabledAreasRaw: String
+    let disabledAreas: DisabledAreas
 }

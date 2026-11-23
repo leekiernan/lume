@@ -85,7 +85,7 @@ struct HomeView: View {
     /// list-backed rows and the hero — all sourced from a catalog the profile
     /// can't browse. Not `private`: read by the HomeView+HeroWarmStart
     /// extension (separate file).
-    @AppStorage(AppAreaSettings.disabledAreasKey) var disabledAreasRaw = ""
+    @AppStorage(AppAreaSettings.disabledAreasKey) var disabledAreas = DisabledAreas()
     /// Bumped by the DEBUG "Recalculate" action in Settings (always 0 otherwise);
     /// part of the task id so the row recomputes on demand.
     @AppStorage(RecommendationSettings.manualRecalculationKey) var recommendationsRecalcToken = 0
@@ -267,7 +267,7 @@ struct HomeView: View {
     private func homeRows(_ content: DerivedContent) -> some View {
         ForEach(HomeLayoutSettings.resolve(
             orderRaw: sectionOrderRaw, custom: content.customSections, surface: .home,
-            liveTVEnabled: AppAreaSettings.isEnabled(.liveTV, disabledRaw: disabledAreasRaw)
+            liveTVEnabled: disabledAreas.isEnabled(.liveTV)
         )) { ref in
             homeRow(for: ref, content: content)
         }
@@ -350,13 +350,13 @@ struct HomeView: View {
         case .forYou:
             recommendationsEnabled && premium.isPremium
         case .sports:
-            AppAreaSettings.isEnabled(.liveTV, disabledRaw: disabledAreasRaw)
+            disabledAreas.isEnabled(.liveTV)
                 && disabledSections.isEnabled(.builtin(section))
         case .trendingMovies:
-            AppAreaSettings.isEnabled(.movies, disabledRaw: disabledAreasRaw)
+            disabledAreas.isEnabled(.movies)
                 && disabledSections.isEnabled(.builtin(section))
         case .trendingSeries:
-            AppAreaSettings.isEnabled(.series, disabledRaw: disabledAreasRaw)
+            disabledAreas.isEnabled(.series)
                 && disabledSections.isEnabled(.builtin(section))
         case .traktWatchlist, .simklWatchlist, .mdblistWatchlist:
             vodAvailable && disabledSections.isEnabled(.builtin(section))
@@ -371,8 +371,8 @@ struct HomeView: View {
     /// False only when the profile has switched off both VOD areas. Not
     /// `private`: read by the HomeView+HeroWarmStart extension (separate file).
     var vodAvailable: Bool {
-        AppAreaSettings.isEnabled(.movies, disabledRaw: disabledAreasRaw)
-            || AppAreaSettings.isEnabled(.series, disabledRaw: disabledAreasRaw)
+        disabledAreas.isEnabled(.movies)
+            || disabledAreas.isEnabled(.series)
     }
 
     /// Identity of the trending/hero load, and the key its session memo is

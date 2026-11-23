@@ -164,7 +164,7 @@ actor ContentSyncManager {
         guard let connection = playlist.connection else { throw SyncError.networkError(URLError(.badURL)) }
         let sourceType = connection.sourceType
         let requestedAreas = request.syncAreas ?? Self.syncAreas(
-            enabled: AppAreaSettings.enabledContentAreas(disabledRaw: AppAreaSettings.storedValue),
+            enabled: AppAreaSettings.stored.enabledContentAreas,
             repairing: request.repairingAreas
         )
         let areas = requestedAreas.subtracting(Self.unsupportedAreas(for: sourceType))

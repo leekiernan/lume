@@ -23,7 +23,7 @@ struct SearchView: View {
     @AppStorage(SearchSettings.searchAllPlaylistsKey)
     private var searchAllPlaylists = SearchSettings.searchAllPlaylistsDefault
     /// The active profile's switched-off areas: never searched, offered or named.
-    @AppStorage(AppAreaSettings.disabledAreasKey) private var disabledAreasRaw = ""
+    @AppStorage(AppAreaSettings.disabledAreasKey) private var disabledAreas = DisabledAreas()
     @State private var searchText = ""
     @State private var debouncedSearchText = ""
     @State private var selectedFilter: ContentFilter = .all
@@ -59,16 +59,16 @@ struct SearchView: View {
             allPlaylists: searchAllPlaylists,
             playlistScopeToken: playlistScopeToken,
             visibilityToken: restriction.visibilityToken,
-            areas: disabledAreasRaw
+            areas: disabledAreas
         )
     }
 
     private var searchableAreas: [AppArea] {
-        ContentFilter.searchableAreas(disabledRaw: disabledAreasRaw)
+        ContentFilter.searchableAreas(disabled: disabledAreas)
     }
 
     private var filters: [ContentFilter] {
-        ContentFilter.available(disabledRaw: disabledAreasRaw)
+        ContentFilter.available(disabled: disabledAreas)
     }
 
     private var playlistScopeToken: String {
@@ -548,7 +548,7 @@ struct SearchKey: Equatable {
     let playlistScopeToken: String
     let visibilityToken: String
     /// The switched-off areas: turning one on or off changes what is searched.
-    var areas = ""
+    var areas = DisabledAreas()
 }
 
 // MARK: - Search Settings

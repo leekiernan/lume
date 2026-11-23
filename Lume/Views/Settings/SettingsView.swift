@@ -129,7 +129,7 @@ struct SettingsView: View {
 
         /// Whether the Playlists pane has drilled into the guide's sources.
         @State var showingEPGSources = false
-        @AppStorage(AppAreaSettings.disabledAreasKey) var disabledAreasRaw = ""
+        @AppStorage(AppAreaSettings.disabledAreasKey) var disabledAreas = DisabledAreas()
     #endif
 
     /// The user's ordered engine fallback list (migrates the legacy single-engine

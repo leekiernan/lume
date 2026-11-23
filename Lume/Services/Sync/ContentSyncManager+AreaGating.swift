@@ -48,7 +48,7 @@ extension ContentSyncManager {
         areas: Set<AppArea>,
         sourceType: PlaylistSourceType
     ) -> String {
-        let supplied = AppAreaSettings.enabledContentAreas(disabledRaw: "").subtracting(unsupportedAreas(for: sourceType))
+        let supplied = DisabledAreas().enabledContentAreas.subtracting(unsupportedAreas(for: sourceType))
         let synced = areas.intersection(supplied)
         guard synced != supplied else { return digest }
         return digest + "|areas:" + synced.map(\.rawValue).sorted().joined(separator: ",")

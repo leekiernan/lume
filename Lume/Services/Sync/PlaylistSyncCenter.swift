@@ -34,7 +34,7 @@ final class PlaylistSyncCenter {
     @ObservationIgnored private let busyChanged: (Bool) -> Void
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var reportedBusy = false
-    @ObservationIgnored private var automaticScope: (activePlaylistID: String, disabledAreasRaw: String)?
+    @ObservationIgnored private var automaticScope: (activePlaylistID: String, disabledAreas: DisabledAreas)?
     /// UI tests seed a playlist against a stub server; an automatic sync could
     /// never succeed there, so only the ones the test asks for run.
     @ObservationIgnored private let runsAutomaticSyncs: Bool
@@ -95,11 +95,11 @@ final class PlaylistSyncCenter {
     /// profile enables (`AutoSync.plan`). Only the playlist on screen, or one
     /// just added, earns automatic work; any other syncs when the viewer
     /// switches to it.
-    func enqueueDue(_ candidates: [Playlist], activePlaylistID: String, disabledAreasRaw: String) {
+    func enqueueDue(_ candidates: [Playlist], activePlaylistID: String, disabledAreas: DisabledAreas) {
         guard runsAutomaticSyncs else { return }
-        automaticScope = (activePlaylistID, disabledAreasRaw)
+        automaticScope = (activePlaylistID, disabledAreas)
         for playlist in candidates where !machine.isQueued(playlist.id) {
-            guard let job = automaticJob(for: playlist, activePlaylistID: activePlaylistID, disabledAreasRaw: disabledAreasRaw) else { continue }
+            guard let job = automaticJob(for: playlist, activePlaylistID: activePlaylistID, disabledAreas: disabledAreas) else { continue }
             machine.enqueue(job)
         }
         startNextIfIdle()
@@ -107,13 +107,13 @@ final class PlaylistSyncCenter {
 
     /// iCloud brought new connection details for these playlists. Any whose
     /// sync failed this session against the old ones is planned again.
-    func reconnected(_ ids: Set<UUID>, playlists: [Playlist], activePlaylistID: String, disabledAreasRaw: String) {
+    func reconnected(_ ids: Set<UUID>, playlists: [Playlist], activePlaylistID: String, disabledAreas: DisabledAreas) {
         let failed = Set(playlists.filter { $0.syncStatus == .error }.map(\.id))
         let retry = machine.reconnected(ids, failedIDs: failed)
-        enqueueDue(playlists.filter { retry.contains($0.id) }, activePlaylistID: activePlaylistID, disabledAreasRaw: disabledAreasRaw)
+        enqueueDue(playlists.filter { retry.contains($0.id) }, activePlaylistID: activePlaylistID, disabledAreas: disabledAreas)
     }
 
-    private func automaticJob(for playlist: Playlist, activePlaylistID: String, disabledAreasRaw: String) -> PlaylistSyncJob? {
+    private func automaticJob(for playlist: Playlist, activePlaylistID: String, disabledAreas: DisabledAreas) -> PlaylistSyncJob? {
         let context = container.mainContext
         PlaylistSyncCoverage.bootstrapFromCatalogIfNeeded(playlistID: playlist.id, lastSyncDate: playlist.lastSyncDate, context: context)
         let input = AutoSync.PlanInput(
@@ -122,7 +122,7 @@ final class PlaylistSyncCenter {
             frequency: playlist.syncFrequency,
             alreadyStarted: machine.wasAttempted(playlist.id),
             staleAreas: PlaylistSyncCoverage.missingAreasForAutomaticRepair(
-                playlistID: playlist.id, disabledAreasRaw: disabledAreasRaw, frequency: playlist.syncFrequency
+                playlistID: playlist.id, disabledAreas: disabledAreas, frequency: playlist.syncFrequency
             ),
             supportsAreaRepair: playlist.sourceType == .xtream
         )
@@ -134,7 +134,7 @@ final class PlaylistSyncCenter {
         return PlaylistSyncJob(
             playlistID: playlist.id,
             name: playlist.name,
-            plan: PlaylistSyncPlan(sourceType: playlist.sourceType, repairingAreas: plan.repairingAreas, disabledAreasRaw: disabledAreasRaw),
+            plan: PlaylistSyncPlan(sourceType: playlist.sourceType, repairingAreas: plan.repairingAreas, disabledAreas: disabledAreas),
             origin: .automatic,
             isFirstImport: playlist.lastSyncDate == nil,
             refreshesBrowsableAreas: plan.runsInBackground,
@@ -225,7 +225,7 @@ final class PlaylistSyncCenter {
         if let id = reconnected, let scope = automaticScope,
            let playlist = try? container.mainContext.fetch(FetchDescriptor<Playlist>(predicate: #Predicate { $0.id == id })).first
         {
-            enqueueDue([playlist], activePlaylistID: scope.activePlaylistID, disabledAreasRaw: scope.disabledAreasRaw)
+            enqueueDue([playlist], activePlaylistID: scope.activePlaylistID, disabledAreas: scope.disabledAreas)
         }
         startNextIfIdle()
     }

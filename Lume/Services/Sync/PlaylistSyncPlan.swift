@@ -43,13 +43,13 @@ nonisolated struct PlaylistSyncPlan: Equatable {
         sourceType: PlaylistSourceType,
         full: Bool = false,
         repairingAreas: Set<AppArea>? = nil,
-        disabledAreasRaw: String = AppAreaSettings.storedValue
+        disabledAreas: DisabledAreas = AppAreaSettings.stored
     ) {
         self.init(
             sourceType: sourceType,
             full: full,
             repairingAreas: repairingAreas,
-            enabledAreas: AppAreaSettings.enabledContentAreas(disabledRaw: disabledAreasRaw)
+            enabledAreas: disabledAreas.enabledContentAreas
         )
     }
 
