@@ -41,7 +41,7 @@ struct PlaylistSyncCoverageTests {
     ) -> Set<AppArea> {
         PlaylistSyncCoverage.missingAreasForAutomaticRepair(
             playlistID: playlistID,
-            disabledAreasRaw: disabled,
+            disabledAreas: DisabledAreas(rawValue: disabled),
             frequency: frequency,
             now: date ?? now,
             defaults: defaults

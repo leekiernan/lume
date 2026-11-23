@@ -265,13 +265,9 @@ nonisolated struct TMDBClient {
         return TMDBSeriesID(response.results.first?.id)
     }
 
-    /// Percent-encodes a search term for use as a query-item value —
-    /// `.urlQueryAllowed` alone would pass `&`/`+`/`=` through and corrupt
-    /// the query string.
+    /// Percent-encodes a search term for use as a query-item value.
     private static func encodedQuery(_ query: String) -> String {
-        var allowed = CharacterSet.urlQueryAllowed
-        allowed.remove(charactersIn: "&+=?#")
-        return query.addingPercentEncoding(withAllowedCharacters: allowed) ?? query
+        query.urlQueryValueEncoded
     }
 
     /// Returns the list of TMDB movie IDs that belong to a collection.

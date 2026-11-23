@@ -331,9 +331,11 @@ struct ContentManagementView: View {
                     isReordering: $isReordering,
                     scrollProxy: proxy,
                     isRestricted: { $0.isRestricted },
-                    onToggleRestricted: { ContentOrganizer.toggleRestricted($0) },
-                    actions: selectedType == .live ? { AnyView(CategoryEPGEnhancementControl(category: $0)) } : nil
+                    onToggleRestricted: { ContentOrganizer.toggleRestricted($0) }
                 )
+                .rowActions { category in
+                    if selectedType == .live { CategoryEPGEnhancementControl(category: category) }
+                }
             }
             if selectedType == .live {
                 CategoryEPGEnhancementHelp()
@@ -405,9 +407,11 @@ struct ContentManagementView: View {
                                 onToggleHidden: { ContentOrganizer.toggleHidden(category) },
                                 onToggleRestricted: { ContentOrganizer.toggleRestricted(category) },
                                 onDrillIn: { selectedCategory = $0 },
-                                actions: selectedType == .live ? AnyView(CategoryEPGEnhancementControl(category: category)) : nil,
                                 icon: { EmptyView() }
                             )
+                            .rowActions {
+                                if selectedType == .live { CategoryEPGEnhancementControl(category: category) }
+                            }
                         }
                         .onMove(perform: moveHandler)
                     }
@@ -458,7 +462,7 @@ struct ContentManagementView: View {
     /// reordering are deliberately separate modes — reorder happens in edit mode
     /// (drag handles), hiding in normal mode — which sidesteps the edit-mode /
     /// in-row-control interaction traps.
-    struct ContentManageRow<Icon: View>: View {
+    struct ContentManageRow<Icon: View, Actions: View>: View {
         let title: String
         let isHidden: Bool
         var titleLineLimit: Int?
@@ -468,10 +472,37 @@ struct ContentManagementView: View {
         /// nil where child-profile restriction doesn't apply: no lock.
         var onToggleRestricted: (() -> Void)?
         var onDrillIn: (Category) -> Void = { _ in }
-        /// Feature actions reuse the same row structure as the TV reorder list.
-        var actions: AnyView?
+        /// Feature actions reuse the same row structure as the TV reorder list
+        /// (`rowActions`).
+        private var actions: () -> Actions
         /// Drawn before the name — a crest, for a sports follow.
-        @ViewBuilder var icon: () -> Icon
+        private var icon: () -> Icon
+
+        /// A row's own actions, after the name.
+        func rowActions<NewActions: View>(@ViewBuilder _ actions: @escaping () -> NewActions) -> ContentManageRow<Icon, NewActions> {
+            ContentManageRow<Icon, NewActions>(
+                title: title, isHidden: isHidden, titleLineLimit: titleLineLimit, isRestricted: isRestricted,
+                drillInValue: drillInValue, onToggleHidden: onToggleHidden, onToggleRestricted: onToggleRestricted,
+                onDrillIn: onDrillIn, actions: actions, icon: icon
+            )
+        }
+
+        fileprivate init(
+            title: String, isHidden: Bool, titleLineLimit: Int?, isRestricted: Bool, drillInValue: Category?,
+            onToggleHidden: @escaping () -> Void, onToggleRestricted: (() -> Void)?, onDrillIn: @escaping (Category) -> Void,
+            actions: @escaping () -> Actions, icon: @escaping () -> Icon
+        ) {
+            self.title = title
+            self.isHidden = isHidden
+            self.titleLineLimit = titleLineLimit
+            self.isRestricted = isRestricted
+            self.drillInValue = drillInValue
+            self.onToggleHidden = onToggleHidden
+            self.onToggleRestricted = onToggleRestricted
+            self.onDrillIn = onDrillIn
+            self.actions = actions
+            self.icon = icon
+        }
 
         /// The shared reorderable-row structure (as `TVReorderableContentList`'s
         /// rows): hide leads, then icon and name, then restrict, then any
@@ -498,7 +529,7 @@ struct ContentManagementView: View {
 
                 Spacer()
 
-                actions
+                actions()
 
                 if let onToggleRestricted {
                     Button(action: onToggleRestricted) {
@@ -525,6 +556,26 @@ struct ContentManagementView: View {
                     .buttonStyle(.borderless)
                 }
             }
+        }
+    }
+
+    extension ContentManageRow where Actions == EmptyView {
+        init(
+            title: String,
+            isHidden: Bool,
+            titleLineLimit: Int? = nil,
+            isRestricted: Bool = false,
+            drillInValue: Category? = nil,
+            onToggleHidden: @escaping () -> Void,
+            onToggleRestricted: (() -> Void)? = nil,
+            onDrillIn: @escaping (Category) -> Void = { _ in },
+            @ViewBuilder icon: @escaping () -> Icon
+        ) {
+            self.init(
+                title: title, isHidden: isHidden, titleLineLimit: titleLineLimit, isRestricted: isRestricted,
+                drillInValue: drillInValue, onToggleHidden: onToggleHidden, onToggleRestricted: onToggleRestricted,
+                onDrillIn: onDrillIn, actions: { EmptyView() }, icon: icon
+            )
         }
     }
 #endif

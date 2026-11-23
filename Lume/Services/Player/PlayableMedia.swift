@@ -192,10 +192,7 @@ nonisolated extension PlayableMedia {
                 subtitle: movie.releaseDate,
                 posterURL: URL(string: movie.streamIcon ?? ""),
                 kind: .vod,
-                startTime: RecentResumePoints.start(
-                    for: .movie(movie.id), stored: movie.watchProgress, storedAt: movie.lastWatchedDate,
-                    isWatched: movie.isWatched, duration: movie.durationSecs
-                ),
+                startTime: movie.resumePoint,
                 contentRef: .movie(movie.id)
             )
         }
@@ -208,10 +205,7 @@ nonisolated extension PlayableMedia {
             subtitle: movie.releaseDate,
             posterURL: URL(string: movie.streamIcon ?? ""),
             kind: .vod,
-            startTime: RecentResumePoints.start(
-                for: .movie(movie.id), stored: movie.watchProgress, storedAt: movie.lastWatchedDate,
-                isWatched: movie.isWatched, duration: movie.durationSecs
-            ),
+            startTime: movie.resumePoint,
             contentRef: .movie(movie.id),
             httpHeaders: authHeaders(for: playlist, resource: url)
         )
@@ -241,10 +235,7 @@ nonisolated extension PlayableMedia {
                 subtitle: "S\(episode.seasonNum) E\(episode.episodeNum) · \(episode.title)",
                 posterURL: URL(string: episode.movieImage ?? ""),
                 kind: .vod,
-                startTime: RecentResumePoints.start(
-                    for: .episode(episode.id), stored: episode.watchProgress, storedAt: episode.lastWatchedDate,
-                    isWatched: episode.isWatched, duration: episode.durationSecs
-                ),
+                startTime: episode.resumePoint,
                 contentRef: .episode(episode.id),
                 seriesPosterURL: seriesPosterURL
             )
@@ -267,10 +258,7 @@ nonisolated extension PlayableMedia {
             subtitle: subtitle,
             posterURL: URL(string: episode.movieImage ?? ""),
             kind: .vod,
-            startTime: RecentResumePoints.start(
-                for: .episode(episode.id), stored: episode.watchProgress, storedAt: episode.lastWatchedDate,
-                isWatched: episode.isWatched, duration: episode.durationSecs
-            ),
+            startTime: episode.resumePoint,
             contentRef: .episode(episode.id),
             httpHeaders: authHeaders(for: playlist, resource: url),
             seriesPosterURL: seriesPosterURL

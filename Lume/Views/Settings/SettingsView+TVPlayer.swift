@@ -238,17 +238,15 @@ import SwiftUI
                     onToggleHidden: nil,
                     onCommitOrder: { setEnginePriority($0.map(\.kind)) },
                     isReordering: $isReorderingPlayerList,
-                    scrollProxy: proxy,
-                    accessory: { row in
-                        AnyView(Group {
-                            if row.kind == enginePriority.first {
-                                Text("Primary")
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundStyle(.secondary)
-                            }
-                        })
-                    }
+                    scrollProxy: proxy
                 )
+                .rowAccessory { row in
+                    if row.kind == enginePriority.first {
+                        Text("Primary")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                }
 
                 Text(primaryEngine.subtitle)
                     .tvSettingsFooter()
@@ -344,17 +342,17 @@ import SwiftUI
                             onToggleHidden: nil,
                             onCommitOrder: { setPreferredLanguageCodes($0.map(\.code)) },
                             isReordering: $isReorderingPlayerList,
-                            scrollProxy: proxy,
-                            actions: { row in
-                                AnyView(Button {
-                                    removePreferredLanguage(row.code)
-                                } label: {
-                                    Image(systemName: "minus")
-                                }
-                                .buttonStyle(TVContentIconButtonStyle())
-                                .accessibilityLabel("Remove \(TrackLanguageMatcher.displayName(for: row.code))"))
-                            }
+                            scrollProxy: proxy
                         )
+                        .rowActions { row in
+                            Button {
+                                removePreferredLanguage(row.code)
+                            } label: {
+                                Image(systemName: "minus")
+                            }
+                            .buttonStyle(TVContentIconButtonStyle())
+                            .accessibilityLabel("Remove \(TrackLanguageMatcher.displayName(for: row.code))")
+                        }
                     }
                 }
 

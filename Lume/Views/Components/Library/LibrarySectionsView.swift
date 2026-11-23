@@ -33,7 +33,7 @@ struct LibrarySectionsView<CollectionRow: View>: View {
     @ViewBuilder let collectionRow: (LibraryCollection.Kind) -> CollectionRow
 
     @AppStorage private var sectionOrderRaw: String
-    @AppStorage private var disabledSectionsRaw: String
+    @AppStorage private var disabledSections: DisabledSections
     @AppStorage private var customSectionsRaw: String
     @AppStorage private var heroSectionRaw: String
 
@@ -52,7 +52,7 @@ struct LibrarySectionsView<CollectionRow: View>: View {
         self.onRevealBrowse = onRevealBrowse
         self.collectionRow = collectionRow
         _sectionOrderRaw = AppStorage(wrappedValue: "", HomeLayoutSettings.sectionOrderKey(surface))
-        _disabledSectionsRaw = AppStorage(wrappedValue: "", HomeLayoutSettings.disabledSectionsKey(surface))
+        _disabledSections = AppStorage(wrappedValue: DisabledSections(), HomeLayoutSettings.disabledSectionsKey(surface))
         _customSectionsRaw = AppStorage(wrappedValue: "", CustomHomeSections.storageKey(surface))
         _heroSectionRaw = AppStorage(wrappedValue: "", HomeLayoutSettings.heroSectionKey(surface))
     }
@@ -86,7 +86,7 @@ struct LibrarySectionsView<CollectionRow: View>: View {
         switch ref {
         case let .builtin(section):
             // A promoted row is the hero, so it never also draws as a row.
-            if ref != heroRef, HomeLayoutSettings.isEnabled(ref, disabledRaw: disabledSectionsRaw) {
+            if ref != heroRef, disabledSections.isEnabled(ref) {
                 builtinRow(for: section)
             }
         case let .custom(id):
@@ -94,7 +94,7 @@ struct LibrarySectionsView<CollectionRow: View>: View {
             // verbatim.
             if ref != heroRef,
                let section = customSections.first(where: { $0.id == id }),
-               HomeLayoutSettings.isEnabled(ref, disabledRaw: disabledSectionsRaw)
+               disabledSections.isEnabled(ref)
             {
                 rail(Text(verbatim: section.title), feed.items(for: ref), section: ref, collectionTitle: section.title)
             }
@@ -163,7 +163,7 @@ struct LibrarySectionsView<CollectionRow: View>: View {
     /// The promoted row, if this surface has one and it is still switched on.
     private var heroRef: HomeSectionRef? {
         guard let ref = HomeLayoutSettings.heroRef(heroSectionRaw),
-              HomeLayoutSettings.isEnabled(ref, disabledRaw: disabledSectionsRaw)
+              disabledSections.isEnabled(ref)
         else { return nil }
         return ref
     }

@@ -3,6 +3,9 @@ import Foundation
 /// Enrichment never claims channels or changes their schedule. Only an exact
 /// channel/start/end/normalized-title match may fill missing provider fields.
 nonisolated enum EPGProgrammeEnrichment {
+    private static let decoder = JSONDecoder()
+    private static let encoder = JSONEncoder()
+
     struct Key: Hashable {
         let channelID: String
         let start: Date
@@ -110,14 +113,23 @@ nonisolated enum EPGProgrammeEnrichment {
     /// Returns whether reader-visible metadata changed. Disabling enrichment,
     /// an expired cache, a missing alias or a mismatching replacement restores
     /// the original provider fields. Decode failure aborts publication.
+    ///
+    /// Runs once per programme row in a publish, so the coders are shared and
+    /// the stored baseline is compared as a value, never as bytes: it is
+    /// written only when it first appears and cleared when nothing is
+    /// supplemented any more.
     @discardableResult
     static func apply(_ index: Index, to listing: EPGListing) throws -> Bool {
         let current = Metadata(listing)
-        let baseline = try listing.enrichmentBaseline.map { try JSONDecoder().decode(Metadata.self, from: $0) } ?? current
+        let baseline = try listing.enrichmentBaseline.map { try decoder.decode(Metadata.self, from: $0) } ?? current
         let supplement = index.metadata(channelID: listing.channelId, start: listing.start, end: listing.end, title: listing.title)
         let effective = supplement.map { baseline.fillingMissing(from: $0) } ?? baseline
-        let encoded = effective == baseline ? nil : try JSONEncoder().encode(baseline)
-        if listing.enrichmentBaseline != encoded { listing.enrichmentBaseline = encoded }
+        // A stored baseline already holds `baseline`: it is what was decoded.
+        if effective == baseline {
+            if listing.enrichmentBaseline != nil { listing.enrichmentBaseline = nil }
+        } else if listing.enrichmentBaseline == nil {
+            listing.enrichmentBaseline = try encoder.encode(baseline)
+        }
         guard effective != current else { return false }
         listing.listingDescription = effective.description
         listing.subtitle = effective.subtitle

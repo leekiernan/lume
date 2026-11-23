@@ -6,8 +6,8 @@ nonisolated struct AppTabSelection: Equatable {
     let showsSports: Bool
     let showsSettings: Bool
 
-    init(disabledAreasRaw: String, showsSports: Bool, showsSettings: Bool) {
-        libraryAreas = AppAreaSettings.enabledAreas(disabledRaw: disabledAreasRaw)
+    init(disabledAreas: DisabledAreas, showsSports: Bool, showsSettings: Bool) {
+        libraryAreas = disabledAreas.enabledAreas
         self.showsSports = showsSports && libraryAreas.contains(.liveTV)
         self.showsSettings = showsSettings
     }

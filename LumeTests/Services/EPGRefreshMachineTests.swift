@@ -82,4 +82,20 @@ struct EPGRefreshMachineTests {
         #expect(conditional.merging(forced) == forced)
         #expect(forced.merging(conditional) == forced)
     }
+
+    @Test func `a refresh asked for while another runs is owed, not dropped`() throws {
+        var machine = EPGRefreshMachine()
+        let firstRequest = machine.begin(.enrichment, mode: .background)
+        let enrichment = try #require(firstRequest)
+        let whileRunning = machine.begin(.guide(allowConditional: true), mode: .background)
+        #expect(whileRunning == nil)
+        #expect(machine.pendingIntent == .guide(allowConditional: true))
+
+        let finished = machine.finish(enrichment)
+        #expect(finished)
+        let nextRequest = machine.begin(.enrichment, mode: .background)
+        let guide = try #require(nextRequest)
+        #expect(guide.intent == .guide(allowConditional: true), "the owed guide check runs next")
+        #expect(machine.pendingIntent == nil)
+    }
 }

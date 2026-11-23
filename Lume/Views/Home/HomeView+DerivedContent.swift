@@ -15,7 +15,7 @@ extension HomeView {
         HomeLayoutSettings.resolve(orderRaw: sectionOrderRaw, custom: customSections, surface: .home).filter { ref in
             switch ref {
             case let .builtin(section): isSectionEnabled(section)
-            case .custom: vodAvailable && HomeLayoutSettings.isEnabled(ref, disabledRaw: disabledSectionsRaw)
+            case .custom: vodAvailable && disabledSections.isEnabled(ref)
             }
         }
     }
@@ -28,7 +28,7 @@ extension HomeView {
     /// movies and series, they have no row of their own to switch off, because
     /// they only ever appear alongside other media.
     private func visibleChannels(_ streams: [LiveStream]) -> [LiveStream] {
-        guard AppAreaSettings.isEnabled(.liveTV, disabledRaw: disabledAreasRaw) else { return [] }
+        guard disabledAreas.isEnabled(.liveTV) else { return [] }
         // A channel watched or favourited in two qualities appears once.
         return streams.filter { belongsToActivePlaylist($0.id) }.excludingRestricted(restriction).onePerChannel()
     }

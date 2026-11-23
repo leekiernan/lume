@@ -380,8 +380,7 @@ actor ImagePipeline {
 
     /// Exponential backoff: ~0.4s, 0.8s, 1.6s.
     private nonisolated static func backoff(_ attempt: Int) async throws {
-        let nanoseconds = UInt64(0.4 * pow(2.0, Double(attempt)) * 1_000_000_000)
-        try await Task.sleep(nanoseconds: nanoseconds)
+        try await Task.sleep(for: .seconds(0.4 * pow(2.0, Double(attempt))))
     }
 }
 

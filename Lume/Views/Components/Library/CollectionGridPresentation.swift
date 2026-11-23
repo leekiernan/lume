@@ -4,9 +4,12 @@ enum CollectionGridPresentation: Equatable {
     case content
     case loading
     case empty
+    /// Nothing to show because the first page failed.
+    case failed
 
-    static func resolve(hasItems: Bool, isLoading: Bool) -> Self {
+    static func resolve(hasItems: Bool, isLoading: Bool, hasFailed: Bool = false) -> Self {
         if hasItems { return .content }
-        return isLoading ? .loading : .empty
+        if isLoading { return .loading }
+        return hasFailed ? .failed : .empty
     }
 }

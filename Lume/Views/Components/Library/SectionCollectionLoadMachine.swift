@@ -36,6 +36,8 @@ final class SectionCollectionLoadMachine {
             items = snapshot?.preview ?? []
             pagination.seed(nextOffset: snapshot?.nextOffset ?? 0, canLoadMore: snapshot?.hasMoreCandidates ?? false)
         }
+        // Coming back to a grid whose page failed asks for it again.
+        pagination.retry()
         if items.isEmpty { requestNextPage(fetch: fetch) }
     }
 
@@ -48,6 +50,14 @@ final class SectionCollectionLoadMachine {
             if owner == token { nextTask = nil }
         }
         return nextTask
+    }
+
+    /// Asks again for a page that failed.
+    @discardableResult
+    func retry(fetch: @escaping Fetch) -> Task<Void, Never>? {
+        guard pagination.hasFailed else { return nil }
+        pagination.retry()
+        return requestNextPage(fetch: fetch)
     }
 
     func cancel() {
@@ -71,7 +81,12 @@ final class SectionCollectionLoadMachine {
                 items.append(contentsOf: page.items.filter { existing.insert($0.id).inserted })
                 if !page.items.isEmpty || !hasMore { return }
             } catch {
-                if owner == token { pagination.abandon(request) }
+                guard owner == token else { return }
+                if Task.isCancelled || error is CancellationError {
+                    pagination.abandon(request)
+                } else {
+                    pagination.fail(request)
+                }
                 return
             }
         }

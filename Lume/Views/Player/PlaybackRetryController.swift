@@ -118,7 +118,7 @@ final class PlaybackRetryController {
         Logger.player.log("reconnect: attempt \(number, privacy: .public)/\(total, privacy: .public) in \(delay, format: .fixed(precision: 0), privacy: .public)s")
 
         pending = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            try? await Task.sleep(for: .seconds(delay))
             guard let self, !Task.isCancelled else { return }
             // Clear before reloading so the terminal state of a *failed* retry
             // can schedule the next attempt.

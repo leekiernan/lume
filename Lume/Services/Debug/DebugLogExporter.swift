@@ -347,9 +347,7 @@ nonisolated struct DebugLogExporter {
         userNote: String? = nil
     ) -> Metadata {
         let defaults = UserDefaults.standard
-        let priorityRaw = defaults.string(forKey: PlayerSettings.enginePriorityKey) ?? ""
-        let legacyRaw = defaults.string(forKey: PlayerSettings.engineKey) ?? PlayerEngineKind.defaultValue.rawValue
-        let engineSummary = PlayerEnginePriority.resolve(priorityRaw: priorityRaw, legacyEngineRaw: legacyRaw)
+        let engineSummary = PlayerEnginePriority.resolveFromDefaults(defaults)
             .map(\.displayName)
             .joined(separator: " › ")
 

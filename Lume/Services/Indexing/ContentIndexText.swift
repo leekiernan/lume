@@ -19,6 +19,22 @@ nonisolated enum ContentIndexText {
     /// mangle rare titles (an all-caps title before a dash), which simply means
     /// no TMDB match for that item — never wrong data.
     static func searchQuery(for rawName: String) -> (title: String, year: Int?) {
+        let query = cleaned(rawName, keepingBareYear: false)
+        return (query.title, query.year)
+    }
+
+    /// The title with a bare year left in, for the indexer's retry when the
+    /// year-stripped search finds nothing: "Blade Runner 2049" is a title, not
+    /// "Blade Runner" from 2049. Nil when the year was bracketed — "(1972)" is
+    /// never part of a title — or when there was none.
+    static func titleKeepingBareYear(for rawName: String) -> String? {
+        let kept = cleaned(rawName, keepingBareYear: true)
+        guard kept.yearWasBare else { return nil }
+        let stripped = cleaned(rawName, keepingBareYear: false).title
+        return kept.title == stripped ? nil : kept.title
+    }
+
+    private static func cleaned(_ rawName: String, keepingBareYear: Bool) -> (title: String, year: Int?, yearWasBare: Bool) {
         var name = rawName
 
         // Dot-separated scene names ("The.Godfather.1972.1080p.x264-GRP") reach
@@ -35,6 +51,7 @@ nonisolated enum ContentIndexText {
         // one is more likely part of the title, e.g. "2012"). Only treat it as
         // a release year when it doesn't make up the whole remaining title.
         var year: Int?
+        var yearWasBare = false
         let yearPattern = #"(?:\(\s*((?:19|20)\d{2})\s*\)|\b((?:19|20)\d{2})\b)"#
         if let regex = try? NSRegularExpression(pattern: yearPattern) {
             let fullRange = NSRange(name.startIndex..., in: name)
@@ -44,7 +61,11 @@ nonisolated enum ContentIndexText {
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 if !stripped.isEmpty {
                     year = Int(name[range].filter(\.isNumber))
-                    name = name.replacingCharacters(in: range, with: " ")
+                    // Group 2 is the unbracketed form.
+                    yearWasBare = match.range(at: 2).location != NSNotFound
+                    if !(keepingBareYear && yearWasBare) {
+                        name = name.replacingCharacters(in: range, with: " ")
+                    }
                 }
             }
         }
@@ -69,7 +90,7 @@ nonisolated enum ContentIndexText {
         name = name.replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression)
         name = name.trimmingCharacters(in: CharacterSet(charactersIn: " -–—|:•.").union(.whitespacesAndNewlines))
 
-        return (name.isEmpty ? rawName : name, year)
+        return (name.isEmpty ? rawName : name, year, yearWasBare)
     }
 
     // MARK: - Embedding document

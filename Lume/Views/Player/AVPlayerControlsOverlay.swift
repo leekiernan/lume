@@ -3,7 +3,7 @@ import SwiftUI
 // Engine observation and scrubbing adapter for the shared standard overlay.
 #if !os(tvOS)
     struct AVPlayerControlsOverlay: View {
-        @ObservedObject var coordinator: AVPlayerCoordinator
+        let coordinator: AVPlayerCoordinator
         let media: PlayableMedia
         @Binding var isSeeking: Bool
         @Binding var seekPosition: TimeInterval

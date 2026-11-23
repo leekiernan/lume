@@ -101,8 +101,15 @@ nonisolated struct EPGRefreshMachine {
         gate.owe(intent)
     }
 
+    /// Starts a job, or returns nil and keeps `intent` owed: behind a running
+    /// job (it runs once that one finishes) or, in the background, behind a
+    /// content sync. A refresh asked for while another ran was dropped, so a
+    /// guide that fell due during enrichment waited for the next check.
     mutating func begin(_ intent: EPGRefreshIntent, mode: Mode, retrySuperseded: Bool = true) -> Job? {
-        guard running == nil else { return nil }
+        guard running == nil else {
+            gate.owe(intent)
+            return nil
+        }
         let resolved = gate.pendingIntent.map { intent.merging($0) } ?? intent
         if mode == .background, !gate.request(resolved) { return nil }
         gate.takeOwedRefresh(allowDuringContentSync: mode == .manual)

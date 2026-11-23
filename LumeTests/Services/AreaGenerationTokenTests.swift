@@ -56,7 +56,7 @@ struct AreaGenerationTokenTests {
     @Test func `switching an area off moves the pair together`() {
         withDefaults { defaults in
             let state = AppAreaSettings.setEnabled(false, for: .liveTV, profileID: Self.profile, defaults: defaults)
-            #expect(!AppAreaSettings.isEnabled(.liveTV, disabledRaw: state.disabledRaw))
+            #expect(!DisabledAreas(rawValue: state.disabledRaw).isEnabled(.liveTV))
             #expect(state.generation == AreaGenerationToken.initial.bumped())
             #expect(AppAreaSettings.areaState(profileID: Self.profile, defaults: defaults) == state)
         }
@@ -70,7 +70,7 @@ struct AreaGenerationTokenTests {
             for area in [AppArea.movies, .series, .liveTV] {
                 state = AppAreaSettings.setEnabled(false, for: area, profileID: Self.profile, defaults: defaults)
             }
-            #expect(AppAreaSettings.enabledAreas(disabledRaw: state.disabledRaw) == [.home])
+            #expect(DisabledAreas(rawValue: state.disabledRaw).enabledAreas == [.home])
 
             let refused = AppAreaSettings.setEnabled(false, for: .home, profileID: Self.profile, defaults: defaults)
             #expect(refused == state)

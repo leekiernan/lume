@@ -212,9 +212,18 @@ extension ContentSyncManager {
         body: ([JellyfinItem]) throws -> Void
     ) async throws -> Int {
         try await walkProviderPages(openEndedLimit: Self.openEndedLibraryItemLimit) { startIndex in
-            let page = try await jellyfinClient.items(
-                server: scope.server, session: scope.session, parentId: scope.view.id, types: types,
-                startIndex: startIndex
+            let page = try await ProviderRetryPolicy.catalog.run(
+                isRetriable: { ($0 as? JellyfinError)?.isRetriable ?? false },
+                onRetry: { error, attempt, delay in
+                    let reason = error.localizedDescription
+                    Logger.database.warning("Jellyfin page at \(startIndex, privacy: .public) failed (\(reason, privacy: .public)); retry \(attempt, privacy: .public) in \(delay, privacy: .public)s")
+                },
+                operation: {
+                    try await jellyfinClient.items(
+                        server: scope.server, session: scope.session, parentId: scope.view.id, types: types,
+                        startIndex: startIndex
+                    )
+                }
             )
             return ProviderImportPage(items: page.items, total: page.totalRecordCount)
         } consume: { items in

@@ -263,15 +263,8 @@ enum WidgetSnapshotExporter {
         /// (`ContinueWatchingLoader`): a show with an episode to go is in
         /// Continue Watching, one with none left is in Watch Again.
         private(set) lazy var watchedSeries: (shows: [Series], split: ContinueWatchingLoader.Result) = {
-            let prefix = self.prefix
-            let excluded = excludedCategories
-            var descriptor = FetchDescriptor<Series>(
-                predicate: #Predicate {
-                    $0.lastWatchedDate != nil && $0.id.starts(with: prefix)
-                        && ($0.categoryId == nil || !excluded.contains($0.categoryId))
-                },
-                sortBy: [SortDescriptor(\.lastWatchedDate, order: .reverse)]
-            )
+            // Home's query, so the widget and Top Shelf list what Home does.
+            var descriptor = HomeQuery.watchedSeries(playlistPrefix: prefix, excludedCategoryIDs: restriction.excludedCategoryIDs)
             // Both rows together never show more than this many shows.
             descriptor.fetchLimit = WidgetSnapshotExporter.limit * 2
             let shows = ((try? context.fetch(descriptor)) ?? []).filter { shows($0.id, category: $0.categoryId) }
@@ -301,12 +294,10 @@ enum WidgetSnapshotExporter {
         let prefix = scope.prefix
         let excluded = scope.excludedCategories
         if surface != .series {
-            var descriptor = FetchDescriptor<Movie>(
-                predicate: #Predicate {
-                    $0.lastWatchedDate != nil && !$0.isWatched && $0.watchProgress > 0
-                        && $0.id.starts(with: prefix) && ($0.categoryId == nil || !excluded.contains($0.categoryId))
-                },
-                sortBy: [SortDescriptor(\.lastWatchedDate, order: .reverse)]
+            // Home's query: a title paused on Trakt before its length is known
+            // is in progress with no bar yet, on Home and here alike.
+            var descriptor = HomeQuery.watchedMovies(
+                playlistPrefix: prefix, excludedCategoryIDs: scope.restriction.excludedCategoryIDs, finished: false
             )
             descriptor.fetchLimit = limit * 2
             for movie in (try? scope.context.fetch(descriptor)) ?? [] where scope.shows(movie.id, category: movie.categoryId) {
@@ -345,14 +336,9 @@ enum WidgetSnapshotExporter {
     private nonisolated static func watchAgain(_ surface: SectionSurface, in scope: Scope) -> [WidgetMediaItem] {
         var entries: [(date: Date, item: WidgetMediaItem)] = []
         let prefix = scope.prefix
-        let excluded = scope.excludedCategories
         if surface != .series {
-            var descriptor = FetchDescriptor<Movie>(
-                predicate: #Predicate {
-                    $0.lastWatchedDate != nil && $0.isWatched == true
-                        && $0.id.starts(with: prefix) && ($0.categoryId == nil || !excluded.contains($0.categoryId))
-                },
-                sortBy: [SortDescriptor(\.lastWatchedDate, order: .reverse)]
+            var descriptor = HomeQuery.watchedMovies(
+                playlistPrefix: prefix, excludedCategoryIDs: scope.restriction.excludedCategoryIDs, finished: true
             )
             descriptor.fetchLimit = limit * 2
             for movie in (try? scope.context.fetch(descriptor)) ?? [] where scope.shows(movie.id, category: movie.categoryId) {
@@ -549,7 +535,6 @@ enum WidgetSnapshotExporter {
     }
 
     private nonisolated static func fraction(_ position: Double, of duration: Int?) -> Double? {
-        guard let duration, duration > 0 else { return nil }
-        return min(position / Double(duration), 1)
+        ContinueWatching.fraction(progress: position, duration: duration)
     }
 }

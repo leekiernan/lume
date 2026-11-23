@@ -121,7 +121,6 @@ final class SignpostBenchmarks: XCTestCase {
             let outcome = syncPlaylistSynchronously(
                 manager: ContentSyncManager(modelContainer: iterationStore.container),
                 playlistId: playlistId,
-                container: iterationStore.container,
                 timeout: 120
             )
             if let error = outcome.error {

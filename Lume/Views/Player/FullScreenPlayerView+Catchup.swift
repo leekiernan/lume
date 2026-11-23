@@ -60,7 +60,7 @@ extension FullScreenPlayerView {
     ///   which never scrobbles and only stamps last-watched, which opening the
     ///   programme already did.
     /// - Like any new stream, the segment starts on the user's primary engine
-    ///   (`engineAttempt = 0`). A fallback answers one stream failing to start,
+    ///   (`engines.restart()`). A fallback answers one stream failing to start,
     ///   not the programme: carrying it over would pin every later seek to the
     ///   fallback engine for good. The cost is one more startup timeout per seek
     ///   when the primary genuinely can't play this archive — the segment still
@@ -73,7 +73,7 @@ extension FullScreenPlayerView {
     func moveToCatchupSegment(_ segment: PlayableMedia) {
         startCause = .catchupSegment
         clock.rebase(onto: segment)
-        engineAttempt = 0
+        engines.restart()
         activeMedia = segment
         NowPlayingService.shared.continueSession(with: segment, owner: playbackLease)
     }
@@ -110,7 +110,7 @@ extension FullScreenPlayerView {
             clock.releaseHold()
             clock.rebase(onto: segment)
             startCause = .catchupSegment
-            engineAttempt = 0
+            engines.restart()
             catchupRestartCount += 1
             return
         }

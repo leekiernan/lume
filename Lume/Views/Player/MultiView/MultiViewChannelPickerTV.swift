@@ -211,8 +211,10 @@
         /// Swap the channel column to another section's channels, debounced so
         /// sweeping focus down the rail loads only where it rests.
         private func scheduleChannelLoad(sectionID: String) {
-            guard sectionID != selectedSectionID else { return }
+            // Cancel first: focus returning to the section already shown must
+            // still call off the load pending for the one it swept past.
             channelLoadTask?.cancel()
+            guard sectionID != selectedSectionID else { return }
             channelLoadTask = Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(150))
                 guard !Task.isCancelled,

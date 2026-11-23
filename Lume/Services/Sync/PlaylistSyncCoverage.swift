@@ -91,13 +91,13 @@ nonisolated enum PlaylistSyncCoverage {
     /// an area that sync skipped.
     static func staleEnabledAreas(
         playlistID: UUID,
-        disabledAreasRaw: String,
+        disabledAreas: DisabledAreas,
         frequency: SyncFrequency,
         now: Date = Date(),
         defaults: UserDefaults = .standard
     ) -> Set<AppArea> {
         let dates = refreshDates(playlistID: playlistID, defaults: defaults)
-        return AppAreaSettings.enabledContentAreas(disabledRaw: disabledAreasRaw).filter {
+        return disabledAreas.enabledContentAreas.filter {
             frequency.isDue(lastSyncDate: dates[$0], now: now)
         }
     }
@@ -107,14 +107,14 @@ nonisolated enum PlaylistSyncCoverage {
     /// until the viewer explicitly syncs under a profile that uses it.
     static func missingAreasForAutomaticRepair(
         playlistID: UUID,
-        disabledAreasRaw: String,
+        disabledAreas: DisabledAreas,
         frequency: SyncFrequency,
         now: Date = Date(),
         defaults: UserDefaults = .standard
     ) -> Set<AppArea> {
         staleEnabledAreas(
             playlistID: playlistID,
-            disabledAreasRaw: disabledAreasRaw,
+            disabledAreas: disabledAreas,
             frequency: frequency,
             now: now,
             defaults: defaults

@@ -16,7 +16,7 @@ struct TraktParkedProgressScopeTests {
                 TraktPendingWatchedStore.resetCacheForTesting()
             }
             var parked = TraktPendingWatchedStore.load()
-            parked[300] = TraktPendingShow(episodes: ["1x2": 100], paused: ["1x3": .init(progress: 50, pausedAt: 100, parkedAt: 100)])
+            parked[300] = TrackerPendingShow(episodes: ["1x2": 100], paused: ["1x3": .init(progress: 50, pausedAt: 100, parkedAt: 100)])
             TraktPendingWatchedStore.save(parked)
             let url = try #require(TraktPendingWatchedStore.fileURL)
             #expect(FileManager.default.fileExists(atPath: url.path))
@@ -47,10 +47,10 @@ struct TraktParkedProgressScopeTests {
                 TraktPendingWatchedStore.resetCacheForTesting()
             }
             var parked = TraktPendingWatchedStore.load()
-            parked[300] = TraktPendingShow(episodes: ["1x2": 100])
+            parked[300] = TrackerPendingShow(episodes: ["1x2": 100])
             TraktPendingWatchedStore.save(parked)
             try FileManager.default.removeItem(at: directory)
-            parked[301] = TraktPendingShow(episodes: ["2x1": 200])
+            parked[301] = TrackerPendingShow(episodes: ["2x1": 200])
             TraktPendingWatchedStore.save(parked)
             TraktPendingWatchedStore.resetCacheForTesting()
             #expect(TraktPendingWatchedStore.load() == parked)
@@ -60,7 +60,7 @@ struct TraktParkedProgressScopeTests {
     @Test func `another account cannot replay or relabel parked watches and pauses`() throws {
         defer { TraktPendingWatchedStore.clearAll() }
         var parked = TraktPendingWatchedStore.load()
-        parked[300] = TraktPendingShow(episodes: ["1x2": 100], paused: ["1x3": .init(progress: 50, pausedAt: 100, parkedAt: 100)])
+        parked[300] = TrackerPendingShow(episodes: ["1x2": 100], paused: ["1x3": .init(progress: 50, pausedAt: 100, parkedAt: 100)])
         TraktPendingWatchedStore.save(parked)
         TraktPendingWatchedStore.resetCacheForTesting()
         let original = try #require(TraktAccountIdentityStore.load())
@@ -78,7 +78,7 @@ struct TraktParkedProgressScopeTests {
 
     @Test func `legacy unstamped and unknown account state cannot authorize replay`() throws {
         defer { TraktPendingWatchedStore.clearAll() }
-        let legacy = TraktPendingWatched(shows: ["300": TraktPendingShow(episodes: ["1x2": 100])], profileID: ActiveProfileStore.current)
+        let legacy = TrackerPendingWatched(shows: ["300": TrackerPendingShow(episodes: ["1x2": 100])], profileID: ActiveProfileStore.current)
         let url = try #require(TraktPendingWatchedStore.fileURL)
         try JSONEncoder().encode(legacy).write(to: url, options: .atomic)
         TraktPendingWatchedStore.resetCacheForTesting()

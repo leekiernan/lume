@@ -230,30 +230,19 @@ enum HomeLayoutSettings {
     }
 
     static func decodeDisabled(_ raw: String) -> Set<HomeSectionRef> {
-        Set(raw.split(separator: ",").compactMap { HomeSectionRef(token: String($0)) })
+        DisabledSections(rawValue: raw).elements
     }
 
     /// Encode the disabled set in a stable order so the stored value (and its
     /// iCloud-synced @AppStorage) doesn't churn as the set is mutated.
     static func encodeDisabled(_ sections: Set<HomeSectionRef>) -> String {
-        sections.map(\.token).sorted().joined(separator: ",")
+        DisabledSections(sections).rawValue
     }
 
     /// Whether `section` should render. Not meaningful for `.forYou` (see
     /// `disabledSectionsKey`); callers handle that case via `RecommendationSettings`.
     static func isEnabled(_ section: HomeSectionRef, disabledRaw: String) -> Bool {
-        !decodeDisabled(disabledRaw).contains(section)
-    }
-
-    /// Flip one row's hidden state, returning the new encoded set.
-    static func settingEnabled(
-        _ isOn: Bool,
-        for section: HomeSectionRef,
-        disabledRaw: String
-    ) -> String {
-        var disabled = decodeDisabled(disabledRaw)
-        if isOn { disabled.remove(section) } else { disabled.insert(section) }
-        return encodeDisabled(disabled)
+        DisabledSections(rawValue: disabledRaw).isEnabled(section)
     }
 
     /// Decode the stored order into a complete, de-duplicated row list for
@@ -328,3 +317,11 @@ enum HomeLayoutSettings {
         return result
     }
 }
+
+/// The rows a surface hides, as `@AppStorage` keeps them: a comma-separated
+/// token list, written in a stable order so the stored (and iCloud-synced)
+/// value doesn't churn. Views hold this rather than the raw string, so a body
+/// decodes it once per read rather than once per row it asks about.
+typealias DisabledSections = DisabledSet<HomeSectionRef>
+
+extension HomeSectionRef: StoredSetElement {}

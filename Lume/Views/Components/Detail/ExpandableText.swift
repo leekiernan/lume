@@ -16,17 +16,9 @@ struct ExpandableText: View {
     var collapsedLineLimit: Int = 3
 
     @State private var isExpanded = false
-    @State private var collapsedHeight: CGFloat = 0
-    @State private var fullHeight: CGFloat = 0
-
-    /// True once the full text is actually taller than the collapsed line limit
-    /// allows. A character-count heuristic is unreliable — a 200-character
-    /// synopsis can still fit within three lines on a wide layout — so we
-    /// measure the rendered text instead and only offer the toggle when it
-    /// genuinely overflows.
-    private var isExpandable: Bool {
-        fullHeight > collapsedHeight + 1
-    }
+    /// True once the full text is actually taller than the collapsed line
+    /// limit allows (`TruncationProbe`).
+    @State private var isExpandable = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -35,7 +27,11 @@ struct ExpandableText: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(isExpanded ? nil : collapsedLineLimit)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(alignment: .topLeading) { truncationProbe }
+                .background(alignment: .topLeading) {
+                    TruncationProbe(lineLimit: collapsedLineLimit, isTruncated: $isExpandable) {
+                        Text(text).font(.callout)
+                    }
+                }
                 .animation(.easeInOut(duration: 0.2), value: isExpanded)
 
             if isExpandable {
@@ -47,48 +43,6 @@ struct ExpandableText: View {
                 .foregroundStyle(.tint)
             }
         }
-    }
-
-    /// Two hidden copies laid out at the visible text's width: one clamped to the
-    /// collapsed limit, one unbounded. Comparing their heights tells us whether
-    /// the text is actually being cut off.
-    private var truncationProbe: some View {
-        ZStack(alignment: .topLeading) {
-            Text(text)
-                .font(.callout)
-                .lineLimit(collapsedLineLimit)
-                .background(
-                    GeometryReader { geo in
-                        Color.clear.preference(key: CollapsedTextHeightKey.self, value: geo.size.height)
-                    }
-                )
-
-            Text(text)
-                .font(.callout)
-                .fixedSize(horizontal: false, vertical: true)
-                .background(
-                    GeometryReader { geo in
-                        Color.clear.preference(key: FullTextHeightKey.self, value: geo.size.height)
-                    }
-                )
-        }
-        .hidden()
-        .onPreferenceChange(CollapsedTextHeightKey.self) { collapsedHeight = $0 }
-        .onPreferenceChange(FullTextHeightKey.self) { fullHeight = $0 }
-    }
-}
-
-private struct CollapsedTextHeightKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
-    }
-}
-
-private struct FullTextHeightKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
     }
 }
 

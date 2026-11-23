@@ -47,7 +47,7 @@ final class LiveProviderBenchmarks: XCTestCase {
 
             let manager = ContentSyncManager(modelContainer: store.container)
             startMeasuring()
-            let outcome = syncPlaylistSynchronously(manager: manager, playlistId: playlistId, container: store.container)
+            let outcome = syncPlaylistSynchronously(manager: manager, playlistId: playlistId)
             stopMeasuring()
 
             XCTAssertNil(outcome.error, "sync failed: \(String(describing: outcome.error))")
@@ -62,12 +62,12 @@ final class LiveProviderBenchmarks: XCTestCase {
         defer { PerfStore.destroy(directory: store.directory) }
         let playlistId = try seedXtreamPlaylist(server: server, container: store.container)
         let manager = ContentSyncManager(modelContainer: store.container)
-        let first = syncPlaylistSynchronously(manager: manager, playlistId: playlistId, container: store.container)
+        let first = syncPlaylistSynchronously(manager: manager, playlistId: playlistId)
         XCTAssertNil(first.error)
 
         measure(metrics: [XCTClockMetric(), XCTMemoryMetric()], options: singlePass) {
             startMeasuring()
-            let outcome = syncPlaylistSynchronously(manager: manager, playlistId: playlistId, container: store.container)
+            let outcome = syncPlaylistSynchronously(manager: manager, playlistId: playlistId)
             stopMeasuring()
             XCTAssertNil(outcome.error, "resync failed: \(String(describing: outcome.error))")
         }
@@ -82,8 +82,7 @@ final class LiveProviderBenchmarks: XCTestCase {
         let playlistId = try seedXtreamPlaylist(server: server, container: store.container)
         let synced = syncPlaylistSynchronously(
             manager: ContentSyncManager(modelContainer: store.container),
-            playlistId: playlistId,
-            container: store.container
+            playlistId: playlistId
         )
         XCTAssertNil(synced.error)
 

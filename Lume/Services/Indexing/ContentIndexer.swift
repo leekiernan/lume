@@ -49,6 +49,10 @@ actor ContentIndexer {
     /// Bounded delay only: a stalled proxy must never become a prerequisite
     /// for indexing through the existing device TMDB path.
     var pendingMetadataSince: [PendingMetadataKey: Date] = [:]
+    /// `TMDBSearchScope` counts, per category and per playlist, kept for a
+    /// while: they change only with a sync, and chunks of 50 would otherwise
+    /// recount them hundreds of times a run.
+    var searchScopeCounts: [String: (counts: TMDBSearchScope.Counts, at: Date)] = [:]
     /// First wait before retrying a failed embedding-asset download; doubles
     /// each attempt up to `assetRetryMaxPause`. The OTA asset request times out
     /// on slow connections, so we back off and retry in-pass instead of ending
@@ -380,13 +384,15 @@ actor ContentIndexer {
         var movieDescriptor = FetchDescriptor<Movie>(predicate: Self.pendingMoviePredicate(excluding: hidden))
         movieDescriptor.fetchLimit = chunkSize
         let movies = try context.fetch(movieDescriptor)
-        var items: [PendingItem] = movies.map { movie in
+        var items: [PendingItem] = try movies.map { movie in
             let query = ContentIndexText.searchQuery(for: movie.name)
-            return PendingItem(
+            return try PendingItem(
                 kind: .movie,
                 id: movie.id,
                 title: query.title,
                 year: ContentIndexText.year(fromReleaseDate: movie.releaseDate) ?? query.year,
+                titleKeepingYear: ContentIndexText.titleKeepingBareYear(for: movie.name),
+                searchesTMDB: movie.tmdbId != nil || searchesTMDB(Movie.self, id: movie.id, categoryID: movie.categoryId, in: context),
                 existingTMDBId: movie.tmdbId,
                 needsEnrichment: !movie.hasFreshTMDBArtwork(source: LumeProxySource.snapshot(contentID: movie.id, from: sources), language: tmdbClient.language),
                 source: LumeProxySource.snapshot(contentID: movie.id, from: sources)
@@ -397,13 +403,15 @@ actor ContentIndexer {
             var seriesDescriptor = FetchDescriptor<Series>(predicate: Self.pendingSeriesPredicate(excluding: hidden))
             seriesDescriptor.fetchLimit = chunkSize - movies.count
             let series = try context.fetch(seriesDescriptor)
-            items += series.map { item in
+            items += try series.map { item in
                 let query = ContentIndexText.searchQuery(for: item.name)
-                return PendingItem(
+                return try PendingItem(
                     kind: .series,
                     id: item.id,
                     title: query.title,
                     year: ContentIndexText.year(fromReleaseDate: item.releaseDate) ?? query.year,
+                    titleKeepingYear: ContentIndexText.titleKeepingBareYear(for: item.name),
+                    searchesTMDB: item.tmdbId != nil || searchesTMDB(Series.self, id: item.id, categoryID: item.categoryId, in: context),
                     existingTMDBId: item.tmdbId,
                     needsEnrichment: !item.hasFreshTMDBArtwork(source: LumeProxySource.snapshot(contentID: item.id, from: sources), language: tmdbClient.language),
                     source: LumeProxySource.snapshot(contentID: item.id, from: sources)

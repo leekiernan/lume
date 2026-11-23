@@ -48,11 +48,9 @@ enum DiagnosticsReport {
     /// The `mailto:` a phone opens from the Apple TV QR code: diagnostics address,
     /// subject, and the compact summary as the body.
     nonisolated static func mailtoLink(summary: String, appVersion: String) -> String {
-        var allowed = CharacterSet.urlQueryAllowed
-        allowed.remove(charactersIn: "&=+?#")
         let subject = "lume Diagnostics — \(appVersion)"
-        let encodedSubject = subject.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
-        let encodedBody = summary.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
+        let encodedSubject = subject.urlQueryValueEncoded
+        let encodedBody = summary.urlQueryValueEncoded
         return "mailto:\(SupportInfo.diagnosticsEmail)?subject=\(encodedSubject)&body=\(encodedBody)"
     }
 }

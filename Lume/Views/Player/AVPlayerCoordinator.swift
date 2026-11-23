@@ -1,8 +1,8 @@
 import AVFoundation
 import AVKit
-import Combine
 import CoreMedia
 import Foundation
+import Observation
 import OSLog
 
 #if canImport(UIKit)
@@ -24,31 +24,36 @@ import OSLog
 /// KVO / time-observer callbacks may arrive off the main thread, so every
 /// UI-facing mutation hops to the main actor — the same discipline the VLCKit
 /// coordinator follows.
-final class AVPlayerCoordinator: NSObject, ObservableObject {
-    @Published private(set) var isPlaying = false
+///
+/// `@Observable`: views track only the properties they read. Players, layers,
+/// observers, tasks, callbacks and per-tick bookkeeping are
+/// `@ObservationIgnored` — nothing renders them.
+@Observable
+final class AVPlayerCoordinator: NSObject {
+    private(set) var isPlaying = false
     /// True while the player intends to play but is waiting on the buffer, so
     /// the host can raise a loading indicator (parity with KSPlayer/VLCKit).
-    @Published private(set) var isBuffering = true
+    private(set) var isBuffering = true
     /// Set by the PiP delegate (`AVPlayerCoordinator+PictureInPicture.swift`).
-    @Published var isPipActive = false
-    @Published private(set) var isPipSupported = false
+    var isPipActive = false
+    private(set) var isPipSupported = false
 
     /// True once the stream has actually started playing. The host uses this to
     /// tell an initial-load failure (eligible for engine fallback) apart from a
     /// mid-stream drop.
-    @Published private(set) var hasStartedPlayback = false
+    private(set) var hasStartedPlayback = false
     /// Decides when the current stream started: `timeControlStatus` reaching
     /// `.playing`, or the playhead advancing. See `PlaybackStartTracker`.
-    private var startTracker = PlaybackStartTracker()
+    @ObservationIgnored private var startTracker = PlaybackStartTracker()
 
     /// Invoked when the stream can't be started: the item reports `.failed`, or
     /// no frame plays within `startupTimeout`. The engine view either falls back
     /// to the next engine or raises the failure overlay.
-    var onPlaybackFailure: (() -> Void)?
+    @ObservationIgnored var onPlaybackFailure: (() -> Void)?
 
     /// Invoked when the PiP window goes away, so the host can end the session
     /// if the user closed it rather than restoring the player.
-    var onPictureInPictureStop: (() -> Void)?
+    @ObservationIgnored var onPictureInPictureStop: (() -> Void)?
 
     /// How long to wait for playback to start before declaring the stream dead.
     /// Set by the host before `configure` — shorter when a fallback engine is
@@ -60,20 +65,22 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
 
     /// Drives the content-mode (fit / fill) toggle in the overlay; applied to
     /// the player layer's `videoGravity`.
-    @Published var isScaleAspectFill = false {
+    var isScaleAspectFill = false {
         didSet { applyVideoGravity() }
     }
 
     /// Live technical characteristics of the current video track, surfaced in
     /// the tvOS overlay's right-hand caption. `nil` until the item is ready.
-    @Published private(set) var videoInfo: PlayerVideoInfo?
+    private(set) var videoInfo: PlayerVideoInfo?
 
     /// Selectable audio / subtitle tracks, flattened for the overlay menus.
-    @Published private(set) var audioTrackOptions: [PlayerTrackOption] = []
-    @Published private(set) var textTrackOptions: [PlayerTrackOption] = []
+    private(set) var audioTrackOptions: [PlayerTrackOption] = []
+    private(set) var textTrackOptions: [PlayerTrackOption] = []
 
     /// Current playback rate (1.0 == normal). Remembered across pause/resume so
     /// resuming honours a chosen speed.
+    /// Observed through `selectedRate`, which is tracked, so the speed menu
+    /// follows a change.
     var playbackRate: Float {
         get { selectedRate }
         set {
@@ -81,7 +88,6 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
             if player.timeControlStatus != .paused {
                 player.rate = newValue
             }
-            objectWillChange.send()
         }
     }
 
@@ -100,8 +106,8 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
         didSet { applyExternalPlaybackPolicy() }
     }
 
-    var onTime: ((TimeInterval) -> Void)?
-    var onDuration: ((TimeInterval) -> Void)?
+    @ObservationIgnored var onTime: ((TimeInterval) -> Void)?
+    @ObservationIgnored var onDuration: ((TimeInterval) -> Void)?
 
     /// Sends a catch-up programme's seeks to the host and maps this player's
     /// playhead onto the programme clock. See `CatchupSeekRouter`.
@@ -109,13 +115,14 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
 
     let player = AVPlayer()
 
-    private weak var playerLayer: AVPlayerLayer?
-    private(set) var item: AVPlayerItem?
+    @ObservationIgnored private weak var playerLayer: AVPlayerLayer?
+    @ObservationIgnored private(set) var item: AVPlayerItem?
 
     private var isLive = false
     private var startTime: TimeInterval = 0
     private var needsResume = false
     private var didSeekResume = false
+    /// Tracked: `playbackRate`, which the overlay reads, is backed by it.
     private var selectedRate: Float = 1.0
 
     /// The stream currently loaded, kept so the failure-retry path can rebuild it.
@@ -132,10 +139,10 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
     // back to the `AVMediaSelectionOption` to select.
     // Not `private`: read by the AVPlayerCoordinator+Languages extension
     // (separate file).
-    var audioGroup: AVMediaSelectionGroup?
-    var legibleGroup: AVMediaSelectionGroup?
-    var audioOptions: [AVMediaSelectionOption] = []
-    var legibleOptions: [AVMediaSelectionOption] = []
+    @ObservationIgnored var audioGroup: AVMediaSelectionGroup?
+    @ObservationIgnored var legibleGroup: AVMediaSelectionGroup?
+    @ObservationIgnored var audioOptions: [AVMediaSelectionOption] = []
+    @ObservationIgnored var legibleOptions: [AVMediaSelectionOption] = []
 
     /// The viewer's ordered preferred track languages, snapshotted when a
     /// stream starts. Deliberately not re-read mid-session: changing the
@@ -149,15 +156,15 @@ final class AVPlayerCoordinator: NSObject, ObservableObject {
     /// read by the AVPlayerCoordinator+Languages extension (separate file).
     var hasManualTrackSelection = false
 
-    private var timeObserver: Any?
-    private var statusObservation: NSKeyValueObservation?
-    private var durationObservation: NSKeyValueObservation?
-    private var timeControlObservation: NSKeyValueObservation?
-    private var presentationSizeObservation: NSKeyValueObservation?
-    private var trackLoadTask: Task<Void, Never>?
+    @ObservationIgnored private var timeObserver: Any?
+    @ObservationIgnored private var statusObservation: NSKeyValueObservation?
+    @ObservationIgnored private var durationObservation: NSKeyValueObservation?
+    @ObservationIgnored private var timeControlObservation: NSKeyValueObservation?
+    @ObservationIgnored private var presentationSizeObservation: NSKeyValueObservation?
+    @ObservationIgnored private var trackLoadTask: Task<Void, Never>?
     private let resourcePreparation = PlaybackResourcePreparation()
 
-    private var pipController: AVPictureInPictureController?
+    @ObservationIgnored private var pipController: AVPictureInPictureController?
 
     override init() {
         player.automaticallyWaitsToMinimizeStalling = true

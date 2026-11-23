@@ -170,37 +170,31 @@ final nonisolated class StalkerClient: Sendable {
         extraQuery: [URLQueryItem] = []
     ) async throws -> T {
         var rejected: StalkerSessionStore.Session?
-        var attempt = 0
-        while true {
-            attempt += 1
-            let session = try await authorizedSession(rejected: rejected)
-            let query = [
-                URLQueryItem(name: "type", value: type),
-                URLQueryItem(name: "action", value: action)
-            ] + extraQuery + [URLQueryItem(name: "JsHttpRequest", value: "1-xml")]
-            let url = appendingQuery(to: session.endpoint, query)
-            do {
-                return try await perform(url: url, token: session.token)
-            } catch let error as StalkerError {
-                if error.isAuthFailure, rejected == nil {
+        let policy = Self.retryPolicy
+        return try await policy.run(isRetriable: { ($0 as? StalkerError)?.isRetriable ?? false }, onRetry: { error, attempt, delay in
+            Logger.network.warning("Stalker request failed (\(error)); retry \(attempt)/\(policy.maxAttempts - 1) in \(delay)s")
+        }, onGiveUp: { error, _ in
+            guard error is StalkerError else { return }
+            // Only here, not in `perform`: the handshake's endpoint probing
+            // decodes HTML from the wrong candidates by design.
+            let returned = lastResponseFingerprint ?? "no response"
+            Logger.network.error("Stalker: \(type, privacy: .public) \(action, privacy: .public) failed — \(error) — \(returned)")
+        }, operation: {
+            while true {
+                let session = try await authorizedSession(rejected: rejected)
+                let query = [
+                    URLQueryItem(name: "type", value: type),
+                    URLQueryItem(name: "action", value: action)
+                ] + extraQuery + [URLQueryItem(name: "JsHttpRequest", value: "1-xml")]
+                let url = appendingQuery(to: session.endpoint, query)
+                do {
+                    return try await perform(url: url, token: session.token)
+                } catch let error as StalkerError where error.isAuthFailure && rejected == nil {
+                    // A refused token is replaced once, straight away.
                     rejected = session
-                    continue
                 }
-                guard error.isRetriable, let delay = Self.retryPolicy.delay(afterFailedAttempt: attempt) else {
-                    // Only here, not in `perform`: the handshake's endpoint
-                    // probing decodes HTML from the wrong candidates by design.
-                    let returned = lastResponseFingerprint ?? "no response"
-                    Logger.network.error(
-                        "Stalker: \(type, privacy: .public) \(action, privacy: .public) failed — \(error) — \(returned)"
-                    )
-                    throw error
-                }
-                Logger.network.warning(
-                    "Stalker request failed (\(error)); retry \(attempt)/\(Self.retryPolicy.maxAttempts - 1) in \(delay)s"
-                )
-                try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             }
-        }
+        })
     }
 
     /// A single request attempt. Sets the MAC cookie, bearer token and MAG

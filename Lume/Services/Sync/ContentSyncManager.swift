@@ -164,7 +164,7 @@ actor ContentSyncManager {
         guard let connection = playlist.connection else { throw SyncError.networkError(URLError(.badURL)) }
         let sourceType = connection.sourceType
         let requestedAreas = request.syncAreas ?? Self.syncAreas(
-            enabled: AppAreaSettings.enabledContentAreas(disabledRaw: AppAreaSettings.storedValue),
+            enabled: AppAreaSettings.stored.enabledContentAreas,
             repairing: request.repairingAreas
         )
         let areas = requestedAreas.subtracting(Self.unsupportedAreas(for: sourceType))
@@ -299,18 +299,14 @@ actor ContentSyncManager {
     /// the first `SxxExx` / `NxM` token and keep whatever follows it ("Felina").
     /// Titles with no such token are returned untouched; a token with nothing after
     /// it (e.g. "Breaking Bad - S05E16") yields "" so the UI can fall back to "E16".
+    /// The token is the m3u import's (`M3UClassifier.seasonEpisodeToken`), so a
+    /// resolution like "640x480" isn't read as one.
     static func cleanEpisodeTitle(_ raw: String?) -> String {
         guard let raw = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
             return ""
         }
-
-        let token = #"(?i)\bS\d{1,3}\s*E\d{1,4}\b|\b\d{1,3}x\d{1,4}\b"#
-        guard let match = raw.range(of: token, options: .regularExpression) else {
-            return raw
-        }
-
-        let separators = CharacterSet(charactersIn: " -–—·:|.").union(.whitespacesAndNewlines)
-        return raw[match.upperBound...].trimmingCharacters(in: separators)
+        guard let token = M3UClassifier.seasonEpisodeToken(in: raw) else { return raw }
+        return raw[token.range.upperBound...].trimmingCharacters(in: M3UClassifier.titleSeparators)
     }
 }
 

@@ -227,8 +227,9 @@ final class EPGSyncService {
             Logger.database.info("EPG refresh skipped: guide-consuming areas are switched off")
             return
         }
-        guard let container, task == nil,
-              let job = machine.begin(intent, mode: mode, retrySuperseded: retrySuperseded) else { return }
+        // The machine owes a refresh it can't start yet; `runOwedRefresh` picks
+        // it up when the running job ends.
+        guard let container, let job = machine.begin(intent, mode: mode, retrySuperseded: retrySuperseded) else { return }
         let manager = EPGSyncManager(modelContainer: container)
         let profileToken = ActiveProfileStore.current?.uuidString ?? ""
         let fence = Fence.live

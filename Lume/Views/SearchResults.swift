@@ -67,14 +67,14 @@ enum ContentFilter: String, CaseIterable, Identifiable {
     }
 
     /// The searchable areas, in filter order.
-    static func searchableAreas(disabledRaw: String) -> [AppArea] {
-        allCases.compactMap(\.area).filter { AppAreaSettings.isEnabled($0, disabledRaw: disabledRaw) }
+    static func searchableAreas(disabled: DisabledAreas) -> [AppArea] {
+        allCases.compactMap(\.area).filter(disabled.isEnabled)
     }
 
     /// The filters on offer: All, then each enabled area — or none at all when
     /// only one area is searchable, where a filter would have nothing to narrow.
-    static func available(disabledRaw: String) -> [ContentFilter] {
-        let areas = searchableAreas(disabledRaw: disabledRaw)
+    static func available(disabled: DisabledAreas) -> [ContentFilter] {
+        let areas = searchableAreas(disabled: disabled)
         guard areas.count > 1 else { return [] }
         return [.all] + allCases.filter { $0.area.map(areas.contains) == true }
     }

@@ -276,19 +276,10 @@ nonisolated enum MDBListDates {
     /// (`2025-02-02 17:28:22.000000`). Every form is tried.
     static func parse(_ string: String?) -> Date? {
         guard let string, !string.isEmpty else { return nil }
-        return iso.date(from: string)
-            ?? isoFractional.date(from: string)
+        return LenientISO8601.date(from: string)
             ?? spaced.date(from: string)
             ?? spacedWhole.date(from: string)
     }
-
-    private static let iso = ISO8601DateFormatter()
-
-    private static let isoFractional: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
 
     private static let spaced = makeSpaced("yyyy-MM-dd HH:mm:ss.SSSSSS")
     private static let spacedWhole = makeSpaced("yyyy-MM-dd HH:mm:ss")

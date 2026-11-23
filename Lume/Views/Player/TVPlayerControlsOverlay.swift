@@ -19,7 +19,8 @@
     import VLCKit
 
     struct TVPlayerControlsOverlay<Engine: TVPlaybackEngine>: View {
-        @ObservedObject var coordinator: Engine
+        /// `@Observable` (see `TVPlaybackEngine`): the body tracks what it reads.
+        let coordinator: Engine
         let media: PlayableMedia
         /// High-frequency playback clock, held as the `@Observable` object. The
         /// overlay body never reads `current`/`duration` (only the scrubber leaf

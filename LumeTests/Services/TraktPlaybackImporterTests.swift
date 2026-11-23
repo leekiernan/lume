@@ -24,7 +24,7 @@ struct TraktPlaybackImporterTests {
 
     private let paused = "2026-09-20T20:00:00.000Z"
     private var pausedDate: Date {
-        TraktWatchedImporter.parse(paused)!
+        LenientISO8601.date(from: paused)!
     }
 
     private func makeContext() throws -> ModelContext {
@@ -236,7 +236,7 @@ struct TraktPlaybackImporterTests {
     /// Written before pauses were parked: no `paused` key.
     @Test func `a pending file without pauses still decodes`() throws {
         let json = Data(#"{"shows":{"9":{"episodes":{"1x2":1413046854}}}}"#.utf8)
-        let decoded = try JSONDecoder().decode(TraktPendingWatched.self, from: json)
+        let decoded = try JSONDecoder().decode(TrackerPendingWatched.self, from: json)
         #expect(decoded[9]?.episodes["1x2"] == 1_413_046_854)
         #expect(decoded[9]?.paused == nil)
     }

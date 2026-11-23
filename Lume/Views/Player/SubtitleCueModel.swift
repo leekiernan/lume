@@ -1,19 +1,23 @@
-import Combine
 import CoreGraphics
+import Observation
 
 /// Holds the engine's active subtitle cues, refreshed from the coordinator's
-/// 10 Hz playback tick. Deliberately a separate `ObservableObject` from
-/// `LumeEngineCoordinator`: were the cue text `@Published` on the coordinator,
-/// every per-tick update would fire the coordinator's `objectWillChange` and
-/// re-render every overlay that observes it — flickering an open audio/subtitle
-/// `Menu` and cancelling in-flight taps. Only the subtitle-rendering leaf
-/// observes this model, so a cue change invalidates that leaf alone. Mirrors why
-/// KSPlayer keeps its `SubtitleModel` off the controls overlay's observed surface.
+/// 10 Hz playback tick. Kept a separate `@Observable` from
+/// `AetherEngineCoordinator` so the cue state has one obvious reader: only the
+/// subtitle-rendering leaf (`AetherSubtitleOverlay`) reads it, so a cue change
+/// invalidates that leaf alone. Under `ObservableObject` the split was
+/// load-bearing — a `@Published` cue on the coordinator fired its
+/// `objectWillChange` every tick, re-rendering every overlay observing it and
+/// flickering an open audio/subtitle `Menu`. Observation's per-property
+/// tracking would now spare those overlays, but the separate model keeps that
+/// guarantee independent of which properties a view happens to read. Mirrors
+/// KSPlayer keeping its `SubtitleModel` off the controls overlay.
 @MainActor
-final class SubtitleCueModel: ObservableObject {
-    @Published private(set) var text: String?
+@Observable
+final class SubtitleCueModel {
+    private(set) var text: String?
     /// Bitmap cues (PGS, DVB, DVD) showing now; only AetherEngine sends them.
-    @Published private(set) var bitmaps: [SubtitleBitmap] = []
+    private(set) var bitmaps: [SubtitleBitmap] = []
 
     /// Assigns only on an actual change, so an unchanged cue repeated across
     /// ticks doesn't invalidate the leaf ten times a second.

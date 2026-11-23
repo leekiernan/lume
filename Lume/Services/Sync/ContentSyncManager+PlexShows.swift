@@ -15,10 +15,10 @@ import SwiftData
 extension ContentSyncManager {
     // MARK: - Series & episodes
 
-    func syncPlexShows(scope: PlexSectionScope, seenSeries: inout Set<String>, seenEpisodes: inout Set<String>, progress: SyncProgress?) async throws {
+    func syncPlexShows(scope: PlexSectionScope, progress: SyncProgress?) async throws -> (series: Set<String>, episodes: Set<String>) {
         // Series shells first, so episodes below can link against them.
         var showsByRatingKey: [String: PlexMetadata] = [:]
-        var seen = seenSeries
+        var seen = Set<String>()
         _ = try await pageThroughPlexItems(type: PlexClient.showType, scope: scope, progress: nil, unit: "series") { items in
             try seen.formUnion(upsertPlexSeries(items, scope: scope))
             for item in items {
@@ -29,7 +29,7 @@ extension ContentSyncManager {
         // Then every episode in the section, grouped by its show. An episode
         // whose show shell is missing still imports under a shell built from
         // its `grandparentTitle` so no playable file is ever dropped.
-        var seenEp = seenEpisodes
+        var seenEp = Set<String>()
         let shells = showsByRatingKey
         let episodeCount = try await pageThroughPlexItems(
             type: PlexClient.episodeType, scope: scope, progress: progress, unit: "episode(s)"
@@ -38,9 +38,8 @@ extension ContentSyncManager {
             seen.formUnion(series)
             seenEp.formUnion(episodes)
         }
-        seenSeries = seen
-        seenEpisodes = seenEp
         Logger.database.info("Plex shows synced for section \(scope.section.title, privacy: .public): \(episodeCount, privacy: .public) episode(s)")
+        return (seen, seenEp)
     }
 
     private func upsertPlexSeries(_ items: [PlexMetadata], scope: PlexSectionScope) throws -> Set<String> {

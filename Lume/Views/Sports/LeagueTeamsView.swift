@@ -20,6 +20,9 @@ struct LeagueTeamsView: View {
     @State private var follows = SportsFollowService.shared
     @State private var teams: [SportsTeam] = []
     @State private var isLoading = false
+    /// The provider failed, as opposed to answering with no teams.
+    @State private var loadFailed = false
+    @State private var reload = 0
 
     var body: some View {
         List {
@@ -29,6 +32,14 @@ struct LeagueTeamsView: View {
                         HStack(spacing: 10) {
                             ProgressView()
                             Text("Loading teams…").foregroundStyle(.secondary)
+                        }
+                    } else if loadFailed {
+                        ContentUnavailableView {
+                            Label("Couldn't Load", systemImage: "exclamationmark.triangle")
+                        } description: {
+                            Text("Check your connection and try again.")
+                        } actions: {
+                            Button("Try Again") { reload += 1 }
                         }
                     } else {
                         ContentUnavailableView(
@@ -45,7 +56,7 @@ struct LeagueTeamsView: View {
             }
         }
         .navigationTitle(league.name)
-        .task { await loadTeams() }
+        .task(id: reload) { await loadTeams() }
     }
 
     private func teamRow(_ team: SportsTeam) -> some View {
@@ -84,8 +95,15 @@ struct LeagueTeamsView: View {
             return
         }
         isLoading = true
+        loadFailed = false
         defer { isLoading = false }
-        let fetched = await (try? provider.teams(league: league)) ?? []
+        let fetched: [SportsTeam]
+        do {
+            fetched = try await provider.teams(league: league)
+        } catch {
+            if !Task.isCancelled { loadFailed = true }
+            return
+        }
         guard !fetched.isEmpty else { return }
         store.mergeTeams(fetched, for: league.id)
         teams = fetched.sorted { $0.name < $1.name }

@@ -3,9 +3,8 @@
 //  Lume
 //
 //  Keychain-backed persistence for the MDBList OAuth token set, and the
-//  remembered account identity. Mirrors `SimklTokenStore`: the keychain work
-//  goes through `CredentialBackend`, with `AfterFirstUnlock` accessibility so
-//  a refresh can succeed even if it ever runs while the device is locked.
+//  remembered account identity, through the shared tracker stores
+//  (`TrackerTokenStoring`, `TrackerAccountIdentityStoring`).
 //
 //  Unlike Trakt and Simkl, the pair stays on this device: it isn't carried
 //  between devices through iCloud, so each one signs in by itself.
@@ -35,31 +34,12 @@ nonisolated struct MDBListTokens: Codable, Equatable {
     }
 }
 
-nonisolated enum MDBListTokenStore {
-    private static let item = CredentialItem(
-        service: "bilipp.Lume.mdblist",
-        account: "oauth-tokens",
-        accessibility: .afterFirstUnlock
-    )
-
-    /// The stored token set, or nil if it is absent or unreadable.
-    static func load() -> MDBListTokens? {
-        guard case let .found(data) = CredentialBackend.current.storage.read(item) else { return nil }
-        return try? JSONDecoder().decode(MDBListTokens.self, from: data)
-    }
-
-    /// Saves the token set, replacing any existing one.
-    @discardableResult
-    static func save(_ tokens: MDBListTokens) -> Bool {
-        guard let data = try? JSONEncoder().encode(tokens) else { return false }
-        return CredentialBackend.current.storage.write(data, to: item)
-    }
-
-    /// Removes the stored token set. A missing item is treated as success.
-    @discardableResult
-    static func clear() -> Bool {
-        CredentialBackend.current.storage.delete(item)
-    }
+/// The MDBList token pair in the keychain (`TrackerTokenStoring`). It stays
+/// on this device.
+nonisolated enum MDBListTokenStore: TrackerTokenStoring {
+    typealias Tokens = MDBListTokens
+    static let item = CredentialItem(service: "bilipp.Lume.mdblist", account: "oauth-tokens", accessibility: .afterFirstUnlock)
+    static let syncedCredential: SyncedCredentialKind? = nil
 }
 
 // MARK: - Account identity
@@ -87,23 +67,8 @@ nonisolated struct MDBListAccountIdentity: Codable, Equatable {
     }
 }
 
-/// The account identity is not secret. Remembering it alongside the keychain
-/// token lets an offline cold launch stay connected and keep queueing watched
-/// changes; the next successful `/user` response refreshes it.
-nonisolated enum MDBListAccountIdentityStore {
-    private static let key = "mdblist.lastAccountIdentity.v1"
-
-    static func load(defaults: UserDefaults = .standard) -> MDBListAccountIdentity? {
-        guard let data = defaults.data(forKey: key) else { return nil }
-        return try? JSONDecoder().decode(MDBListAccountIdentity.self, from: data)
-    }
-
-    static func save(_ identity: MDBListAccountIdentity, defaults: UserDefaults = .standard) {
-        guard let data = try? JSONEncoder().encode(identity) else { return }
-        defaults.set(data, forKey: key)
-    }
-
-    static func clear(defaults: UserDefaults = .standard) {
-        defaults.removeObject(forKey: key)
-    }
+/// Remembers the MDBList account (`TrackerAccountIdentityStoring`).
+nonisolated enum MDBListAccountIdentityStore: TrackerAccountIdentityStoring {
+    typealias Identity = MDBListAccountIdentity
+    static let key = "mdblist.lastAccountIdentity.v1"
 }

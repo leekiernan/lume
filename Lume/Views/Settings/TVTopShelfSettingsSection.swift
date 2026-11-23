@@ -73,9 +73,9 @@ import SwiftUI
                         onCommitOrder: { rows in sourcesRaw = TopShelfSettings.encode(rows.map(\.source)) },
                         isReordering: $isReordering,
                         scrollProxy: proxy,
-                        icon: { icon(for: $0.source) },
-                        actions: { row in AnyView(removeButton(row.source)) }
+                        icon: { icon(for: $0.source) }
                     )
+                    .rowActions { removeButton($0.source) }
 
                     TVOptionCycleRow(title: "Layout", valueLabel: style.label) {
                         styleRaw = TopShelfConfiguration.Style.allCases.element(after: style).rawValue

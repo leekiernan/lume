@@ -20,7 +20,8 @@
         var onPlaybackStarted: () -> Void
         var onPlaybackFailed: () -> Void
 
-        @StateObject private var coordinator = AetherEngineCoordinator()
+        /// Built once per tile, not per parent update — see `LazyState`.
+        @LazyState private var coordinator = AetherEngineCoordinator()
 
         var body: some View {
             AetherEngineVideoSurface(videoView: coordinator.session?.videoView)

@@ -98,37 +98,6 @@ extension ContentSyncManager {
         }
     }
 
-    /// Walks one library. A walk the server cut short — fewer items than it
-    /// advertised, or a nonsense total — keeps that library's rows and returns
-    /// the error instead of throwing, so the other libraries still import.
-    /// The caller skips pruning that kind and reports the error once every
-    /// library has had its turn, which keeps `lastSyncDate` and coverage from
-    /// advancing. Any other failure (network, auth, cancellation) throws.
-    func walkLibrary(_ name: String, _ walk: () async throws -> Void) async throws -> ProviderImportError? {
-        do {
-            try await walk()
-            return nil
-        } catch let error as ProviderImportError {
-            Logger.database.error("Library \(name, privacy: .public) walk incomplete (\(String(describing: error), privacy: .public)); its rows are kept and its kind isn't pruned")
-            return error
-        }
-    }
-
-    /// Continue after structural truncation, retaining the first error as the
-    /// phase's prune veto. Transport/auth/storage/cancellation failures stop.
-    func walkLibraries<Library>(
-        _ libraries: [Library], name: KeyPath<Library, String>, walk: (Library) async throws -> Void
-    ) async throws -> ProviderImportError? {
-        var incomplete: ProviderImportError?
-        for library in libraries {
-            try Task.checkCancellation()
-            let failure = try await walkLibrary(library[keyPath: name]) { try await walk(library) }
-            incomplete = incomplete ?? failure
-        }
-        try Task.checkCancellation()
-        return incomplete
-    }
-
     /// What a concurrent walk of several libraries brought back.
     struct LibraryWalk<Seen: Sendable> {
         /// Each library that finished, in no particular order.

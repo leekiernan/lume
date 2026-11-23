@@ -75,7 +75,9 @@ struct VLCPlayerEngineView: View {
     var session: PlaybackSession?
     var nowPlayingOwner: ActivityLease?
 
-    @StateObject var coordinator = VLCPlayerCoordinator()
+    /// `@LazyState`, not `@State`: the coordinator builds its
+    /// `VLCMediaPlayer` in `init`, which must run once per view.
+    @LazyState var coordinator = VLCPlayerCoordinator()
     @State private var chrome = PlayerChromeController()
     private var isControlsVisible: Bool {
         chrome.isVisible

@@ -166,4 +166,26 @@ struct ContentIndexTextTests {
         let data = TextEmbedder.encode([])
         #expect(TextEmbedder.decode(data).isEmpty)
     }
+
+    @Test func `a bare year is kept for the retry, a bracketed one is not`() {
+        #expect(ContentIndexText.searchQuery(for: "Blade Runner 2049") == ("Blade Runner", 2049))
+        #expect(ContentIndexText.titleKeepingBareYear(for: "Blade Runner 2049") == "Blade Runner 2049")
+        #expect(ContentIndexText.titleKeepingBareYear(for: "[MULTI] Inception 2010 FHD") == "Inception 2010")
+        #expect(ContentIndexText.titleKeepingBareYear(for: "DE | Der Pate (1972) 4K") == nil)
+        #expect(ContentIndexText.titleKeepingBareYear(for: "Heat") == nil)
+    }
+
+    @Test func `a missed year search tries the title with its number before dropping the year`() {
+        typealias Attempt = ContentIndexer.SearchAttempt
+        #expect(ContentIndexer.searchAttempts(query: "Blade Runner", year: 2049, titleKeepingYear: "Blade Runner 2049") == [
+            Attempt(title: "Blade Runner", year: 2049),
+            Attempt(title: "Blade Runner 2049", year: nil),
+            Attempt(title: "Blade Runner", year: nil)
+        ])
+        #expect(ContentIndexer.searchAttempts(query: "Der Pate", year: 1972, titleKeepingYear: nil) == [
+            Attempt(title: "Der Pate", year: 1972),
+            Attempt(title: "Der Pate", year: nil)
+        ])
+        #expect(ContentIndexer.searchAttempts(query: "Heat", year: nil, titleKeepingYear: nil) == [Attempt(title: "Heat", year: nil)])
+    }
 }

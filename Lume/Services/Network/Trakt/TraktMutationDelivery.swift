@@ -46,7 +46,7 @@ extension TraktClient {
         progress: Double, pausedAt: Date, accessToken: String
     ) async throws {
         let paused = try await playback(accessToken: accessToken).filter { $0.matches(mutationTarget) }
-        guard !paused.contains(where: { (TraktWatchedImporter.parse($0.pausedAt) ?? .distantPast) >= pausedAt }) else { return }
+        guard !TrackerPausedProgress.holdsNewer(paused.map { LenientISO8601.date(from: $0.pausedAt) }, than: pausedAt) else { return }
         _ = try await scrobble(target, action: .pause, progress: progress, accessToken: accessToken)
     }
 

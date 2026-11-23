@@ -5,43 +5,20 @@ import Testing
 
 @Suite(.readsGlobalState)
 struct ProviderImportTests {
-    @Test func `library walk keeps first structural failure but visits every library`() async throws {
+    @Test func `a sync cancelled during the walk cannot grant prune authority`() async throws {
         let manager = try ContentSyncManager(modelContainer: makeTestContainer())
-        var visited: [Int] = []
-        let failure = try await manager.walkLibraries([1, 2, 3], name: \.description) { library in
-            visited.append(library)
-            if library == 1 { throw ProviderImportError.incompletePage(fetched: 1, expected: 2) }
-            if library == 2 { throw ProviderImportError.invalidTotal(-1) }
-        }
-        #expect(visited == [1, 2, 3])
-        #expect(failure == .incompletePage(fetched: 1, expected: 2))
-        let empty = try await manager.walkLibraries([Int](), name: \.description) { _ in Issue.record("empty walk ran") }
-        #expect(empty == nil)
-    }
-
-    @Test func `transport failure stops the remaining libraries`() async throws {
-        let manager = try ContentSyncManager(modelContainer: makeTestContainer())
-        var visited: [Int] = []
-        await #expect(throws: URLError.self) {
-            try await manager.walkLibraries([1, 2, 3], name: \.description) { library in
-                visited.append(library)
-                if library == 2 { throw URLError(.notConnectedToInternet) }
-            }
-        }
-        #expect(visited == [1, 2])
-    }
-
-    @Test func `cancellation after the last library cannot grant prune authority`() async throws {
-        let manager = try ContentSyncManager(modelContainer: makeTestContainer())
+        let (started, signal) = AsyncStream.makeStream(of: Void.self)
         let task = Task {
-            do {
-                _ = try await manager.walkLibraries([1], name: \.description) { _ in
-                    withUnsafeCurrentTask { $0?.cancel() }
-                }
-                return false
-            } catch is CancellationError { return true }
+            try await manager.walkLibrariesConcurrently([1], name: { "\($0)" }, isFatal: { _ in false }, walk: { _, _ in
+                signal.yield()
+                try await Task.sleep(for: .seconds(30))
+            })
         }
-        #expect(try await task.value)
+        for await _ in started {
+            break
+        }
+        task.cancel()
+        await #expect(throws: CancellationError.self) { try await task.value }
     }
 
     @Test func `paging uses the number received rather than an assumed page size`() async throws {

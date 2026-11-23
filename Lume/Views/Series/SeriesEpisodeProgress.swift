@@ -29,7 +29,7 @@ enum SeriesEpisodeProgress {
     static func markers(in episodes: [Episode]) -> Markers {
         var markers = Markers()
         for episode in episodes {
-            if episode.watchProgress > 1, !episode.isWatched {
+            if ContinueWatching.isInProgress(progress: episode.watchProgress, isWatched: episode.isWatched) {
                 markers.furthestInProgress = later(markers.furthestInProgress, episode)
             }
             if episode.watchProgress > 0 || episode.isWatched {

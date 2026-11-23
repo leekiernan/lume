@@ -6,10 +6,8 @@
 //  secrets, so they live in the keychain rather than UserDefaults — encrypted
 //  at rest and excluded from plaintext backups.
 //
-//  Mirrors `TraktTokenStore`: the keychain work goes through
-//  `CredentialBackend` (the safe update-then-add pattern), and the item uses
-//  `AfterFirstUnlock` accessibility so a refresh can succeed even if it ever
-//  runs while the device is locked.
+//  The store itself is the shared tracker one (`TrackerTokenStoring`); this
+//  file holds Simkl's token and account types.
 //
 
 import Foundation
@@ -39,80 +37,12 @@ nonisolated struct SimklTokens: Codable, Equatable {
     }
 }
 
-/// Reads and writes the Simkl token set in the keychain (through
-/// `CredentialBackend`). Stateless and thread-safe — the storage serializes
-/// access.
-nonisolated enum SimklTokenStore {
-    private static let item = CredentialItem(
-        service: "bilipp.Lume.simkl",
-        account: "oauth-tokens",
-        accessibility: .afterFirstUnlock
-    )
-
-    /// A sync reconcile must distinguish a missing token from a keychain read
-    /// that failed while the device was locked. Treating the latter as a user
-    /// disconnect would delete the shared authorization from every device.
-    enum StoredTokens: Equatable {
-        case tokens(SimklTokens)
-        case notSet
-        case unavailable
-    }
-
-    static func storedTokens() -> StoredTokens {
-        switch CredentialBackend.current.storage.read(item) {
-        case .notFound:
-            return .notSet
-        case .unavailable:
-            return .unavailable
-        case let .found(data):
-            guard let tokens = try? JSONDecoder().decode(SimklTokens.self, from: data) else { return .unavailable }
-            return .tokens(tokens)
-        }
-    }
-
-    /// Loads the stored token set, or nil if it is absent or temporarily
-    /// unreadable. UI/network callers do not need that distinction; the
-    /// CloudKit reconciler uses `storedTokens()` when it matters.
-    static func load() -> SimklTokens? {
-        guard case let .tokens(tokens) = storedTokens() else { return nil }
-        return tokens
-    }
-
-    /// Saves the token set, replacing any existing one — a sign-in, a refresh,
-    /// or a pair pulled from another device. Any of those means the account is
-    /// connected here again (`CredentialLinkState`).
-    @discardableResult
-    static func save(_ tokens: SimklTokens) -> Bool {
-        guard let data = try? JSONEncoder().encode(tokens),
-              CredentialBackend.current.storage.write(data, to: item)
-        else { return false }
-        CredentialLinkStateStore.apply(.credentialStored, to: .simkl)
-        return true
-    }
-
-    /// Removes the stored token set. A missing item is treated as success — the
-    /// desired end state (no token) is already met.
-    ///
-    /// Not a user decision on its own: the sync reconcile calls this to apply
-    /// another device's disconnect. The Disconnect button goes through
-    /// `clearForUserDisconnect()`.
-    @discardableResult
-    static func clear() -> Bool {
-        CredentialBackend.current.storage.delete(item)
-    }
-
-    /// The user's explicit Disconnect: records the decision before the token
-    /// goes, so the iCloud reconcile propagates the removal to every device
-    /// rather than restoring the token as if the keychain had merely lost it.
-    @discardableResult
-    static func clearForUserDisconnect() -> Bool {
-        CredentialLinkStateStore.apply(.userDisconnected, to: .simkl)
-        guard clear() else {
-            CredentialLinkStateStore.apply(.removalFailed, to: .simkl)
-            return false
-        }
-        return true
-    }
+/// The Simkl token pair in the keychain (`TrackerTokenStoring`), carried
+/// between devices through iCloud.
+nonisolated enum SimklTokenStore: TrackerTokenStoring {
+    typealias Tokens = SimklTokens
+    static let item = CredentialItem(service: "bilipp.Lume.simkl", account: "oauth-tokens", accessibility: .afterFirstUnlock)
+    static let syncedCredential: SyncedCredentialKind? = .simkl
 }
 
 // MARK: - Account identity
@@ -149,24 +79,8 @@ nonisolated struct SimklAccountIdentity: Codable, Equatable {
     }
 }
 
-/// The account identity is not secret. Remembering it alongside the keychain
-/// token lets an offline cold launch stay connected and keep queueing watched
-/// changes; the next successful `/users/settings` response refreshes it.
-/// Mirrors `TraktAccountIdentityStore`.
-nonisolated enum SimklAccountIdentityStore {
-    private static let key = "simkl.lastAccountIdentity.v1"
-
-    static func load(defaults: UserDefaults = .standard) -> SimklAccountIdentity? {
-        guard let data = defaults.data(forKey: key) else { return nil }
-        return try? JSONDecoder().decode(SimklAccountIdentity.self, from: data)
-    }
-
-    static func save(_ identity: SimklAccountIdentity, defaults: UserDefaults = .standard) {
-        guard let data = try? JSONEncoder().encode(identity) else { return }
-        defaults.set(data, forKey: key)
-    }
-
-    static func clear(defaults: UserDefaults = .standard) {
-        defaults.removeObject(forKey: key)
-    }
+/// Remembers the Simkl account (`TrackerAccountIdentityStoring`).
+nonisolated enum SimklAccountIdentityStore: TrackerAccountIdentityStoring {
+    typealias Identity = SimklAccountIdentity
+    static let key = "simkl.lastAccountIdentity.v1"
 }

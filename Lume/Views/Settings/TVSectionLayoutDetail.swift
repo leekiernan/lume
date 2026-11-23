@@ -56,13 +56,13 @@ import SwiftUI
 
         @AppStorage(RecommendationSettings.enabledKey) private var recommendationsEnabled = RecommendationSettings.enabledDefault
         @AppStorage private var sectionOrderRaw: String
-        @AppStorage private var disabledSectionsRaw: String
+        @AppStorage private var disabledSections: DisabledSections
         @AppStorage private var customSectionsRaw: String
         @AppStorage private var heroSectionRaw: String
         @AppStorage private var heroSeeded: Bool
         /// Sports is a Live TV feature (fixtures matched to EPG channels), so it
         /// only offers itself as a row when this profile has Live TV on.
-        @AppStorage(AppAreaSettings.disabledAreasKey) private var disabledAreasRaw = ""
+        @AppStorage(AppAreaSettings.disabledAreasKey) private var disabledAreas = DisabledAreas()
 
         @State private var premium = PremiumManager.shared
         @State private var showPaywall = false
@@ -88,7 +88,7 @@ import SwiftUI
             self.surface = surface
             self.proxy = proxy
             _sectionOrderRaw = AppStorage(wrappedValue: "", HomeLayoutSettings.sectionOrderKey(surface))
-            _disabledSectionsRaw = AppStorage(wrappedValue: "", HomeLayoutSettings.disabledSectionsKey(surface))
+            _disabledSections = AppStorage(wrappedValue: DisabledSections(), HomeLayoutSettings.disabledSectionsKey(surface))
             _customSectionsRaw = AppStorage(wrappedValue: "", CustomHomeSections.storageKey(surface))
             _heroSectionRaw = AppStorage(wrappedValue: "", HomeLayoutSettings.heroSectionKey(surface))
             _heroSeeded = AppStorage(wrappedValue: false, HomeLayoutSettings.heroSeededKey(surface))
@@ -117,7 +117,7 @@ import SwiftUI
         private var sections: [HomeSectionRef] {
             HomeLayoutSettings.resolve(
                 orderRaw: sectionOrderRaw, custom: customSections, surface: surface,
-                liveTVEnabled: AppAreaSettings.isEnabled(.liveTV, disabledRaw: disabledAreasRaw)
+                liveTVEnabled: disabledAreas.isEnabled(.liveTV)
             )
         }
 
@@ -126,7 +126,7 @@ import SwiftUI
         private func isEnabled(_ ref: HomeSectionRef) -> Bool {
             ref == .builtin(.forYou)
                 ? recommendationsEnabled
-                : HomeLayoutSettings.isEnabled(ref, disabledRaw: disabledSectionsRaw)
+                : disabledSections.isEnabled(ref)
         }
 
         private func toggle(_ ref: HomeSectionRef) {
@@ -148,9 +148,7 @@ import SwiftUI
                 showPaywall = true
                 return
             }
-            disabledSectionsRaw = HomeLayoutSettings.settingEnabled(
-                !isEnabled(ref), for: ref, disabledRaw: disabledSectionsRaw
-            )
+            disabledSections.setEnabled(!isEnabled(ref), for: ref)
         }
 
         /// Creates this surface's starting hero if it has none, as an ordinary
@@ -229,10 +227,10 @@ import SwiftUI
                     },
                     isReordering: $isReordering,
                     scrollProxy: proxy,
-                    icon: { icon(for: $0.ref) },
-                    accessory: { AnyView(accessory(for: $0.ref)) },
-                    actions: { AnyView(actions(for: $0.ref)) }
+                    icon: { icon(for: $0.ref) }
                 )
+                .rowAccessory { accessory(for: $0.ref) }
+                .rowActions { actions(for: $0.ref) }
 
                 Text(footerText)
                     .tvSettingsFooter()
@@ -517,9 +515,7 @@ import SwiftUI
             sectionOrderRaw = HomeLayoutSettings.encode(
                 HomeLayoutSettings.normalized(order, custom: remaining, surface: surface)
             )
-            disabledSectionsRaw = HomeLayoutSettings.settingEnabled(
-                true, for: .custom(id), disabledRaw: disabledSectionsRaw
-            )
+            disabledSections.setEnabled(true, for: .custom(id))
         }
     }
 

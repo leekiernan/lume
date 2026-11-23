@@ -97,14 +97,14 @@ nonisolated enum TraktPlaybackImporter {
 
     /// `show` with its parked pauses replaced by `waiting` — this import's
     /// view of what is still missing — and nil once nothing is left.
-    private static func parking(_ waiting: [String: TraktPendingPause], in show: TraktPendingShow?) -> TraktPendingShow? {
-        let updated = TraktPendingShow(episodes: show?.episodes ?? [:], paused: waiting.isEmpty ? nil : waiting)
+    private static func parking(_ waiting: [String: TrackerPendingPause], in show: TrackerPendingShow?) -> TrackerPendingShow? {
+        let updated = TrackerPendingShow(episodes: show?.episodes ?? [:], paused: waiting.isEmpty ? nil : waiting)
         return updated.isEmpty ? nil : updated
     }
 
     private static func applyMovie(_ item: TraktPlaybackItem, to movie: Movie, profileID: UUID?) -> Bool {
         guard !movie.isWatched,
-              let paused = TraktWatchedImporter.parse(item.pausedAt),
+              let paused = LenientISO8601.date(from: item.pausedAt),
               paused > (movie.lastWatchedDate ?? .distantPast),
               WatchHistoryClears.shared.allows(paused, for: movie.id, profileID: profileID)
         else { return false }
@@ -121,12 +121,12 @@ nonisolated enum TraktPlaybackImporter {
         to series: Series,
         now: Date,
         profileID: UUID?
-    ) -> (changed: Bool, waiting: [String: TraktPendingPause]) {
+    ) -> (changed: Bool, waiting: [String: TrackerPendingPause]) {
         var changed = false
-        var waiting: [String: TraktPendingPause] = [:]
+        var waiting: [String: TrackerPendingPause] = [:]
         for item in items {
             guard let target = item.episode,
-                  let paused = TraktWatchedImporter.parse(item.pausedAt)
+                  let paused = LenientISO8601.date(from: item.pausedAt)
             else { continue }
             let outcome = applyPause(item.progress, pausedAt: paused, target: target, to: series, profileID: profileID)
             if outcome != .superseded, paused > (series.lastWatchedDate ?? .distantPast) {
@@ -137,7 +137,7 @@ nonisolated enum TraktPlaybackImporter {
             case .applied: changed = true
             case .superseded: break
             case .missing:
-                waiting[TraktPendingShow.key(season: target.season, episode: target.number)] = TraktPendingPause(
+                waiting[TrackerPendingShow.key(season: target.season, episode: target.number)] = TrackerPendingPause(
                     progress: item.progress,
                     pausedAt: Int(paused.timeIntervalSince1970),
                     parkedAt: Int(now.timeIntervalSince1970)
@@ -151,11 +151,11 @@ nonisolated enum TraktPlaybackImporter {
     /// returns the ones still waiting: their episode isn't listed yet, and
     /// they haven't outlived `parkedPauseLifetime`.
     static func applyParked(
-        _ parked: [String: TraktPendingPause],
+        _ parked: [String: TrackerPendingPause],
         to series: Series,
         now: Date
-    ) -> [String: TraktPendingPause] {
-        var waiting: [String: TraktPendingPause] = [:]
+    ) -> [String: TrackerPendingPause] {
+        var waiting: [String: TrackerPendingPause] = [:]
         for (key, pause) in parked {
             let parts = key.split(separator: "x")
             guard parts.count == 2, let season = Int(parts[0]), let episode = Int(parts[1]) else { continue }
@@ -204,8 +204,8 @@ nonisolated enum TraktPlaybackImporter {
 
     private static func newer(_ lhs: TraktPlaybackItem?, _ rhs: TraktPlaybackItem) -> TraktPlaybackItem {
         guard let lhs else { return rhs }
-        let left = TraktWatchedImporter.parse(lhs.pausedAt) ?? .distantPast
-        let right = TraktWatchedImporter.parse(rhs.pausedAt) ?? .distantPast
+        let left = LenientISO8601.date(from: lhs.pausedAt) ?? .distantPast
+        let right = LenientISO8601.date(from: rhs.pausedAt) ?? .distantPast
         return right > left ? rhs : lhs
     }
 }

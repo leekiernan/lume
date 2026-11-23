@@ -24,14 +24,10 @@
         var collapsedLineLimit: Int = 4
 
         @State private var isExpanded = false
-        @State private var collapsedHeight: CGFloat = 0
-        @State private var fullHeight: CGFloat = 0
+        /// True once the full text is taller than the collapsed limit allows
+        /// (`TruncationProbe`).
+        @State private var isTruncated = false
         @FocusState private var isFocused: Bool
-
-        /// True once the full text is taller than the collapsed limit allows.
-        private var isTruncated: Bool {
-            fullHeight > collapsedHeight + 1
-        }
 
         var body: some View {
             Button {
@@ -46,7 +42,11 @@
                         .lineLimit(isExpanded ? nil : collapsedLineLimit)
                         .multilineTextAlignment(.leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(alignment: .topLeading) { truncationProbe }
+                        .background(alignment: .topLeading) {
+                            TruncationProbe(lineLimit: collapsedLineLimit, isTruncated: $isTruncated) {
+                                Text(text).font(.system(size: 28)).lineSpacing(6)
+                            }
+                        }
 
                     if isTruncated {
                         HStack(spacing: 8) {
@@ -68,36 +68,6 @@
             .buttonStyle(AboutCardButtonStyle())
             .focused($isFocused)
         }
-
-        /// Two hidden copies laid out at the same width as the visible text: one
-        /// clamped to the collapsed limit, one unbounded. Comparing their heights
-        /// tells us whether the text is actually being cut off.
-        private var truncationProbe: some View {
-            ZStack(alignment: .topLeading) {
-                Text(text)
-                    .font(.system(size: 28))
-                    .lineSpacing(6)
-                    .lineLimit(collapsedLineLimit)
-                    .background(
-                        GeometryReader { geo in
-                            Color.clear.preference(key: CollapsedHeightKey.self, value: geo.size.height)
-                        }
-                    )
-
-                Text(text)
-                    .font(.system(size: 28))
-                    .lineSpacing(6)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .background(
-                        GeometryReader { geo in
-                            Color.clear.preference(key: FullHeightKey.self, value: geo.size.height)
-                        }
-                    )
-            }
-            .hidden()
-            .onPreferenceChange(CollapsedHeightKey.self) { collapsedHeight = $0 }
-            .onPreferenceChange(FullHeightKey.self) { fullHeight = $0 }
-        }
     }
 
     /// A bare style that renders only the label, so tvOS doesn't overlay its
@@ -106,20 +76,6 @@
     private struct AboutCardButtonStyle: ButtonStyle {
         func makeBody(configuration: Configuration) -> some View {
             configuration.label
-        }
-    }
-
-    private struct CollapsedHeightKey: PreferenceKey {
-        static let defaultValue: CGFloat = 0
-        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-            value = max(value, nextValue())
-        }
-    }
-
-    private struct FullHeightKey: PreferenceKey {
-        static let defaultValue: CGFloat = 0
-        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-            value = max(value, nextValue())
         }
     }
 

@@ -31,6 +31,10 @@ struct ContentSyncManagerLogicTests {
         #expect(result == "")
     }
 
+    @Test func `a resolution is not an episode token`() {
+        #expect(ContentSyncManager.cleanEpisodeTitle("Making Of 640x480") == "Making Of 640x480")
+    }
+
     @Test func `clean title with lower case s`() {
         let result = ContentSyncManager.cleanEpisodeTitle("Show s01e02 Title")
         #expect(result == "Title")

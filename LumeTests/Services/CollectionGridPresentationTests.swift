@@ -33,6 +33,12 @@ struct CollectionGridPresentationTests {
         #expect(presentation(pagination) == .empty)
     }
 
+    @Test func `a failed first page shows the failure, and a failed later page keeps the posters`() {
+        #expect(CollectionGridPresentation.resolve(hasItems: false, isLoading: false, hasFailed: true) == .failed)
+        #expect(CollectionGridPresentation.resolve(hasItems: true, isLoading: false, hasFailed: true) == .content)
+        #expect(CollectionGridPresentation.resolve(hasItems: false, isLoading: true, hasFailed: true) == .loading)
+    }
+
     private func presentation(_ pagination: PaginationMachine) -> CollectionGridPresentation {
         .resolve(hasItems: false, isLoading: pagination.key != "category" || pagination.isLoading)
     }

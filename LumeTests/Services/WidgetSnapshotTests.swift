@@ -178,6 +178,17 @@ struct WidgetSnapshotExporterTests {
         #expect(!items(snapshot, Self.homeContinueWatching).contains { $0.title == "Watched" })
     }
 
+    @Test func `a title paused before its length is known continues here as on Home`() throws {
+        let (container, playlist) = try seedContainer()
+        let paused = Movie(id: "\(playlist.id.uuidString)-m9", streamId: 9, name: "Paused Elsewhere")
+        paused.lastWatchedDate = Date(timeIntervalSinceNow: -30)
+        container.mainContext.insert(paused)
+        try container.mainContext.save()
+
+        let movie = try #require(items(snapshot(container, playlist), Self.homeContinueWatching).first { $0.title == "Paused Elsewhere" })
+        #expect(movie.progress == nil, "no bar until the length is known")
+    }
+
     @Test func `favorites interleave kinds in unified order`() throws {
         let (container, playlist) = try seedContainer()
         let snapshot = snapshot(container, playlist)

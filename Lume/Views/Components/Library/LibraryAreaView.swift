@@ -31,7 +31,7 @@ struct LibraryAreaView<Kind: LibraryAreaKind>: View {
 
     @AppStorage private var heroSectionRaw: String
     @AppStorage private var sectionOrderRaw: String
-    @AppStorage private var disabledSectionsRaw: String
+    @AppStorage private var disabledSections: DisabledSections
     @AppStorage private var customSectionsRaw: String
     @AppStorage private var heroSeeded: Bool
     @State private var heroWarmStart: HeroWarmStartState
@@ -48,7 +48,7 @@ struct LibraryAreaView<Kind: LibraryAreaKind>: View {
         _heroWarmStart = State(initialValue: HeroWarmStartState(surface: Kind.surface))
         _heroSectionRaw = AppStorage(wrappedValue: "", HomeLayoutSettings.heroSectionKey(Kind.surface))
         _sectionOrderRaw = AppStorage(wrappedValue: "", HomeLayoutSettings.sectionOrderKey(Kind.surface))
-        _disabledSectionsRaw = AppStorage(wrappedValue: "", HomeLayoutSettings.disabledSectionsKey(Kind.surface))
+        _disabledSections = AppStorage(wrappedValue: DisabledSections(), HomeLayoutSettings.disabledSectionsKey(Kind.surface))
         _customSectionsRaw = AppStorage(wrappedValue: "", CustomHomeSections.storageKey(Kind.surface))
         _heroSeeded = AppStorage(wrappedValue: false, HomeLayoutSettings.heroSeededKey(Kind.surface))
         _categories = Query(LibraryCategoryQuery.descriptor(
@@ -266,7 +266,7 @@ struct LibraryAreaView<Kind: LibraryAreaKind>: View {
 
     private var heroRef: HomeSectionRef? {
         guard let ref = HomeLayoutSettings.heroRef(heroSectionRaw),
-              HomeLayoutSettings.isEnabled(ref, disabledRaw: disabledSectionsRaw)
+              disabledSections.isEnabled(ref)
         else { return nil }
         return ref
     }
@@ -288,13 +288,13 @@ struct LibraryAreaView<Kind: LibraryAreaKind>: View {
     private var visibleCustomSections: [CustomHomeSection] {
         customSections.filter {
             .custom($0.id) == heroRef
-                || HomeLayoutSettings.isEnabled(.custom($0.id), disabledRaw: disabledSectionsRaw)
+                || disabledSections.isEnabled(.custom($0.id))
         }
     }
 
     private var visibleRows: [HomeSectionRef] {
         HomeLayoutSettings.resolve(orderRaw: sectionOrderRaw, custom: customSections, surface: Kind.surface)
-            .filter { HomeLayoutSettings.isEnabled($0, disabledRaw: disabledSectionsRaw) }
+            .filter { disabledSections.isEnabled($0) }
     }
 
     /// First-use configuration belongs with the page's loads, not the lazy

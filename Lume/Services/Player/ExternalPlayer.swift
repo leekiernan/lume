@@ -60,14 +60,9 @@ enum ExternalPlayer: String, CaseIterable, Identifiable {
     ///   and since we send no `x-error` callback the failure is silent.
     func deepLink(for streamURL: URL) -> URL? {
         // The stream URL is carried as a query parameter value, so every
-        // reserved character — including `&`, `=` and `?`, which
-        // `.urlQueryAllowed` keeps literal — must be percent-encoded or a
-        // stream URL with its own query would be truncated by the target app.
-        var allowed = CharacterSet.urlQueryAllowed
-        allowed.remove(charactersIn: "&=?+/:,")
-        guard let encoded = streamURL.absoluteString.addingPercentEncoding(withAllowedCharacters: allowed) else {
-            return nil
-        }
+        // reserved character must be percent-encoded or a stream URL with its
+        // own query would be truncated by the target app.
+        let encoded = streamURL.absoluteString.urlQueryValueEncoded
         let action = switch self {
         case .infuse: "play"
         case .vlc: "stream"

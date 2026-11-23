@@ -28,7 +28,7 @@ import SwiftUI
                     tvAreaEnableRow
                     tvAreaEnableNote
 
-                    if AppAreaSettings.isEnabled(layoutArea, disabledRaw: disabledAreasRaw) {
+                    if disabledAreas.isEnabled(layoutArea) {
                         if layoutArea == .liveTV { LiveTVSectionsSettings(proxy: proxy) }
                         if let surface = layoutArea.sectionSurface {
                             TVSectionLayoutDetail(surface: surface, proxy: proxy)
@@ -83,8 +83,8 @@ import SwiftUI
         }
 
         private var tvAreaEnableRow: some View {
-            let enabled = AppAreaSettings.isEnabled(layoutArea, disabledRaw: disabledAreasRaw)
-            let canDisable = AppAreaSettings.canDisable(layoutArea, disabledRaw: disabledAreasRaw)
+            let enabled = disabledAreas.isEnabled(layoutArea)
+            let canDisable = disabledAreas.canDisable(layoutArea)
             return Button {
                 // Mark this before changing AppStorage: the switch adds or
                 // removes a tab, the Settings tab is rebuilt, and focus goes to
