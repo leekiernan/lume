@@ -426,7 +426,14 @@
             }
             session.onSubtitleImages = { [weak self] images in
                 self?.subtitleCues.updateBitmaps(images.map {
-                    SubtitleBitmap(id: $0.id, image: $0.image, position: $0.position, canvasSize: $0.canvasSize)
+                    SubtitleBitmap(
+                        id: $0.id,
+                        image: $0.image,
+                        position: $0.position,
+                        canvasSize: $0.canvasSize,
+                        recognizedText: $0.recognizedText,
+                        recognizedTextConfidence: $0.recognizedTextConfidence
+                    )
                 })
             }
             return session
