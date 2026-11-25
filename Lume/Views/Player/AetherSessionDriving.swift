@@ -96,6 +96,7 @@
                 recognizesBitmapSubtitleText: plan.recognizesBitmapSubtitleText,
                 maxConcurrentSourceRequests: plan.maxConcurrentSourceRequests,
                 liveStartupGraceSeconds: plan.liveStartupGraceSeconds,
+                sessionCacheByteBudget: plan.sessionCacheByteBudget,
                 writesDisplayCriteria: plan.writesDisplayCriteria,
                 isSecondaryOutput: plan.sharedOutputRole == .secondary
             )

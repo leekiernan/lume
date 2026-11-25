@@ -1,6 +1,7 @@
-import Combine
 import CoreGraphics
 @testable import Lume
+import Observation
+import Synchronization
 import Testing
 
 struct SubtitleBitmapLayoutTests {
@@ -66,15 +67,24 @@ struct SubtitleBitmapLayoutTests {
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         )?.makeImage())
         let cue = SubtitleBitmap(id: 1, image: image, position: .zero, canvasSize: .zero)
-        var changes = 0
-        let token = model.objectWillChange.sink { changes += 1 }
-        model.updateBitmaps([cue])
-        model.updateBitmaps([cue])
-        model.clear()
-        model.clear()
-        token.cancel()
-        #expect(changes == 2)
+        #expect(republishes(model) { model.updateBitmaps([cue]) })
+        #expect(!republishes(model) { model.updateBitmaps([cue]) })
+        #expect(republishes(model) { model.clear() })
+        #expect(!republishes(model) { model.clear() })
         #expect(model.bitmaps.isEmpty)
+    }
+
+    /// Whether `change` invalidated a view reading the model's cues.
+    @MainActor private func republishes(_ model: SubtitleCueModel, _ change: () -> Void) -> Bool {
+        let changed = Mutex(false)
+        withObservationTracking {
+            _ = model.bitmaps
+            _ = model.text
+        } onChange: {
+            changed.withLock { $0 = true }
+        }
+        change()
+        return changed.withLock { $0 }
     }
 
     private func cue(
