@@ -34,22 +34,28 @@
             // the button would be inert. Show it only on the AVPlayer engine.
             #if os(macOS)
                 if player != nil { picker }
+            #elseif os(visionOS)
+                // No `AVRoutePickerView` on visionOS: AirPlay is chosen from
+                // the system's own controls.
+                EmptyView()
             #else
                 picker
             #endif
         }
 
-        private var picker: some View {
-            RoutePicker(player: player)
-                .frame(width: 44, height: 44)
-                .contentShape(Circle())
-                .glassEffectCompat(.regularInteractive, in: Circle())
-                .accessibilityLabel("AirPlay")
-                .accessibilityValue(cast.isAirPlayActive ? (cast.airPlayRouteName ?? String(localized: "Connected")) : "")
-        }
+        #if !os(visionOS)
+            private var picker: some View {
+                RoutePicker(player: player)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
+                    .glassEffectCompat(.regularInteractive, in: Circle())
+                    .accessibilityLabel("AirPlay")
+                    .accessibilityValue(cast.isAirPlayActive ? (cast.airPlayRouteName ?? String(localized: "Connected")) : "")
+            }
+        #endif
     }
 
-    #if canImport(UIKit)
+    #if canImport(UIKit) && !os(visionOS)
         private struct RoutePicker: UIViewRepresentable {
             var player: AVPlayer?
 

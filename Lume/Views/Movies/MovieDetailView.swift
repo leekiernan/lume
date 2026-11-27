@@ -340,7 +340,7 @@ struct MovieDetailView: View {
                         MediaFavoriteButton(model: movie)
                     }
                 }
-            #elseif os(macOS)
+            #else
                 ToolbarItem(placement: .primaryAction) {
                     Button { toggleWatched() } label: {
                         Image(systemName: movie.isWatched ? "checkmark.circle.fill" : "checkmark.circle")
@@ -351,9 +351,11 @@ struct MovieDetailView: View {
                 ToolbarItem(placement: .primaryAction) {
                     MediaFavoriteButton(model: movie)
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    downloadMacItem
-                }
+                #if os(macOS)
+                    ToolbarItem(placement: .primaryAction) {
+                        downloadMacItem
+                    }
+                #endif
             #endif
         }
 

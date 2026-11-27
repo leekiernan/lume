@@ -15,6 +15,9 @@
 import Foundation
 import OSLog
 import StoreKit
+#if os(visionOS)
+    import UIKit
+#endif
 
 @MainActor
 @Observable
@@ -194,7 +197,16 @@ final class PremiumManager {
         guard let operation = checkout.beginPurchase(productID: product.id) else { return false }
         defer { checkout.finish(operation) }
         do {
-            let result = try await product.purchase()
+            #if os(visionOS)
+                // visionOS confirms a purchase in a scene; there is no
+                // scene-less `purchase()` there.
+                guard let scene = UIApplication.shared.connectedScenes
+                    .first(where: { $0.activationState == .foregroundActive }) ?? UIApplication.shared.connectedScenes.first
+                else { return false }
+                let result = try await product.purchase(confirmIn: scene)
+            #else
+                let result = try await product.purchase()
+            #endif
             switch result {
             case let .success(verification):
                 guard case let .verified(transaction) = verification else {
