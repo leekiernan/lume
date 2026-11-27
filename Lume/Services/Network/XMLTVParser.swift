@@ -26,7 +26,13 @@ final nonisolated class XMLTVParser: NSObject, XMLParserDelegate {
         let programmeCount: Int
         let encounteredProgrammeCount: Int
         let succeeded: Bool
+        /// Supplement feeds a relay already applied to this guide, from the
+        /// root's `lume-supplements` (proxy `docs/lume-api.md#guide`).
+        var relaySupplements: Set<String> = []
     }
+
+    /// The root attribute naming the supplement feeds a relay applied.
+    static let relaySupplementsAttribute = "lume-supplements"
 
     private var batch: [ParsedProgramme] = []
     private let batchSize: Int
@@ -34,6 +40,7 @@ final nonisolated class XMLTVParser: NSObject, XMLParserDelegate {
     private(set) var totalCount: Int = 0
     private(set) var encounteredProgrammeCount: Int = 0
     private var rootElement: String?
+    private var relaySupplements: Set<String> = []
 
     private var currentStart: String?
     private var currentStop: String?
@@ -118,14 +125,20 @@ final nonisolated class XMLTVParser: NSObject, XMLParserDelegate {
         return ParseOutcome(
             programmeCount: delegate.totalCount,
             encounteredProgrammeCount: delegate.encounteredProgrammeCount,
-            succeeded: succeeded
+            succeeded: succeeded,
+            relaySupplements: succeeded ? delegate.relaySupplements : []
         )
     }
 
     func parser(_: XMLParser, didStartElement elementName: String, namespaceURI _: String?, qualifiedName _: String?, attributes attributeDict: [String: String] = [:]) {
         let parent = elements.last
         elements.append(elementName)
-        if rootElement == nil { rootElement = elementName }
+        if rootElement == nil {
+            rootElement = elementName
+            if elementName == "tv", let names = attributeDict[Self.relaySupplementsAttribute] {
+                relaySupplements = Set(names.split(whereSeparator: \.isWhitespace).map(String.init))
+            }
+        }
         currentText = ""
         currentLang = attributeDict["lang"]
         if elementName == "programme" {

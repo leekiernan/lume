@@ -33,11 +33,15 @@ actor EPGEnrichmentSync {
         // cancellation, a stale fence or relaunch between country downloads.
         if enabled { defaults.set(true, forKey: EPGEnrichmentSettings.publicationPendingKey) }
         let scope = enabled ? try EPGEnrichmentScope.load(in: ModelContext(container)) : .init()
+        let coverage = enabled ? try EPGRelayCoverage.load(in: ModelContext(container)) : .init()
         var staged: [Staged] = []
         for feed in feeds {
             try Task.checkCancellation()
             let aliases = scope.aliases(for: feed.id)
-            let result: EPGEnrichmentFeedLoader.Result = if enabled, !aliases.isEmpty {
+            let result: EPGEnrichmentFeedLoader.Result = if enabled, coverage.coversEverySource(feed.id) {
+                // Every guide already carries this feed's additions: nothing to download.
+                .init(feed: feed, snapshot: nil, state: .relay)
+            } else if enabled, !aliases.isEmpty {
                 try await EPGEnrichmentFeedLoader(feed: feed, client: client, defaults: defaults)
                     .load(channelIDs: Set(aliases.keys), now: now)
             } else {
@@ -92,12 +96,14 @@ actor EPGEnrichmentSync {
     }
 
     private nonisolated struct PublicationFeed {
+        let id: EPGEnrichmentFeed.Identifier
         var report: EPGEnrichmentReport
         let index: EPGProgrammeEnrichment.Index
         let providerIDs: Set<String>
         let eligibleIDs: Set<String>
 
         init(_ staged: Staged, scope: EPGEnrichmentScope, now: Date) {
+            id = staged.feed.id
             let aliases = scope.aliases(for: staged.feed.id)
             let snapshot = staged.result.snapshot
             let usable = snapshot?.isUsable(url: staged.feed.url.absoluteString, now: now) == true
@@ -112,26 +118,41 @@ actor EPGEnrichmentSync {
     private nonisolated static func apply(_ staged: [Staged], in context: ModelContext, enabled: Bool, now: Date) throws -> Publication {
         let scope = enabled ? try EPGEnrichmentScope.load(in: context) : .init()
         var feeds = staged.map { PublicationFeed($0, scope: scope, now: now) }
-        let index = EPGProgrammeEnrichment.Index(merging: feeds.map(\.index))
-        let ids = Array(feeds.reduce(into: Set<String>()) { $0.formUnion($1.eligibleIDs) })
+        // A feed no guide needs from the device contributes no rows to visit;
+        // rows it once enriched are still found by their baseline.
+        let ids = Array(feeds.filter { $0.report.state != .relay }.reduce(into: Set<String>()) { $0.formUnion($1.eligibleIDs) })
         let rows = try context.fetch(FetchDescriptor<EPGListing>(predicate: #Predicate {
             ids.contains($0.channelId) || $0.enrichmentBaseline != nil
         }))
         let sources = try context.fetch(FetchDescriptor<EPGSource>(predicate: #Predicate { $0.isEnabled }))
         let enabledIDs = Set(sources.map(\.id))
+        let coverage = EPGRelayCoverage(sources: sources)
         var changedSources: Set<UUID> = []
         var changed = 0
         let noSupplements = EPGProgrammeEnrichment.Index()
+        // One merged index per combination of relay-applied feeds; a row only
+        // takes additions its own guide doesn't already carry.
+        var indexes: [Set<EPGEnrichmentFeed.Identifier>: EPGProgrammeEnrichment.Index] = [:]
         for row in rows {
             try Task.checkCancellation()
             let active = row.sourceID.map { enabledIDs.contains($0) } == true
+            let applied = coverage.feeds(for: row.sourceID)
+            let index: EPGProgrammeEnrichment.Index
+            if !active {
+                index = noSupplements
+            } else if let built = indexes[applied] {
+                index = built
+            } else {
+                index = EPGProgrammeEnrichment.Index(merging: feeds.filter { !applied.contains($0.id) }.map(\.index))
+                indexes[applied] = index
+            }
             let matched = active && index.metadata(channelID: row.channelId, start: row.start, end: row.end, title: row.title) != nil
-            let edited = try EPGProgrammeEnrichment.apply(active ? index : noSupplements, to: row)
+            let edited = try EPGProgrammeEnrichment.apply(index, to: row)
             if edited {
                 changed += 1
                 if let id = row.sourceID { changedSources.insert(id) }
             }
-            for offset in feeds.indices {
+            for offset in feeds.indices where !applied.contains(feeds[offset].id) {
                 if matched, feeds[offset].index.metadata(channelID: row.channelId, start: row.start, end: row.end, title: row.title) != nil {
                     feeds[offset].report.matchedProgrammes += 1
                 }

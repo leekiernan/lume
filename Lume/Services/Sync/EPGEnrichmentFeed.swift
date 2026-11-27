@@ -7,6 +7,15 @@ nonisolated struct EPGEnrichmentFeed {
         case usPBS = "us-locals"
         case britain = "uk"
 
+        /// The same feed's ID on the relay, which names the feeds it applied
+        /// on the guide's root (proxy `docs/lume-api.md#guide`).
+        var relayID: String {
+            switch self {
+            case .usPBS: "epgshare-us-locals"
+            case .britain: "epgshare-uk"
+            }
+        }
+
         var label: String {
             self == .usPBS ? "US PBS" : "UK"
         }

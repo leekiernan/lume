@@ -36,6 +36,10 @@ final class EPGSource {
     var snapshotProgrammeCount: Int = 0
     var snapshotSchemaVersion: Int = 0
     var snapshotEnd: Date?
+    /// Supplement feeds (proxy IDs, e.g. `epgshare-uk`) a relay already
+    /// applied to the committed snapshot. On-device enrichment skips them for
+    /// this source's rows only.
+    var relaySupplements: [String] = []
     var lastAttemptDate: Date?
 
     var addedAt: Date = Date()

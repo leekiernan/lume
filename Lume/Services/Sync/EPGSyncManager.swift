@@ -128,6 +128,7 @@ actor EPGSyncManager {
         let parsedProgrammeCount: Int
         var lastModified: String?
         var entityTag: String?
+        var relaySupplements: Set<String> = []
 
         var channelIDs: Set<String> {
             Set(programmes.map(\.channelId))
@@ -291,7 +292,8 @@ actor EPGSyncManager {
         else { throw EPGPublicationError.invalidDocument }
         return StagedSource(
             programmes: programmesByKey.values.sorted(by: Self.stagingPrecedes),
-            parsedProgrammeCount: parseOutcome.programmeCount, lastModified: lastModified, entityTag: entityTag
+            parsedProgrammeCount: parseOutcome.programmeCount, lastModified: lastModified, entityTag: entityTag,
+            relaySupplements: parseOutcome.relaySupplements
         )
     }
 
@@ -341,6 +343,8 @@ actor EPGSyncManager {
                 source.validatorURL = sourceInfo.url
                 source.lastModified = staged.lastModified
                 source.entityTag = staged.entityTag
+                // Travels with the snapshot it describes; a 304 keeps both.
+                source.relaySupplements = staged.relaySupplements.sorted()
                 source.snapshotReferenceIDs = referenceIDs.sorted()
                 source.snapshotChannelIDs = staged.channelIDs.sorted()
                 source.snapshotProgrammeCount = staged.programmes.count
