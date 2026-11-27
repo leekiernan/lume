@@ -28,8 +28,13 @@ nonisolated struct LumeProxyCapabilities: Decodable, Equatable {
     }
 
     var metadataBatchSize: Int? {
-        guard version == 1, let metadata, metadata.version == 1, metadata.maxBatchSize > 0 else { return nil }
+        guard version == 1, let metadata, metadata.version == 1, metadata.maxBatchSize > 0, metadata.meetsClientBudgets else { return nil }
         return min(metadata.maxBatchSize, 50)
+    }
+
+    /// Room for the proxy's advertised wait, plus headroom for the transfer.
+    var metadataRequestTimeout: TimeInterval {
+        max(LumeProxyMetadataCapability.minimumRequestTimeout, (metadata?.wait ?? 0) + LumeProxyMetadataCapability.transferHeadroom)
     }
 
     /// Whether batch items may carry MDBList ratings. Only an advertised group
@@ -86,15 +91,49 @@ nonisolated struct LumeProxySportsCapability: Decodable, Equatable {
 }
 
 nonisolated struct LumeProxyMetadataCapability: Decodable, Equatable {
+    /// Today's request timeout, which an older proxy's 3 s wait was sized for.
+    static let minimumRequestTimeout: TimeInterval = 5
+    static let transferHeadroom: TimeInterval = 2
+    /// The session's resource timeout: no request may wait longer.
+    static let maximumRequestTimeout: TimeInterval = 10
+    /// What proxies advertised before the fields existed.
+    private static let legacyRefetchAfter: TimeInterval = 13 * 24 * 3600
+    private static let legacyWait: TimeInterval = 3
+
     let version: Int
     let maxBatchSize: Int
     let languages: [String]?
     let groups: [String]?
+    /// Detail older than this is fetched again before a batch answers.
+    let refetchAfter: TimeInterval
+    /// How long a batch waits for titles it had to fetch.
+    let wait: TimeInterval
 
     enum CodingKeys: String, CodingKey {
         case version = "v"
         case maxBatchSize = "max_batch_size"
+        case refetchAfter = "refetch_after_s"
+        case wait = "wait_ms"
         case languages, groups
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        version = try container.decode(Int.self, forKey: .version)
+        maxBatchSize = try container.decode(Int.self, forKey: .maxBatchSize)
+        languages = try container.decodeIfPresent([String].self, forKey: .languages)
+        groups = try container.decodeIfPresent([String].self, forKey: .groups)
+        refetchAfter = try container.decodeIfPresent(Int.self, forKey: .refetchAfter).map(TimeInterval.init) ?? Self.legacyRefetchAfter
+        wait = try container.decodeIfPresent(Int.self, forKey: .wait).map { TimeInterval($0) / 1000 } ?? Self.legacyWait
+    }
+
+    /// A proxy that serves detail as current past the app's freshness window
+    /// would have every item discarded on arrival, and one that waits longer
+    /// than a request may last would time out every cold batch. Either way the
+    /// device's own lookups are the better path, so the feature is declined.
+    var meetsClientBudgets: Bool {
+        refetchAfter > 0 && refetchAfter < LumeMetadataReceipt.freshnessWindow
+            && wait >= 0 && wait + Self.transferHeadroom <= Self.maximumRequestTimeout
     }
 }
 
@@ -271,6 +310,9 @@ actor LumeProxyCapabilityStore {
                   let capabilities = try? JSONDecoder().decode(LumeProxyCapabilities.self, from: data) else { return Negotiation(state: .unavailable) }
             guard capabilities.version == 1 else { return Negotiation(state: .unsupported) }
             let batchSize = capabilities.metadataBatchSize ?? 0
+            if let metadata = capabilities.metadata, !metadata.meetsClientBudgets {
+                Logger.network.warning("Proxy metadata declined: refetch after \(Int(metadata.refetchAfter), privacy: .public) s, wait \(metadata.wait, privacy: .public) s exceed the app's budgets")
+            }
             Logger.network.info("Proxy capabilities: v1; metadata batch limit=\(batchSize, privacy: .public)")
             return Negotiation(state: .supported(capabilities))
         } catch is BoundedResponse.TooLarge {

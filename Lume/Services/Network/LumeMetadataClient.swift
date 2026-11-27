@@ -55,8 +55,8 @@ actor LumeMetadataClient {
     init(session: URLSession? = nil, capabilities: LumeProxyCapabilityStore = .shared, background: Bool = false) {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.httpMaximumConnectionsPerHost = 2
-        configuration.timeoutIntervalForRequest = 5
-        configuration.timeoutIntervalForResource = 10
+        configuration.timeoutIntervalForRequest = LumeProxyMetadataCapability.minimumRequestTimeout
+        configuration.timeoutIntervalForResource = LumeProxyMetadataCapability.maximumRequestTimeout
         configuration.httpAdditionalHeaders = ["User-Agent": lumeCatalogUserAgent]
         if background {
             configuration.allowsExpensiveNetworkAccess = false
@@ -130,7 +130,7 @@ actor LumeMetadataClient {
             return decode(cached.data, read: read)
         }
         do {
-            var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 5)
+            var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: read.capabilities.metadataRequestTimeout)
             if let etag = cached?.etag { request.setValue(etag, forHTTPHeaderField: "If-None-Match") }
             var (data, response) = try await BoundedResponse.data(for: request, session: session, limit: Self.maximumBytes, bodyPolicy: .successful)
             if (response as? HTTPURLResponse)?.statusCode == 304, cached == nil {
