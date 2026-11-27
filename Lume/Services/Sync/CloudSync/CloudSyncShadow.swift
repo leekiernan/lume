@@ -70,6 +70,12 @@ final nonisolated class CloudSyncShadow {
         traktCredentials = Self.decode(defaults.data(forKey: traktCredentialsKey))
         simklCredentials = Self.decode(defaults.data(forKey: simklCredentialsKey))
         accountSettings = Self.decode(defaults.data(forKey: accountSettingsKey))
+        // Older builds stored playlist baselines in plaintext, credentials
+        // included. Rewrite them as fingerprints now rather than waiting for a
+        // playlist edit to mark the baseline dirty.
+        if playlists.values.contains(where: \.decodedFromPlaintext) {
+            defaults.set(Self.encode(playlists), forKey: playlistsKey)
+        }
     }
 
     // MARK: Playlists (keyed by UUID string)
