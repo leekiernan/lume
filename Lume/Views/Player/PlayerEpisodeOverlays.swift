@@ -48,9 +48,10 @@ struct PlayerEpisodeOverlays: View {
         ZStack(alignment: .bottomTrailing) {
             EpisodeZoneReporter(clock: clock, segments: segments) { send(.zone($0)) }
 
-            if let offer = machine.activeOffer {
-                button(for: offer)
+            if let content = buttonContent {
+                EpisodeOfferButton(content: content, remote: remote)
                     .padding(.bottom, lift)
+                    .modifier(DrawnByControls(controlsVisible: controlsVisible))
                     .transition(.opacity.combined(with: .move(edge: .trailing)))
             }
         }
@@ -62,15 +63,19 @@ struct PlayerEpisodeOverlays: View {
         .onChange(of: machine.activeOffer != nil, initial: true) { _, showing in
             controlsBridge?.episodeButtonShowing = showing
         }
-        .onDisappear { controlsBridge?.episodeButtonShowing = false }
+        .onChange(of: buttonKey, initial: true) { controlsBridge?.episodeButton = buttonContent }
+        .onDisappear {
+            controlsBridge?.episodeButtonShowing = false
+            controlsBridge?.episodeButton = nil
+        }
         #if os(tvOS)
-            .onChange(of: takesFocus, initial: true) { _, takes in
-                // Over a bare picture the button holds the remote: when it
-                // appears, and again whenever the controls go (the engine
-                // leaves its tap-catcher alone while it shows). With the
-                // controls up it is one more stop in their navigation.
-                if takes { Task { @MainActor in buttonFocused = true } }
-            }
+        .onChange(of: takesFocus, initial: true) { _, takes in
+            // Over a bare picture the button holds the remote: when it
+            // appears, and again whenever the controls go (the engine
+            // leaves its tap-catcher alone while it shows). With the
+            // controls up it is one more stop in their navigation.
+            if takes { Task { @MainActor in buttonFocused = true } }
+        }
         #endif
     }
 
@@ -79,7 +84,7 @@ struct PlayerEpisodeOverlays: View {
     private var remote: EpisodeButtonRemote {
         #if os(tvOS)
             EpisodeButtonRemote(
-                focus: $buttonFocused,
+                focus: .own($buttonFocused),
                 onDismiss: { send(.dismiss) },
                 onMove: { direction in
                     if !controlsVisible {
@@ -153,20 +158,79 @@ struct PlayerEpisodeOverlays: View {
         }
     }
 
-    @ViewBuilder
-    private func button(for offer: EpisodeOverlayMachine.Offer) -> some View {
-        switch offer {
+    /// The button on offer, or nil. Next Episode needs something to play.
+    private var buttonContent: EpisodeButtonContent? {
+        guard let offer = machine.activeOffer else { return nil }
+        if offer == .nextEpisode, nextUpMedia == nil { return nil }
+        return EpisodeButtonContent(
+            offer: offer,
+            nextUpMedia: nextUpMedia,
+            clock: clock,
+            outro: segments?.outro,
+            activate: { send(.activate) },
+            dismiss: { send(.dismiss) }
+        )
+    }
+
+    /// Changes when the button on offer does.
+    private var buttonKey: ButtonKey {
+        ButtonKey(offer: machine.activeOffer, nextID: nextUpMedia?.id)
+    }
+
+    private struct ButtonKey: Equatable {
+        let offer: EpisodeOverlayMachine.Offer?
+        let nextID: String?
+    }
+}
+
+/// An episode button on offer and what pressing or dismissing it does.
+/// `PlayerEpisodeOverlays` draws it over a bare picture; the tvOS controls
+/// draw the same content while they show.
+struct EpisodeButtonContent {
+    let offer: EpisodeOverlayMachine.Offer
+    let nextUpMedia: PlayableMedia?
+    let clock: PlaybackClock
+    let outro: IntroSegments.Segment?
+    let activate: () -> Void
+    let dismiss: () -> Void
+}
+
+/// Draws `content` as the Skip Intro, Skip Recap or Next Episode button.
+struct EpisodeOfferButton: View {
+    let content: EpisodeButtonContent
+    let remote: EpisodeButtonRemote
+
+    var body: some View {
+        switch content.offer {
         case .skipRecap:
-            PlayerSkipIntroOverlay(label: "Skip Recap", remote: remote) { send(.activate) }
+            PlayerSkipIntroOverlay(label: "Skip Recap", remote: remote, onSkip: content.activate)
         case .skipIntro:
-            PlayerSkipIntroOverlay(label: "Skip Intro", remote: remote) { send(.activate) }
+            PlayerSkipIntroOverlay(label: "Skip Intro", remote: remote, onSkip: content.activate)
         case .nextEpisode:
-            if let nextUpMedia {
-                PlayerNextUpOverlay(nextMedia: nextUpMedia, clock: clock, outro: segments?.outro, remote: remote) {
-                    send(.activate)
-                }
+            if let nextUpMedia = content.nextUpMedia {
+                PlayerNextUpOverlay(
+                    nextMedia: nextUpMedia, clock: content.clock, outro: content.outro, remote: remote,
+                    onPlayNext: content.activate
+                )
             }
         }
+    }
+}
+
+/// On tvOS the controls draw the button while they show, so this copy steps
+/// aside: invisible and out of focus. Fading with the controls, the two read
+/// as one button. Other platforms keep it.
+private struct DrawnByControls: ViewModifier {
+    let controlsVisible: Bool
+
+    func body(content: Content) -> some View {
+        #if os(tvOS)
+            content
+                .opacity(controlsVisible ? 0 : 1)
+                .disabled(controlsVisible)
+        #else
+            content
+        #endif
     }
 }
 
@@ -194,7 +258,14 @@ private struct EpisodeZoneReporter: View {
 /// Episode countdown) stays out of focus. Empty off tvOS.
 struct EpisodeButtonRemote {
     #if os(tvOS)
-        let focus: FocusState<Bool>.Binding
+        /// The button's own flag over a bare picture, or the controls' focus
+        /// while they draw it.
+        enum Focus {
+            case own(FocusState<Bool>.Binding)
+            case controls(FocusState<TVPlayerFocus?>.Binding)
+        }
+
+        let focus: Focus
         let onDismiss: () -> Void
         let onMove: (MoveCommandDirection) -> Void
     #endif
@@ -204,10 +275,17 @@ extension View {
     @ViewBuilder
     func episodeButtonRemote(_ remote: EpisodeButtonRemote) -> some View {
         #if os(tvOS)
-            focused(remote.focus)
-                // Menu dismisses the button rather than closing the player.
-                .onExitCommand(perform: remote.onDismiss)
-                .tvRemoteMoveCommand(perform: remote.onMove)
+            switch remote.focus {
+            case let .own(focus):
+                focused(focus)
+                    // Menu dismisses the button rather than closing the player.
+                    .onExitCommand(perform: remote.onDismiss)
+                    .tvRemoteMoveCommand(perform: remote.onMove)
+            case let .controls(focus):
+                focused(focus, equals: .episodeButton)
+                    .onExitCommand(perform: remote.onDismiss)
+                    .tvRemoteMoveCommand(perform: remote.onMove)
+            }
         #else
             self
         #endif

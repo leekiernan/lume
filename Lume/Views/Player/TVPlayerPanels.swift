@@ -36,6 +36,9 @@
         case channel(String)
         case infoPrimary
         case infoSecondary
+        /// Skip Intro / Skip Recap / Next Episode while the controls show
+        /// (`PlayerControlsBridge.episodeButton`).
+        case episodeButton
     }
 
     // MARK: - Button styles

@@ -12,7 +12,8 @@
 //  - tvOS focus: with the controls hidden, an episode button holds the remote
 //    rather than the engine's invisible tap-catcher, and a direction pressed
 //    on it raises the controls just as the catcher would
-//    (`episodeButtonFocusHandoff`).
+//    (`episodeButtonFocusHandoff`). While the controls show they draw the
+//    button themselves (`episodeButton`), as one of their own focus stops.
 //  - tvOS remote claims: overlays the host layers above the engine (a sports
 //    alert, the way back from a detour) take a Play/Pause press, or the Back
 //    press that would close the player, before the engine acts on it.
@@ -30,6 +31,10 @@ final class PlayerControlsBridge {
     /// the controls hidden it takes the remote's focus itself, so the engine
     /// leaves its tap-catcher alone.
     var episodeButtonShowing = false
+    /// The episode button on offer, which the tvOS controls draw among their
+    /// own stops while they show: drawn beside them, its focus looked lost to
+    /// them and they took it back. Set by `PlayerEpisodeOverlays`.
+    var episodeButton: EpisodeButtonContent?
     /// Bumped when an episode button holding focus over a bare picture hears a
     /// direction: the viewer wants the controls, as they would from the catcher.
     private(set) var controlsRequests = 0

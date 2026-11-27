@@ -120,6 +120,8 @@
                 .padding(.horizontal, 80)
                 .padding(.bottom, 56)
                 .reportsControlsHeight()
+
+                episodeButton
             }
             .overlay {
                 if let skipBadge { SkipBadgeLabel(badge: skipBadge, buffering: isBuffering).id(skipBadge.forward) }
@@ -186,6 +188,22 @@
             .onChange(of: focus, initial: true) { updateFocusOwner() }
             .onChange(of: nativeMenuTriggers) {
                 applyFocusEffect(focusOwner.menuTriggersChanged(nativeMenuTriggers))
+            }
+        }
+
+        /// Skip Intro, Skip Recap or Next Episode, raised above the controls'
+        /// bottom block where the bare-picture copy sits. One of the controls'
+        /// own focus stops, so moving onto it is just a move between controls.
+        @ViewBuilder private var episodeButton: some View {
+            if let content = remoteBridge?.episodeButton {
+                EpisodeOfferButton(
+                    content: content,
+                    remote: EpisodeButtonRemote(focus: .controls($focus), onDismiss: content.dismiss, onMove: { _ in })
+                )
+                .disabled(isScrubbing)
+                .padding(.bottom, remoteBridge?.height ?? 0)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                .transition(.opacity)
             }
         }
 
