@@ -1,5 +1,8 @@
 # Optional sports artwork: app contract
 
+The wire contract lives in the proxy repo's `docs/lume-api.md`, with the
+shared fixtures that pin it. This page describes what the app does with it.
+
 App implementation in `feat/sportarr-artwork-enrichment`, begun 2026-11-01.
 Endpoint, capability and publication fields checked against the sibling proxy's
 `feat/sportarr-artwork` implementation (`f6f1bc8`) on 2026-11-02. Both sides use `matched`

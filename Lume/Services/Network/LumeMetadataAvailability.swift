@@ -1,8 +1,8 @@
 import Foundation
 
-/// Compact `lume_meta` stamps advertise server-side data, not local completion.
-/// Keep parsing lazy: bulk catalogues can contain hundreds of thousands of rows.
-/// This DTO deliberately has no access to model freshness markers.
+/// A batch item's `lume_meta` stamps advertise server-side data, not local
+/// completion. List rows no longer carry stamps (proxy `28dae59`), so only
+/// the metadata batch decodes this. It has no access to model freshness markers.
 nonisolated struct LumeMetadataAvailability: Decodable, Equatable {
     enum Group: String { case tmdb, artwork, ratings }
 
