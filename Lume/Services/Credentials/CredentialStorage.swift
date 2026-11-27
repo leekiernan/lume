@@ -34,6 +34,9 @@ nonisolated struct CredentialItem: Hashable {
         /// Readable once the device has been unlocked after boot — the OAuth
         /// tokens, so a background refresh works on a locked device.
         case afterFirstUnlock
+        /// As `afterFirstUnlock`, but never leaves this device: excluded from
+        /// backups and iCloud Keychain — the sync shadow's fingerprint key.
+        case afterFirstUnlockThisDeviceOnly
         /// Readable only while unlocked — the parental PIN hash.
         case whenUnlocked
     }
@@ -130,6 +133,7 @@ nonisolated struct KeychainCredentialStorage: CredentialStorage {
     private static func accessible(_ accessibility: CredentialItem.Accessibility) -> CFString {
         switch accessibility {
         case .afterFirstUnlock: kSecAttrAccessibleAfterFirstUnlock
+        case .afterFirstUnlockThisDeviceOnly: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         case .whenUnlocked: kSecAttrAccessibleWhenUnlocked
         }
     }

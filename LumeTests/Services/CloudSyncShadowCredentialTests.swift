@@ -80,6 +80,48 @@ struct CloudSyncShadowCredentialTests {
         #expect(CloudSyncShadow(defaults: defaults).playlistShadow(id) == Self.values())
     }
 
+    @Test func `the fingerprint is keyed, so it can't be recomputed from a guess`() {
+        let components = ["viewer", Self.secret]
+        let first = Data(repeating: 1, count: 32)
+        let second = Data(repeating: 2, count: 32)
+        #expect(ShadowFingerprint.digest(components, key: first) == ShadowFingerprint.digest(components, key: first))
+        #expect(ShadowFingerprint.digest(components, key: first) != ShadowFingerprint.digest(components, key: second))
+    }
+
+    @Test func `the fingerprint key is created once and then reused`() {
+        let storage = InMemoryCredentialStorage()
+        let created = ShadowFingerprint.loadOrCreateKey(in: storage)
+        #expect(created.count == 32)
+        #expect(storage.read(ShadowFingerprint.keyItem) == .found(created))
+        #expect(ShadowFingerprint.loadOrCreateKey(in: storage) == created)
+    }
+
+    @Test func `a malformed fingerprint key is replaced`() {
+        let storage = InMemoryCredentialStorage()
+        _ = storage.write(Data([1, 2, 3]), to: ShadowFingerprint.keyItem)
+        let replaced = ShadowFingerprint.loadOrCreateKey(in: storage)
+        #expect(replaced.count == 32)
+        #expect(storage.read(ShadowFingerprint.keyItem) == .found(replaced))
+    }
+
+    @Test func `an unreadable keychain gets a key for this launch and keeps the stored one`() {
+        let storage = InMemoryCredentialStorage()
+        let stored = ShadowFingerprint.loadOrCreateKey(in: storage)
+        storage.isLocked = true
+        let ephemeral = ShadowFingerprint.loadOrCreateKey(in: storage)
+        #expect(ephemeral.count == 32)
+        #expect(ephemeral != stored)
+        storage.isLocked = false
+        #expect(storage.read(ShadowFingerprint.keyItem) == .found(stored))
+    }
+
+    @Test func `a baseline from a lost key reads as changed, never as equal`() throws {
+        let underOldKey = ShadowFingerprint.digest(["anything"], key: Data(repeating: 9, count: 32))
+        let json = "{\"fingerprint\":\"\(underOldKey)\"}"
+        let decoded = try JSONDecoder().decode(PlaylistConfigValues.self, from: Data(json.utf8))
+        #expect(decoded != Self.values())
+    }
+
     private static let guideURL = "http://example.com/xmltv.php?username=viewer&password=\(secret)"
 
     @Test func `a guide source baseline holds a fingerprint, not its URL`() throws {
