@@ -270,4 +270,57 @@ struct EPGEnrichmentFeedsTests {
         #expect(rows.first { $0.channelId == "skysportsf1.uk" }?.artworkURL != nil)
         #expect(rows.first { $0.channelId == "PBSKQED.us" }?.artworkURL != nil)
     }
+
+    // MARK: Relay-applied feeds
+
+    @Test func `a feed the relay applied to every guide is neither downloaded nor applied`() async throws {
+        let requests = Mutex<[Bool]>([])
+        let server = try GuideHTTPServer { request in
+            let british = request.hasPrefix("GET /uk")
+            requests.withLock { $0.append(british) }
+            return .init(body: Fixture.document(british: british))
+        }
+        defer { server.stop() }
+        let fixture = try await Fixture(url: server.start())
+        defer { fixture.cleanup() }
+        let context = fixture.container.mainContext
+        try #require(context.fetch(FetchDescriptor<EPGSource>()).first).relaySupplements = ["epgshare-uk"]
+        try context.save()
+
+        let report = try await fixture.sync().sync(container: fixture.container, enabled: true, fence: .live)
+        #expect(report.feeds.map(\.state) == [.relay, .downloaded])
+        #expect(!report.hasWarning)
+        #expect(requests.withLock { $0 } == [false])
+        let rows = try fixture.rows()
+        #expect(rows.first { $0.channelId == "BBCTwo.uk" }?.artworkURL == nil)
+        #expect(rows.first { $0.channelId == "PBSKQED.us" }?.artworkURL != nil)
+    }
+
+    @Test func `a relay's feeds are skipped only for its own guide`() async throws {
+        let requests = Mutex<[Bool]>([])
+        let server = try GuideHTTPServer { request in
+            let british = request.hasPrefix("GET /uk")
+            requests.withLock { $0.append(british) }
+            return .init(body: Fixture.document(british: british))
+        }
+        defer { server.stop() }
+        let fixture = try await Fixture(url: server.start())
+        defer { fixture.cleanup() }
+        let context = fixture.container.mainContext
+        let relay = try #require(context.fetch(FetchDescriptor<EPGSource>()).first)
+        relay.relaySupplements = ["epgshare-uk", "epgshare-us-locals"]
+        let manual = EPGSource(name: "Manual", url: "https://guide.example.test/xmltv.xml")
+        context.insert(manual)
+        context.insert(EPGListing(id: "BBCTwo.uk-manual", channelId: "BBCTwo.uk", title: "News", listingDescription: "Provider",
+                                  start: Fixture.start, end: Fixture.start.addingTimeInterval(3600), sourceID: manual.id))
+        try context.save()
+
+        let report = try await fixture.sync().sync(container: fixture.container, enabled: true, fence: .live)
+        #expect(report.feeds.map(\.state) == [.downloaded, .downloaded])
+        #expect(requests.withLock { $0 } == [true, false])
+        let rows = try fixture.rows()
+        #expect(rows.first { $0.id == "BBCTwo.uk-manual" }?.artworkURL != nil)
+        #expect(rows.filter { $0.sourceID == relay.id }.allSatisfy { $0.artworkURL == nil })
+        #expect(report.changedProgrammes == 1)
+    }
 }

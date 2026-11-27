@@ -4,7 +4,9 @@ import Foundation
 /// nor is a usable provider guide proof that enrichment succeeded.
 nonisolated struct EPGEnrichmentReport: Equatable {
     enum State: String {
-        case disabled, unsupported, downloaded, unchanged, cached, deferred, unavailable, interrupted
+        /// `relay`: every enabled guide source already had this feed applied by
+        /// its relay, so the device neither downloads nor applies it.
+        case disabled, unsupported, relay, downloaded, unchanged, cached, deferred, unavailable, interrupted
     }
 
     let state: State
@@ -22,7 +24,7 @@ nonisolated struct EPGEnrichmentReport: Equatable {
     }
 
     static func combining(_ feeds: [Self], enabled: Bool) -> Self {
-        let precedence: [State] = [.unavailable, .deferred, .downloaded, .unchanged, .cached, .unsupported]
+        let precedence: [State] = [.unavailable, .deferred, .downloaded, .unchanged, .cached, .relay, .unsupported]
         let state = enabled ? precedence.first(where: { candidate in feeds.contains { $0.state == candidate } }) ?? .unsupported : .disabled
         return Self(state: state, verifiedStations: feeds.reduce(0) { $0 + $1.verifiedStations },
                     cachedProgrammes: feeds.reduce(0) { $0 + $1.cachedProgrammes },
@@ -35,6 +37,7 @@ nonisolated struct EPGEnrichmentReport: Equatable {
         switch state {
         case .disabled: String(localized: "EPGShare: off")
         case .unsupported: String(localized: "EPGShare: no verified stations")
+        case .relay: String(localized: "EPGShare: already in your provider's guide")
         case .downloaded: String(localized: "EPGShare: downloaded")
         case .unchanged: String(localized: "EPGShare: unchanged")
         case .cached: String(localized: "EPGShare: cached")

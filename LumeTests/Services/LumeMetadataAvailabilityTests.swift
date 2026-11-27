@@ -44,13 +44,15 @@ struct LumeMetadataAvailabilityTests {
         #expect(try stamps.availableAt(for: .ratings, capabilities: capabilities(), now: now) == nil)
     }
 
-    @Test(arguments: ["null", "[]", "true", #"{"v":"1"}"#])
-    func `malformed optional extension does not break ordinary catalogue decoding`(_ extensionJSON: String) throws {
+    /// List rows carry only provenance (`replaced`) since the proxy stopped
+    /// stamping them; the app reads neither, so no shape may break a row.
+    @Test(arguments: ["null", "[]", "true", #"{"v":"1"}"#, #"{"v":1,"replaced":["stream_icon","cover"]}"#])
+    func `list-row lume_meta never breaks ordinary catalogue decoding`(_ extensionJSON: String) throws {
         let json = "{\"stream_id\":1,\"series_id\":2,\"name\":\"Title\",\"lume_meta\":\(extensionJSON)}"
         let movie = try FieldFixtures.decodeMovie(json)
         let series = try FieldFixtures.decodeSeries(json)
-        #expect(movie.streamId == 1 && movie.name == "Title" && movie.lumeMeta == nil)
-        #expect(series.seriesId == 2 && series.name == "Title" && series.lumeMeta == nil)
+        #expect(movie.streamId == 1 && movie.name == "Title")
+        #expect(series.seriesId == 2 && series.name == "Title")
     }
 
     @Test func `importing availability never marks metadata artwork or ratings complete`() throws {

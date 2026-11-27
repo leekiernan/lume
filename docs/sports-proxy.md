@@ -1,5 +1,8 @@
 # Optional proxy-assisted sports matching
 
+The wire contract lives in the proxy repo's `docs/lume-api.md`, with the
+shared fixtures that pin it. This page describes what the app does with it.
+
 Lume can consume the gateway's football broadcast publications through the
 shared `SportsChannelResolver`. Home, Sports, competition lists and fixture
 details retain the same resolver interface and channel-selection UI. The app

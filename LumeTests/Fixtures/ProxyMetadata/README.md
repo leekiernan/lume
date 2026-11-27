@@ -17,3 +17,12 @@ device TMDB client has a configured dummy token and a dedicated session that
 fails the test on any request. Cast, logos, trailers and the proxy receipt must
 still arrive for both movies and series. No per-title switch or `.env` edit is
 needed, and the separate fallback tests continue to exercise proxy misses.
+
+## Capabilities and guide
+
+`lume-capabilities-metadata.json` and `lume-guide-supplemented.xml` are copied
+unchanged from the proxy's `testdata/`, where a proxy test fails if the served
+capability document or the published guide drifts from them.
+`LumeProxyContractTests` decodes both: the metadata budgets (`refetch_after_s`,
+`wait_ms`) and the guide root's `lume-supplements`. The wire contract is the
+proxy's `docs/lume-api.md`.
