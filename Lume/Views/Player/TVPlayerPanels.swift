@@ -41,9 +41,13 @@
     // MARK: - Button styles
 
     /// A circular transport button rendered in genuine Liquid Glass. Idle it is
-    /// a clear lensing disc; on focus the glass brightens (white tint), the glyph
-    /// flips to black and the control lifts — the player-overlay counterpart to
-    /// the detail screens' styles, following the tvOS "glass on focus" pattern.
+    /// a clear lensing disc; on focus the disc turns white, the glyph flips to
+    /// black and the control lifts — the player-overlay counterpart to the
+    /// detail screens' styles, following the tvOS "glass on focus" pattern.
+    ///
+    /// The white disc is an opaque fill, not only the glass tint: a tint is
+    /// translucent and the system decides how it renders, and where it comes
+    /// out dark the black glyph on it leaves the focused button unreadable.
     struct TVPlayerCircleButtonStyle: ButtonStyle {
         var diameter: CGFloat = 60
         var glyphSize: CGFloat = 24
@@ -69,6 +73,7 @@
                     .padding(.horizontal, expandsToFit ? 18 : 0)
                     .frame(minWidth: diameter, maxWidth: expandsToFit ? nil : diameter)
                     .frame(height: diameter)
+                    .background(.white.opacity(isFocused ? 1 : 0), in: Capsule())
                     .glassEffectCompat(isFocused ? .tintedInteractive(.white) : .regularInteractive, in: Capsule())
                     .scaleEffect(pressed ? 1.05 : (isFocused ? 1.14 : 1.0))
                     .opacity(isEnabled ? 1 : 0.35)

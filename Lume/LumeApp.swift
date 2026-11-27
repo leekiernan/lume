@@ -324,16 +324,8 @@ struct LumeApp: App {
                         // Core Audio's one-off component registration, off the main
                         // thread, so pressing Play doesn't pay it (see the type).
                         if !Self.isUnitTestHost { AudioEngineWarmUp.schedule() }
-                        // Off the launch path: a large upgraded library takes a
-                        // while to scrub, and downloads/bootstrap below don't need it.
-                        if !Self.isUnitTestHost {
-                            let container = catalogContainer
-                            Task(priority: .utility) { await ProviderArtworkMaintenance.run(container: container) }
-                            LiveChannelVariants.displayIs4K = SportsChannelPreference.Context.current.displayIs4K
-                            // Channel qualities for playlists that haven't synced
-                            // since grouping arrived, or since its rules changed.
-                            Task(priority: .utility) { await LiveChannelVariants.backfill(container: container) }
-                        }
+                        // Housekeeping off the launch path (`LumeApp+LaunchMaintenance`).
+                        if !Self.isUnitTestHost { scheduleLaunchMaintenance() }
 
                         // Give DownloadManager access to the model container so it
                         // can persist download state from its delegate callbacks.

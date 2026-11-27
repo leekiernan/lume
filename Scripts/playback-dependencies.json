@@ -41,13 +41,13 @@
     {
       "name": "FFmpegBuild",
       "url": "https://github.com/superuser404notfound/FFmpegBuild",
-      "revision": "d445e6daa180db73f12d47606a00c914f682e278",
-      "version": "3.15.0",
+      "revision": "ff514643b8ade86005d2635f9e966ff62cb54982",
+      "version": "3.19.1",
       "source": "https://github.com/superuser404notfound/FFmpegBuild/archive/{revision}.tar.gz",
       "untouched_platforms": [
         "macos"
       ],
-      "tree_sha256": "5e4c502e159eefdcde3c079b7193cef5a7e194edc0b9902787c5f198d374c464"
+      "tree_sha256": "c709d0e16a0b91ca0feb3f6e9a9f9704a820e238043df6a0fc8c0a2990bb702a"
     },
     {
       "name": "LibDovi",

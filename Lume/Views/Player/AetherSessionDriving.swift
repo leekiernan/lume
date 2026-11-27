@@ -89,9 +89,14 @@
                 audioBridgeMode: plan.audioBridgeMode.rawValue,
                 dolbyVisionHandling: plan.dolbyVisionHandling.rawValue,
                 upscalesLowResolutionVideo: plan.upscalesLowResolutionVideo,
+                upscalesFullHDVideo: plan.upscalesFullHDVideo,
+                untaggedVideoColor: plan.untaggedVideoColor.rawValue,
                 audioDelaySeconds: plan.audioDelaySeconds,
                 prepareNativeSubtitles: plan.prepareNativeSubtitles,
+                recognizesBitmapSubtitleText: plan.recognizesBitmapSubtitleText,
                 maxConcurrentSourceRequests: plan.maxConcurrentSourceRequests,
+                liveStartupGraceSeconds: plan.liveStartupGraceSeconds,
+                sessionCacheByteBudget: plan.sessionCacheByteBudget,
                 writesDisplayCriteria: plan.writesDisplayCriteria,
                 isSecondaryOutput: plan.sharedOutputRole == .secondary
             )

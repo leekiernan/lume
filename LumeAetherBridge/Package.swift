@@ -16,7 +16,7 @@ let package = Package(
         .library(name: "LumeAetherBridge", type: .dynamic, targets: ["LumeAetherBridge"])
     ],
     dependencies: [
-        .package(url: "https://github.com/superuser404notfound/AetherEngine", exact: "7.70.0"),
+        .package(url: "https://github.com/superuser404notfound/AetherEngine", exact: "7.75.0"),
         // Fetched by Scripts/playback-packages.py. Local packages replace Aether's
         // same-identity dependencies, so SwiftPM never clones their binary-heavy
         // histories; Scripts/check-playback-dependencies.py keeps the versions in line.
