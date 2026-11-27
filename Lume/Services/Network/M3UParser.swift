@@ -37,6 +37,19 @@ nonisolated struct M3UEntry {
     var type: String?
 }
 
+/// Why a playlist file was rejected part-way through. A read error is rethrown
+/// as itself; this covers what the parser rejects on its own account.
+nonisolated enum M3UParseError: LocalizedError {
+    /// A line ran past `M3UParser.maximumLineBytes` without a newline.
+    case lineTooLong(limit: Int)
+
+    /// The system's own wording for a malformed file, so no new string needs
+    /// translating; the case itself is what logs and tests distinguish.
+    var errorDescription: String? {
+        CocoaError(.fileReadCorruptFile).localizedDescription
+    }
+}
+
 // MARK: - Parser
 
 nonisolated enum M3UParser {
@@ -88,6 +101,14 @@ nonisolated enum M3UParser {
     /// pool itself is per chunk, not per file: `subdata`, `String(bytes:)` and
     /// `trimmingCharacters` autorelease once per line, and without it a 520 MB
     /// playlist peaks at ~502 MB resident.
+    ///
+    /// Only a read that reaches end of file returns. A read error is rethrown
+    /// as itself, a cancelled task throws `CancellationError`, and a line
+    /// longer than `maximumLineBytes` throws `M3UParseError.lineTooLong` — so a
+    /// partly read file can never pass for a complete one. Batches already
+    /// delivered stay delivered; the caller must treat anything but a return as
+    /// "the file was not fully read" (the import neither prunes nor records a
+    /// digest after a throw).
     @discardableResult
     static func parseStreaming(
         fileURL: URL,
@@ -98,111 +119,53 @@ nonisolated enum M3UParser {
         let handle = try FileHandle(forReadingFrom: fileURL)
         defer { try? handle.close() }
 
-        var reader = ChunkedEntryReader(handle: handle, batchSize: batchSize)
-        while !reader.isFinished {
-            let ready = autoreleasepool { reader.readChunk(onHeader: onHeader) }
+        var reader = M3UChunkReader(batchSize: batchSize)
+        while reader.phase.isReading {
+            let input: M3UChunkReader.Input = Task.isCancelled ? .cancelled : nextInput(from: handle)
+            let ready = autoreleasepool { reader.step(input, onHeader: onHeader) }
             for batch in ready {
                 try await onBatch(batch.entries, batch.bytesConsumed)
             }
         }
-        if let final = reader.finalBatch() {
-            try await onBatch(final.entries, final.bytesConsumed)
+        switch reader.phase {
+        case .completed:
+            return reader.totalCount
+        case let .failed(error):
+            throw error
+        case .cancelled:
+            throw CancellationError()
+        case .reading:
+            preconditionFailure("the read loop only exits on a terminal phase")
         }
-        return reader.totalCount
+    }
+
+    /// The longest line the reader will buffer. Real `#EXTINF` and URL lines
+    /// run to a few KB; a file with no newline for a megabyte is not a playlist,
+    /// and without a cap the carry buffer would grow with it. Memory is bounded
+    /// by this plus one chunk.
+    static let maximumLineBytes = 1024 * 1024
+
+    /// The reader's next input from the file: a chunk, end of file, or the
+    /// read error itself — never a failure disguised as end of file.
+    static func nextInput(from handle: FileHandle) -> M3UChunkReader.Input {
+        do {
+            guard let chunk = try handle.read(upToCount: chunkSize), !chunk.isEmpty else { return .endOfFile }
+            return .chunk(chunk)
+        } catch {
+            return .readFailed(error)
+        }
     }
 
     // MARK: - Chunk loop
 
-    /// One completed batch on its way out of `ChunkedEntryReader`.
-    private typealias ReadyBatch = (entries: [M3UEntry], bytesConsumed: Int)
-
-    /// The chunk loop behind `parseStreaming`: reads the file in fixed-size
-    /// blocks, splits complete lines out of the carry buffer and accumulates
-    /// entries until a batch fills.
-    private nonisolated struct ChunkedEntryReader {
-        private let handle: FileHandle
-        private let batchSize: Int
-        private var state = ParseState()
-        private var batch: [M3UEntry] = []
-        private var carry = Data()
-        /// Bytes of the file already handed to the line loop, excluding the
-        /// block currently being walked.
-        private var consumedBase = 0
-        private(set) var isFinished = false
-        private(set) var totalCount = 0
-
-        init(handle: FileHandle, batchSize: Int) {
-            self.handle = handle
-            self.batchSize = batchSize
-            batch.reserveCapacity(batchSize)
-        }
-
-        /// Reads the next chunk and returns whatever batches it completed —
-        /// usually none or one.
-        mutating func readChunk(onHeader: ((M3UHeader) -> Void)?) -> [ReadyBatch] {
-            let chunk = (try? handle.read(upToCount: M3UParser.chunkSize)) ?? nil
-            if let chunk, !chunk.isEmpty {
-                carry.append(chunk)
-            } else {
-                isFinished = true
-            }
-
-            // Split everything up to the last newline into lines; the tail
-            // (a partial line) stays in `carry` for the next chunk. At EOF the
-            // whole remainder is one final line.
-            let processable: Data
-            if isFinished {
-                processable = carry
-                carry = Data()
-            } else if let lastNewline = carry.lastIndex(of: UInt8(ascii: "\n")) {
-                processable = carry.subdata(in: carry.startIndex ..< lastNewline)
-                carry = carry.subdata(in: carry.index(after: lastNewline) ..< carry.endIndex)
-            } else {
-                // No complete line buffered yet.
-                return []
-            }
-
-            let blockStart = processable.startIndex
-            defer { consumedBase += processable.count + 1 }
-
-            var ready: [ReadyBatch] = []
-            for lineData in processable.split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: true) {
-                // Latin-1 fallback: it never fails, so a stray non-UTF-8 line
-                // (older provider exports) degrades to mojibake instead of
-                // dropping the entry.
-                let raw = String(bytes: lineData, encoding: .utf8)
-                    ?? String(bytes: lineData, encoding: .isoLatin1)
-                guard let line = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !line.isEmpty else { continue }
-
-                if let entry = state.consume(line: line, onHeader: onHeader) {
-                    batch.append(entry)
-                    totalCount += 1
-                    if batch.count >= batchSize {
-                        ready.append((batch, consumedBase + (lineData.endIndex - blockStart)))
-                        // Handing the array out shares its buffer, so
-                        // `removeAll(keepingCapacity:)` would have to copy;
-                        // a fresh right-sized one instead of re-growing 0→2,000.
-                        batch = []
-                        batch.reserveCapacity(batchSize)
-                    }
-                }
-            }
-            return ready
-        }
-
-        /// The trailing partial batch, once the file is exhausted.
-        mutating func finalBatch() -> ReadyBatch? {
-            guard !batch.isEmpty else { return nil }
-            defer { batch = [] }
-            return (batch, consumedBase)
-        }
-    }
+    /// One completed batch on its way out of `M3UChunkReader`.
+    typealias ReadyBatch = (entries: [M3UEntry], bytesConsumed: Int)
 
     // MARK: - Line state machine
 
     /// Carries the pending `#EXTINF` metadata between lines until the stream
     /// URL arrives.
-    private nonisolated struct ParseState {
+    fileprivate nonisolated struct ParseState {
         var pendingInfo: ExtInf?
         /// Group from a standalone `#EXTGRP:` directive (some providers emit it
         /// instead of, or in addition to, `group-title`).
@@ -337,5 +300,143 @@ nonisolated enum M3UParser {
     private static func nonEmpty(_ value: String?) -> String? {
         guard let value, !value.isEmpty else { return nil }
         return value
+    }
+}
+
+// MARK: - Chunk reader
+
+/// The chunk loop behind `parseStreaming`: takes the file's chunks (or the
+/// reason there are no more), splits complete lines out of the carry buffer
+/// and accumulates entries until a batch fills.
+///
+/// Its lifecycle is one `Phase`, not flags: the carry buffer exists only
+/// while reading, and how the read ended (completed, failed, cancelled) is
+/// part of the terminal state rather than collapsed into "finished". All
+/// transitions happen in `step`, and a terminal phase accepts no input.
+/// It does no I/O itself, so every transition is testable with plain data.
+nonisolated struct M3UChunkReader {
+    enum Input {
+        case chunk(Data)
+        case endOfFile
+        case readFailed(any Error)
+        case cancelled
+    }
+
+    enum Phase {
+        /// Reading; `carry` holds the partial line after the last newline.
+        case reading(carry: Data)
+        /// End of file reached and every entry delivered.
+        case completed
+        /// The read stopped early: a read error or a rejected line.
+        case failed(any Error)
+        /// The task was cancelled before the file was read to the end.
+        case cancelled
+
+        var isReading: Bool {
+            if case .reading = self { return true }
+            return false
+        }
+    }
+
+    private(set) var phase: Phase = .reading(carry: Data())
+    private(set) var totalCount = 0
+    private let batchSize: Int
+    private var state = M3UParser.ParseState()
+    private var batch: [M3UEntry] = []
+    /// Bytes of the file already handed to the line loop, excluding the
+    /// block currently being walked.
+    private var consumedBase = 0
+
+    init(batchSize: Int) {
+        self.batchSize = batchSize
+        batch.reserveCapacity(batchSize)
+    }
+
+    /// Applies one input and returns whatever batches it completed —
+    /// usually none or one; at end of file, also the trailing partial batch.
+    mutating func step(_ input: Input, onHeader: ((M3UHeader) -> Void)?) -> [M3UParser.ReadyBatch] {
+        guard case var .reading(carry) = phase else {
+            assertionFailure("M3U reader received input after it finished")
+            return []
+        }
+        // Release the phase's reference so `carry` is uniquely owned and
+        // appends in place; every path below assigns the next phase.
+        phase = .reading(carry: Data())
+
+        switch input {
+        case let .chunk(chunk):
+            carry.append(chunk)
+            // Split everything up to the last newline into lines; the tail
+            // (a partial line) is carried into the next chunk.
+            guard let lastNewline = carry.lastIndex(of: UInt8(ascii: "\n")) else {
+                phase = carry.count > M3UParser.maximumLineBytes
+                    ? .failed(M3UParseError.lineTooLong(limit: M3UParser.maximumLineBytes))
+                    : .reading(carry: carry)
+                return []
+            }
+            let processable = carry.subdata(in: carry.startIndex ..< lastNewline)
+            let tail = carry.subdata(in: carry.index(after: lastNewline) ..< carry.endIndex)
+            guard let ready = consume(processable, onHeader: onHeader),
+                  tail.count <= M3UParser.maximumLineBytes
+            else {
+                phase = .failed(M3UParseError.lineTooLong(limit: M3UParser.maximumLineBytes))
+                return []
+            }
+            phase = .reading(carry: tail)
+            return ready
+
+        case .endOfFile:
+            // The whole remainder is one final line.
+            guard var ready = consume(carry, onHeader: onHeader) else {
+                phase = .failed(M3UParseError.lineTooLong(limit: M3UParser.maximumLineBytes))
+                return []
+            }
+            if !batch.isEmpty {
+                ready.append((batch, consumedBase))
+                batch = []
+            }
+            phase = .completed
+            return ready
+
+        case let .readFailed(error):
+            phase = .failed(error)
+            return []
+
+        case .cancelled:
+            phase = .cancelled
+            return []
+        }
+    }
+
+    /// Parses a block of complete lines into the current batch, returning
+    /// the batches it filled, or nil if a line exceeds the maximum length.
+    private mutating func consume(_ processable: Data, onHeader: ((M3UHeader) -> Void)?) -> [M3UParser.ReadyBatch]? {
+        let blockStart = processable.startIndex
+        defer { consumedBase += processable.count + 1 }
+
+        var ready: [M3UParser.ReadyBatch] = []
+        for lineData in processable.split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: true) {
+            guard lineData.count <= M3UParser.maximumLineBytes else { return nil }
+            // Latin-1 fallback: it never fails, so a stray non-UTF-8 line
+            // (older provider exports) degrades to mojibake instead of
+            // dropping the entry.
+            let raw = String(bytes: lineData, encoding: .utf8)
+                ?? String(bytes: lineData, encoding: .isoLatin1)
+            guard let line = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !line.isEmpty else { continue }
+
+            if let entry = state.consume(line: line, onHeader: onHeader) {
+                batch.append(entry)
+                totalCount += 1
+                if batch.count >= batchSize {
+                    ready.append((batch, consumedBase + (lineData.endIndex - blockStart)))
+                    // Handing the array out shares its buffer, so
+                    // `removeAll(keepingCapacity:)` would have to copy;
+                    // a fresh right-sized one instead of re-growing 0→2,000.
+                    batch = []
+                    batch.reserveCapacity(batchSize)
+                }
+            }
+        }
+        return ready
     }
 }
