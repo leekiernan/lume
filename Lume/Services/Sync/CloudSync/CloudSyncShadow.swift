@@ -70,6 +70,15 @@ final nonisolated class CloudSyncShadow {
         traktCredentials = Self.decode(defaults.data(forKey: traktCredentialsKey))
         simklCredentials = Self.decode(defaults.data(forKey: simklCredentialsKey))
         accountSettings = Self.decode(defaults.data(forKey: accountSettingsKey))
+        // Older builds stored playlist and guide-source baselines in plaintext,
+        // credentials included. Rewrite them as fingerprints now rather than
+        // waiting for an edit to mark the baseline dirty.
+        if playlists.values.contains(where: \.decodedFromPlaintext) {
+            defaults.set(Self.encode(playlists), forKey: playlistsKey)
+        }
+        if epgSources.values.contains(where: \.decodedFromPlaintext) {
+            defaults.set(Self.encode(epgSources), forKey: epgSourcesKey)
+        }
     }
 
     // MARK: Playlists (keyed by UUID string)

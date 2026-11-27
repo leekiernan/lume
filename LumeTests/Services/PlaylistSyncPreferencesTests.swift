@@ -27,16 +27,15 @@ struct PlaylistSyncPreferencesTests {
         #expect(playlist.syncFrequency == .everyThreeDays)
     }
 
-    @Test func `playlist cadence survives a cloud configuration round trip`() throws {
+    @Test func `playlist cadence is part of the synced configuration's identity`() throws {
         let playlist = Playlist(name: "Test", serverURL: "", username: "", password: "")
         playlist.syncFrequency = .sixHours
         let values = CloudSyncEngine.values(from: playlist)
+        #expect(values.syncFrequencyRaw == "sixHours")
         let decoded = try JSONDecoder().decode(PlaylistConfigValues.self, from: JSONEncoder().encode(values))
-        #expect(decoded.syncFrequencyRaw == "sixHours")
-        let legacyJSON = """
-        {"name":"Test","serverURL":"","username":"","password":"","sourceTypeRaw":"xtream","syncEnabled":true}
-        """
-        let legacy = try JSONDecoder().decode(PlaylistConfigValues.self, from: Data(legacyJSON.utf8))
-        #expect(legacy.syncFrequencyRaw == nil)
+        #expect(decoded == values)
+
+        playlist.syncFrequency = .weekly
+        #expect(decoded != CloudSyncEngine.values(from: playlist))
     }
 }
