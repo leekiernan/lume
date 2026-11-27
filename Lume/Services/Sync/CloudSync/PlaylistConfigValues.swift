@@ -1,4 +1,3 @@
-import CryptoKit
 import Foundation
 
 /// The syncable fields of a `Playlist`. Conflicts resolve last-write-wins
@@ -132,21 +131,12 @@ nonisolated struct PlaylistConfigValues: Codable, Equatable {
         syncEnabled: Bool,
         syncFrequencyRaw: String?
     ) -> String {
-        // Length-prefix every component so embedded separators cannot produce
-        // the same byte stream for two different configs, and mark the optionals
-        // so nil and "" stay distinct.
-        let components = [
+        ShadowFingerprint.digest([
             name, serverURL, username, password, macAddress, sourceTypeRaw,
-            epgURL.map { "+\($0)" } ?? "-",
-            syncEnabled ? "1" : "0",
-            syncFrequencyRaw.map { "+\($0)" } ?? "-"
-        ]
-        let canonical = components
-            .map { "\($0.utf8.count):\($0)" }
-            .joined(separator: "|")
-        return SHA256.hash(data: Data(canonical.utf8))
-            .map { String(format: "%02x", $0) }
-            .joined()
+            ShadowFingerprint.component(epgURL),
+            ShadowFingerprint.component(syncEnabled),
+            ShadowFingerprint.component(syncFrequencyRaw)
+        ])
     }
 
     /// Whether a sync would reach the provider differently: the fields it

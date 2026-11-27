@@ -80,6 +80,38 @@ struct CloudSyncShadowCredentialTests {
         #expect(CloudSyncShadow(defaults: defaults).playlistShadow(id) == Self.values())
     }
 
+    private static let guideURL = "http://example.com/xmltv.php?username=viewer&password=\(secret)"
+
+    @Test func `a guide source baseline holds a fingerprint, not its URL`() throws {
+        let live = EPGSourceValues(name: "Guide", url: Self.guideURL, isEnabled: true)
+        let data = try JSONEncoder().encode(live)
+        #expect(!(String(data: data, encoding: .utf8) ?? "").contains(Self.secret))
+
+        let decoded = try JSONDecoder().decode(EPGSourceValues.self, from: data)
+        #expect(decoded == live)
+        #expect(decoded != EPGSourceValues(name: "Guide", url: Self.guideURL, isEnabled: false))
+        #expect(decoded.url.isEmpty)
+    }
+
+    @Test func `the shadow rewrites a plaintext guide source baseline as soon as it loads`() throws {
+        let (defaults, suite) = Self.isolatedDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let key = "cloudsync.shadow.epgsources.v1"
+        let id = UUID().uuidString
+        let plaintext = """
+        {"\(id)":{"name":"Guide","url":"\(Self.guideURL)","isEnabled":true}}
+        """
+        defaults.set(Data(plaintext.utf8), forKey: key)
+
+        let shadow = CloudSyncShadow(defaults: defaults)
+
+        let stored = try #require(defaults.data(forKey: key))
+        #expect(!(String(data: stored, encoding: .utf8) ?? "").contains(Self.secret))
+        let live = EPGSourceValues(name: "Guide", url: Self.guideURL, isEnabled: true)
+        #expect(shadow.epgSourceShadow(id) == live)
+        #expect(CloudSyncShadow(defaults: defaults).epgSourceShadow(id) == live)
+    }
+
     @Test func `a persisted baseline holds no credentials`() throws {
         let (defaults, suite) = Self.isolatedDefaults()
         defer { defaults.removePersistentDomain(forName: suite) }
