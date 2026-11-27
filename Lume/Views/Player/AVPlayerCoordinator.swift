@@ -187,7 +187,9 @@ final class AVPlayerCoordinator: NSObject {
     }
 
     private func applyExternalPlaybackPolicy() {
-        player.allowsExternalPlayback = !isEmbedded
+        #if !os(visionOS)
+            player.allowsExternalPlayback = !isEmbedded
+        #endif
         #if os(iOS)
             player.usesExternalPlaybackWhileExternalScreenIsActive = !isEmbedded
         #endif
