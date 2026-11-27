@@ -101,7 +101,7 @@ private struct StreamInfoChip: View {
     }
 
     #if os(tvOS)
-        private static let font = Font.system(size: 22, weight: .semibold)
+        private static let font = Font.system(size: 16, weight: .semibold)
         private static let horizontalPadding: CGFloat = 14
         private static let verticalPadding: CGFloat = 6
     #else
